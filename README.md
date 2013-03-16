@@ -23,7 +23,7 @@ released as open source, there will be no bait and switch.
 
 ## HTTP API
 
-### `POST /files`
+### POST `/files`
 
 **Request**
 
