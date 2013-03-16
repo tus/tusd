@@ -9,8 +9,8 @@ Sounds interesting? Get notified when it's ready: http://tus.io/
 The goal for this code base is to come up with a good and simple solution for
 resumable file uploads over http.
 
-* Defining good http API
-* Implementing a reasonably robust server for it
+* Defining a good http API
+* Implementing a minimal / robust server for it
 * Creating an HTML5 client
 * Setting up an online demo
 * Integrating Amazon S3 for storage
