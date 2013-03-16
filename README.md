@@ -9,7 +9,7 @@ Sounds interesting? Get notified when it's ready: http://tus.io/
 The goal for this code base is to come up with a good and simple solution for
 resumable file uploads over http.
 
-* Defining a good http API
+* Defining a good http API (in progress)
 * Implementing a minimal / robust server for it
 * Creating an HTML5 client
 * Setting up an online demo
@@ -84,14 +84,11 @@ upload:
 ```
 {
   "id": "123d3ebc995732b2",
-  "url": "http://tus.example.com/files/123d3ebc995732b2",
   "received": 0,
   "size": 0,
   "parts": []
 }
 ```
-
-@TODO Document resume operation
 
 ## License
 
