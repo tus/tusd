@@ -51,6 +51,24 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 }
 ```
 
+## `PUT /files/<id>`
+
+**Request:**
+```
+PUT /files/123d3ebc995732b2 HTTP/1.1
+Host: tus.example.com
+Content-Length: 100
+Content-Range: bytes 0-99/100
+```
+```
+[bytes 0-99]
+```
+
+**Response:**
+```
+HTTP/1.1 200 Ok
+```
+
 ### `GET /files/123d3ebc995732b2`
 
 **Request:**
@@ -58,17 +76,19 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 GET /files/123d3ebc995732b2/d930cc9d304cc667 HTTP/1.1
 Host: tus.example.com
 Content-Length: 0
-Content-Range: bytes */*
 ```
 
-The server responds by informing the client about the status of the partial
+The server responds by informing the client about the state of the file upload
 upload:
 
-**Response:**
 ```
-HTTP/1.1 206 Partial Content
-Content-Length: 0
-Content-Range: 0-49/100
+{
+  "id": "123d3ebc995732b2",
+  "url": "http://tus.example.com/files/123d3ebc995732b2",
+  "received": 0,
+  "size": 0,
+  "parts": []
+}
 ```
 
 @TODO Document resume operation
