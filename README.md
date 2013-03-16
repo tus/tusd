@@ -2,6 +2,8 @@
 
 A dedicated server for resumable file uploads written in Go.
 
+Sounds interesting? Get notified when it's ready: http://tus.io/
+
 ## Roadmap
 
 The goal for this code base is to come up with a good and simple solution for
