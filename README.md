@@ -1,6 +1,6 @@
 # tus
 
-A dedicated file upload server written in Go.
+A dedicated server for resumable file uploads written in Go.
 
 ## Roadmap
 
@@ -18,6 +18,59 @@ resumable file uploads over http.
 After this, and based on the feedback, we will continue the development, and
 start to offer the software as a hosted service. All code will continue to be
 released as open source, there will be no bait and switch.
+
+## HTTP API
+
+## `POST /files`
+
+**Request**
+
+```
+POST /files HTTP/1.1
+Host: tus.example.com
+Content-Length: 0
+Content-Range: bytes */100
+Content-Type: "image/png"
+```
+
+**Response:**
+
+```
+HTTP/1.1 201 Created
+Location: http://tus.example.com/files/123d3ebc995732b2
+```
+```json
+{
+  "id": "123d3ebc995732b2",
+  "url": "http://tus.example.com/files/123d3ebc995732b2",
+  "received": 0,
+  "size": 0,
+  "parts": []
+}
+```
+In this case the client would proceed by querying the server:
+
+## `GET /files/123d3ebc995732b2`
+
+**Request:**
+```
+GET /files/123d3ebc995732b2/d930cc9d304cc667 HTTP/1.1
+Host: tus.example.com
+Content-Length: 0
+Content-Range: bytes */*
+```
+
+The server responds by informing the client about the status of the partial
+upload:
+
+**Response:**
+```
+HTTP/1.1 206 Partial Content
+Content-Length: 0
+Content-Range: 0-49/100
+```
+
+@TODO Document resume operation
 
 ## License
 
