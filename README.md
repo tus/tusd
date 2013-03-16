@@ -23,7 +23,7 @@ released as open source, there will be no bait and switch.
 
 ## HTTP API
 
-### POST `/files`
+### POST /files
 
 **Request**
 
@@ -51,7 +51,7 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 }
 ```
 
-### `PUT /files/<id>`
+### PUT /files/<id>
 
 **Request:**
 ```
@@ -69,7 +69,7 @@ Content-Range: bytes 0-99/100
 HTTP/1.1 200 Ok
 ```
 
-### `GET /files/123d3ebc995732b2`
+### GET /files/123d3ebc995732b2
 
 **Request:**
 ```
