@@ -48,7 +48,6 @@ Location: http://tus.example.com/files/123d3ebc995732b2
   "parts": []
 }
 ```
-In this case the client would proceed by querying the server:
 
 ### `GET /files/123d3ebc995732b2`
 
