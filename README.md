@@ -51,7 +51,7 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 }
 ```
 
-### PUT /files/<id>
+### PUT /files/\<id\>
 
 **Request:**
 ```
