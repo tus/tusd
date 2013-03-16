@@ -21,7 +21,7 @@ released as open source, there will be no bait and switch.
 
 ## HTTP API
 
-## `POST /files`
+### `POST /files`
 
 **Request**
 
@@ -50,7 +50,7 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 ```
 In this case the client would proceed by querying the server:
 
-## `GET /files/123d3ebc995732b2`
+### `GET /files/123d3ebc995732b2`
 
 **Request:**
 ```
