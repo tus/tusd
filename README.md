@@ -1,6 +1,8 @@
 # tusd
 
-A dedicated server for resumable file uploads written in Go.
+If content is king, you must make no mistakes acquiring it. tus provides the
+infrastructure for fast and reliable file uploads for your website or mobile
+app.
 
 Sounds interesting? Get notified when it's ready: http://tus.io/
 
