@@ -74,7 +74,7 @@ Content-Type: image/jpg
 
 ```
 HTTP/1.1 201 Created
-Location: http://tus.example.com/files/123d3ebc995732b2
+Location: http://tus.example.com/files/24e533e02ec3bc40c387f1a0e460e216
 Content-Length: 0
 ```
 
@@ -86,7 +86,7 @@ file upload.
 **Request Example:**
 
 ```
-PUT /files/123d3ebc995732b2 HTTP/1.1
+PUT /files/24e533e02ec3bc40c387f1a0e460e216 HTTP/1.1
 Host: tus.example.com
 Content-Length: 100
 Content-Range: bytes 0-99/100
@@ -105,7 +105,7 @@ HTTP/1.1 200 Ok
 **Request Example:**
 
 ```
-HEAD /files/123d3ebc995732b2 HTTP/1.1
+HEAD /files/24e533e02ec3bc40c387f1a0e460e216 HTTP/1.1
 Host: tus.example.com
 ```
 
@@ -132,7 +132,7 @@ Used to download an uploaded file.
 **Request:**
 
 ```
-GET /files/123d3ebc995732b2 HTTP/1.1
+GET /files/24e533e02ec3bc40c387f1a0e460e216 HTTP/1.1
 Host: tus.example.com
 ```
 
