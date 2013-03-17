@@ -51,12 +51,6 @@ and switch.
 
 Below is the proposed HTTP API for resumable file uploading.
 
-Prior art:
-
-* [Google Drive - Upload Files](https://developers.google.com/drive/manage-uploads)
-* [Resumable Media Uploads in the Google Data Protocol](https://developers.google.com/gdata/docs/resumable_upload) (deprecated)
-* [ResumableHttpRequestsProposal from Gears](http://code.google.com/p/gears/wiki/ResumableHttpRequestsProposal) (deprecated)
-
 ### POST /files
 
 Used to create a resumable file upload. You may send parts or all of your file
@@ -152,6 +146,12 @@ Content-Type: image/jpg
 ```
 [file data]
 ```
+
+### Prior art:
+
+* [Google Drive - Upload Files](https://developers.google.com/drive/manage-uploads)
+* [Resumable Media Uploads in the Google Data Protocol](https://developers.google.com/gdata/docs/resumable_upload) (deprecated)
+* [ResumableHttpRequestsProposal from Gears](http://code.google.com/p/gears/wiki/ResumableHttpRequestsProposal) (deprecated)
 
 ## FAQ
 
