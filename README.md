@@ -31,7 +31,8 @@ feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
   (reverse CDN)
 * Alternative storage backends: Cloud Files, Dropbox, etc.
 * More clients: Android, PhoneGap, etc.
-* Service integrations: Zencoder, Encoding.com, Youtube, Vimeo, Facebook, etc.
+* Service integrations: Zencoder, Encoding.com, Youtube, Vimeo, Facebook, AWS
+  Transcoder, etc.
 * File meta data analysis
 * Thumbnail generation
 
@@ -146,6 +147,31 @@ Content-Type: image/jpg
 [file data]
 ```
 
+## FAQ
+
+## Who is behind this?
+
+[Transloadit Ltd](http://transloadit.com/) is funding the initial development.
+However, our goal is to build an active community around this project, so
+contributions and feedback are more than welcome!
+
+### Why not upload to Amazon S3 directly?
+
+Amazon S3 has several limitations that we consider problematic:
+
+* The minimum chunk size for multipart uploads is 5 MB. This is by far too
+  large for use under bad network conditions.
+* Throughput to S3 is often too slow for high bandwidth clients.
+* S3 is a proprietary technology. Having an open, vendor agnostic API allows
+  you to treat it as an implementation detail.
+* The lack of uniform HTML5, iOS and Android clients that can be easily used
+  to add reliable file uploading to any application.
+* While there is some support, S3 was not designed to be used in a browser
+  environment.
+
+S3 is still an incredible offering, but we feel that it leaves much to be
+desired when it comes to offering the best file uploading experience to your
+users.
 
 ## License
 
