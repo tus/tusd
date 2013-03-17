@@ -6,8 +6,8 @@ Sounds interesting? Get notified when it's ready: http://tus.io/
 
 ## Roadmap
 
-The goal for this code base is to come up with a good and simple solution for
-resumable file uploads over http.
+The initial goal for this project to come up with a good and simple solution
+for resumable file uploads over http.
 
 * Defining a good http API (in progress)
 * Implementing a minimal / robust server for it
@@ -17,9 +17,20 @@ resumable file uploads over http.
 * Creating an iOS client
 * Collect feedback
 
-After this, and based on the feedback, we will continue the development, and
-start to offer the software as a hosted service. All code will continue to be
-released as open source, there will be no bait and switch.
+Future features will be based on [your
+feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
+
+* Alternative transfer mechanisms: FTP, UDP, E-Mail, etc.
+* Security: Authentication Tokens, HTTPS, etc.
+* Support for running tusd instances in a geographically distributed cluster
+  (reverse CDN)
+* Alternative storage backends: Cloud Files, Dropbox, etc.
+* More clients: Android, PhoneGap, etc.
+* Processing pipelines: Zencoder, Encoding.com, etc.
+
+Once the project matures, we plan to offer a hosted service and support
+contracts. However, all code will continue to be released as open source, there
+will be no bait and switch.
 
 ## HTTP API
 
