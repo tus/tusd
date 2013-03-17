@@ -22,11 +22,11 @@ func main() {
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.RequestURI())
+	log.Printf("request: %s %s", r.Method, r.URL.RequestURI())
 
 	w.Header().Set("Server", "tusd")
 
-	if r.Method == "request: POST" && r.URL.Path == "/files" {
+	if r.Method == "POST" && r.URL.Path == "/files" {
 		createFile(w, r)
 	} else {
 		reply(w, http.StatusNotFound, "No matching route")
