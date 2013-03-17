@@ -25,7 +25,9 @@ feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
   (reverse CDN)
 * Alternative storage backends: Cloud Files, Dropbox, etc.
 * More clients: Android, PhoneGap, etc.
-* Processing pipelines: Zencoder, Encoding.com, etc.
+* Service integrations: Zencoder, Encoding.com, Youtube, Vimeo, Facebook, etc.
+* File meta data analysis
+* Thumbnail generation
 
 Once the project matures, we plan to offer a hosted service and support
 contracts. However, all code will continue to be released as open source, and
