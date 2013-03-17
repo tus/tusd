@@ -175,9 +175,9 @@ Amazon S3 has several limitations that we consider problematic:
 * While there is some support, S3 was not designed to be used in a browser
   environment.
 
-S3 is still an incredible offering, but we feel that it leaves much to be
-desired when it comes to offering the best file uploading experience to your
-users.
+S3 is an incredible offering, but we feel that it leaves much to be desired
+when it comes to offering the best file uploading experience to your users. We
+can build something much better.
 
 ## License
 
