@@ -162,7 +162,7 @@ Amazon S3 has several limitations that we consider problematic:
 * The minimum chunk size for multipart uploads is 5 MB. This is by far too
   large for use under bad network conditions.
 * Throughput to S3 is often too slow for high bandwidth clients.
-* S3 is a proprietary technology. Having an open, vendor agnostic API allows
+* S3 is a proprietary service. Having an open, vendor agnostic API allows
   you to treat it as an implementation detail.
 * The lack of uniform HTML5, iOS and Android clients that can be easily used
   to add reliable file uploading to any application.
