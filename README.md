@@ -54,7 +54,7 @@ and switch.
 
 * [Go 1.0](http://golang.org/)
 
-**Running the server:**
+**Running tusd:**
 
 Clone the git repository, and `cd` into it. Then simply:
 
