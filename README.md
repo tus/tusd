@@ -4,6 +4,12 @@ A dedicated server for resumable file uploads written in Go.
 
 Sounds interesting? Get notified when it's ready: http://tus.io/
 
+## Mission
+
+The tus mission is to make file uploading more reliable, faster and a better
+user experience. We are dedicated to providing an open solution for this to
+everybody.
+
 ## Roadmap
 
 The initial goal for this project to come up with a good and simple solution
