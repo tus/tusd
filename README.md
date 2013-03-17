@@ -29,8 +29,9 @@ feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
 * Processing pipelines: Zencoder, Encoding.com, etc.
 
 Once the project matures, we plan to offer a hosted service and support
-contracts. However, all code will continue to be released as open source, there
-will be no bait and switch.
+contracts. However, all code will continue to be released as open source, and
+you'll always be able to run your own deployments easily. There will be no bait
+and switch.
 
 ## HTTP API
 
