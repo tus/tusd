@@ -149,7 +149,7 @@ Content-Type: image/jpg
 
 ## FAQ
 
-## Who is behind this?
+### Who is behind this?
 
 [Transloadit Ltd](http://transloadit.com/) is funding the initial development.
 However, our goal is to build an active community around this project, so
