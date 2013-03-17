@@ -1,4 +1,4 @@
-# tus
+# tusd
 
 A dedicated server for resumable file uploads written in Go.
 
