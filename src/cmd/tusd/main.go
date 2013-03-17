@@ -31,9 +31,14 @@ func reply(w http.ResponseWriter, code int, message string) {
 }
 
 func createFile(w http.ResponseWriter, r *http.Request) {
-	contentRange := r.Header.Get("Content-Range")
-	if contentRange == "" {
-		reply(w, http.StatusBadRequest, "Content-Range header is required")
+	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
+	if err != nil {
+		reply(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if contentRange.End != -1 {
+		reply(w, http.StatusNotImplemented, "File data in initial request.")
 		return
 	}
 
@@ -43,4 +48,5 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("contentType: %s", contentType)
+	log.Printf("range: %#v", contentRange)
 }
