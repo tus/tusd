@@ -83,6 +83,7 @@ file upload.
 ### PUT \<fileUrl\>
 
 **Request Example:**
+
 ```
 PUT /files/123d3ebc995732b2 HTTP/1.1
 Host: tus.example.com
@@ -99,6 +100,29 @@ HTTP/1.1 200 Ok
 ```
 
 ### HEAD \<fileUrl\>
+
+**Request Example:**
+
+```
+HEAD /files/123d3ebc995732b2 HTTP/1.1
+Host: tus.example.com
+```
+
+**Response Example:**
+```
+HTTP/1.1 200 Ok
+Content-Length: 100
+Content-Type: image/jpg
+X-Resume: bytes=20-50,60-99
+```
+
+The `X-Resume` header holds a [byte
+range](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.1) that
+informs the client which parts of the file have not been received yet. It is
+up to the client to choose appropiate `PUT` requests to complete the upload.
+
+The absence of a `X-Resume` header means that the the entire file has been
+received by the server.
 
 ### GET \<fileUrl\>
 
