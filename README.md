@@ -169,7 +169,7 @@ Amazon S3 has several limitations that we consider problematic:
   large for use under bad network conditions.
 * Throughput to S3 is often too slow for high bandwidth clients.
 * S3 is a proprietary service. Having an open, vendor agnostic API allows
-  you to treat it as an implementation detail.
+  you to treat storage as an implementation detail.
 * The lack of uniform HTML5, iOS and Android clients that can be easily used
   to add reliable file uploading to any application.
 * While there is some support, S3 was not designed to be used in a browser
