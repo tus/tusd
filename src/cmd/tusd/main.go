@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	log.Printf("tusd started")
 
 	http.HandleFunc("/", route)
@@ -21,14 +22,15 @@ func main() {
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s", r.Method, r.URL.RequestURI())
+
 	w.Header().Set("Server", "tusd")
 
-	if r.Method == "POST" && r.URL.Path == "/files" {
+	if r.Method == "request: POST" && r.URL.Path == "/files" {
 		createFile(w, r)
-		return
+	} else {
+		reply(w, http.StatusNotFound, "No matching route")
 	}
-
-	reply(w, http.StatusNotFound, "No matching route")
 }
 
 func reply(w http.ResponseWriter, code int, message string) {
