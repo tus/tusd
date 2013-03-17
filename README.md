@@ -33,7 +33,11 @@ Prior art:
 
 ### POST /files
 
-**Request**
+Used to create a resumable file upload. You may send parts or all of your file
+along with this request, but this is discouraged as you will not be able to
+resume the request if something goes wrong.
+
+**Request Example:**
 
 ```
 POST /files HTTP/1.1
@@ -42,8 +46,11 @@ Content-Length: 0
 Content-Range: bytes */100
 Content-Type: image/jpg
 ```
+```
+<empty body>
+```
 
-**Response:**
+**Response Example:**
 
 ```
 HTTP/1.1 201 Created
@@ -53,7 +60,7 @@ Content-Length: 0
 
 ### PUT /files/\<id\>
 
-**Request:**
+**Request Example:**
 ```
 PUT /files/123d3ebc995732b2 HTTP/1.1
 Host: tus.example.com
@@ -61,10 +68,10 @@ Content-Length: 100
 Content-Range: bytes 0-99/100
 ```
 ```
-[bytes 0-99]
+<bytes 0-99>
 ```
 
-**Response:**
+**Response Example:**
 ```
 HTTP/1.1 200 Ok
 ```
