@@ -58,7 +58,10 @@ Location: http://tus.example.com/files/123d3ebc995732b2
 Content-Length: 0
 ```
 
-### PUT /files/\<id\>
+The `Location` header returns the `<fileUrl>` to use for interacting with the
+file upload.
+
+### PUT \<fileUrl\>
 
 **Request Example:**
 ```
@@ -76,9 +79,9 @@ Content-Range: bytes 0-99/100
 HTTP/1.1 200 Ok
 ```
 
-### HEAD /files/\<id\>
+### HEAD \<fileUrl\>
 
-### GET /files/\<id\>
+### GET \<fileUrl\>
 
 Used to download an uploaded file.
 
