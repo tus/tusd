@@ -15,8 +15,8 @@ dedicated to providing an open solution to this problem.
 The initial goal for this project to come up with a good and simple solution
 for resumable file uploads over http.
 
-* Defining a good http API (in progress)
-* Implementing a minimal / robust server for it
+* Defining a good http API (first proposal created)
+* Implementing a minimal and robust server for it (in progress)
 * Creating an HTML5 client
 * Setting up an online demo
 * Integrating Amazon S3 for storage
