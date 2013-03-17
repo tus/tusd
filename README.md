@@ -47,6 +47,21 @@ contracts. However, all code will continue to be released as open source, and
 you'll always be able to run your own deployments easily. There will be no bait
 and switch.
 
+
+## Getting started
+
+**Requirements:**
+
+* [Go 1.0](http://golang.org/)
+
+**Running the server:**
+
+Clone the git repository, and `cd` into it. Then simply:
+
+```bash
+go run src/cmd/tusd/*.go
+```
+
 ## HTTP API
 
 Below is the proposed HTTP API for resumable file uploading.
