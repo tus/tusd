@@ -27,9 +27,9 @@ Below is the proposed HTTP API for resumable file uploading.
 
 Prior art:
 
-* [Resumable Media Uploads in the Google Data Protocol](https://developers.google.com/gdata/docs/resumable_upload)
 * [Google Drive - Upload Files](https://developers.google.com/drive/manage-uploads)
-* [ResumableHttpRequestsProposal from Gears](http://code.google.com/p/gears/wiki/ResumableHttpRequestsProposal)
+* [Resumable Media Uploads in the Google Data Protocol](https://developers.google.com/gdata/docs/resumable_upload) (deprecated)
+* [ResumableHttpRequestsProposal from Gears](http://code.google.com/p/gears/wiki/ResumableHttpRequestsProposal) (deprecated)
 
 ### POST /files
 
