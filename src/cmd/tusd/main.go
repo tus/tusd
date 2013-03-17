@@ -7,10 +7,16 @@ import (
 )
 
 func main() {
+	log.Printf("tusd started")
+
 	http.HandleFunc("/", route)
-	err := http.ListenAndServe(":1080", nil)
+
+	addr := ":1080"
+	log.Printf("serving clients at %s", addr)
+
+	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal(err)
 	}
 }
 
