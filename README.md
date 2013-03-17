@@ -6,7 +6,11 @@ app.
 
 Sounds interesting? Get notified when it's ready: http://tus.io/
 
-## Mission
+## Motivation
+
+It's 2013, and file uploading on the web is still an unsolved problem. There is
+a distinct lack of free software and libraries that allow developers to provide
+their users with the experience they deserve.
 
 The tus mission is to make file uploading more reliable, faster and a better
 user experience. Instead of building yet another black box service, we are
