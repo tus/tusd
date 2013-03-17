@@ -9,7 +9,7 @@ Sounds interesting? Get notified when it's ready: http://tus.io/
 ## Motivation
 
 It's 2013, and file uploading on the web is still an unsolved problem. There is
-a distinct lack of full stack open source software that allow developers to
+a distinct lack of full stack open source software that allows developers to
 provide their users with the experience they deserve.
 
 The tus mission is to make file uploading more reliable, faster and a better
