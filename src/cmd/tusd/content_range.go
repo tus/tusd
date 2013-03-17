@@ -16,7 +16,7 @@ type contentRange struct {
 
 // parseContentRange parse a Content-Range string like "5-10/100".
 // see http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.16 .
-// "*" values causes End/Size to be set to -1.
+// "*" values causes End/Size to be set to -1, see test case for more details.
 func parseContentRange(s string) (*contentRange, error) {
 	const prefix = "bytes "
 	offset := strings.Index(s, prefix)
