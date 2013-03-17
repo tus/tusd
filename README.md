@@ -40,7 +40,7 @@ POST /files HTTP/1.1
 Host: tus.example.com
 Content-Length: 0
 Content-Range: bytes */100
-Content-Type: "image/png"
+Content-Type: image/jpg
 ```
 
 **Response:**
@@ -48,15 +48,7 @@ Content-Type: "image/png"
 ```
 HTTP/1.1 201 Created
 Location: http://tus.example.com/files/123d3ebc995732b2
-```
-```json
-{
-  "id": "123d3ebc995732b2",
-  "url": "http://tus.example.com/files/123d3ebc995732b2",
-  "received": 0,
-  "size": 0,
-  "parts": []
-}
+Content-Length: 0
 ```
 
 ### PUT /files/\<id\>
@@ -77,26 +69,30 @@ Content-Range: bytes 0-99/100
 HTTP/1.1 200 Ok
 ```
 
-### GET /files/123d3ebc995732b2
+### HEAD /files/\<id\>
+
+### GET /files/\<id\>
+
+Used to download an uploaded file.
 
 **Request:**
+
 ```
-GET /files/123d3ebc995732b2/d930cc9d304cc667 HTTP/1.1
+GET /files/123d3ebc995732b2 HTTP/1.1
 Host: tus.example.com
-Content-Length: 0
 ```
 
-The server responds by informing the client about the state of the file upload
-upload:
+**Response:**
 
 ```
-{
-  "id": "123d3ebc995732b2",
-  "received": 0,
-  "size": 0,
-  "parts": []
-}
+HTTP/1.1 200 Ok
+Content-Length: 100
+Content-Type: image/jpg
 ```
+```
+[file data]
+```
+
 
 ## License
 
