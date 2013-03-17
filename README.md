@@ -7,8 +7,8 @@ Sounds interesting? Get notified when it's ready: http://tus.io/
 ## Mission
 
 The tus mission is to make file uploading more reliable, faster and a better
-user experience. We are dedicated to providing an open solution for this to
-everybody.
+user experience. Instead of building yet another black box service, we are
+dedicated to providing an open solution to this problem.
 
 ## Roadmap
 
