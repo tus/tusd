@@ -15,7 +15,6 @@ for resumable file uploads over http.
 * Setting up an online demo
 * Integrating Amazon S3 for storage
 * Creating an iOS client
-* Collect feedback
 
 Future features will be based on [your
 feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
