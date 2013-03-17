@@ -45,6 +45,11 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if contentRange.Size == -1 {
+		reply(w, http.StatusBadRequest, "Content-Range must indicate total file size.")
+		return
+	}
+
 	if contentRange.End != -1 {
 		reply(w, http.StatusNotImplemented, "File data in initial request.")
 		return
