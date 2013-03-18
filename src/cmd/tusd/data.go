@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -65,6 +66,18 @@ func putFileChunk(fileId string, start int64, end int64, r io.Reader) error {
 		return err
 	} else if n != size {
 		return errors.New("putFileChunk: partial copy")
+	}
+
+	l := logPath(fileId)
+	logFile, err := os.OpenFile(l, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+
+	entry := fmt.Sprintf("%d,%d\n", start, end)
+	if _, err := logFile.WriteString(entry); err != nil {
+		return err
 	}
 
 	return nil
