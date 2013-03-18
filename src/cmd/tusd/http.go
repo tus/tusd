@@ -30,7 +30,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 		// WIP
 		switch r.Method {
 		case "HEAD":
-			w.Header().Set("X-Resume", "bytes=0-99")
+			headFile(w, r, id)
 		case "GET":
 			reply(w, http.StatusNotImplemented, "File download")
 		case "PUT":
@@ -76,7 +76,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// @TODO: Return X-Resume header
+	// @TODO: Return X-Missing header
 
 	w.Header().Set("Location", "/files/"+id)
 	w.WriteHeader(http.StatusCreated)
@@ -98,5 +98,25 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 		return
 	}
 
-	// @TODO: Return X-Resume header
+	// @TODO: Return X-Missing header
+}
+
+func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	chunks, err := getMissingChunks(fileId)
+	if err != nil {
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	missing := ""
+	for i, chunk := range chunks {
+		missing += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
+		if i + 1 < len(chunks) {
+			missing += ","
+		}
+	}
+
+	if missing != "" {
+		w.Header().Set("X-Missing", "bytes="+missing)
+	}
 }

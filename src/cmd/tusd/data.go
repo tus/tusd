@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 )
 
 var dataDir string
@@ -81,4 +84,62 @@ func putFileChunk(fileId string, start int64, end int64, r io.Reader) error {
 	}
 
 	return nil
+}
+
+func getReceivedChunks(fileId string) (chunkSet, error) {
+	l := logPath(fileId)
+	// @TODO stream the file / limit log file size?
+	data, err := ioutil.ReadFile(l)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(data), "\n")
+
+
+	chunks := make(chunkSet, 0, len(lines)-1)
+	for i, line := range lines {
+		// last line is always empty, skip it
+		if lastLine := i+1 == len(lines); lastLine {
+			break
+		}
+
+		parts := strings.Split(line, ",")
+		if len(parts) != 2 {
+			return nil, errors.New("getReceivedChunks: corrupt log line: "+line)
+		}
+
+		start, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return nil, errors.New("getReceivedChunks: invalid start: "+parts[0])
+		}
+
+		end, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return nil, errors.New("getReceivedChunks: invalid end: "+parts[1])
+		}
+
+		chunks.Add(chunk{Start: start, End: end})
+	}
+
+	return chunks, nil
+}
+
+func getMissingChunks(fileId string) (chunkSet, error) {
+	d := dataPath(fileId)
+	stat, err := os.Stat(d)
+	if err != nil {
+		return nil, err
+	}
+
+	receivedChunks, err := getReceivedChunks(fileId)
+	if err != nil {
+		return nil, err
+	}
+
+	// @TODO actually calcuate missing chunks instead of received
+	_ = stat
+
+	//chunks := chunkSet{{Start: 0, End: stat.Size()-1}}
+	//chunks := make(chunkSet, 0)
+	return receivedChunks, nil
 }
