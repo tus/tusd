@@ -40,9 +40,12 @@ func route(w http.ResponseWriter, r *http.Request) {
 	log.Printf("request: %s %s", r.Method, r.URL.RequestURI())
 
 	w.Header().Set("Server", "tusd")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 
 	if r.Method == "POST" && r.URL.Path == "/files" {
 		postFiles(w, r)
+	} else if r.Method == "OPTIONS" && r.URL.Path == "/files" {
+		reply(w, http.StatusOK, "Cool")
 	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
 		id := match[1]
 		switch r.Method {
@@ -68,11 +71,13 @@ func reply(w http.ResponseWriter, code int, message string) {
 func postFiles(w http.ResponseWriter, r *http.Request) {
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
+		log.Print("FOO")
 		reply(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if contentRange.Size == -1 {
+		log.Print("FOO2")
 		reply(w, http.StatusBadRequest, "Content-Range must indicate total file size.")
 		return
 	}
@@ -83,7 +88,12 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uid()
+<<<<<<< HEAD
 	if err := dataStore.CreateFile(id, contentRange.Size, contentType); err != nil {
+=======
+	if err := initFile(id, contentRange.Size, contentType); err != nil {
+		log.Print("FOO4")
+>>>>>>> conflict fix
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
