@@ -3,6 +3,8 @@ package main
 // This is very simple for now and will be enhanced as needed.
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path"
 )
@@ -39,6 +41,30 @@ func initFile(fileId string, size int64, contentType string) error {
 
 	if err := file.Truncate(size); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func putFileChunk(fileId string, start int64, end int64, r io.Reader) error {
+	d := dataPath(fileId)
+	file, err := os.OpenFile(d, os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if n, err := file.Seek(start, os.SEEK_SET); err != nil {
+		return err
+	} else if n != start {
+		return errors.New("putFileChunk: seek failure")
+	}
+
+	size := end - start + 1
+	if n, err := io.CopyN(file, r, size); err != nil {
+		return err
+	} else if n != size {
+		return errors.New("putFileChunk: partial copy")
 	}
 
 	return nil

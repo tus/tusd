@@ -24,8 +24,9 @@ func route(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", "tusd")
 
 	if r.Method == "POST" && r.URL.Path == "/files" {
-		createFile(w, r)
+		postFiles(w, r)
 	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
+		id := match[1]
 		// WIP
 		switch r.Method {
 		case "HEAD":
@@ -33,7 +34,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 		case "GET":
 			reply(w, http.StatusNotImplemented, "File download")
 		case "PUT":
-			reply(w, http.StatusOK, "chunk created")
+			putFile(w, r, id)
 		default:
 			reply(w, http.StatusMethodNotAllowed, "Invalid http method")
 		}
@@ -47,7 +48,7 @@ func reply(w http.ResponseWriter, code int, message string) {
 	fmt.Fprintf(w, "%d - %s: %s\n", code, http.StatusText(code), message)
 }
 
-func createFile(w http.ResponseWriter, r *http.Request) {
+func postFiles(w http.ResponseWriter, r *http.Request) {
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
 		reply(w, http.StatusBadRequest, err.Error())
@@ -75,6 +76,27 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// @TODO: Return X-Resume header
+
 	w.Header().Set("Location", "/files/"+id)
 	w.WriteHeader(http.StatusCreated)
+}
+
+func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
+	if err != nil {
+		reply(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// @TODO: Check that file exists
+	// @TODO: Make sure contentRange.Size matches file size
+
+	if err := putFileChunk(fileId, contentRange.Start, contentRange.End, r.Body); err != nil {
+		// @TODO: Could be a 404 as well
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// @TODO: Return X-Resume header
 }
