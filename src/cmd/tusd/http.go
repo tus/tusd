@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 )
 
 var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
@@ -27,12 +29,11 @@ func route(w http.ResponseWriter, r *http.Request) {
 		postFiles(w, r)
 	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
 		id := match[1]
-		// WIP
 		switch r.Method {
 		case "HEAD":
 			headFile(w, r, id)
 		case "GET":
-			reply(w, http.StatusNotImplemented, "File download")
+			getFile(w, r, id)
 		case "PUT":
 			putFile(w, r, id)
 		default:
@@ -82,6 +83,28 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	setFileRangeHeader(w, fileId)
+}
+
+func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	data, size, err := getFileData(fileId)
+	if err != nil {
+		// @TODO: Could be a 404 as well
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer data.Close()
+
+	setFileRangeHeader(w, fileId)
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+
+	if _, err := io.CopyN(w, data, size); err != nil {
+		log.Printf("getFile: CopyN failed with: %s", err.Error())
+		return
+	}
+}
+
 func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
@@ -98,10 +121,6 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 		return
 	}
 
-	setFileRangeHeader(w, fileId)
-}
-
-func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	setFileRangeHeader(w, fileId)
 }
 

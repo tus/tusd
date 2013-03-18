@@ -123,3 +123,18 @@ func getReceivedChunks(fileId string) (chunkSet, error) {
 
 	return chunks, nil
 }
+
+func getFileData(fileId string) (io.ReadCloser, int64, error) {
+	d := dataPath(fileId)
+	file, err := os.Open(d)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return file, stat.Size(), nil
+}
