@@ -61,11 +61,6 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if contentRange.End != -1 {
-		reply(w, http.StatusNotImplemented, "File data in initial request.")
-		return
-	}
-
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -77,9 +72,16 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// @TODO: Return X-Missing header
+	if contentRange.End != -1 {
+		if err := putFileChunk(id, contentRange.Start, contentRange.End, r.Body); err != nil {
+			// @TODO: Could be a 404 as well
+			reply(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 
 	w.Header().Set("Location", "/files/"+id)
+	setFileRangeHeader(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
 
