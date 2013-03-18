@@ -123,23 +123,3 @@ func getReceivedChunks(fileId string) (chunkSet, error) {
 
 	return chunks, nil
 }
-
-func getMissingChunks(fileId string) (chunkSet, error) {
-	d := dataPath(fileId)
-	stat, err := os.Stat(d)
-	if err != nil {
-		return nil, err
-	}
-
-	receivedChunks, err := getReceivedChunks(fileId)
-	if err != nil {
-		return nil, err
-	}
-
-	// @TODO actually calcuate missing chunks instead of received
-	_ = stat
-
-	//chunks := chunkSet{{Start: 0, End: stat.Size()-1}}
-	//chunks := make(chunkSet, 0)
-	return receivedChunks, nil
-}

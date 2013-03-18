@@ -102,21 +102,21 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
-	chunks, err := getMissingChunks(fileId)
+	chunks, err := getReceivedChunks(fileId)
 	if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	missing := ""
+	received := ""
 	for i, chunk := range chunks {
-		missing += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
+		received += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
 		if i + 1 < len(chunks) {
-			missing += ","
+			received += ","
 		}
 	}
 
-	if missing != "" {
-		w.Header().Set("X-Missing", "bytes="+missing)
+	if received != "" {
+		w.Header().Set("Range", "bytes="+received)
 	}
 }

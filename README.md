@@ -129,16 +129,16 @@ Host: tus.example.com
 HTTP/1.1 200 Ok
 Content-Length: 100
 Content-Type: image/jpg
-X-Missing: bytes=20-50,60-99
+Range: bytes=0-20,40-99
 ```
 
-The `X-Missing` header holds a [byte
+The `Range` header holds a [byte
 range](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.1) that
-informs the client which parts of the file have not been received yet. It is
+informs the client which parts of the file have been received so far. It is
 up to the client to choose appropiate `PUT` requests to complete the upload.
 
-The absence of a `X-Missing` header means that the the entire file has been
-received by the server.
+A completed upload will be indicated by a single range covering the entire file
+size (e.g. `Range: bytes=0-99` for a 100 byte file).
 
 ### GET \<fileUrl\>
 
