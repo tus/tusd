@@ -2,9 +2,18 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
+	"regexp"
 )
+
+// temporary, to provide a mock server for the HTML5 client while the actual
+// storage is still under development here.
+const (
+	exampleId = "0bc88096498be52d7909bcec815d37b3"
+)
+
+var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
 
 func serveHttp() error {
 	http.HandleFunc("/", route)
@@ -22,6 +31,17 @@ func route(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" && r.URL.Path == "/files" {
 		createFile(w, r)
+	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
+		switch r.Method {
+		case "HEAD":
+			w.Header().Set("X-Resume", "bytes=0-99")
+		case "GET":
+			reply(w, http.StatusNotImplemented, "File download")
+		case "PUT":
+			reply(w, http.StatusOK, "chunk created")
+		default:
+			reply(w, http.StatusMethodNotAllowed, "Invalid http method")
+		}
 	} else {
 		reply(w, http.StatusNotFound, "No matching route")
 	}
@@ -54,8 +74,6 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 	}
 
-	_ = contentType
-	id := uid()
-	
-	w.Header().Set("Location", "/files/"+id)
+	w.Header().Set("Location", "/files/"+exampleId)
+	w.WriteHeader(http.StatusCreated)
 }
