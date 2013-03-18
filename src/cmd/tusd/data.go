@@ -28,12 +28,12 @@ func dataPath(fileId string) string {
 }
 
 func logPath(fileId string) string {
-	return dataPath(fileId)+".log"
+	return dataPath(fileId) + ".log"
 }
 
 func initFile(fileId string, size int64, contentType string) error {
 	d := dataPath(fileId)
-	file, err := os.OpenFile(d, os.O_CREATE | os.O_WRONLY, 0666)
+	file, err := os.OpenFile(d, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
