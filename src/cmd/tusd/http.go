@@ -98,10 +98,14 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 		return
 	}
 
-	// @TODO: Return X-Missing header
+	setFileRangeHeader(w, fileId)
 }
 
 func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	setFileRangeHeader(w, fileId)
+}
+
+func setFileRangeHeader(w http.ResponseWriter, fileId string) {
 	chunks, err := getReceivedChunks(fileId)
 	if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
