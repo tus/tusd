@@ -164,6 +164,7 @@ Content-Type: image/jpg
 
 ### Prior art:
 
+* [YouTube Data API - Resumable Upload](https://developers.google.com/youtube/v3/guides/using_resumable_upload_protocol)
 * [Google Drive - Upload Files](https://developers.google.com/drive/manage-uploads)
 * [Resumable Media Uploads in the Google Data Protocol](https://developers.google.com/gdata/docs/resumable_upload) (deprecated)
 * [ResumableHttpRequestsProposal from Gears](http://code.google.com/p/gears/wiki/ResumableHttpRequestsProposal) (deprecated)
