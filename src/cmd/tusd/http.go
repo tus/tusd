@@ -115,7 +115,7 @@ func setFileRangeHeader(w http.ResponseWriter, fileId string) {
 	received := ""
 	for i, chunk := range chunks {
 		received += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
-		if i + 1 < len(chunks) {
+		if i+1 < len(chunks) {
 			received += ","
 		}
 	}
