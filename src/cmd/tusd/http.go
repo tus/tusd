@@ -7,12 +7,6 @@ import (
 	"regexp"
 )
 
-// temporary, to provide a mock server for the HTML5 client while the actual
-// storage is still under development here.
-const (
-	exampleId = "0bc88096498be52d7909bcec815d37b3"
-)
-
 var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
 
 func serveHttp() error {
@@ -32,6 +26,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" && r.URL.Path == "/files" {
 		createFile(w, r)
 	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
+		// WIP
 		switch r.Method {
 		case "HEAD":
 			w.Header().Set("X-Resume", "bytes=0-99")
@@ -74,6 +69,12 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 	}
 
-	w.Header().Set("Location", "/files/"+exampleId)
+	id := uid()
+	if err := initFile(id, contentRange.Size, contentType); err != nil {
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Location", "/files/"+id)
 	w.WriteHeader(http.StatusCreated)
 }
