@@ -37,7 +37,7 @@ feedback](https://github.com/tus/tusd/issues/new). A few potential ideas:
   (reverse CDN)
 * Alternative storage backends: Cloud Files, Dropbox, etc.
 * More clients: Android, PhoneGap, etc.
-* Service integrations: Zencoder, Encoding.com, Youtube, Vimeo, Facebook, AWS
+* Service integrations: Transloadit, Zencoder, Encoding.com, Youtube, Vimeo, Facebook, AWS
   Transcoder, etc.
 * File meta data analysis
 * Thumbnail generation
@@ -134,8 +134,13 @@ Range: bytes=0-20,40-99
 
 The `Range` header holds a [byte
 range](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.1) that
+<<<<<<< HEAD
 informs the client which parts of the file have been received so far. It is
 up to the client to choose appropiate `PUT` requests to complete the upload.
+=======
+informs the client which parts of the file have #not# been received yet. It is
+up to the client to choose appropriate `PUT` requests to complete the upload.
+>>>>>>> read me updates
 
 A completed upload will be indicated by a single range covering the entire file
 size (e.g. `Range: bytes=0-99` for a 100 byte file).
