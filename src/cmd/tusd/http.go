@@ -12,6 +12,7 @@ import (
 )
 
 var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
+var filesRoute = regexp.MustCompile("^/files/?$")
 var dataStore *DataStore
 
 func init() {
@@ -41,11 +42,16 @@ func route(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Server", "tusd")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
+	w.Header().Add("Access-Control-Expose-Headers", "Location, Range")
 
-	if r.Method == "POST" && r.URL.Path == "/files" {
+	if r.Method == "OPTIONS" {
+		reply(w, http.StatusOK, "")
+		return
+	}
+
+	if r.Method == "POST" && filesRoute.Match([]byte(r.URL.Path)) {
 		postFiles(w, r)
-	} else if r.Method == "OPTIONS" && r.URL.Path == "/files" {
-		reply(w, http.StatusOK, "Cool")
 	} else if match := fileRoute.FindStringSubmatch(r.URL.Path); match != nil {
 		id := match[1]
 		switch r.Method {
@@ -53,6 +59,8 @@ func route(w http.ResponseWriter, r *http.Request) {
 			headFile(w, r, id)
 		case "GET":
 			getFile(w, r, id)
+		case "POST":
+			putFile(w, r, id)
 		case "PUT":
 			putFile(w, r, id)
 		default:
