@@ -133,7 +133,7 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	// @TODO: Check that file exists
 	// @TODO: Make sure contentRange.Size matches file size
 
-	if err := putFileChunk(fileId, contentRange.Start, contentRange.End, r.Body); err != nil {
+	if err := dataStore.WriteFileChunk(fileId, contentRange.Start, contentRange.End, r.Body); err != nil {
 		// @TODO: Could be a 404 as well
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
