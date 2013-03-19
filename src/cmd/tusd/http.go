@@ -88,12 +88,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uid()
-<<<<<<< HEAD
 	if err := dataStore.CreateFile(id, contentRange.Size, contentType); err != nil {
-=======
-	if err := initFile(id, contentRange.Size, contentType); err != nil {
-		log.Print("FOO4")
->>>>>>> conflict fix
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
