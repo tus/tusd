@@ -143,21 +143,21 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func setFileRangeHeader(w http.ResponseWriter, fileId string) {
-	chunks, err := getReceivedChunks(fileId)
+	chunks, err := dataStore.GetFileChunks(fileId)
 	if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	received := ""
+	rangeHeader := ""
 	for i, chunk := range chunks {
-		received += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
+		rangeHeader += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
 		if i+1 < len(chunks) {
-			received += ","
+			rangeHeader += ","
 		}
 	}
 
-	if received != "" {
-		w.Header().Set("Range", "bytes="+received)
+	if rangeHeader != "" {
+		w.Header().Set("Range", "bytes="+rangeHeader)
 	}
 }
