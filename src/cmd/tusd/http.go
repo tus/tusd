@@ -20,7 +20,7 @@ func init() {
 		panic(err)
 	}
 
-	dataDir = path.Join(wd, "tus_data")
+	dataDir := path.Join(wd, "tus_data")
 	if err := os.MkdirAll(dataDir, 0777); err != nil {
 		panic(err)
 	}
@@ -106,7 +106,7 @@ func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
-	data, size, err := getFileData(fileId)
+	data, size, err := dataStore.ReadFile(fileId)
 	if err != nil {
 		// @TODO: Could be a 404 as well
 		reply(w, http.StatusInternalServerError, err.Error())

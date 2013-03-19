@@ -34,7 +34,7 @@ func (s *DataStore) CreateFile(id string, size int64) error {
 }
 
 func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Reader) error {
-	file, err := os.OpenFile(dataPath(id), os.O_WRONLY, 0666)
+	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -90,6 +90,20 @@ func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
 	}
 
 	return chunks, nil
+}
+
+func (s *DataStore) ReadFile(id string) (io.ReadCloser, int64, error) {
+	file, err := os.Open(s.filePath(id))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return file, stat.Size(), nil
 }
 
 func (s *DataStore) appendFileLog(id string, entry string) error {
