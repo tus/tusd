@@ -64,14 +64,11 @@ func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
 		return nil, err
 	}
 	lines := strings.Split(string(data), "\n")
+	// last line is always empty, lets skip it
+	lines = lines[:len(lines)-1]
 
-	chunks := make(chunkSet, 0, len(lines)-1)
-	for i, line := range lines {
-		// last line is always empty, skip it
-		if lastLine := i+1 == len(lines); lastLine {
-			break
-		}
-
+	chunks := make(chunkSet, 0, len(lines))
+	for _, line := range lines {
 		entry := logEntry{}
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			return nil, err
