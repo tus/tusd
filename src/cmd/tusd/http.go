@@ -89,7 +89,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if contentRange.End != -1 {
-		if err := putFileChunk(id, contentRange.Start, contentRange.End, r.Body); err != nil {
+		if err := dataStore.WriteFileChunk(id, contentRange.Start, contentRange.End, r.Body); err != nil {
 			// @TODO: Could be a 404 as well
 			reply(w, http.StatusInternalServerError, err.Error())
 			return
