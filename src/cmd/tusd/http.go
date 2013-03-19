@@ -137,16 +137,33 @@ func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	var start int64 = 0
+	var end int64 = 0
+
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
-		reply(w, http.StatusBadRequest, err.Error())
-		return
+		contentLength := r.Header.Get("Content-Length")
+		end, err = strconv.ParseInt(contentLength, 10, 64)
+		if err != nil {
+			reply(w, http.StatusBadRequest, "Invalid content length provided")
+		}
+
+		// we are zero-indexed
+		end = end - 1
+
+		// @TODO: Make sure contentLength matches the content length of the initial
+		// POST request
+	} else {
+
+		// @TODO: Make sure contentRange.Size matches file size
+
+		start = contentRange.Start
+		end = contentRange.End
 	}
 
 	// @TODO: Check that file exists
-	// @TODO: Make sure contentRange.Size matches file size
 
-	if err := dataStore.WriteFileChunk(fileId, contentRange.Start, contentRange.End, r.Body); err != nil {
+	if err := dataStore.WriteFileChunk(fileId, start, end, r.Body); err != nil {
 		// @TODO: Could be a 404 as well
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
