@@ -5,11 +5,27 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"regexp"
 	"strconv"
 )
 
 var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
+var dataStore *DataStore
+
+func init() {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	dataDir = path.Join(wd, "tus_data")
+	if err := os.MkdirAll(dataDir, 0777); err != nil {
+		panic(err)
+	}
+	dataStore = NewDataStore(dataDir)
+}
 
 func serveHttp() error {
 	http.HandleFunc("/", route)
@@ -67,7 +83,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uid()
-	if err := initFile(id, contentRange.Size, contentType); err != nil {
+	if err := dataStore.CreateFile(id, contentRange.Size); err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -81,7 +97,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", "/files/"+id)
-	setFileRangeHeader(w, id)
+	//setFileRangeHeader(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
 

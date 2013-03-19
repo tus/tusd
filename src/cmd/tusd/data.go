@@ -35,21 +35,6 @@ func logPath(fileId string) string {
 	return dataPath(fileId) + ".log"
 }
 
-func initFile(fileId string, size int64, contentType string) error {
-	d := dataPath(fileId)
-	file, err := os.OpenFile(d, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if err := file.Truncate(size); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func putFileChunk(fileId string, start int64, end int64, r io.Reader) error {
 	d := dataPath(fileId)
 	file, err := os.OpenFile(d, os.O_WRONLY, 0666)
