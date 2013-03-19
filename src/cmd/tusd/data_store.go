@@ -1,13 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 )
 
@@ -19,8 +18,7 @@ func NewDataStore(dir string) *DataStore {
 	return &DataStore{dir: dir}
 }
 
-// @TODO Add support for Content-Type
-func (s *DataStore) CreateFile(id string, size int64) error {
+func (s *DataStore) CreateFile(id string, size int64, contentType string) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
@@ -30,7 +28,9 @@ func (s *DataStore) CreateFile(id string, size int64) error {
 	if err := file.Truncate(size); err != nil {
 		return err
 	}
-	return nil
+
+	entry := logEntry{Meta: &metaEntry{ContentType: contentType}}
+	return s.appendFileLog(id, entry)
 }
 
 func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Reader) error {
@@ -53,7 +53,8 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 		return errors.New("WriteFileChunk: partial copy")
 	}
 
-	return s.appendFileLog(id, fmt.Sprintf("%d,%d", start, end))
+	entry := logEntry{Chunk: &chunkEntry{Start: start, End: end}}
+	return s.appendFileLog(id, entry)
 }
 
 func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
@@ -71,22 +72,14 @@ func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
 			break
 		}
 
-		parts := strings.Split(line, ",")
-		if len(parts) != 2 {
-			return nil, errors.New("getReceivedChunks: corrupt log line: " + line)
+		entry := logEntry{}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			return nil, err
 		}
 
-		start, err := strconv.ParseInt(parts[0], 10, 64)
-		if err != nil {
-			return nil, errors.New("getReceivedChunks: invalid start: " + parts[0])
+		if entry.Chunk != nil {
+			chunks.Add(chunk{Start: entry.Chunk.Start, End: entry.Chunk.End})
 		}
-
-		end, err := strconv.ParseInt(parts[1], 10, 64)
-		if err != nil {
-			return nil, errors.New("getReceivedChunks: invalid end: " + parts[1])
-		}
-
-		chunks.Add(chunk{Start: start, End: end})
 	}
 
 	return chunks, nil
@@ -106,7 +99,7 @@ func (s *DataStore) ReadFile(id string) (io.ReadCloser, int64, error) {
 	return file, stat.Size(), nil
 }
 
-func (s *DataStore) appendFileLog(id string, entry string) error {
+func (s *DataStore) appendFileLog(id string, entry interface{}) error {
 	logPath := s.logPath(id)
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -114,7 +107,12 @@ func (s *DataStore) appendFileLog(id string, entry string) error {
 	}
 	defer logFile.Close()
 
-	if _, err := logFile.WriteString(entry + "\n"); err != nil {
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	if _, err := logFile.WriteString(string(data) + "\n"); err != nil {
 		return err
 	}
 	return nil
@@ -127,3 +125,11 @@ func (s *DataStore) filePath(id string) string {
 func (s *DataStore) logPath(id string) string {
 	return s.filePath(id) + ".log"
 }
+
+type logEntry struct {
+	Chunk *chunkEntry `json:",omitempty"`
+	Meta  *metaEntry  `json:",omitempty"`
+}
+
+type chunkEntry struct{ Start, End int64 }
+type metaEntry struct{ ContentType string }

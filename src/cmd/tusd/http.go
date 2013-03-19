@@ -83,7 +83,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uid()
-	if err := dataStore.CreateFile(id, contentRange.Size); err != nil {
+	if err := dataStore.CreateFile(id, contentRange.Size, contentType); err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -97,7 +97,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", "/files/"+id)
-	//setFileRangeHeader(w, id)
+	setFileRangeHeader(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
 
