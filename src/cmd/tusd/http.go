@@ -11,7 +11,11 @@ import (
 	"strconv"
 )
 
+// fileRoute matches /files/<id>. Go seems to use \r to terminate header
+// values, so to ease bash scripting, the route ignores a trailing \r in the
+// route. Better ideas are welcome.
 var fileRoute = regexp.MustCompile("^/files/([^/\r\n]+)\r?$")
+
 var filesRoute = regexp.MustCompile("^/files/?$")
 var dataStore *DataStore
 
