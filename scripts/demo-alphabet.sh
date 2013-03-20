@@ -23,6 +23,7 @@ ${SERVICE}/files |awk -F': ' '/^Location/ {print $2}' |tr -d '\r')
 # `tr -d '\r'` is required or location will have one in it ---^
 echo "<-- Location: ${location}"
 
+
 # PUT some data
 echo -ne "PUT  '${SERVICE}${location}' \t\t"
 status=$(curl -s \
@@ -45,17 +46,13 @@ has_content=$(curl -s ${SERVICE}${location})
 echo "<-- ${has_content}"
 
 
-
-
-
-
 # PUT some data
 echo -ne "PUT  '${SERVICE}${location}' \t\t"
 status=$(curl -s \
   --include \
   --request PUT \
   --header 'Content-Length: 3' \
-  --header 'Content-Range: bytes 22-25/26' \
+  --header 'Content-Range: bytes 23-25/26' \
   --data 'xyz' \
 ${SERVICE}${location} |head -1 |tr -d '\r')
 echo "<-- ${status}"
