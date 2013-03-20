@@ -9,36 +9,63 @@
 SERVICE="localhost:1080"
 
 # Environment
-set -ex
+set -e
 __FILE__="$(test -L "${0}" && readlink "${0}" || echo "${0}")"
 __DIR__="$(cd "$(dirname "${__FILE__}")"; echo $(pwd);)"
 
 # POST requests the upload location
-echo "POST '${SERVICE}'"
+echo -ne "POST '${SERVICE}' \t\t\t\t\t\t\t"
 location=$(curl -s \
   --include \
   --request POST \
   --header 'Content-Range: bytes */26' \
-${SERVICE}/files | awk -F': ' '/^Location/ {print $2}')
-
-# needs a `tr -d '\r'` or location will be messed up  ----^
-# causing tusd connection to hang after it throws a
-# 500 - Internal Server Error
+${SERVICE}/files |awk -F': ' '/^Location/ {print $2}' |tr -d '\r')
+# `tr -d '\r'` is required or location will have one in it ---^
+echo "<-- Location: ${location}"
 
 # PUT some data
-echo "PUT '${SERVICE}${location}'"
-curl -s \
+echo -ne "PUT  '${SERVICE}${location}' \t\t"
+status=$(curl -s \
   --include \
   --request PUT \
   --header 'Content-Length: 3' \
   --header 'Content-Range: bytes 0-2/26' \
   --data 'abc' \
-${SERVICE}${location}
+${SERVICE}${location} |head -n1 |tr -d '\r')
+echo "<-- ${status}"
 
 # check that data with HEAD
-echo "HEAD '${SERVICE}${location}'"
-curl -s \
-  --include \
-  --request HEAD \
-${SERVICE}${location}
+echo -ne "HEAD '${SERVICE}${location}' \t\t"
+has_range=$(curl -s -I -X HEAD ${SERVICE}${location} |awk -F': ' '/^Range/ {print $2}' |tr -d '\r')
+echo "<-- Range: ${has_range}"
 
+# get that data with GET
+echo -ne "GET  '${SERVICE}${location}' \t\t"
+has_content=$(curl -s ${SERVICE}${location})
+echo "<-- ${has_content}"
+
+
+
+
+
+
+# PUT some data
+echo -ne "PUT  '${SERVICE}${location}' \t\t"
+status=$(curl -s \
+  --include \
+  --request PUT \
+  --header 'Content-Length: 3' \
+  --header 'Content-Range: bytes 22-25/26' \
+  --data 'xyz' \
+${SERVICE}${location} |head -n1 |tr -d '\r')
+echo "<-- ${status}"
+
+# check that data with HEAD
+echo -ne "HEAD '${SERVICE}${location}' \t\t"
+has_range=$(curl -s -I -X HEAD ${SERVICE}${location} |awk -F': ' '/^Range/ {print $2}' |tr -d '\r')
+echo "<-- Range: ${has_range}"
+
+# get that data with GET
+echo -ne "GET  '${SERVICE}${location}' \t\t"
+has_content=$(curl -s ${SERVICE}${location})
+echo "<-- ${has_content}"
