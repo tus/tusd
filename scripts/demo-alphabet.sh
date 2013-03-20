@@ -31,7 +31,7 @@ status=$(curl -s \
   --header 'Content-Length: 3' \
   --header 'Content-Range: bytes 0-2/26' \
   --data 'abc' \
-${SERVICE}${location} |head -n1 |tr -d '\r')
+${SERVICE}${location} |head -1 |tr -d '\r')
 echo "<-- ${status}"
 
 # check that data with HEAD
@@ -57,7 +57,7 @@ status=$(curl -s \
   --header 'Content-Length: 3' \
   --header 'Content-Range: bytes 22-25/26' \
   --data 'xyz' \
-${SERVICE}${location} |head -n1 |tr -d '\r')
+${SERVICE}${location} |head -1 |tr -d '\r')
 echo "<-- ${status}"
 
 # check that data with HEAD
@@ -69,3 +69,4 @@ echo "<-- Range: ${has_range}"
 echo -ne "GET  '${SERVICE}${location}' \t\t"
 has_content=$(curl -s ${SERVICE}${location})
 echo "<-- ${has_content}"
+
