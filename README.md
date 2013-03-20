@@ -52,11 +52,20 @@ and switch.
 
 **Requirements:**
 
-* [Go 1.0](http://golang.org/)
+* [Go 1.0](http://golang.org/doc/install)
+
+**Installing tusd:**
+
+Clone the git repository and `cd` into it.
+
+```bash
+git clone git@github.com:tus/tusd.git
+cd tusd
+```
 
 **Running tusd:**
 
-Clone the git repository, and `cd` into it. Then simply:
+Run it with go:
 
 ```bash
 go run src/cmd/tusd/*.go
