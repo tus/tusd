@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-var fileRoute = regexp.MustCompile("^/files/([^/]+)$")
+var fileRoute = regexp.MustCompile("^/files/([^/\r\n]+)\r?$")
 var filesRoute = regexp.MustCompile("^/files/?$")
 var dataStore *DataStore
 
