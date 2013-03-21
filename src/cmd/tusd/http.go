@@ -125,7 +125,14 @@ func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
-	data, size, err := dataStore.ReadFile(fileId)
+	meta, err := dataStore.GetFileMeta(fileId)
+	if err != nil {
+		// @TODO: Could be a 404 as well
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	data, err := dataStore.ReadFile(fileId)
 	if err != nil {
 		// @TODO: Could be a 404 as well
 		reply(w, http.StatusInternalServerError, err.Error())
@@ -134,9 +141,10 @@ func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	defer data.Close()
 
 	setFileRangeHeader(w, fileId)
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	w.Header().Set("Content-Type", meta.ContentType)
+	w.Header().Set("Content-Length", strconv.FormatInt(meta.Size, 10))
 
-	if _, err := io.CopyN(w, data, size); err != nil {
+	if _, err := io.CopyN(w, data, meta.Size); err != nil {
 		log.Printf("getFile: CopyN failed with: %s", err.Error())
 		return
 	}
@@ -179,16 +187,16 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 }
 
 func setFileRangeHeader(w http.ResponseWriter, fileId string) {
-	chunks, err := dataStore.GetFileChunks(fileId)
+	meta, err := dataStore.GetFileMeta(fileId)
 	if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	rangeHeader := ""
-	for i, chunk := range chunks {
+	for i, chunk := range meta.Chunks {
 		rangeHeader += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
-		if i+1 < len(chunks) {
+		if i+1 < len(meta.Chunks) {
 			rangeHeader += ","
 		}
 	}

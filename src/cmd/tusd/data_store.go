@@ -25,11 +25,7 @@ func (s *DataStore) CreateFile(id string, size int64, contentType string) error 
 	}
 	defer file.Close()
 
-	if err := file.Truncate(size); err != nil {
-		return err
-	}
-
-	entry := logEntry{Meta: &metaEntry{ContentType: contentType}}
+	entry := logEntry{Meta: &metaEntry{Size: size, ContentType: contentType}}
 	return s.appendFileLog(id, entry)
 }
 
@@ -57,7 +53,7 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 	return s.appendFileLog(id, entry)
 }
 
-func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
+func (s *DataStore) GetFileMeta(id string) (*fileMeta, error) {
 	// @TODO stream the file / limit log file size?
 	data, err := ioutil.ReadFile(s.logPath(id))
 	if err != nil {
@@ -67,7 +63,10 @@ func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
 	// last line is always empty, lets skip it
 	lines = lines[:len(lines)-1]
 
-	chunks := make(chunkSet, 0, len(lines))
+	meta := &fileMeta{
+		Chunks: make(chunkSet, 0, len(lines)),
+	}
+
 	for _, line := range lines {
 		entry := logEntry{}
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
@@ -75,25 +74,25 @@ func (s *DataStore) GetFileChunks(id string) (chunkSet, error) {
 		}
 
 		if entry.Chunk != nil {
-			chunks.Add(chunk{Start: entry.Chunk.Start, End: entry.Chunk.End})
+			meta.Chunks.Add(chunk{Start: entry.Chunk.Start, End: entry.Chunk.End})
+		}
+
+		if entry.Meta != nil {
+			meta.ContentType = entry.Meta.ContentType
+			meta.Size = entry.Meta.Size
 		}
 	}
 
-	return chunks, nil
+	return meta, nil
 }
 
-func (s *DataStore) ReadFile(id string) (io.ReadCloser, int64, error) {
+func (s *DataStore) ReadFile(id string) (io.ReadCloser, error) {
 	file, err := os.Open(s.filePath(id))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	stat, err := file.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return file, stat.Size(), nil
+	return file, nil
 }
 
 func (s *DataStore) appendFileLog(id string, entry interface{}) error {
@@ -123,10 +122,21 @@ func (s *DataStore) logPath(id string) string {
 	return s.filePath(id) + ".log"
 }
 
+type fileMeta struct {
+	ContentType string
+	Size        int64
+	Chunks      chunkSet
+}
+
 type logEntry struct {
 	Chunk *chunkEntry `json:",omitempty"`
 	Meta  *metaEntry  `json:",omitempty"`
 }
 
-type chunkEntry struct{ Start, End int64 }
-type metaEntry struct{ ContentType string }
+type chunkEntry struct {
+	Start, End int64
+}
+type metaEntry struct {
+	Size        int64
+	ContentType string
+}
