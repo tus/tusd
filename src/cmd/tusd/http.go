@@ -45,6 +45,9 @@ func route(w http.ResponseWriter, r *http.Request) {
 	log.Printf("request: %s %s", r.Method, r.URL.RequestURI())
 
 	w.Header().Set("Server", "tusd")
+
+	// Allow CORS for almost everything. This needs to be revisted / limited to
+	// routes and methods that need it.
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
