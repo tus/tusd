@@ -192,7 +192,10 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 
 func setFileRangeHeader(w http.ResponseWriter, fileId string) {
 	meta, err := dataStore.GetFileMeta(fileId)
-	if err != nil {
+	if os.IsNotExist(err) {
+		reply(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
