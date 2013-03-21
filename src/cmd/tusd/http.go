@@ -46,6 +46,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Server", "tusd")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
 	w.Header().Add("Access-Control-Expose-Headers", "Location, Range")
 
@@ -63,8 +64,6 @@ func route(w http.ResponseWriter, r *http.Request) {
 			headFile(w, r, id)
 		case "GET":
 			getFile(w, r, id)
-		case "POST":
-			putFile(w, r, id)
 		case "PUT":
 			putFile(w, r, id)
 		default:
