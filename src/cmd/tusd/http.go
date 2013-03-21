@@ -121,6 +121,10 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	// Work around a bug in Go that would cause HEAD responses to hang. Should be
+	// fixed in future release, see:
+	// http://code.google.com/p/go/issues/detail?id=4126
+	w.Header().Set("Content-Length", "0")
 	setFileRangeHeader(w, fileId)
 }
 
