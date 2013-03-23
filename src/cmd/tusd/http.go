@@ -36,6 +36,9 @@ func serveHttp() error {
 	http.HandleFunc("/", route)
 
 	addr := ":1080"
+	if port := os.Getenv("TUSD_PORT"); port != "" {
+		addr = ":"+port
+	}
 	log.Printf("serving clients at %s", addr)
 
 	return http.ListenAndServe(addr, nil)
