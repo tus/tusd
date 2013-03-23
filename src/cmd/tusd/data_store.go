@@ -43,14 +43,20 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 	}
 
 	size := end - start + 1
-	if n, err := io.CopyN(file, src, size); err != nil {
+	n, err := io.CopyN(file, src, size)
+	if n > 0 {
+		entry := logEntry{Chunk: &chunkEntry{Start: start, End: n - 1}}
+		if err := s.appendFileLog(id, entry); err != nil {
+			return err
+		}
+	}
+
+	if err != nil {
 		return err
 	} else if n != size {
 		return errors.New("WriteFileChunk: partial copy")
 	}
-
-	entry := logEntry{Chunk: &chunkEntry{Start: start, End: end}}
-	return s.appendFileLog(id, entry)
+	return nil
 }
 
 func (s *DataStore) GetFileMeta(id string) (*fileMeta, error) {
