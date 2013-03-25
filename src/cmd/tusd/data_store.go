@@ -45,7 +45,7 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 	size := end - start + 1
 	n, err := io.CopyN(file, src, size)
 	if n > 0 {
-		entry := logEntry{Chunk: &chunkEntry{Start: start, End: n - 1}}
+		entry := logEntry{Chunk: &chunkEntry{Start: start, End: start+n-1}}
 		if err := s.appendFileLog(id, entry); err != nil {
 			return err
 		}
