@@ -18,14 +18,18 @@ func NewDataStore(dir string) *DataStore {
 	return &DataStore{dir: dir}
 }
 
-func (s *DataStore) CreateFile(id string, size int64, contentType string) error {
+func (s *DataStore) CreateFile(id string, size int64, contentType string, contentDisposition string) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	entry := logEntry{Meta: &metaEntry{Size: size, ContentType: contentType}}
+	entry := logEntry{Meta: &metaEntry{
+		Size:               size,
+		ContentType:        contentType,
+		ContentDisposition: contentDisposition,
+	}}
 	return s.appendFileLog(id, entry)
 }
 
@@ -45,7 +49,7 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 	size := end - start + 1
 	n, err := io.CopyN(file, src, size)
 	if n > 0 {
-		entry := logEntry{Chunk: &chunkEntry{Start: start, End: start+n-1}}
+		entry := logEntry{Chunk: &chunkEntry{Start: start, End: start + n - 1}}
 		if err := s.appendFileLog(id, entry); err != nil {
 			return err
 		}
@@ -85,6 +89,7 @@ func (s *DataStore) GetFileMeta(id string) (*fileMeta, error) {
 
 		if entry.Meta != nil {
 			meta.ContentType = entry.Meta.ContentType
+			meta.ContentDisposition = entry.Meta.ContentDisposition
 			meta.Size = entry.Meta.Size
 		}
 	}
@@ -129,9 +134,10 @@ func (s *DataStore) logPath(id string) string {
 }
 
 type fileMeta struct {
-	ContentType string
-	Size        int64
-	Chunks      chunkSet
+	ContentType        string
+	ContentDisposition string
+	Size               int64
+	Chunks             chunkSet
 }
 
 type logEntry struct {
@@ -143,6 +149,7 @@ type chunkEntry struct {
 	Start, End int64
 }
 type metaEntry struct {
-	Size        int64
-	ContentType string
+	Size               int64
+	ContentType        string
+	ContentDisposition string
 }

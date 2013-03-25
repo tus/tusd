@@ -37,7 +37,7 @@ func serveHttp() error {
 
 	addr := ":1080"
 	if port := os.Getenv("TUSD_PORT"); port != "" {
-		addr = ":"+port
+		addr = ":" + port
 	}
 	log.Printf("serving clients at %s", addr)
 
@@ -54,7 +54,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
-	w.Header().Add("Access-Control-Expose-Headers", "Location, Range")
+	w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
 
 	if r.Method == "OPTIONS" {
 		reply(w, http.StatusOK, "")
@@ -102,8 +102,10 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 	}
 
+	contentDisposition := r.Header.Get("Content-Disposition")
+
 	id := uid()
-	if err := dataStore.CreateFile(id, contentRange.Size, contentType); err != nil {
+	if err := dataStore.CreateFile(id, contentRange.Size, contentType, contentDisposition); err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -117,7 +119,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", "/files/"+id)
-	setFileRangeHeader(w, id)
+	setFileHeaders(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -126,7 +128,7 @@ func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	// fixed in future release, see:
 	// http://code.google.com/p/go/issues/detail?id=4126
 	w.Header().Set("Content-Length", "0")
-	setFileRangeHeader(w, fileId)
+	setFileHeaders(w, fileId)
 }
 
 func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
@@ -145,8 +147,7 @@ func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	}
 	defer data.Close()
 
-	setFileRangeHeader(w, fileId)
-	w.Header().Set("Content-Type", meta.ContentType)
+	setFileHeaders(w, fileId)
 	w.Header().Set("Content-Length", strconv.FormatInt(meta.Size, 10))
 
 	if _, err := io.CopyN(w, data, meta.Size); err != nil {
@@ -188,10 +189,10 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 		return
 	}
 
-	setFileRangeHeader(w, fileId)
+	setFileHeaders(w, fileId)
 }
 
-func setFileRangeHeader(w http.ResponseWriter, fileId string) {
+func setFileHeaders(w http.ResponseWriter, fileId string) {
 	meta, err := dataStore.GetFileMeta(fileId)
 	if os.IsNotExist(err) {
 		reply(w, http.StatusNotFound, err.Error())
@@ -212,4 +213,7 @@ func setFileRangeHeader(w http.ResponseWriter, fileId string) {
 	if rangeHeader != "" {
 		w.Header().Set("Range", "bytes="+rangeHeader)
 	}
+
+	w.Header().Set("Content-Type", meta.ContentType)
+	w.Header().Set("Content-Disposition", meta.ContentDisposition)
 }
