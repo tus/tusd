@@ -11,6 +11,11 @@ import (
 	"strconv"
 )
 
+// dataStoreSize limits the storage used by the data store. If exceeded, the
+// data store will start garbage collection old files until enough storage is
+// available again.
+const dataStoreSize = 1024 * 1024 * 1024
+
 // fileRoute matches /files/<id>. Go seems to use \r to terminate header
 // values, so to ease bash scripting, the route ignores a trailing \r in the
 // route. Better ideas are welcome.
@@ -29,7 +34,7 @@ func init() {
 	if err := os.MkdirAll(dataDir, 0777); err != nil {
 		panic(err)
 	}
-	dataStore = NewDataStore(dataDir)
+	dataStore = NewDataStore(dataDir, dataStoreSize)
 }
 
 func serveHttp() error {
