@@ -88,13 +88,11 @@ func reply(w http.ResponseWriter, code int, message string) {
 func postFiles(w http.ResponseWriter, r *http.Request) {
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
-		log.Print("FOO")
 		reply(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if contentRange.Size == -1 {
-		log.Print("FOO2")
 		reply(w, http.StatusBadRequest, "Content-Range must indicate total file size.")
 		return
 	}
