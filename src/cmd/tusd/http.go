@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,11 +11,6 @@ import (
 	"regexp"
 	"strconv"
 )
-
-// dataStoreSize limits the storage used by the data store. If exceeded, the
-// data store will start garbage collection old files until enough storage is
-// available again.
-const dataStoreSize = 1024 * 1024 * 1024
 
 // fileRoute matches /files/<id>. Go seems to use \r to terminate header
 // values, so to ease bash scripting, the route ignores a trailing \r in the
@@ -31,6 +27,26 @@ func init() {
 	}
 
 	dataDir := path.Join(wd, "tus_data")
+	if configDir := os.Getenv("TUSD_DATA_DIR"); configDir != "" {
+		dataDir = configDir
+	}
+
+	// dataStoreSize limits the storage used by the data store. If exceeded, the
+	// data store will start garbage collection old files until enough storage is
+	// available again.
+	var dataStoreSize int64
+	dataStoreSize = 1024 * 1024 * 1024
+	if configStoreSize := os.Getenv("TUSD_DATA_STORE_MAXSIZE"); configStoreSize != "" {
+		parsed, err := strconv.ParseInt(configStoreSize, 10, 64)
+		if err != nil {
+			panic(errors.New("Invalid data store max size configured"))
+		}
+		dataStoreSize = parsed
+	}
+
+	log.Print("Datastore directory: ", dataDir)
+	log.Print("Datastore max size: ", dataStoreSize)
+
 	if err := os.MkdirAll(dataDir, 0777); err != nil {
 		panic(err)
 	}
