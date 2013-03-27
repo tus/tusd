@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,11 +11,7 @@ import (
 	"strconv"
 )
 
-// fileRoute matches /files/<id>. Go seems to use \r to terminate header
-// values, so to ease bash scripting, the route ignores a trailing \r in the
-// route. Better ideas are welcome.
 var fileRoute = regexp.MustCompile("^/files/([^/\r\n]+)\r?$")
-
 var filesRoute = regexp.MustCompile("^/files/?$")
 var dataStore *DataStore
 
@@ -27,39 +22,16 @@ func init() {
 	}
 
 	dataDir := path.Join(wd, "tus_data")
-	if configDir := os.Getenv("TUSD_DATA_DIR"); configDir != "" {
-		dataDir = configDir
-	}
-
-	// dataStoreSize limits the storage used by the data store. If exceeded, the
-	// data store will start garbage collection old files until enough storage is
-	// available again.
-	var dataStoreSize int64
-	dataStoreSize = 1024 * 1024 * 1024
-	if configStoreSize := os.Getenv("TUSD_DATA_STORE_MAXSIZE"); configStoreSize != "" {
-		parsed, err := strconv.ParseInt(configStoreSize, 10, 64)
-		if err != nil {
-			panic(errors.New("Invalid data store max size configured"))
-		}
-		dataStoreSize = parsed
-	}
-
-	log.Print("Datastore directory: ", dataDir)
-	log.Print("Datastore max size: ", dataStoreSize)
-
 	if err := os.MkdirAll(dataDir, 0777); err != nil {
 		panic(err)
 	}
-	dataStore = NewDataStore(dataDir, dataStoreSize)
+	dataStore = NewDataStore(dataDir)
 }
 
 func serveHttp() error {
 	http.HandleFunc("/", route)
 
 	addr := ":1080"
-	if port := os.Getenv("TUSD_PORT"); port != "" {
-		addr = ":" + port
-	}
 	log.Printf("serving clients at %s", addr)
 
 	return http.ListenAndServe(addr, nil)
@@ -69,13 +41,9 @@ func route(w http.ResponseWriter, r *http.Request) {
 	log.Printf("request: %s %s", r.Method, r.URL.RequestURI())
 
 	w.Header().Set("Server", "tusd")
-
-	// Allow CORS for almost everything. This needs to be revisted / limited to
-	// routes and methods that need it.
 	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
-	w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
+	w.Header().Add("Access-Control-Expose-Headers", "Location, Range")
 
 	if r.Method == "OPTIONS" {
 		reply(w, http.StatusOK, "")
@@ -91,6 +59,8 @@ func route(w http.ResponseWriter, r *http.Request) {
 			headFile(w, r, id)
 		case "GET":
 			getFile(w, r, id)
+		case "POST":
+			putFile(w, r, id)
 		case "PUT":
 			putFile(w, r, id)
 		default:
@@ -109,11 +79,13 @@ func reply(w http.ResponseWriter, code int, message string) {
 func postFiles(w http.ResponseWriter, r *http.Request) {
 	contentRange, err := parseContentRange(r.Header.Get("Content-Range"))
 	if err != nil {
+		log.Print("FOO")
 		reply(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if contentRange.Size == -1 {
+		log.Print("FOO2")
 		reply(w, http.StatusBadRequest, "Content-Range must indicate total file size.")
 		return
 	}
@@ -123,55 +95,47 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 	}
 
-	contentDisposition := r.Header.Get("Content-Disposition")
-
 	id := uid()
-	if err := dataStore.CreateFile(id, contentRange.Size, contentType, contentDisposition); err != nil {
+	if err := dataStore.CreateFile(id, contentRange.Size, contentType); err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if contentRange.End != -1 {
-		if err := dataStore.WriteFileChunk(id, contentRange.Start, contentRange.End, r.Body); err != nil {
-			// @TODO: Could be a 404 as well
+		err := dataStore.WriteFileChunk(id, contentRange.Start, contentRange.End, r.Body)
+		if os.IsNotExist(err) {
+			reply(w, http.StatusNotFound, err.Error())
+			return
+		} else if err != nil {
 			reply(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
 
 	w.Header().Set("Location", "/files/"+id)
-	setFileHeaders(w, id)
+	setFileRangeHeader(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
 
 func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
-	// Work around a bug in Go that would cause HEAD responses to hang. Should be
-	// fixed in future release, see:
-	// http://code.google.com/p/go/issues/detail?id=4126
-	w.Header().Set("Content-Length", "0")
-	setFileHeaders(w, fileId)
+	setFileRangeHeader(w, fileId)
 }
 
 func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
-	meta, err := dataStore.GetFileMeta(fileId)
-	if err != nil {
-		// @TODO: Could be a 404 as well
-		reply(w, http.StatusInternalServerError, err.Error())
+	data, size, err := dataStore.ReadFile(fileId)
+	if os.IsNotExist(err) {
+		reply(w, http.StatusNotFound, err.Error())
 		return
-	}
-
-	data, err := dataStore.ReadFile(fileId)
-	if err != nil {
-		// @TODO: Could be a 404 as well
+	} else if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	defer data.Close()
 
-	setFileHeaders(w, fileId)
-	w.Header().Set("Content-Length", strconv.FormatInt(meta.Size, 10))
+	setFileRangeHeader(w, fileId)
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 
-	if _, err := io.CopyN(w, data, meta.Size); err != nil {
+	if _, err := io.CopyN(w, data, size); err != nil {
 		log.Printf("getFile: CopyN failed with: %s", err.Error())
 		return
 	}
@@ -204,17 +168,7 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 
 	// @TODO: Check that file exists
 
-	if err := dataStore.WriteFileChunk(fileId, start, end, r.Body); err != nil {
-		// @TODO: Could be a 404 as well
-		reply(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	setFileHeaders(w, fileId)
-}
-
-func setFileHeaders(w http.ResponseWriter, fileId string) {
-	meta, err := dataStore.GetFileMeta(fileId)
+	err = dataStore.WriteFileChunk(fileId, start, end, r.Body)
 	if os.IsNotExist(err) {
 		reply(w, http.StatusNotFound, err.Error())
 		return
@@ -223,10 +177,20 @@ func setFileHeaders(w http.ResponseWriter, fileId string) {
 		return
 	}
 
+	setFileRangeHeader(w, fileId)
+}
+
+func setFileRangeHeader(w http.ResponseWriter, fileId string) {
+	chunks, err := dataStore.GetFileChunks(fileId)
+	if err != nil {
+		reply(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	rangeHeader := ""
-	for i, chunk := range meta.Chunks {
+	for i, chunk := range chunks {
 		rangeHeader += fmt.Sprintf("%d-%d", chunk.Start, chunk.End)
-		if i+1 < len(meta.Chunks) {
+		if i+1 < len(chunks) {
 			rangeHeader += ","
 		}
 	}
@@ -234,7 +198,4 @@ func setFileHeaders(w http.ResponseWriter, fileId string) {
 	if rangeHeader != "" {
 		w.Header().Set("Range", "bytes="+rangeHeader)
 	}
-
-	w.Header().Set("Content-Type", meta.ContentType)
-	w.Header().Set("Content-Disposition", meta.ContentDisposition)
 }
