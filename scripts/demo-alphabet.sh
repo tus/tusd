@@ -67,8 +67,3 @@ echo -ne "GET  '${SERVICE}${location}' \t\t"
 has_content=$(curl -s ${SERVICE}${location})
 echo "<-- ${has_content}"
 
-# get 404 with GET
-echo -ne "GET  '${SERVICE}${location}a' \t\t"
-has_content=$(curl -s ${SERVICE}${location})
-echo "<-- ${has_content}"
-
