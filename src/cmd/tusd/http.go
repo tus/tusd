@@ -172,7 +172,7 @@ func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	w.Header().Set("Content-Length", strconv.FormatInt(meta.Size, 10))
 
 	if _, err := io.CopyN(w, data, meta.Size); err != nil {
-		log.Printf("getFile: CopyN failed with: %s", err.Error())
+		log.Printf("getFile: CopyN of fileId %s failed with: %s. Is the upload complete yet?", fileId, err.Error())
 		return
 	}
 }
