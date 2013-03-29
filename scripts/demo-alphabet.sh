@@ -40,10 +40,12 @@ echo -ne "HEAD '${SERVICE}${location}' \t\t"
 has_range=$(curl -s -I -X HEAD ${SERVICE}${location} |awk -F': ' '/^Range/ {print $2}' |tr -d '\r')
 echo "<-- Range: ${has_range}"
 
-# get that data with GET
-echo -ne "GET  '${SERVICE}${location}' \t\t"
-has_content=$(curl -s ${SERVICE}${location})
-echo "<-- ${has_content}"
+# NB: getting partials is not supported and results in a
+#     CopyN of size %!s(int64=26) failed with: EOF
+#     should you try uncommenting this:
+#echo -ne "GET  '${SERVICE}${location}' \t\t"
+#has_content=$(curl -s ${SERVICE}${location})
+#echo "<-- ${has_content}"
 
 
 # PUT some data
