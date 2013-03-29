@@ -132,11 +132,15 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if contentRange.End != -1 {
-		if err := dataStore.WriteFileChunk(id, contentRange.Start, contentRange.End, r.Body); err != nil {
-			// @TODO: Could be a 404 as well
+		err := dataStore.WriteFileChunk(id, contentRange.Start, contentRange.End, r.Body)
+		if os.IsNotExist(err) {
+			reply(w, http.StatusNotFound, err.Error())
+			return
+		} else if err != nil {
 			reply(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+
 	}
 
 	w.Header().Set("Location", "/files/"+id)
@@ -154,18 +158,23 @@ func headFile(w http.ResponseWriter, r *http.Request, fileId string) {
 
 func getFile(w http.ResponseWriter, r *http.Request, fileId string) {
 	meta, err := dataStore.GetFileMeta(fileId)
-	if err != nil {
-		// @TODO: Could be a 404 as well
+	if os.IsNotExist(err) {
+		reply(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	data, err := dataStore.ReadFile(fileId)
-	if err != nil {
-		// @TODO: Could be a 404 as well
+	if os.IsNotExist(err) {
+		reply(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	defer data.Close()
 
 	setFileHeaders(w, fileId)
@@ -204,8 +213,11 @@ func putFile(w http.ResponseWriter, r *http.Request, fileId string) {
 
 	// @TODO: Check that file exists
 
-	if err := dataStore.WriteFileChunk(fileId, start, end, r.Body); err != nil {
-		// @TODO: Could be a 404 as well
+	err = dataStore.WriteFileChunk(fileId, start, end, r.Body)
+	if os.IsNotExist(err) {
+		reply(w, http.StatusNotFound, err.Error())
+		return
+	} else if err != nil {
 		reply(w, http.StatusInternalServerError, err.Error())
 		return
 	}
