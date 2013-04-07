@@ -74,7 +74,7 @@ func route(w http.ResponseWriter, r *http.Request) {
 	// routes and methods that need it.
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
-	w.Header().Add("Access-Control-Allow-Headers", "Origin, x-requested-with, content-type, accept, Content-Range, Content-Disposition")
+	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Range, Content-Disposition")
 	w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
 
 	if r.Method == "OPTIONS" {
