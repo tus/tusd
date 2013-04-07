@@ -143,7 +143,7 @@ func postFiles(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	w.Header().Set("Location", "/files/"+id)
+	w.Header().Set("Location", "http://"+r.Host+"/files/"+id)
 	setFileHeaders(w, id)
 	w.WriteHeader(http.StatusCreated)
 }
