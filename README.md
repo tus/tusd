@@ -62,4 +62,4 @@ go run src/cmd/tusd/*.go
 
 ## License
 
-We are currently making this decision, and will clarify this ASAP.
+This project is licensed under the MIT license, see `LICENSE.txt`.
