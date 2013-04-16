@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 // fileRoute matches /files/<id>. Go seems to use \r to terminate header
@@ -66,6 +67,7 @@ func serveHttp() error {
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	log.Printf("request: %s %s", r.Method, r.URL.RequestURI())
 
 	w.Header().Set("Server", "tusd")
@@ -99,6 +101,9 @@ func route(w http.ResponseWriter, r *http.Request) {
 	} else {
 		reply(w, http.StatusNotFound, "No matching route")
 	}
+
+	duration := time.Since(start)
+	log.Printf("finished: %s %s (took %s)", r.Method, r.URL.RequestURI(), duration)
 }
 
 func reply(w http.ResponseWriter, code int, message string) {
