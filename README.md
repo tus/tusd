@@ -18,7 +18,7 @@ priority.
 
 * [Go 1.0](http://golang.org/doc/install)
 
-**Installing tusd:**
+**Running tusd from source:**
 
 Clone the git repository and `cd` into it.
 
@@ -27,9 +27,15 @@ git clone git@github.com:tus/tusd.git
 cd tusd
 ```
 
-**Running tusd:**
+Next source the dev.sh file. You need to do this for each shell session you
+plan to use for running tus from source. It basically configures a local gopath
+for you, so you don't have to install tusd globally.
 
-Run it with go:
+```bash
+source dev.sh
+```
+
+Now you can run tusd:
 
 ```bash
 go run src/cmd/tusd/*.go
