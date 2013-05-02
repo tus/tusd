@@ -1,4 +1,4 @@
-package main
+package http
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ type DataStore struct {
 	maxSize int64
 }
 
-func NewDataStore(dir string, maxSize int64) *DataStore {
+func newDataStore(dir string, maxSize int64) *DataStore {
 	store := &DataStore{dir: dir, maxSize: maxSize}
 	go store.gcLoop()
 	return store
@@ -139,6 +139,10 @@ func (s *DataStore) logPath(id string) string {
 	return path.Join(s.dir, id) + ".log"
 }
 
+// TODO: This works for now, but it would be better if we would trigger gc()
+// manually whenever a storage operation will need more space, telling gc() how
+// much space we need. If the amount of space required fits into the max, we
+// can simply ignore the gc request, otherwise delete just as much as we need.
 func (s *DataStore) gcLoop() {
 	for {
 		if before, after, err := s.gc(); err != nil {
