@@ -132,11 +132,11 @@ func (s *DataStore) appendFileLog(id string, entry interface{}) error {
 }
 
 func (s *DataStore) filePath(id string) string {
-	return path.Join(s.dir, id)+".bin"
+	return path.Join(s.dir, id) + ".bin"
 }
 
 func (s *DataStore) logPath(id string) string {
-	return path.Join(s.dir, id)+".log"
+	return path.Join(s.dir, id) + ".log"
 }
 
 func (s *DataStore) gcLoop() {
@@ -195,13 +195,13 @@ func (s *DataStore) gc() (before int64, after int64, err error) {
 	// Make sure we did not delete a .log file but forgot the .bin or vice-versa.
 	for fullPath, _ := range deleted {
 		ext := path.Ext(fullPath)
-		base := fullPath[0:len(fullPath)-len(ext)]
+		base := fullPath[0 : len(fullPath)-len(ext)]
 
 		counterPath := ""
 		if ext == ".bin" {
-			counterPath = base+".log"
+			counterPath = base + ".log"
 		} else if ext == ".log" {
-			counterPath = base+".bin"
+			counterPath = base + ".bin"
 		}
 
 		if counterPath == "" || deleted[counterPath] {
