@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -38,7 +39,7 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 
 	return &Handler{
 		store:     newDataStore(config.Dir, config.MaxSize),
-		basePath:  config.BasePath,
+		config:    config,
 		Error:     errChan,
 		sendError: errChan,
 	}, nil
@@ -46,8 +47,8 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 
 // Handler is a http.Handler that implements tus resumable upload protocol.
 type Handler struct {
-	store    *DataStore
-	basePath string
+	store  *DataStore
+	config HandlerConfig
 
 	// Error provides error events for logging purposes.
 	Error <-chan error
@@ -56,28 +57,49 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Verify that url matches BasePath
 	absPath := r.URL.Path
-	if !strings.HasPrefix(absPath, h.basePath) {
-		err := errors.New("invalid url path: " + absPath + " - does not match basePath: " + h.basePath)
+	if !strings.HasPrefix(absPath, h.config.BasePath) {
+		err := errors.New("unknown url: " + absPath + " - does not match BasePath: " + h.config.BasePath)
 		h.err(err, w, http.StatusNotFound)
 		return
 	}
 
-	relPath := absPath[len(h.basePath)-1:]
+	// example relPath results: "/", "/f81d4fae7dec11d0a765-00a0c91e6bf6", etc.
+	relPath := absPath[len(h.config.BasePath)-1:]
 
-	// File creation request
+	// file creation request
 	if relPath == "/" {
-		// Must use POST method according to tus protocol
-		if r.Method != "POST" {
-			w.Header().Set("Allow", "POST")
-			err := errors.New(r.Method + " used against file creation url. Only POST is allowed.")
-			h.err(err, w, http.StatusMethodNotAllowed)
+		if r.Method == "POST" {
+			h.createFile(w, r)
 			return
 		}
+
+		// handle invalid method
+		w.Header().Set("Allow", "POST")
+		err := errors.New(r.Method + " used against file creation url. Only POST is allowed.")
+		h.err(err, w, http.StatusMethodNotAllowed)
+		return
 	}
 
-	err := errors.New("invalid url path: " + absPath + " - does not match file pattern")
+	// handle unknown url
+	err := errors.New("unknown url: " + absPath + " - does not match file pattern")
 	h.err(err, w, http.StatusNotFound)
+}
+
+func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
+	id := uid()
+	w.Header().Set("Location", h.absUrl(r, "/"+id))
+}
+
+// absUrl turn a relPath (e.g. "/foo") into an absolute url (e.g.
+// "http://example.com/foo").
+//
+// @TODO: Look at r.TLS to determine the url scheme.
+// @TODO: Make url prefix user configurable (optional) to deal with reverse
+// 				proxies.
+func (h *Handler) absUrl(r *http.Request, relPath string) string {
+	return "http://" + r.Host + path.Clean(h.config.BasePath+relPath)
 }
 
 // err sends a http error response and publishes to the Error channel.
