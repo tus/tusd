@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -89,6 +90,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 	id := uid()
+
+	finalLength, err := strconv.ParseInt(r.Header.Get("Final-Length"), 10, 64)
+	if err != nil {
+		err = errors.New("invalid Final-Length header: "+err.Error())
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.CreateFile(id, finalLength, nil); err != nil {
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Location", h.absUrl(r, "/"+id))
 }
 
@@ -97,7 +111,8 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 //
 // @TODO: Look at r.TLS to determine the url scheme.
 // @TODO: Make url prefix user configurable (optional) to deal with reverse
-// 				proxies.
+// 				proxies. This could be done by turning BasePath into BaseURL that
+//				that could be relative or absolute.
 func (h *Handler) absUrl(r *http.Request, relPath string) string {
 	return "http://" + r.Host + path.Clean(h.config.BasePath+relPath)
 }

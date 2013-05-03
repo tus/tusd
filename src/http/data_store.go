@@ -24,7 +24,7 @@ func newDataStore(dir string, maxSize int64) *DataStore {
 	return store
 }
 
-func (s *DataStore) CreateFile(id string, size int64, contentType string, contentDisposition string) error {
+func (s *DataStore) CreateFile(id string, size int64, meta map[string]string) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
@@ -33,8 +33,8 @@ func (s *DataStore) CreateFile(id string, size int64, contentType string, conten
 
 	entry := logEntry{Meta: &metaEntry{
 		Size:               size,
-		ContentType:        contentType,
-		ContentDisposition: contentDisposition,
+		ContentType:        "",
+		ContentDisposition: "",
 	}}
 	return s.appendFileLog(id, entry)
 }
