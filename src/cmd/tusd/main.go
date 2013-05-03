@@ -9,6 +9,8 @@ import (
 	"strconv"
 )
 
+const basePath = "/files/"
+
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	log.Printf("tusd started")
@@ -36,20 +38,34 @@ func main() {
 		}
 	}
 
-	config := tushttp.HandlerConfig{
-		Dir:          dir,
-		MaxSize:      maxSize,
+	tusConfig := tushttp.HandlerConfig{
+		Dir:      dir,
+		MaxSize:  maxSize,
+		BasePath: basePath,
 	}
 
-	log.Printf("handler config: %+v", config)
+	log.Printf("handler config: %+v", tusConfig)
 
-	handler, err := tushttp.NewHandler(config)
+	tusHandler, err := tushttp.NewHandler(tusConfig)
 	if err != nil {
 		panic(err)
 	}
 
+	http.Handle(basePath, tusHandler)
+
+	go handleUploads(tusHandler)
+
 	log.Printf("servering clients at http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		panic(err)
+	}
+}
+
+func handleUploads(tus *tushttp.Handler) {
+	for {
+		select {
+		case err := <-tus.Error:
+			log.Printf("error: %s", err)
+		}
 	}
 }
