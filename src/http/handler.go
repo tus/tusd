@@ -66,7 +66,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// example relPath results: "/", "/f81d4fae7dec11d0a765-00a0c91e6bf6", etc.
+	// example relPath results: "/", "/f81d4fae7dec11d0a76500a0c91e6bf6", etc.
 	relPath := absPath[len(h.config.BasePath)-1:]
 
 	// file creation request
@@ -98,11 +98,17 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// @TODO: What happens if Final-Length is <= 0
+
+	// @TODO: Provide meta data
+	// @TODO: Make max finalLength configurable, reply with error if exceeded.
+	// 			  This should go into the protocol as well.
 	if err := h.store.CreateFile(id, finalLength, nil); err != nil {
 		h.err(err, w, http.StatusInternalServerError)
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Location", h.absUrl(r, "/"+id))
 }
 
