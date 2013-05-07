@@ -11,6 +11,42 @@ import (
 
 const basePath = "/files/"
 
+func Setup() *TestSetup {
+	dir, err := ioutil.TempDir("", "tus_handler_test")
+	if err != nil {
+		panic(err)
+	}
+
+	config := HandlerConfig{
+		Dir:      dir,
+		MaxSize:  1024 * 1024,
+		BasePath: basePath,
+	}
+
+	handler, err := NewHandler(config)
+	if err != nil {
+		panic(err)
+	}
+
+	server := httptest.NewServer(handler)
+	return &TestSetup{
+		Handler: handler,
+		Server:  server,
+	}
+}
+
+type TestSetup struct {
+	Handler *Handler
+	Server  *httptest.Server
+}
+
+func (s *TestSetup) Teardown() {
+	s.Server.Close()
+	if err := os.RemoveAll(s.Handler.config.Dir); err != nil {
+		panic(err)
+	}
+}
+
 var Protocol_FileCreation_Tests = []struct {
 	Description      string
 	Method           string
@@ -48,25 +84,8 @@ var Protocol_FileCreation_Tests = []struct {
 }
 
 func TestProtocol_FileCreation(t *testing.T) {
-	dir, err := ioutil.TempDir("", "tus_handler_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(dir)
-
-	config := HandlerConfig{
-		Dir:      dir,
-		MaxSize:  1024 * 1024,
-		BasePath: basePath,
-	}
-
-	handler, err := NewHandler(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	server := httptest.NewServer(handler)
-	defer server.Close()
+	setup := Setup()
+	defer setup.Teardown()
 
 Tests:
 	for _, test := range Protocol_FileCreation_Tests {
@@ -77,7 +96,7 @@ Tests:
 			method = "POST"
 		}
 
-		req, err := http.NewRequest(method, server.URL+config.BasePath, nil)
+		req, err := http.NewRequest(method, setup.Server.URL+setup.Handler.config.BasePath, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,3 +137,6 @@ Tests:
 		}
 	}
 }
+
+var Protocol_Core_Tests = []struct {
+}{}
