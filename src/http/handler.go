@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var fileUrlMatcher = regexp.MustCompilePOSIX("^/([a-z0-9]{32})$")
 
 // HandlerConfig holds the configuration for a tus Handler.
 type HandlerConfig struct {
@@ -57,6 +60,7 @@ type Handler struct {
 	sendError chan<- error
 }
 
+// ServeHTTP processes an incoming request according to the tus protocol.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Verify that url matches BasePath
 	absPath := r.URL.Path
@@ -79,6 +83,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// handle invalid method
 		w.Header().Set("Allow", "POST")
 		err := errors.New(r.Method + " used against file creation url. Only POST is allowed.")
+		h.err(err, w, http.StatusMethodNotAllowed)
+		return
+	}
+
+	if matches := fileUrlMatcher.FindStringSubmatch(relPath); matches != nil {
+		//id := matches[1]
+		if r.Method == "PATCH" {
+			return
+		}
+
+		// handle invalid method
+		allowed := "PATCH"
+		w.Header().Set("Allow", allowed)
+		err := errors.New(r.Method + " used against file creation url. Allowed: "+allowed)
 		h.err(err, w, http.StatusMethodNotAllowed)
 		return
 	}
