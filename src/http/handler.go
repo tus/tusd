@@ -93,14 +93,17 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 
 	finalLength, err := strconv.ParseInt(r.Header.Get("Final-Length"), 10, 64)
 	if err != nil {
-		err = errors.New("invalid Final-Length header: "+err.Error())
+		err = errors.New("invalid Final-Length header: " + err.Error())
 		h.err(err, w, http.StatusBadRequest)
 		return
 	}
 
-	// @TODO: What happens if Final-Length is <= 0
+	if finalLength < 0 {
+		h.err(errors.New("negative Final-Length values not supported"), w, http.StatusBadRequest)
+		return
+	}
 
-	// @TODO: Provide meta data
+	// @TODO: Define meta data extension and implement it here
 	// @TODO: Make max finalLength configurable, reply with error if exceeded.
 	// 			  This should go into the protocol as well.
 	if err := h.store.CreateFile(id, finalLength, nil); err != nil {
@@ -108,8 +111,8 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Location", h.absUrl(r, "/"+id))
+	w.WriteHeader(http.StatusCreated)
 }
 
 // absUrl turn a relPath (e.g. "/foo") into an absolute url (e.g.
