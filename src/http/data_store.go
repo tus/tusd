@@ -99,7 +99,7 @@ func (s *DataStore) GetInfo(id string) (FileInfo, error) {
 // the caller to take care of this.
 func (s *DataStore) getInfo(id string) (FileInfo, error) {
 	info := FileInfo{}
-	data, err := ioutil.ReadFile(s.jsonPath(id))
+	data, err := ioutil.ReadFile(s.infoPath(id))
 	if err != nil {
 		return info, err
 	}
@@ -114,7 +114,7 @@ func (s *DataStore) writeInfo(id string, info FileInfo) error {
 		return err
 	}
 
-	return ioutil.WriteFile(s.jsonPath(id), data, defaultFilePerm)
+	return ioutil.WriteFile(s.infoPath(id), data, defaultFilePerm)
 }
 
 // setOffset updates the offset of a file, unless the current offset on disk is
@@ -141,8 +141,8 @@ func (s *DataStore) filePath(id string) string {
 	return path.Join(s.dir, id) + ".bin"
 }
 
-func (s *DataStore) jsonPath(id string) string {
-	return path.Join(s.dir, id) + ".json"
+func (s *DataStore) infoPath(id string) string {
+	return path.Join(s.dir, id) + ".info"
 }
 
 // TODO: This works for now, but it would be better if we would trigger gc()
