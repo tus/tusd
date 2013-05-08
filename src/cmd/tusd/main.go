@@ -51,7 +51,20 @@ func main() {
 		panic(err)
 	}
 
-	http.Handle(basePath, tusHandler)
+	http.HandleFunc(basePath, func(w http.ResponseWriter, r *http.Request) {
+		// Allow CORS for almost everything. This needs to be revisted / limited to
+		// routes and methods that need it.
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
+		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Range, Content-Disposition")
+		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
+
+		if r.Method == "OPTIONS" {
+			return
+		}
+
+		tusHandler.ServeHTTP(w, r)
+	})
 
 	go handleUploads(tusHandler)
 
