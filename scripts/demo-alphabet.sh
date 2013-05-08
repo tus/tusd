@@ -4,6 +4,7 @@
 # Can also be used as a simple way to test, or extend to see how it
 # responds to edge cases or learn the basic tech.
 #
+# Compatible with tus resumable upload protocol 0.1
 
 # Constants
 SERVICE="localhost:1080"
