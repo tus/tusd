@@ -52,7 +52,7 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 
 // Handler is a http.Handler that implements tus resumable upload protocol.
 type Handler struct {
-	store  *DataStore
+	store  *dataStore
 	config HandlerConfig
 
 	// Error provides error events for logging purposes.

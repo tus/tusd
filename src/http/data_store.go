@@ -15,7 +15,8 @@ import (
 
 const defaultFilePerm = 0666
 
-type DataStore struct {
+// @TODO should not be exported for now, the API isn't stable / done well
+type dataStore struct {
 	dir     string
 	maxSize int64
 
@@ -25,8 +26,8 @@ type DataStore struct {
 	infoLocks map[string]*sync.RWMutex
 }
 
-func newDataStore(dir string, maxSize int64) *DataStore {
-	store := &DataStore{
+func newDataStore(dir string, maxSize int64) *dataStore {
+	store := &dataStore{
 		dir:           dir,
 		maxSize:       maxSize,
 		infoLocksLock: &sync.Mutex{},
@@ -37,7 +38,7 @@ func newDataStore(dir string, maxSize int64) *DataStore {
 }
 
 // infoLock returns the lock for the .info file of the given file id.
-func (s *DataStore) infoLock(id string) *sync.RWMutex {
+func (s *dataStore) infoLock(id string) *sync.RWMutex {
 	s.infoLocksLock.Lock()
 	defer s.infoLocksLock.Unlock()
 
@@ -49,7 +50,7 @@ func (s *DataStore) infoLock(id string) *sync.RWMutex {
 	return lock
 }
 
-func (s *DataStore) CreateFile(id string, finalLength int64, meta map[string]string) error {
+func (s *dataStore) CreateFile(id string, finalLength int64, meta map[string]string) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (s *DataStore) CreateFile(id string, finalLength int64, meta map[string]str
 	return s.writeInfo(id, FileInfo{FinalLength: finalLength, Meta: meta})
 }
 
-func (s *DataStore) WriteFileChunk(id string, offset int64, src io.Reader) error {
+func (s *dataStore) WriteFileChunk(id string, offset int64, src io.Reader) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
@@ -84,11 +85,11 @@ func (s *DataStore) WriteFileChunk(id string, offset int64, src io.Reader) error
 	return err
 }
 
-func (s *DataStore) ReadFile(id string) (io.ReadCloser, error) {
+func (s *dataStore) ReadFile(id string) (io.ReadCloser, error) {
 	return os.Open(s.filePath(id))
 }
 
-func (s *DataStore) GetInfo(id string) (FileInfo, error) {
+func (s *dataStore) GetInfo(id string) (FileInfo, error) {
 	s.infoLock(id).RLock()
 	defer s.infoLock(id).RUnlock()
 
@@ -97,7 +98,7 @@ func (s *DataStore) GetInfo(id string) (FileInfo, error) {
 
 // getInfo is the same as GetInfo, but does not apply any locks, requiring
 // the caller to take care of this.
-func (s *DataStore) getInfo(id string) (FileInfo, error) {
+func (s *dataStore) getInfo(id string) (FileInfo, error) {
 	info := FileInfo{}
 	data, err := ioutil.ReadFile(s.infoPath(id))
 	if err != nil {
@@ -108,7 +109,7 @@ func (s *DataStore) getInfo(id string) (FileInfo, error) {
 	return info, err
 }
 
-func (s *DataStore) writeInfo(id string, info FileInfo) error {
+func (s *dataStore) writeInfo(id string, info FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (s *DataStore) writeInfo(id string, info FileInfo) error {
 
 // setOffset updates the offset of a file, unless the current offset on disk is
 // already greater.
-func (s *DataStore) setOffset(id string, offset int64) error {
+func (s *dataStore) setOffset(id string, offset int64) error {
 	s.infoLock(id).Lock()
 	defer s.infoLock(id).Unlock()
 
@@ -137,11 +138,11 @@ func (s *DataStore) setOffset(id string, offset int64) error {
 	return s.writeInfo(id, info)
 }
 
-func (s *DataStore) filePath(id string) string {
+func (s *dataStore) filePath(id string) string {
 	return path.Join(s.dir, id) + ".bin"
 }
 
-func (s *DataStore) infoPath(id string) string {
+func (s *dataStore) infoPath(id string) string {
 	return path.Join(s.dir, id) + ".info"
 }
 
@@ -149,12 +150,12 @@ func (s *DataStore) infoPath(id string) string {
 // manually whenever a storage operation will need more space, telling gc() how
 // much space we need. If the amount of space required fits into the max, we
 // can simply ignore the gc request, otherwise delete just as much as we need.
-func (s *DataStore) gcLoop() {
+func (s *dataStore) gcLoop() {
 	for {
 		if before, after, err := s.gc(); err != nil {
-			log.Printf("DataStore: gc error: %s", err)
+			log.Printf("dataStore: gc error: %s", err)
 		} else if before != after {
-			log.Printf("DataStore: gc before: %d, after: %d", before, after)
+			log.Printf("dataStore: gc before: %d, after: %d", before, after)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -164,9 +165,9 @@ func (s *DataStore) gcLoop() {
 // fix this we need a mechanism to detect this scenario and reject new storage
 // ops if the current storage ops require all of the available dataStore size.
 
-// gc shrinks the amount of bytes used by the DataStore to <= maxSize by
+// gc shrinks the amount of bytes used by the dataStore to <= maxSize by
 // deleting the oldest files according to their mtime.
-func (s *DataStore) gc() (before int64, after int64, err error) {
+func (s *dataStore) gc() (before int64, after int64, err error) {
 	dataDir, err := os.Open(s.dir)
 	if err != nil {
 		return
