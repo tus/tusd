@@ -201,6 +201,30 @@ var Protocol_Core_Tests = []struct {
 		},
 	},
 	{
+		Description:       "Overlapping Resume",
+		FinalLength:       11,
+		ExpectFileContent: "hello world",
+		Requests: []TestRequest{
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "0"},
+				Body:             "hello wo",
+				ExpectStatusCode: http.StatusOK,
+			},
+			{
+				Method:           "HEAD",
+				ExpectStatusCode: http.StatusOK,
+				ExpectHeaders:    map[string]string{"Offset": "8"},
+			},
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "5"},
+				Body:             " world",
+				ExpectStatusCode: http.StatusOK,
+			},
+		},
+	},
+	{
 		Description: "Offset exceeded",
 		FinalLength: 5,
 		Requests: []TestRequest{
