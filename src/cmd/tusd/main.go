@@ -56,7 +56,7 @@ func main() {
 		// routes and methods that need it.
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
-		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Range, Content-Disposition, Final-Length")
+		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length")
 		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
 
 		if r.Method == "OPTIONS" {
