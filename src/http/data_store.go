@@ -202,15 +202,15 @@ func (s *DataStore) gc() (before int64, after int64, err error) {
 		deleted[fullPath] = true
 	}
 
-	// Make sure we did not delete a .log file but forgot the .bin or vice-versa.
+	// Make sure we did not delete a .info file but forgot the .bin or vice-versa.
 	for fullPath, _ := range deleted {
 		ext := path.Ext(fullPath)
 		base := fullPath[0 : len(fullPath)-len(ext)]
 
 		counterPath := ""
 		if ext == ".bin" {
-			counterPath = base + ".log"
-		} else if ext == ".log" {
+			counterPath = base + ".info"
+		} else if ext == ".info" {
 			counterPath = base + ".bin"
 		}
 
