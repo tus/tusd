@@ -34,9 +34,7 @@ func (s *DataStore) CreateFile(id string, size int64, meta map[string]string) er
 	// @TODO Refactor DataStore to support meta argument properly. Needs to be
 	// defined in tus protocol first.
 	entry := logEntry{Meta: &metaEntry{
-		Size:               size,
-		ContentType:        "",
-		ContentDisposition: "",
+		Size: size,
 	}}
 	return s.appendFileLog(id, entry)
 }
