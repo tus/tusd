@@ -177,7 +177,7 @@ var Protocol_Core_Tests = []struct {
 		},
 	},
 	{
-		Description:       "Resume",
+		Description:       "Simple Resume",
 		FinalLength:       11,
 		ExpectFileContent: "hello world",
 		Requests: []TestRequest{
@@ -200,7 +200,20 @@ var Protocol_Core_Tests = []struct {
 			},
 		},
 	},
-	// @TODO Test applying PATCH at offset > current offset (error)
+	{
+		Description: "Offset exceeded",
+		FinalLength: 5,
+		Requests: []TestRequest{
+			{
+				Method:  "PATCH",
+				Headers: map[string]string{"Offset": "1"},
+				// Not sure if this is the right status to use. Once the parallel
+				// chunks protocol spec is done, we can use NotImplemented as a
+				// status until we implement support for this.
+				ExpectStatusCode: http.StatusForbidden,
+			},
+		},
+	},
 }
 
 func TestProtocol_Core(t *testing.T) {

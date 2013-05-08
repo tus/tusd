@@ -139,7 +139,18 @@ func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	// @TODO Reject if offset > current offset
+	info, err := h.store.GetInfo(id)
+	if err != nil {
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+
+	if offset > info.Offset {
+		err = fmt.Errorf("Offset: %d exceeds current offset: %d", offset, info.Offset)
+		h.err(err, w, http.StatusForbidden)
+		return
+	}
+
 	// @TODO Test offset < current offset
 
 	err = h.store.WriteFileChunk(id, offset, r.Body)
