@@ -55,7 +55,7 @@ func main() {
 		// Allow CORS for almost everything. This needs to be revisted / limited to
 		// routes and methods that need it.
 		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,DELETE")
+		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,PATCH,DELETE")
 		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length")
 		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
 
