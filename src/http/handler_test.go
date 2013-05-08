@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -114,6 +115,108 @@ func TestProtocol_FileCreation(t *testing.T) {
 	}
 }
 
+var Protocol_Core_Tests = []struct {
+	Description       string
+	FinalLength       int64
+	Requests          []TestRequest
+	ExpectFileContent string
+}{
+	{
+		Description: "Bad method",
+		FinalLength: 1024,
+		Requests: []TestRequest{
+			{
+				Method:           "PUT",
+				ExpectStatusCode: http.StatusMethodNotAllowed,
+				ExpectHeaders:    map[string]string{"Allow": "PATCH"},
+			},
+		},
+	},
+	{
+		Description: "Missing Offset header",
+		FinalLength: 5,
+		Requests: []TestRequest{
+			{Method: "PATCH", Body: "hello", ExpectStatusCode: http.StatusBadRequest},
+		},
+	},
+	{
+		Description: "Negative Offset header",
+		FinalLength: 5,
+		Requests: []TestRequest{
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "-10"},
+				Body:             "hello",
+				ExpectStatusCode: http.StatusBadRequest,
+			},
+		},
+	},
+	{
+		Description: "Invalid Offset header",
+		FinalLength: 5,
+		Requests: []TestRequest{
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "lalala"},
+				Body:             "hello",
+				ExpectStatusCode: http.StatusBadRequest,
+			},
+		},
+	},
+	{
+		Description:       "Single PATCH Upload",
+		FinalLength:       5,
+		ExpectFileContent: "hello",
+		Requests: []TestRequest{
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "0"},
+				Body:             "hello",
+				ExpectStatusCode: http.StatusOK,
+			},
+		},
+	},
+}
+
+func TestProtocol_Core(t *testing.T) {
+	setup := Setup()
+	defer setup.Teardown()
+
+Tests:
+	for _, test := range Protocol_Core_Tests {
+		t.Logf("test: %s", test.Description)
+
+		location := createFile(setup, test.FinalLength)
+		for _, request := range test.Requests {
+			request.Url = location
+			if err := request.Do(); err != nil {
+				t.Error(err)
+				continue Tests
+			}
+		}
+
+		if test.ExpectFileContent != "" {
+			id := regexp.MustCompile("[a-z0-9]{32}$").FindString(location)
+			reader, err := setup.Handler.store.ReadFile(id)
+			if err != nil {
+				t.Error(err)
+				continue Tests
+			}
+
+			content, err := ioutil.ReadAll(reader)
+			if err != nil {
+				t.Error(err)
+				continue Tests
+			}
+
+			if string(content) != test.ExpectFileContent {
+				t.Errorf("expected content: %s, got: %s", test.ExpectFileContent, content)
+				continue Tests
+			}
+		}
+	}
+}
+
 // TestRequest is a test helper that performs and validates requests according
 // to the struct fields below.
 type TestRequest struct {
@@ -124,10 +227,11 @@ type TestRequest struct {
 	ExpectHeaders    map[string]string
 	MatchHeaders     map[string]*regexp.Regexp
 	Response         *http.Response
+	Body             string
 }
 
 func (r *TestRequest) Do() error {
-	req, err := http.NewRequest(r.Method, r.Url, nil)
+	req, err := http.NewRequest(r.Method, r.Url, strings.NewReader(r.Body))
 	if err != nil {
 		return err
 	}
@@ -162,43 +266,6 @@ func (r *TestRequest) Do() error {
 	r.Response = res
 
 	return nil
-}
-
-var Protocol_Core_Tests = []struct {
-	Description string
-	FinalLength int64
-	Requests    []TestRequest
-}{
-	{
-		Description: "Bad method",
-		FinalLength: 1024,
-		Requests: []TestRequest{
-			{
-				Method:           "PUT",
-				ExpectStatusCode: http.StatusMethodNotAllowed,
-				ExpectHeaders:    map[string]string{"Allow": "PATCH"},
-			},
-		},
-	},
-}
-
-func TestProtocol_Core(t *testing.T) {
-	setup := Setup()
-	defer setup.Teardown()
-
-Tests:
-	for _, test := range Protocol_Core_Tests {
-		t.Logf("test: %s", test.Description)
-
-		location := createFile(setup, test.FinalLength)
-		for _, request := range test.Requests {
-			request.Url = location
-			if err := request.Do(); err != nil {
-				t.Error(err)
-				continue Tests
-			}
-		}
-	}
 }
 
 // createFile is a test helper that creates a new file and returns the url.

@@ -41,7 +41,7 @@ func (s *DataStore) CreateFile(id string, size int64, meta map[string]string) er
 	return s.appendFileLog(id, entry)
 }
 
-func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Reader) error {
+func (s *DataStore) WriteFileChunk(id string, start int64, src io.Reader) error {
 	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, 0666)
 	if err != nil {
 		return err
@@ -54,21 +54,14 @@ func (s *DataStore) WriteFileChunk(id string, start int64, end int64, src io.Rea
 		return errors.New("WriteFileChunk: seek failure")
 	}
 
-	size := end - start + 1
-	n, err := io.CopyN(file, src, size)
+	n, err := io.Copy(file, src)
 	if n > 0 {
 		entry := logEntry{Chunk: &chunkEntry{Start: start, End: start + n - 1}}
 		if err := s.appendFileLog(id, entry); err != nil {
 			return err
 		}
 	}
-
-	if err != nil {
-		return err
-	} else if n != size {
-		return errors.New("WriteFileChunk: partial copy")
-	}
-	return nil
+	return err
 }
 
 func (s *DataStore) GetFileMeta(id string) (*fileMeta, error) {

@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"strings"
 )
 
-var fileUrlMatcher = regexp.MustCompilePOSIX("^/([a-z0-9]{32})$")
+var fileUrlMatcher = regexp.MustCompile("^/([a-z0-9]{32})$")
 
 // HandlerConfig holds the configuration for a tus Handler.
 type HandlerConfig struct {
@@ -88,15 +89,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if matches := fileUrlMatcher.FindStringSubmatch(relPath); matches != nil {
-		//id := matches[1]
+		id := matches[1]
 		if r.Method == "PATCH" {
+			h.patchFile(w, r, id)
 			return
 		}
 
 		// handle invalid method
 		allowed := "PATCH"
 		w.Header().Set("Allow", allowed)
-		err := errors.New(r.Method + " used against file creation url. Allowed: "+allowed)
+		err := errors.New(r.Method + " used against file creation url. Allowed: " + allowed)
 		h.err(err, w, http.StatusMethodNotAllowed)
 		return
 	}
@@ -109,15 +111,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 	id := uid()
 
-	finalLength, err := strconv.ParseInt(r.Header.Get("Final-Length"), 10, 64)
+	finalLength, err := getPositiveIntHeader(r, "Final-Length")
 	if err != nil {
-		err = errors.New("invalid Final-Length header: " + err.Error())
 		h.err(err, w, http.StatusBadRequest)
-		return
-	}
-
-	if finalLength < 0 {
-		h.err(errors.New("negative Final-Length values not supported"), w, http.StatusBadRequest)
 		return
 	}
 
@@ -131,6 +127,37 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", h.absUrl(r, "/"+id))
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
+	offset, err := getPositiveIntHeader(r, "Offset")
+	if err != nil {
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.store.WriteFileChunk(id, offset, r.Body)
+	if err != nil {
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("success\n")
+}
+
+func getPositiveIntHeader(r *http.Request, key string) (int64, error) {
+	val := r.Header.Get(key)
+	if val == "" {
+		return 0, errors.New(key+" header must not be empty")
+	}
+
+	intVal, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return 0, errors.New("invalid " + key + " header: " + err.Error())
+	} else if intVal < 0 {
+		return 0, errors.New(key + " header must be > 0")
+	}
+	return intVal, nil
 }
 
 // absUrl turn a relPath (e.g. "/foo") into an absolute url (e.g.
