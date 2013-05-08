@@ -38,7 +38,7 @@ source dev.sh
 Now you can run tusd:
 
 ```bash
-go run src/cmd/tusd/*.go
+go run src/cmd/tusd/main.go
 ```
 
 ## License
