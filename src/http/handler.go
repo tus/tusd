@@ -93,10 +93,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "PATCH" {
 			h.patchFile(w, r, id)
 			return
+		} else if r.Method == "HEAD" {
+			h.headFile(w, r, id)
+			return
 		}
 
 		// handle invalid method
-		allowed := "PATCH"
+		allowed := "HEAD,PATCH"
 		w.Header().Set("Allow", allowed)
 		err := errors.New(r.Method + " used against file creation url. Allowed: " + allowed)
 		h.err(err, w, http.StatusMethodNotAllowed)
@@ -136,13 +139,25 @@ func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
+	// @TODO Reject if offset > current offset
+	// @TODO Test offset < current offset
+
 	err = h.store.WriteFileChunk(id, offset, r.Body)
+	if err != nil {
+		// @TODO handle 404 properly (goes for all h.err calls)
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handler) headFile(w http.ResponseWriter, r *http.Request, id string) {
+	info, err := h.store.GetInfo(id)
 	if err != nil {
 		h.err(err, w, http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Printf("success\n")
+	w.Header().Set("Offset", fmt.Sprintf("%d", info.Offset))
 }
 
 func getPositiveIntHeader(r *http.Request, key string) (int64, error) {

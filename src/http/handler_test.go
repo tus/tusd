@@ -128,7 +128,7 @@ var Protocol_Core_Tests = []struct {
 			{
 				Method:           "PUT",
 				ExpectStatusCode: http.StatusMethodNotAllowed,
-				ExpectHeaders:    map[string]string{"Allow": "PATCH"},
+				ExpectHeaders:    map[string]string{"Allow": "HEAD,PATCH"},
 			},
 		},
 	},
@@ -176,6 +176,31 @@ var Protocol_Core_Tests = []struct {
 			},
 		},
 	},
+	{
+		Description:       "Resume",
+		FinalLength:       11,
+		ExpectFileContent: "hello world",
+		Requests: []TestRequest{
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "0"},
+				Body:             "hello",
+				ExpectStatusCode: http.StatusOK,
+			},
+			{
+				Method:           "HEAD",
+				ExpectStatusCode: http.StatusOK,
+				ExpectHeaders:    map[string]string{"Offset": "5"},
+			},
+			{
+				Method:           "PATCH",
+				Headers:          map[string]string{"Offset": "5"},
+				Body:             " world",
+				ExpectStatusCode: http.StatusOK,
+			},
+		},
+	},
+	// @TODO Test applying PATCH at offset > current offset (error)
 }
 
 func TestProtocol_Core(t *testing.T) {
@@ -187,7 +212,8 @@ Tests:
 		t.Logf("test: %s", test.Description)
 
 		location := createFile(setup, test.FinalLength)
-		for _, request := range test.Requests {
+		for i, request := range test.Requests {
+			t.Logf("- request #%d: %s", i+1, request.Method)
 			request.Url = location
 			if err := request.Do(); err != nil {
 				t.Error(err)

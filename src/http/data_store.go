@@ -9,127 +9,140 @@ import (
 	"os"
 	"path"
 	"sort"
-	"strings"
+	"sync"
 	"time"
 )
+
+const defaultFilePerm = 0666
 
 type DataStore struct {
 	dir     string
 	maxSize int64
+
+	// infoLocksLock locks the infosLocks map
+	infoLocksLock *sync.Mutex
+	// infoLocks locks the .info files
+	infoLocks map[string]*sync.RWMutex
 }
 
 func newDataStore(dir string, maxSize int64) *DataStore {
-	store := &DataStore{dir: dir, maxSize: maxSize}
+	store := &DataStore{
+		dir:           dir,
+		maxSize:       maxSize,
+		infoLocksLock: &sync.Mutex{},
+		infoLocks:     make(map[string]*sync.RWMutex),
+	}
 	go store.gcLoop()
 	return store
 }
 
-func (s *DataStore) CreateFile(id string, size int64, meta map[string]string) error {
-	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+// infoLock returns the lock for the .info file of the given file id.
+func (s *DataStore) infoLock(id string) *sync.RWMutex {
+	s.infoLocksLock.Lock()
+	defer s.infoLocksLock.Unlock()
 
-	// @TODO Refactor DataStore to support meta argument properly. Needs to be
-	// defined in tus protocol first.
-	entry := logEntry{Meta: &metaEntry{
-		Size: size,
-	}}
-	return s.appendFileLog(id, entry)
+	lock := s.infoLocks[id]
+	if lock == nil {
+		lock = &sync.RWMutex{}
+		s.infoLocks[id] = lock
+	}
+	return lock
 }
 
-func (s *DataStore) WriteFileChunk(id string, start int64, src io.Reader) error {
-	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, 0666)
+func (s *DataStore) CreateFile(id string, finalLength int64, meta map[string]string) error {
+	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	if n, err := file.Seek(start, os.SEEK_SET); err != nil {
+	s.infoLock(id).Lock()
+	defer s.infoLock(id).Unlock()
+
+	return s.writeInfo(id, FileInfo{FinalLength: finalLength, Meta: meta})
+}
+
+func (s *DataStore) WriteFileChunk(id string, offset int64, src io.Reader) error {
+	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, defaultFilePerm)
+	if err != nil {
 		return err
-	} else if n != start {
+	}
+	defer file.Close()
+
+	if n, err := file.Seek(offset, os.SEEK_SET); err != nil {
+		return err
+	} else if n != offset {
 		return errors.New("WriteFileChunk: seek failure")
 	}
 
 	n, err := io.Copy(file, src)
 	if n > 0 {
-		entry := logEntry{Chunk: &chunkEntry{Start: start, End: start + n - 1}}
-		if err := s.appendFileLog(id, entry); err != nil {
+		if err := s.setOffset(id, offset+n); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func (s *DataStore) GetFileMeta(id string) (*fileMeta, error) {
-	// @TODO stream the file / limit log file size?
-	data, err := ioutil.ReadFile(s.logPath(id))
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(data), "\n")
-	// last line is always empty, lets skip it
-	lines = lines[:len(lines)-1]
-
-	meta := &fileMeta{
-		Chunks: make(chunkSet, 0, len(lines)),
-	}
-
-	for _, line := range lines {
-		entry := logEntry{}
-		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			return nil, err
-		}
-
-		if entry.Chunk != nil {
-			meta.Chunks.Add(chunk{Start: entry.Chunk.Start, End: entry.Chunk.End})
-		}
-
-		if entry.Meta != nil {
-			meta.ContentType = entry.Meta.ContentType
-			meta.ContentDisposition = entry.Meta.ContentDisposition
-			meta.Size = entry.Meta.Size
-		}
-	}
-
-	return meta, nil
-}
-
 func (s *DataStore) ReadFile(id string) (io.ReadCloser, error) {
-	file, err := os.Open(s.filePath(id))
-	if err != nil {
-		return nil, err
-	}
-
-	return file, nil
+	return os.Open(s.filePath(id))
 }
 
-func (s *DataStore) appendFileLog(id string, entry interface{}) error {
-	logPath := s.logPath(id)
-	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+func (s *DataStore) GetInfo(id string) (FileInfo, error) {
+	s.infoLock(id).RLock()
+	defer s.infoLock(id).RUnlock()
+
+	return s.getInfo(id)
+}
+
+// getInfo is the same as GetInfo, but does not apply any locks, requiring
+// the caller to take care of this.
+func (s *DataStore) getInfo(id string) (FileInfo, error) {
+	info := FileInfo{}
+	data, err := ioutil.ReadFile(s.jsonPath(id))
+	if err != nil {
+		return info, err
+	}
+
+	err = json.Unmarshal(data, &info)
+	return info, err
+}
+
+func (s *DataStore) writeInfo(id string, info FileInfo) error {
+	data, err := json.Marshal(info)
 	if err != nil {
 		return err
 	}
-	defer logFile.Close()
 
-	data, err := json.Marshal(entry)
+	return ioutil.WriteFile(s.jsonPath(id), data, defaultFilePerm)
+}
+
+// setOffset updates the offset of a file, unless the current offset on disk is
+// already greater.
+func (s *DataStore) setOffset(id string, offset int64) error {
+	s.infoLock(id).Lock()
+	defer s.infoLock(id).Unlock()
+
+	info, err := s.getInfo(id)
 	if err != nil {
 		return err
 	}
 
-	if _, err := logFile.WriteString(string(data) + "\n"); err != nil {
-		return err
+	// never decrement the offset
+	if info.Offset >= offset {
+		return nil
 	}
-	return nil
+
+	info.Offset = offset
+	return s.writeInfo(id, info)
 }
 
 func (s *DataStore) filePath(id string) string {
 	return path.Join(s.dir, id) + ".bin"
 }
 
-func (s *DataStore) logPath(id string) string {
-	return path.Join(s.dir, id) + ".log"
+func (s *DataStore) jsonPath(id string) string {
+	return path.Join(s.dir, id) + ".json"
 }
 
 // TODO: This works for now, but it would be better if we would trigger gc()
@@ -240,23 +253,8 @@ func (s sortableFiles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-type fileMeta struct {
-	ContentType        string
-	ContentDisposition string
-	Size               int64
-	Chunks             chunkSet
-}
-
-type logEntry struct {
-	Chunk *chunkEntry `json:",omitempty"`
-	Meta  *metaEntry  `json:",omitempty"`
-}
-
-type chunkEntry struct {
-	Start, End int64
-}
-type metaEntry struct {
-	Size               int64
-	ContentType        string
-	ContentDisposition string
+type FileInfo struct {
+	Offset      int64
+	FinalLength int64
+	Meta        map[string]string
 }
