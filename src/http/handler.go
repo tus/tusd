@@ -96,6 +96,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else if r.Method == "HEAD" {
 			h.headFile(w, r, id)
 			return
+		} else if r.Method == "GET" {
+			h.getFile(w, r, id)
+			return
 		}
 
 		// handle invalid method
@@ -171,10 +174,48 @@ func (h *Handler) headFile(w http.ResponseWriter, r *http.Request, id string) {
 	w.Header().Set("Offset", fmt.Sprintf("%d", info.Offset))
 }
 
+// GET requests on files aren't part of the protocol yet,
+// but it is implemented here anyway for the demo. It still lacks the meta data
+// extension in order to send the proper content type header.
+func (h *Handler) getFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	info, err := h.store.GetInfo(fileId)
+	if os.IsNotExist(err) {
+		h.err(err, w, http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+
+	data, err := h.store.ReadFile(fileId)
+	if os.IsNotExist(err) {
+		h.err(err, w, http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		h.err(err, w, http.StatusInternalServerError)
+		return
+	}
+
+	defer data.Close()
+
+	w.Header().Set("Offset", strconv.FormatInt(info.Offset, 10))
+
+	// @TODO: Once the meta extension is done, send the proper content type here
+	//w.Header().Set("Content-Type", info.Meta.ContentType)
+
+	w.Header().Set("Content-Length", strconv.FormatInt(info.FinalLength, 10))
+
+	if _, err := io.CopyN(w, data, info.FinalLength); err != nil {
+		return
+	}
+}
+
 func getPositiveIntHeader(r *http.Request, key string) (int64, error) {
 	val := r.Header.Get(key)
 	if val == "" {
-		return 0, errors.New(key+" header must not be empty")
+		return 0, errors.New(key + " header must not be empty")
 	}
 
 	intVal, err := strconv.ParseInt(val, 10, 64)
