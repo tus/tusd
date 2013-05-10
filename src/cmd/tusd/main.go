@@ -57,7 +57,7 @@ func main() {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,PATCH,DELETE")
 		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length, Offset")
-		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition")
+		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition, Offset")
 
 		if r.Method == "OPTIONS" {
 			return
