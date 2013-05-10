@@ -54,9 +54,14 @@ func main() {
 	http.HandleFunc(basePath, func(w http.ResponseWriter, r *http.Request) {
 		// Allow CORS for almost everything. This needs to be revisted / limited to
 		// routes and methods that need it.
+
+		// Domains allowed to make requests
 		w.Header().Add("Access-Control-Allow-Origin", "*")
+		// Methods clients are allowed to use
 		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,PATCH,DELETE")
+		// Headers clients are allowed to send
 		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length, Offset")
+		// Headers clients are allowed to receive
 		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition, Offset")
 
 		if r.Method == "OPTIONS" {
