@@ -41,6 +41,13 @@ Now you can run tusd:
 go run src/cmd/tusd/main.go
 ```
 
+## Running the testsuite
+
+```bash
+cd src/http
+go test -v .
+```
+
 ## License
 
 This project is licensed under the MIT license, see `LICENSE.txt`.
