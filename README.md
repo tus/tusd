@@ -10,7 +10,7 @@ In the future tusd may be extended with additional functionality to make it
 suitable as a standalone production upload server, but for now this is not a
 priority.
 
-**Protocol version:** 0.1 (upgrade to 0.2 will be ready soon)
+**Protocol version:** 0.2.1
 
 ## Getting started
 
