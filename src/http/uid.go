@@ -2,7 +2,7 @@ package http
 
 import (
 	"crypto/rand"
-	"fmt"
+	"encoding/hex"
 	"io"
 )
 
@@ -20,5 +20,5 @@ func uid() string {
 		panic(err)
 	}
 
-	return fmt.Sprintf("%x", id)
+	return hex.EncodeToString(id)
 }
