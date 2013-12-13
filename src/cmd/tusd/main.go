@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 const basePath = "/files/"
@@ -73,8 +74,18 @@ func main() {
 
 	go handleUploads(tusHandler)
 
+	// On http package's default action, a broken http connection will cause io.Copy() stuck because it always suppose more data will coming and wait for them infinitely
+	// To prevent it happen, we should set a specific timeout value on http server
+	s := &http.Server{
+		Addr:           addr,
+		Handler:        nil,
+		ReadTimeout:    8 * time.Second,
+		WriteTimeout:   8 * time.Second,
+		MaxHeaderBytes: 0,
+	}
+
 	log.Printf("servering clients at http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := s.ListenAndServe(); err != nil {
 		panic(err)
 	}
 }
