@@ -167,7 +167,8 @@ func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
 func (h *Handler) headFile(w http.ResponseWriter, r *http.Request, id string) {
 	info, err := h.store.GetInfo(id)
 	if err != nil {
-		h.err(err, w, http.StatusInternalServerError)
+		w.Header().Set("Content-Length", "0")
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
