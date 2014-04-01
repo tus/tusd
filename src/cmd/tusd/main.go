@@ -83,6 +83,20 @@ func main() {
 		WriteTimeout:   8 * time.Second,
 		MaxHeaderBytes: 0,
 	}
+	if envReadTimeout := os.Getenv("TUSD_SERVER_READ_TIMEOUT_IN_SECONDS"); envReadTimeout != "" {
+		parsed, err := strconv.ParseInt(envReadTimeout, 10, 64)
+		if err != nil {
+			panic("bad TUSD_SERVER_READ_TIMEOUT_IN_SECONDS: " + err.Error())
+		}
+		s.ReadTimeout = time.Duration(parsed) * time.Second
+	}
+	if envWriteTimeout := os.Getenv("TUSD_SERVER_WRITE_TIMEOUT_IN_SECONDS"); envWriteTimeout != "" {
+		parsed, err := strconv.ParseInt(envWriteTimeout, 10, 64)
+		if err != nil {
+			panic("bad TUSD_SERVER_WRITE_TIMEOUT_IN_SECONDS: " + err.Error())
+		}
+		s.WriteTimeout = time.Duration(parsed) * time.Second
+	}
 
 	log.Printf("servering clients at http://localhost%s", addr)
 	if err := s.ListenAndServe(); err != nil {
