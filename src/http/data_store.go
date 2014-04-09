@@ -17,9 +17,9 @@ const defaultFilePerm = 0666
 
 // @TODO should not be exported for now, the API isn't stable / done well
 type dataStore struct {
-	dir     string
-	maxSize int64
-
+	dir      string
+	maxSize  int64
+	fileType string
 	// infoLocksLock locks the infosLocks map
 	infoLocksLock *sync.Mutex
 	// infoLocks locks the .info files
@@ -50,8 +50,8 @@ func (s *dataStore) infoLock(id string) *sync.RWMutex {
 	return lock
 }
 
-func (s *dataStore) CreateFile(id string, finalLength int64, meta map[string]string) error {
-	file, err := os.OpenFile(s.filePath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
+func (s *dataStore) CreateFile(id string, fileType string, finalLength int64, meta map[string]string) error {
+	file, err := os.OpenFile(s.filePath(id, fileType), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
 	}
@@ -63,8 +63,8 @@ func (s *dataStore) CreateFile(id string, finalLength int64, meta map[string]str
 	return s.writeInfo(id, FileInfo{FinalLength: finalLength, Meta: meta})
 }
 
-func (s *dataStore) WriteFileChunk(id string, offset int64, src io.Reader) error {
-	file, err := os.OpenFile(s.filePath(id), os.O_WRONLY, defaultFilePerm)
+func (s *dataStore) WriteFileChunk(id string, fileType string, offset int64, src io.Reader) error {
+	file, err := os.OpenFile(s.filePath(id, fileType), os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		return err
 	}
@@ -85,8 +85,8 @@ func (s *dataStore) WriteFileChunk(id string, offset int64, src io.Reader) error
 	return err
 }
 
-func (s *dataStore) ReadFile(id string) (io.ReadCloser, error) {
-	return os.Open(s.filePath(id))
+func (s *dataStore) ReadFile(id string, fileType string) (io.ReadCloser, error) {
+	return os.Open(s.filePath(id, fileType))
 }
 
 func (s *dataStore) GetInfo(id string) (FileInfo, error) {
@@ -138,8 +138,8 @@ func (s *dataStore) setOffset(id string, offset int64) error {
 	return s.writeInfo(id, info)
 }
 
-func (s *dataStore) filePath(id string) string {
-	return path.Join(s.dir, id) + ".bin"
+func (s *dataStore) filePath(id string, fileType string) string {
+	return path.Join(s.dir, id) + "." + fileType
 }
 
 func (s *dataStore) infoPath(id string) string {
