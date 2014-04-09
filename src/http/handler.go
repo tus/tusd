@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+    "crypto/md5"
+    "encoding/hex"
 )
 
 var fileUrlMatcher = regexp.MustCompile("^/([a-z0-9]{32})$")
@@ -117,6 +119,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 	id := uid()
 
+	fileType, err := getStringHeader(r, "File-Type")
+	if err != nil {
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
 	finalLength, err := getPositiveIntHeader(r, "Final-Length")
 	if err != nil {
 		h.err(err, w, http.StatusBadRequest)
@@ -126,7 +134,7 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 	// @TODO: Define meta data extension and implement it here
 	// @TODO: Make max finalLength configurable, reply with error if exceeded.
 	// 			  This should go into the protocol as well.
-	if err := h.store.CreateFile(id, finalLength, nil); err != nil {
+	if err := h.store.CreateFile(id, fileType, finalLength, nil); err != nil {
 		h.err(err, w, http.StatusInternalServerError)
 		return
 	}
@@ -137,6 +145,13 @@ func (h *Handler) createFile(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
 	offset, err := getPositiveIntHeader(r, "Offset")
+	//contentLength, err := getPositiveIntHeader(r, "Content-Length")
+	if err != nil {
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
+	fileType, err := getStringHeader(r, "File-Type")
 	if err != nil {
 		h.err(err, w, http.StatusBadRequest)
 		return
@@ -156,15 +171,24 @@ func (h *Handler) patchFile(w http.ResponseWriter, r *http.Request, id string) {
 
 	// @TODO Test offset < current offset
 
-	err = h.store.WriteFileChunk(id, offset, r.Body)
+	err = h.store.WriteFileChunk(id, fileType, offset, r.Body)
 	if err != nil {
 		// @TODO handle 404 properly (goes for all h.err calls)
 		h.err(err, w, http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("md5Value", getMD5(h.config.Dir + "/" + id + "." + fileType))
+	
 }
 
 func (h *Handler) headFile(w http.ResponseWriter, r *http.Request, id string) {
+	fileType, err := getStringHeader(r, "File-Type")
+	if err != nil {
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
 	info, err := h.store.GetInfo(id)
 	if err != nil {
 		w.Header().Set("Content-Length", "0")
@@ -173,12 +197,23 @@ func (h *Handler) headFile(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	w.Header().Set("Offset", fmt.Sprintf("%d", info.Offset))
+
+	if info.Offset == info.FinalLength {
+		w.Header().Set("md5Value", getMD5(h.config.Dir + "/" + id + "." + fileType))
+	}
+
 }
 
 // GET requests on files aren't part of the protocol yet,
 // but it is implemented here anyway for the demo. It still lacks the meta data
 // extension in order to send the proper content type header.
 func (h *Handler) getFile(w http.ResponseWriter, r *http.Request, fileId string) {
+	fileType, err := getStringHeader(r, "File-Type")
+	if err != nil {
+		h.err(err, w, http.StatusBadRequest)
+		return
+	}
+
 	info, err := h.store.GetInfo(fileId)
 	if os.IsNotExist(err) {
 		h.err(err, w, http.StatusNotFound)
@@ -189,7 +224,7 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request, fileId string)
 		return
 	}
 
-	data, err := h.store.ReadFile(fileId)
+	data, err := h.store.ReadFile(fileId,fileType)
 	if os.IsNotExist(err) {
 		h.err(err, w, http.StatusNotFound)
 		return
@@ -213,6 +248,30 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request, fileId string)
 	}
 }
 
+func getMD5(filename string) (string) {
+    fi, err := os.Open(filename)
+    if err != nil { panic(err) }
+    defer func() {
+        if err := fi.Close(); err != nil {
+            panic(err)
+        }
+    }()
+
+    buf := make([]byte, 1024)
+    hash := md5.New()
+    for {
+        n, err := fi.Read(buf)
+        if err != nil && err != io.EOF { panic(err) }
+        if n == 0 { break }
+
+        if _, err := io.WriteString(hash, string(buf[:n])); err != nil {
+            panic(err)
+        }
+    }
+
+    return hex.EncodeToString(hash.Sum(nil))
+}
+
 func getPositiveIntHeader(r *http.Request, key string) (int64, error) {
 	val := r.Header.Get(key)
 	if val == "" {
@@ -226,6 +285,15 @@ func getPositiveIntHeader(r *http.Request, key string) (int64, error) {
 		return 0, errors.New(key + " header must be > 0")
 	}
 	return intVal, nil
+}
+
+func getStringHeader(r *http.Request, key string) (string, error) {
+	val := r.Header.Get(key)
+	if val == "" {
+		return "", errors.New(key + " header must not be empty")
+	}
+
+	return val, nil
 }
 
 // absUrl turn a relPath (e.g. "/foo") into an absolute url (e.g.

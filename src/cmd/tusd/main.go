@@ -61,9 +61,9 @@ func main() {
 		// Methods clients are allowed to use
 		w.Header().Add("Access-Control-Allow-Methods", "HEAD,GET,PUT,POST,PATCH,DELETE")
 		// Headers clients are allowed to send
-		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length, Offset")
+		w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Content-Disposition, Final-Length, Offset, File-Type")
 		// Headers clients are allowed to receive
-		w.Header().Add("Access-Control-Expose-Headers", "Location, Range, Content-Disposition, Offset")
+		w.Header().Add("Access-Control-Expose-Headers", "Location, md5Value, Range, Content-Disposition, Offset")
 
 		if r.Method == "OPTIONS" {
 			return
