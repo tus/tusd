@@ -1,4 +1,4 @@
-package http
+package uid
 
 import (
 	"crypto/rand"
@@ -11,7 +11,7 @@ import (
 // without the dashes and significant bits.
 //
 // See: http://en.wikipedia.org/wiki/UUID#Random_UUID_probability_of_duplicates
-func uid() string {
+func Uid() string {
 	id := make([]byte, 16)
 	_, err := io.ReadFull(rand.Reader, id)
 	if err != nil {
@@ -19,6 +19,5 @@ func uid() string {
 		// for random bits.
 		panic(err)
 	}
-
 	return hex.EncodeToString(id)
 }
