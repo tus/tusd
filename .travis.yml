@@ -1,0 +1,18 @@
+language: go
+go:
+- 1.0
+- 1.1
+- 1.2
+- 1.3
+- 1.4
+- tip
+
+matrix:
+  allow_failures:
+  - go: tip
+
+before_install:
+- go get .
+
+script:
+- go test -v -coverprofile=cover.out
