@@ -1,5 +1,7 @@
 # tusd
 
+[![Build Status](https://travis-ci.org/tus/tusd.svg?branch=neXT)](https://travis-ci.org/tus/tusd)
+
 tusd is the official reference implementation of the [tus resumable upload
 protocol](http://www.tus.io/protocols/resumable-upload.html).
 
@@ -16,7 +18,7 @@ priority.
 
 **Requirements:**
 
-* [Go 1.0](http://golang.org/doc/install)
+* [Go](http://golang.org/doc/install) (1.2 or newer)
 
 **Running tusd from source:**
 
@@ -27,25 +29,16 @@ git clone git@github.com:tus/tusd.git
 cd tusd
 ```
 
-Next source the dev.sh file. You need to do this for each shell session you
-plan to use for running tus from source. It basically configures a local gopath
-for you, so you don't have to install tusd globally.
-
-```bash
-source dev.sh
-```
-
 Now you can run tusd:
 
 ```bash
-go run src/cmd/tusd/main.go
+go run tusd/main.go
 ```
 
 ## Running the testsuite
 
 ```bash
-cd src/http
-go test -v .
+go test -v ./...
 ```
 
 ## License
