@@ -1,3 +1,9 @@
+// FileStore is a storage backend used as a tusd.DataStore in tusd.NewHandler.
+// It stores the uploads in a directory specified in two different files: The
+// `[id].info` files are used to store the fileinfo in JSON format. The
+// `[id].bin` files contain the raw binary data uploaded.
+// No cleanup is performed so you may want to run a cronjob to ensure your disk
+// is not filled up with old and finished uploads.
 package filestore
 
 import (
@@ -12,7 +18,11 @@ import (
 
 var defaultFilePerm = os.FileMode(0666)
 
+// See the tusd.DataStore interface for documentation about the different
+// methods.
 type FileStore struct {
+	// Relative or absolute path to store files in. FileStore does not check
+	// whether the path exists, you os.MkdirAll in this case on your own.
 	Path string
 }
 
@@ -63,14 +73,17 @@ func (store FileStore) GetInfo(id string) (tusd.FileInfo, error) {
 	return info, err
 }
 
+// Return the path to the .bin storing the binary data
 func (store FileStore) binPath(id string) string {
 	return store.Path + "/" + id + ".bin"
 }
 
+// Return the path to the .info file storing the file's info
 func (store FileStore) infoPath(id string) string {
 	return store.Path + "/" + id + ".info"
 }
 
+// Update the entire information. Everything will be overwritten.
 func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
@@ -79,6 +92,7 @@ func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 	return ioutil.WriteFile(store.infoPath(id), data, defaultFilePerm)
 }
 
+// Update the .info file using the new upload.
 func (store FileStore) setOffset(id string, offset int64) error {
 	info, err := store.GetInfo(id)
 	if err != nil {

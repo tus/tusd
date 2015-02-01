@@ -25,6 +25,7 @@ var (
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 )
 
+// HTTP status codes sent in the response when the specific error is returned.
 var ErrStatusCodes = map[error]int{
 	ErrUnsupportedVersion:  http.StatusPreconditionFailed,
 	ErrMaxSizeExceeded:     http.StatusRequestEntityTooLarge,
@@ -37,6 +38,8 @@ var ErrStatusCodes = map[error]int{
 }
 
 type Config struct {
+	// DataStore implementation used to store and retrieve the single uploads.
+	// Must no be nil.
 	DataStore DataStore
 	// MaxSize defines how many bytes may be stored in one single upload. If its
 	// value is is 0 or smaller no limit will be enforced.
@@ -56,6 +59,7 @@ type Handler struct {
 	locks         map[string]bool
 }
 
+// Create a new handler using the given configuration.
 func NewHandler(config Config) (*Handler, error) {
 	base := config.BasePath
 	uri, err := url.Parse(base)
@@ -91,6 +95,7 @@ func NewHandler(config Config) (*Handler, error) {
 	return handler, nil
 }
 
+// Implement the http.Handler interface.
 func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go logger.Println(r.Method, r.URL.Path)
 
@@ -138,6 +143,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.routeHandler.ServeHTTP(w, r)
 }
 
+// Create a new file upload using the datastore after validating the length
+// and parsing the metadata.
 func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	size, err := strconv.ParseInt(r.Header.Get("Entity-Length"), 10, 64)
 	if err != nil || size < 0 {
@@ -165,6 +172,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// Returns the length and offset for the HEAD request
 func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
@@ -182,6 +190,8 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Add a chunk to an upload. Only allowed if the upload is not locked and enough
+// space is left.
 func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
@@ -246,6 +256,8 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Send the error in the response body. The status code will be looked up in
+// ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *Handler) sendError(w http.ResponseWriter, err error) {
 	status, ok := ErrStatusCodes[err]
 	if !ok {
@@ -256,6 +268,8 @@ func (handler *Handler) sendError(w http.ResponseWriter, err error) {
 	w.Write([]byte(err.Error() + "\n"))
 }
 
+// Make an absolute URLs to the given upload id. If the base path is absolute
+// it will be prepended else the host and protocol from the request is used.
 func (handler *Handler) absFileUrl(r *http.Request, id string) string {
 	if handler.isBasePathAbs {
 		return handler.basePath + id
