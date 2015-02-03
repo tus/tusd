@@ -80,7 +80,7 @@ func TestProtocolDiscovery(t *testing.T) {
 	}
 
 	headers := map[string]string{
-		"TUS-Extension": "file-creation",
+		"TUS-Extension": "file-creation,metadata",
 		"TUS-Version":   "1.0.0",
 		"TUS-Resumable": "1.0.0",
 		"TUS-Max-Size":  "400",
@@ -110,6 +110,19 @@ func (s postStore) NewUpload(size int64, metaData MetaData) (string, error) {
 	if size != 300 {
 		s.t.Errorf("Expected size to be 300 (got %v)", size)
 	}
+
+	if len(metaData) != 2 {
+		s.t.Errorf("Expected two elements in metadata")
+	}
+
+	if v := metaData["foo"]; v != "hello" {
+		s.t.Errorf("Expected foo element to be 'hello' but got %s", v)
+	}
+
+	if v := metaData["bar"]; v != "world" {
+		s.t.Errorf("Expected bar element to be 'world' but got %s", v)
+	}
+
 	return "foo", nil
 }
 
@@ -126,6 +139,7 @@ func TestFileCreation(t *testing.T) {
 	req, _ := http.NewRequest("POST", "", nil)
 	req.Header.Set("TUS-Resumable", "1.0.0")
 	req.Header.Set("Entity-Length", "300")
+	req.Header.Set("Metadata", "foo aGVsbG8=, bar d29ybGQ=")
 	req.Host = "tus.io"
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)

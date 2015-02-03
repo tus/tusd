@@ -1,6 +1,7 @@
 package tusd
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/bmizerany/pat"
 )
@@ -127,7 +129,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		header.Set("TUS-Version", "1.0.0")
-		header.Set("TUS-Extension", "file-creation")
+		header.Set("TUS-Extension", "file-creation,metadata")
 
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -158,8 +160,8 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// @TODO: implement metadata extension
-	meta := make(map[string]string)
+	// Parse metadata
+	meta := parseMeta(r.Header.Get("Metadata"))
 
 	id, err := handler.dataStore.NewUpload(size, meta)
 	if err != nil {
@@ -284,4 +286,32 @@ func (handler *Handler) absFileUrl(r *http.Request, id string) string {
 	url += r.Host + handler.basePath + id
 
 	return url
+}
+
+// Parse the meatadata as defined in the Metadata extension.
+// e.g. Metadata: key base64value, key2 base64value
+func parseMeta(header string) map[string]string {
+	meta := make(map[string]string)
+
+	for _, element := range strings.Split(header, ",") {
+		element := strings.TrimSpace(element)
+
+		parts := strings.Split(element, " ")
+
+		// Do not continue with this element if no key and value or presented
+		if len(parts) != 2 {
+			continue
+		}
+
+		// Ignore corrent element if the value is no valid base64
+		key := parts[0]
+		value, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			continue
+		}
+
+		meta[key] = string(value)
+	}
+
+	return meta
 }
