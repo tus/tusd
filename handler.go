@@ -155,7 +155,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test whether the size is still allowed
-	if size > handler.config.MaxSize {
+	if handler.config.MaxSize > 0 && size > handler.config.MaxSize {
 		handler.sendError(w, ErrMaxSizeExceeded)
 		return
 	}
