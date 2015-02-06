@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	if err := os.MkdirAll("./data/", os.FileMode(0666)); err != nil {
+	if err := os.MkdirAll("./data/", os.FileMode(0775)); err != nil {
 		panic(err)
 	}
 

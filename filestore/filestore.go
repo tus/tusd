@@ -16,7 +16,7 @@ import (
 	"github.com/tus/tusd/uid"
 )
 
-var defaultFilePerm = os.FileMode(0666)
+var defaultFilePerm = os.FileMode(0775)
 
 // See the tusd.DataStore interface for documentation about the different
 // methods.
