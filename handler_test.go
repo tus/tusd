@@ -23,6 +23,10 @@ func (store zeroStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{}, nil
 }
 
+func (store zeroStore) GetReader(id string) (io.Reader, error) {
+	return nil, ErrNotImplemented
+}
+
 func TestCORS(t *testing.T) {
 	handler, _ := NewHandler(Config{})
 
@@ -92,7 +96,7 @@ func TestProtocolDiscovery(t *testing.T) {
 	}
 
 	// Invalid or unsupported version
-	req, _ = http.NewRequest("GET", "", nil)
+	req, _ = http.NewRequest("POST", "", nil)
 	req.Header.Set("TUS-Resumable", "foo")
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -391,5 +395,46 @@ func TestPatchOverflow(t *testing.T) {
 	handler.ServeHTTP(w, req)
 	if w.Code != http.StatusNoContent {
 		t.Errorf("Expected %v (got %v)", http.StatusNoContent, w.Code)
+	}
+}
+
+type getStore struct {
+	zeroStore
+}
+
+func (s getStore) GetInfo(id string) (FileInfo, error) {
+	if id != "yes" {
+		return FileInfo{}, os.ErrNotExist
+	}
+
+	return FileInfo{
+		Offset: 5,
+		Size:   20,
+	}, nil
+}
+
+func (s getStore) GetReader(id string) (io.Reader, error) {
+	return strings.NewReader("hello"), nil
+}
+
+func TestGetFile(t *testing.T) {
+	handler, _ := NewHandler(Config{
+		DataStore: getStore{},
+	})
+
+	// Test successfull download
+	req, _ := http.NewRequest("GET", "yes", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected %v (got %v)", http.StatusOK, w.Code)
+	}
+
+	if string(w.Body.Bytes()) != "hello" {
+		t.Errorf("Expected response body to be 'hello'")
+	}
+
+	if w.HeaderMap.Get("Content-Length") != "5" {
+		t.Errorf("Expected Content-Length to be 5")
 	}
 }

@@ -73,6 +73,10 @@ func (store FileStore) GetInfo(id string) (tusd.FileInfo, error) {
 	return info, err
 }
 
+func (store FileStore) GetReader(id string) (io.Reader, error) {
+	return os.Open(store.binPath(id))
+}
+
 // Return the path to the .bin storing the binary data
 func (store FileStore) binPath(id string) string {
 	return store.Path + "/" + id + ".bin"

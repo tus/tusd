@@ -25,6 +25,7 @@ var (
 	ErrFileLocked          = errors.New("file currently locked")
 	ErrIllegalOffset       = errors.New("illegal offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
+	ErrNotImplemented      = errors.New("feature not implemented")
 )
 
 // HTTP status codes sent in the response when the specific error is returned.
@@ -37,6 +38,7 @@ var ErrStatusCodes = map[error]int{
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
 	ErrIllegalOffset:       http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
+	ErrNotImplemented:      http.StatusNotImplemented,
 }
 
 type Config struct {
@@ -92,6 +94,7 @@ func NewHandler(config Config) (*Handler, error) {
 
 	mux.Post("", http.HandlerFunc(handler.postFile))
 	mux.Head(":id", http.HandlerFunc(handler.headFile))
+	mux.Get(":id", http.HandlerFunc(handler.getFile))
 	mux.Add("PATCH", ":id", http.HandlerFunc(handler.patchFile))
 
 	return handler, nil
@@ -136,7 +139,9 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test if the version sent by the client is supported
-	if r.Header.Get("TUS-Resumable") != "1.0.0" {
+	// GET methods are not checked since a browser may visit this URL and does
+	// not include this header. This request is not part of the specification.
+	if r.Method != "GET" && r.Header.Get("TUS-Resumable") != "1.0.0" {
 		handler.sendError(w, ErrUnsupportedVersion)
 		return
 	}
@@ -256,6 +261,51 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Download a file using a GET request. This is not part of the specification.
+func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get(":id")
+
+	// Ensure file is not locked
+	if _, ok := handler.locks[id]; ok {
+		handler.sendError(w, ErrFileLocked)
+		return
+	}
+
+	// Lock file for further writes (heads are allowed)
+	handler.locks[id] = true
+
+	// File will be unlocked regardless of an error or success
+	defer func() {
+		delete(handler.locks, id)
+	}()
+
+	info, err := handler.dataStore.GetInfo(id)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = ErrNotFound
+		}
+		handler.sendError(w, err)
+		return
+	}
+
+	// Do not do anything if no data is stored yet.
+	if info.Offset == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Get reader
+	src, err := handler.dataStore.GetReader(id)
+	if err != nil {
+		handler.sendError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, src)
 }
 
 // Send the error in the response body. The status code will be looked up in

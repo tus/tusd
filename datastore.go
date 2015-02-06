@@ -32,4 +32,10 @@ type DataStore interface {
 	// requests. It may return an os.ErrNotExist which will be interpretet as a
 	// 404 Not Found.
 	GetInfo(id string) (FileInfo, error)
+	// Get an io.Reader to allow downloading the file. This feature is not
+	// part of the official tus specification. If this additional function
+	// should not be enabled any call to GetReader should return
+	// tusd.ErrNotImplemented. The length of the resource is determined by
+	// retrieving the offset using GetInfo.
+	GetReader(id string) (io.Reader, error)
 }
