@@ -15,3 +15,4 @@ before_install:
 
 script:
 - go test -v -coverprofile=cover.out || go test -v
+- go test -v ./filestore -coverprofile=cover.out || go test -v ./filestore
