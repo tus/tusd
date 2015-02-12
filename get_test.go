@@ -28,7 +28,7 @@ func (s getStore) GetReader(id string) (io.Reader, error) {
 	return strings.NewReader("hello"), nil
 }
 
-func TestGetFile(t *testing.T) {
+func TestGet(t *testing.T) {
 	handler, _ := NewHandler(Config{
 		DataStore: getStore{},
 	})
