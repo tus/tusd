@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/tus/tusd"
 )
 
 func TestFilestore(t *testing.T) {
@@ -15,8 +17,11 @@ func TestFilestore(t *testing.T) {
 	store := FileStore{tmp}
 
 	// Create new upload
-	id, err := store.NewUpload(42, map[string]string{
-		"hello": "world",
+	id, err := store.NewUpload(tusd.FileInfo{
+		Size: 42,
+		MetaData: map[string]string{
+			"hello": "world",
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -11,11 +11,12 @@ type postStore struct {
 	zeroStore
 }
 
-func (s postStore) NewUpload(size int64, metaData MetaData) (string, error) {
-	if size != 300 {
-		s.t.Errorf("Expected size to be 300 (got %v)", size)
+func (s postStore) NewUpload(info FileInfo) (string, error) {
+	if info.Size != 300 {
+		s.t.Errorf("Expected size to be 300 (got %v)", info.Size)
 	}
 
+	metaData := info.MetaData
 	if len(metaData) != 2 {
 		s.t.Errorf("Expected two elements in metadata")
 	}

@@ -6,7 +6,7 @@ import (
 
 type zeroStore struct{}
 
-func (store zeroStore) NewUpload(size int64, metaData MetaData) (string, error) {
+func (store zeroStore) NewUpload(info FileInfo) (string, error) {
 	return "", nil
 }
 func (store zeroStore) WriteChunk(id string, offset int64, src io.Reader) error {

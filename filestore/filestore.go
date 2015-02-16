@@ -26,14 +26,9 @@ type FileStore struct {
 	Path string
 }
 
-func (store FileStore) NewUpload(size int64, metaData tusd.MetaData) (id string, err error) {
+func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	id = uid.Uid()
-	info := tusd.FileInfo{
-		Id:       id,
-		Size:     size,
-		Offset:   0,
-		MetaData: metaData,
-	}
+	info.Id = id
 
 	// Create .bin file with no content
 	file, err := os.OpenFile(store.binPath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)

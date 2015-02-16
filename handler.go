@@ -168,7 +168,12 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	// Parse metadata
 	meta := parseMeta(r.Header.Get("Metadata"))
 
-	id, err := handler.dataStore.NewUpload(size, meta)
+	info := FileInfo{
+		Size:     size,
+		MetaData: meta,
+	}
+
+	id, err := handler.dataStore.NewUpload(info)
 	if err != nil {
 		handler.sendError(w, err)
 		return

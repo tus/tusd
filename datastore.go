@@ -19,8 +19,8 @@ type DataStore interface {
 	// Create a new upload using the size as the file's length. The method must
 	// return an unique id which is used to identify the upload. If no backend
 	// (e.g. Riak) specifes the id you may want to use the uid package to
-	// generate one.
-	NewUpload(size int64, metaData MetaData) (id string, err error)
+	// generate one. The properties Size and MetaData will be filled.
+	NewUpload(info FileInfo) (id string, err error)
 	// Write the chunk read from src into the file specified by the id at the
 	// given offset. The handler will take care of validating the offset and
 	// limiting the size of the src to not overflow the file's size. It may
