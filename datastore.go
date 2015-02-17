@@ -13,6 +13,16 @@ type FileInfo struct {
 	// Offset in bytes (zero-based)
 	Offset   int64
 	MetaData MetaData
+	// Indicates that this is a partial upload which will later be used to form
+	// a final upload by concatenation. Partial uploads should not be processed
+	// when they are finished since they are only incomplete chunks of files.
+	IsPartial      bool
+	// Indicates that this is a final upload
+	IsFinal        bool
+	// If the upload is a final one (see IsFinal) this will be a non-empty
+	// ordered slice containing the ids of the uploads of which the final upload
+	// will consist after concatenation.
+	PartialUploads []string
 }
 
 type DataStore interface {

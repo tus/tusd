@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,8 @@ import (
 )
 
 var logger = log.New(os.Stdout, "[tusd] ", 0)
+
+var reExtractFileId = regexp.MustCompile(`([^/]+)\/?$`)
 
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
@@ -26,6 +29,9 @@ var (
 	ErrIllegalOffset       = errors.New("illegal offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
+	ErrUploadNotFinished   = errors.New("one of the partial uploads is not finished")
+	ErrInvalidConcat       = errors.New("invalid Concat header")
+	ErrModifyFinal         = errors.New("modifying a final upload is not allowed")
 )
 
 // HTTP status codes sent in the response when the specific error is returned.
@@ -39,6 +45,9 @@ var ErrStatusCodes = map[error]int{
 	ErrIllegalOffset:       http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
+	ErrUploadNotFinished:   http.StatusBadRequest,
+	ErrInvalidConcat:       http.StatusBadRequest,
+	ErrModifyFinal:         http.StatusForbidden,
 }
 
 type Config struct {
@@ -132,7 +141,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		header.Set("TUS-Version", "1.0.0")
-		header.Set("TUS-Extension", "file-creation,metadata")
+		header.Set("TUS-Extension", "file-creation,metadata,concatenation")
 
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -153,10 +162,29 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a new file upload using the datastore after validating the length
 // and parsing the metadata.
 func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
-	size, err := strconv.ParseInt(r.Header.Get("Entity-Length"), 10, 64)
-	if err != nil || size < 0 {
-		handler.sendError(w, ErrInvalidEntityLength)
+	// Parse Concat header
+	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Concat"))
+	if err != nil {
+		handler.sendError(w, err)
 		return
+	}
+
+	// If the upload is a final upload created by concatenation multiple partial
+	// uploads the size is sum of all sizes of these files (no need for
+	// Entity-Length header)
+	var size int64
+	if isFinal {
+		size, err = handler.sizeOfUploads(partialUploads)
+		if err != nil {
+			handler.sendError(w, err)
+			return
+		}
+	} else {
+		size, err = strconv.ParseInt(r.Header.Get("Entity-Length"), 10, 64)
+		if err != nil || size < 0 {
+			handler.sendError(w, ErrInvalidEntityLength)
+			return
+		}
 	}
 
 	// Test whether the size is still allowed
@@ -169,14 +197,24 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	meta := parseMeta(r.Header.Get("Metadata"))
 
 	info := FileInfo{
-		Size:     size,
-		MetaData: meta,
+		Size:           size,
+		MetaData:       meta,
+		IsPartial:      isPartial,
+		IsFinal:        isFinal,
+		PartialUploads: partialUploads,
 	}
 
 	id, err := handler.dataStore.NewUpload(info)
 	if err != nil {
 		handler.sendError(w, err)
 		return
+	}
+
+	if isFinal {
+		if err := handler.fillFinalUpload(id, partialUploads); err != nil {
+			handler.sendError(w, err)
+			return
+		}
 	}
 
 	url := handler.absFileUrl(r, id)
@@ -195,6 +233,19 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 		}
 		handler.sendError(w, err)
 		return
+	}
+
+	// Add Concat header if possible
+	if info.IsPartial {
+		w.Header().Set("Concat", "partial")
+	}
+
+	if info.IsFinal {
+		v := "final;"
+		for _, uploadId := range info.PartialUploads {
+			v += " " + handler.absFileUrl(r, uploadId)
+		}
+		w.Header().Set("Concat", v)
 	}
 
 	w.Header().Set("Entity-Length", strconv.FormatInt(info.Size, 10))
@@ -227,6 +278,12 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 			err = ErrNotFound
 		}
 		handler.sendError(w, err)
+		return
+	}
+
+	// Modifying a final upload is not allowed
+	if info.IsFinal {
+		handler.sendError(w, ErrModifyFinal)
 		return
 	}
 
@@ -343,6 +400,45 @@ func (handler *Handler) absFileUrl(r *http.Request, id string) string {
 	return url
 }
 
+// The get sum of all sizes for a list of upload ids while checking whether
+// all of these uploads are finished yet. This is used to calculate the size
+// of a final resource.
+func (handler *Handler) sizeOfUploads(ids []string) (size int64, err error) {
+	for _, id := range ids {
+		info, err := handler.dataStore.GetInfo(id)
+		if err != nil {
+			return size, err
+		}
+
+		if info.Offset != info.Size {
+			err = ErrUploadNotFinished
+			return size, err
+		}
+
+		size += info.Size
+	}
+
+	return
+}
+
+// Fill an empty upload with the content of the uploads by their ids. The data
+// will be written in the order as they appear in the slice
+func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
+	readers := make([]io.Reader, len(uploads))
+
+	for index, uploadId := range uploads {
+		reader, err := handler.dataStore.GetReader(uploadId)
+		if err != nil {
+			return err
+		}
+		readers[index] = reader
+	}
+
+	reader := io.MultiReader(readers...)
+
+	return handler.dataStore.WriteChunk(id, 0, reader)
+}
+
 // Parse the meatadata as defined in the Metadata extension.
 // e.g. Metadata: key base64value, key2 base64value
 func parseMeta(header string) map[string]string {
@@ -369,4 +465,48 @@ func parseMeta(header string) map[string]string {
 	}
 
 	return meta
+}
+
+// Parse the Concat header, e.g.
+// Concat: partial
+// Concat: final; http://tus.io/files/a /files/b/
+func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
+	if len(header) == 0 {
+		return
+	}
+
+	if header == "partial" {
+		isPartial = true
+		return
+	}
+
+	l := len("final; ")
+	if strings.HasPrefix(header, "final; ") && len(header) > l {
+		isFinal = true
+
+		list := strings.Split(header[l:], " ")
+		for _, value := range list {
+			value := strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+
+			// Extract ids out of URL
+			result := reExtractFileId.FindStringSubmatch(value)
+			if len(result) != 2 {
+				err = ErrInvalidConcat
+				return
+			}
+
+			partialUploads = append(partialUploads, result[1])
+		}
+	}
+
+	// If no valid partial upload ids are extracted this is not a final upload.
+	if len(partialUploads) == 0 {
+		isFinal = false
+		err = ErrInvalidConcat
+	}
+
+	return
 }
