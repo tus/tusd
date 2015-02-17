@@ -4,7 +4,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -57,45 +56,51 @@ func TestPatch(t *testing.T) {
 		},
 	})
 
-	// Test successful request
-	req, _ := http.NewRequest("PATCH", "yes", strings.NewReader("hello"))
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Offset", "5")
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusNoContent {
-		t.Errorf("Expected %v (got %v)", http.StatusNoContent, w.Code)
-	}
+	(&httpTest{
+		Name:   "Successful request",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Offset":        "5",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusNoContent,
+	}).Run(handler, t)
 
-	// Test non-existing file
-	req, _ = http.NewRequest("PATCH", "no", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Offset", "0")
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected %v (got %v)", http.StatusNotFound, w.Code)
-	}
+	(&httpTest{
+		Name:   "Non-existing file",
+		Method: "PATCH",
+		URL:    "no",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Offset":        "5",
+		},
+		Code: http.StatusNotFound,
+	}).Run(handler, t)
 
-	// Test wrong offset
-	req, _ = http.NewRequest("PATCH", "yes", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Offset", "4")
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusConflict {
-		t.Errorf("Expected %v (got %v)", http.StatusConflict, w.Code)
-	}
+	(&httpTest{
+		Name:   "Wrong offset",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Offset":        "4",
+		},
+		Code: http.StatusConflict,
+	}).Run(handler, t)
 
-	// Test exceeding file size
-	req, _ = http.NewRequest("PATCH", "yes", strings.NewReader("hellothisismorethan15bytes"))
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Offset", "5")
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusRequestEntityTooLarge {
-		t.Errorf("Expected %v (got %v)", http.StatusRequestEntityTooLarge, w.Code)
-	}
+	(&httpTest{
+		Name:   "Exceeding file size",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Offset":        "5",
+		},
+		ReqBody: strings.NewReader("hellothisismorethan15bytes"),
+		Code:    http.StatusRequestEntityTooLarge,
+	}).Run(handler, t)
 }
 
 type overflowPatchStore struct {
@@ -180,14 +185,16 @@ func TestPatchOverflow(t *testing.T) {
 		body.Close()
 	}()
 
-	// Test too big body exceeding file size
-	req, _ := http.NewRequest("PATCH", "yes", body)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Offset", "5")
-	req.Header.Set("Content-Length", "3")
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusNoContent {
-		t.Errorf("Expected %v (got %v)", http.StatusNoContent, w.Code)
-	}
+	(&httpTest{
+		Name:   "Too big body exceeding file size",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"TUS-Resumable":  "1.0.0",
+			"Offset":         "5",
+			"Content-Length": "3",
+		},
+		ReqBody: body,
+		Code:    http.StatusNoContent,
+	}).Run(handler, t)
 }

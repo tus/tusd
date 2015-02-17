@@ -3,7 +3,6 @@ package tusd
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -33,19 +32,14 @@ func TestGet(t *testing.T) {
 		DataStore: getStore{},
 	})
 
-	// Test successfull download
-	req, _ := http.NewRequest("GET", "yes", nil)
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected %v (got %v)", http.StatusOK, w.Code)
-	}
-
-	if string(w.Body.Bytes()) != "hello" {
-		t.Errorf("Expected response body to be 'hello'")
-	}
-
-	if w.HeaderMap.Get("Content-Length") != "5" {
-		t.Errorf("Expected Content-Length to be 5")
-	}
+	(&httpTest{
+		Name:    "Successful download",
+		Method:  "GET",
+		URL:     "yes",
+		Code:    http.StatusOK,
+		ResBody: "hello",
+		ResHeader: map[string]string{
+			"Content-Length": "5",
+		},
+	}).Run(handler, t)
 }

@@ -2,7 +2,6 @@ package tusd
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -41,29 +40,28 @@ func TestPost(t *testing.T) {
 		},
 	})
 
-	// Test successful request
-	req, _ := http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Entity-Length", "300")
-	req.Header.Set("Metadata", "foo aGVsbG8=, bar d29ybGQ=")
-	req.Host = "tus.io"
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected 201 Created for OPTIONS request (got %v)", w.Code)
-	}
+	(&httpTest{
+		Name:   "Successful request",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Entity-Length": "300",
+			"Metadata":      "foo aGVsbG8=, bar d29ybGQ=",
+		},
+		Code: http.StatusCreated,
+		ResHeader: map[string]string{
+			"Location": "http://tus.io/files/foo",
+		},
+	}).Run(handler, t)
 
-	if location := w.HeaderMap.Get("Location"); location != "http://tus.io/files/foo" {
-		t.Errorf("Unexpected location header (got '%v')", location)
-	}
-
-	// Test exceeding MaxSize
-	req, _ = http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Entity-Length", "500")
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusRequestEntityTooLarge {
-		t.Errorf("Expected %v for OPTIONS request (got %v)", http.StatusRequestEntityTooLarge, w.Code)
-	}
+	(&httpTest{
+		Name:   "Exceeding MaxSize",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Entity-Length": "500",
+			"Metadata":      "foo aGVsbG8=, bar d29ybGQ=",
+		},
+		Code: http.StatusRequestEntityTooLarge,
+	}).Run(handler, t)
 }

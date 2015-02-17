@@ -4,7 +4,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -46,31 +45,29 @@ func TestConcatPartial(t *testing.T) {
 		},
 	})
 
-	// Test successful POST request
-	req, _ := http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Entity-Length", "300")
-	req.Header.Set("Concat", "partial")
-	req.Host = "tus.io"
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected 201 Created (got %v)", w.Code)
-	}
+	(&httpTest{
+		Name:   "Successful POST request",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Entity-Length": "300",
+			"Concat":        "partial",
+		},
+		Code: http.StatusCreated,
+	}).Run(handler, t)
 
-	// Test successful HEAD request
-	req, _ = http.NewRequest("HEAD", "foo", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Host = "tus.io"
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusNoContent {
-		t.Errorf("Expected 204 No Content (got %v)", w.Code)
-	}
-
-	if w.HeaderMap.Get("Concat") != "partial" {
-		t.Errorf("Expect Concat header to be set")
-	}
+	(&httpTest{
+		Name:   "Successful HEAD request",
+		Method: "HEAD",
+		URL:    "foo",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+		},
+		Code: http.StatusNoContent,
+		ResHeader: map[string]string{
+			"Concat": "partial",
+		},
+	}).Run(handler, t)
 }
 
 type concatFinalStore struct {
@@ -161,47 +158,40 @@ func TestConcatFinal(t *testing.T) {
 		},
 	})
 
-	// Test successful POST request
-	req, _ := http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Concat", "final; http://tus.io/files/a /files/b/")
-	req.Host = "tus.io"
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected 201 Created (got %v)", w.Code)
-	}
+	(&httpTest{
+		Name:   "Successful POST request",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Concat":        "final; http://tus.io/files/a /files/b/",
+		},
+		Code: http.StatusCreated,
+	}).Run(handler, t)
 
-	// Test successful HEAD request
-	req, _ = http.NewRequest("HEAD", "foo", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Host = "tus.io"
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusNoContent {
-		t.Errorf("Expected 204 No Content (got %v)", w.Code)
-	}
+	(&httpTest{
+		Name:   "Successful HEAD request",
+		Method: "HEAD",
+		URL:    "foo",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+		},
+		Code: http.StatusNoContent,
+		ResHeader: map[string]string{
+			"Concat":        "final; http://tus.io/files/a http://tus.io/files/b",
+			"Entity-Length": "10",
+		},
+	}).Run(handler, t)
 
-	if w.HeaderMap.Get("Concat") != "final; http://tus.io/files/a http://tus.io/files/b" {
-		t.Errorf("Expect Concat header to be set")
-	}
+	(&httpTest{
+		Name:   "Concatenating non finished upload (id: c)",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Concat":        "final; http://tus.io/files/c",
+		},
+		Code: http.StatusBadRequest,
+	}).Run(handler, t)
 
-	if w.HeaderMap.Get("Entity-Length") != "10" {
-		t.Errorf("Expect Entity-Length header to be 10")
-	}
-
-	// Test concatenating non finished upload (id: c)
-	req, _ = http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Concat", "final; http://tus.io/files/c")
-	req.Host = "tus.io"
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 201 Created (got %v)", w.Code)
-	}
-
-	// Test exceeding max. size
 	handler, _ = NewHandler(Config{
 		MaxSize:  9,
 		BasePath: "files",
@@ -210,14 +200,13 @@ func TestConcatFinal(t *testing.T) {
 		},
 	})
 
-	req, _ = http.NewRequest("POST", "", nil)
-	req.Header.Set("TUS-Resumable", "1.0.0")
-	req.Header.Set("Concat", "final; http://tus.io/files/a /files/b/")
-	req.Host = "tus.io"
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	if w.Code != http.StatusRequestEntityTooLarge {
-		t.Errorf("Expected 201 Created (got %v)", w.Code)
-	}
-
+	(&httpTest{
+		Name:   "Exceeding MaxSize",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"TUS-Resumable": "1.0.0",
+			"Concat":        "final; http://tus.io/files/a /files/b/",
+		},
+		Code: http.StatusRequestEntityTooLarge,
+	}).Run(handler, t)
 }
