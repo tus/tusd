@@ -1,0 +1,6 @@
+build_script:
+  - set GOPATH=%BuildFolder%
+  - go get -v ./...
+
+test_script:
+  - go test -v ./...
