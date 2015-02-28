@@ -1,5 +1,8 @@
+clone_folder: c:\projects\go\src\github.com\tus\tusd
+
 build_script:
-  - set GOPATH=%BuildFolder%
+  - set GOPATH=c:\projects\go
+  - go env
   - go get -v ./...
 
 test_script:
