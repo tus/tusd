@@ -72,6 +72,16 @@ func (store FileStore) GetReader(id string) (io.Reader, error) {
 	return os.Open(store.binPath(id))
 }
 
+func (store FileStore) Terminate(id string) error {
+	if err := os.Remove(store.infoPath(id)); err != nil {
+		return err
+	}
+	if err := os.Remove(store.binPath(id)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Return the path to the .bin storing the binary data
 func (store FileStore) binPath(id string) string {
 	return store.Path + "/" + id + ".bin"

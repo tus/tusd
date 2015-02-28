@@ -48,4 +48,7 @@ type DataStore interface {
 	// tusd.ErrNotImplemented. The length of the resource is determined by
 	// retrieving the offset using GetInfo.
 	GetReader(id string) (io.Reader, error)
+	// Terminate an upload so any further requests to the resource, both reading
+	// and writing, must return os.ErrNotExist or similar.
+	Terminate(id string) error
 }

@@ -2,6 +2,7 @@ package filestore
 
 import (
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -74,5 +75,15 @@ func TestFilestore(t *testing.T) {
 	}
 	if string(content) != "hello world" {
 		t.Errorf("expected content to be 'hello world'")
+	}
+
+	// Terminate upload
+	if err := store.Terminate(id); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test if upload is deleted
+	if _, err := store.GetInfo(id); !os.IsNotExist(err) {
+		t.Fatal("expected os.ErrIsNotExist")
 	}
 }

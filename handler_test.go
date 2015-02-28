@@ -24,6 +24,10 @@ func (store zeroStore) GetReader(id string) (io.Reader, error) {
 	return nil, ErrNotImplemented
 }
 
+func (store zeroStore) Terminate(id string) error {
+	return ErrNotImplemented
+}
+
 type httpTest struct {
 	Name string
 

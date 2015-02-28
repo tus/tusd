@@ -104,6 +104,7 @@ func NewHandler(config Config) (*Handler, error) {
 	mux.Post("", http.HandlerFunc(handler.postFile))
 	mux.Head(":id", http.HandlerFunc(handler.headFile))
 	mux.Get(":id", http.HandlerFunc(handler.getFile))
+	mux.Del(":id", http.HandlerFunc(handler.delFile))
 	mux.Add("PATCH", ":id", http.HandlerFunc(handler.patchFile))
 
 	return handler, nil
@@ -141,7 +142,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		header.Set("TUS-Version", "1.0.0")
-		header.Set("TUS-Extension", "file-creation,metadata,concatenation")
+		header.Set("TUS-Extension", "file-creation,metadata,concatenation,termination")
 
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -368,6 +369,36 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, src)
+}
+
+// Terminate an upload permanently.
+func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get(":id")
+
+	// Ensure file is not locked
+	if _, ok := handler.locks[id]; ok {
+		handler.sendError(w, ErrFileLocked)
+		return
+	}
+
+	// Lock file for further writes (heads are allowed)
+	handler.locks[id] = true
+
+	// File will be unlocked regardless of an error or success
+	defer func() {
+		delete(handler.locks, id)
+	}()
+
+	err := handler.dataStore.Terminate(id)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = ErrNotFound
+		}
+		handler.sendError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Send the error in the response body. The status code will be looked up in
