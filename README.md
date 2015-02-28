@@ -1,6 +1,7 @@
 # tusd
 
 [![Build Status](https://travis-ci.org/tus/tusd.svg?branch=neXT)](https://travis-ci.org/tus/tusd)
+[![Build status](https://ci.appveyor.com/api/projects/status/2y6fa4nyknoxmyc8?svg=true)](https://ci.appveyor.com/project/Acconut/tusd)
 
 tusd is the official reference implementation of the [tus resumable upload
 protocol](http://www.tus.io/protocols/resumable-upload.html).
