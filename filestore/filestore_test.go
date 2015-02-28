@@ -1,6 +1,7 @@
 package filestore
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -79,6 +80,7 @@ func TestFilestore(t *testing.T) {
 	if string(content) != "hello world" {
 		t.Errorf("expected content to be 'hello world'")
 	}
+	reader.(io.Closer).Close()
 
 	// Terminate upload
 	if err := store.Terminate(id); err != nil {
