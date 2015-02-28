@@ -9,6 +9,9 @@ import (
 	"github.com/tus/tusd"
 )
 
+// Test interface implementation of Filestore
+var _ tusd.DataStore = FileStore{}
+
 func TestFilestore(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-")
 	if err != nil {
