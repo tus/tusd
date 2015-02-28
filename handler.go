@@ -228,10 +228,6 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		// Interpret os.ErrNotExist as 404 Not Found
-		if os.IsNotExist(err) {
-			err = ErrNotFound
-		}
 		handler.sendError(w, err)
 		return
 	}
@@ -275,9 +271,6 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = ErrNotFound
-		}
 		handler.sendError(w, err)
 		return
 	}
@@ -346,9 +339,6 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = ErrNotFound
-		}
 		handler.sendError(w, err)
 		return
 	}
@@ -391,9 +381,6 @@ func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 
 	err := handler.dataStore.Terminate(id)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = ErrNotFound
-		}
 		handler.sendError(w, err)
 		return
 	}
@@ -404,6 +391,11 @@ func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *Handler) sendError(w http.ResponseWriter, err error) {
+	// Interpret os.ErrNotExist as 404 Not Found
+	if os.IsNotExist(err) {
+		err = ErrNotFound
+	}
+
 	status, ok := ErrStatusCodes[err]
 	if !ok {
 		status = 500
