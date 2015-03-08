@@ -18,6 +18,10 @@ func (s headStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{
 		Offset: 11,
 		Size:   44,
+		MetaData: map[string]string{
+			"name": "lunrjs.png",
+			"type": "image/png",
+		},
 	}, nil
 }
 
@@ -38,6 +42,7 @@ func TestHead(t *testing.T) {
 		ResHeader: map[string]string{
 			"Offset":        "11",
 			"Entity-Length": "44",
+			"Metadata":      "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n",
 		},
 	}).Run(handler, t)
 

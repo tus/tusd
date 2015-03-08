@@ -122,12 +122,12 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			// Preflight request
 			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
-			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Entity-Length, Offset, TUS-Resumable")
+			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Entity-Length, Offset, TUS-Resumable, Metadata")
 			header.Set("Access-Control-Max-Age", "86400")
 
 		} else {
 			// Actual request
-			header.Set("Access-Control-Expose-Headers", "Offset, Location, Entity-Length, TUS-Version, TUS-Resumable, TUS-Max-Size, TUS-Extension")
+			header.Set("Access-Control-Expose-Headers", "Offset, Location, Entity-Length, TUS-Version, TUS-Resumable, TUS-Max-Size, TUS-Extension, Metadata")
 		}
 	}
 
@@ -243,6 +243,10 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 			v += " " + handler.absFileUrl(r, uploadId)
 		}
 		w.Header().Set("Concat", v)
+	}
+
+	if len(info.MetaData) != 0 {
+		w.Header().Set("Metadata", serializeMeta(info.MetaData))
 	}
 
 	w.Header().Set("Entity-Length", strconv.FormatInt(info.Size, 10))
@@ -462,8 +466,8 @@ func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
 	return handler.dataStore.WriteChunk(id, 0, reader)
 }
 
-// Parse the meatadata as defined in the Metadata extension.
-// e.g. Metadata: key base64value, key2 base64value
+// Parse the Metadata header as defined in the File Creation extension.
+// e.g. Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
 func parseMeta(header string) map[string]string {
 	meta := make(map[string]string)
 
@@ -488,6 +492,24 @@ func parseMeta(header string) map[string]string {
 	}
 
 	return meta
+}
+
+// Serialize a map of strings into the Metadata header format used in the
+// response for HEAD requests.
+// e.g. Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
+func serializeMeta(meta map[string]string) string {
+	header := ""
+	for key, value := range meta {
+		valueBase64 := base64.StdEncoding.EncodeToString([]byte(value))
+		header += key + " " + valueBase64 + ","
+	}
+
+	// Remove trailing comma
+	if len(header) > 0 {
+		header = header[:len(header)-1]
+	}
+
+	return header
 }
 
 // Parse the Concat header, e.g.
