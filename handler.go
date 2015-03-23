@@ -142,7 +142,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		header.Set("Tus-Version", "1.0.0")
-		header.Set("Tus-Extension", "file-creation,concatenation,termination")
+		header.Set("Tus-Extension", "creation,concatenation,termination")
 
 		w.WriteHeader(http.StatusNoContent)
 		return
