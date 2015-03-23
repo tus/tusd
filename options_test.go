@@ -15,7 +15,7 @@ func TestOptions(t *testing.T) {
 		Method: "OPTIONS",
 		Code:   http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Tus-Extension": "file-creation,concatenation,termination",
+			"Tus-Extension": "creation,concatenation,termination",
 			"Tus-Version":   "1.0.0",
 			"Tus-Resumable": "1.0.0",
 			"Tus-Max-Size":  "400",
