@@ -61,8 +61,8 @@ func TestPatch(t *testing.T) {
 		Method: "PATCH",
 		URL:    "yes",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Offset":        "5",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Offset": "5",
 		},
 		ReqBody: strings.NewReader("hello"),
 		Code:    http.StatusNoContent,
@@ -73,8 +73,8 @@ func TestPatch(t *testing.T) {
 		Method: "PATCH",
 		URL:    "no",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Offset":        "5",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Offset": "5",
 		},
 		Code: http.StatusNotFound,
 	}).Run(handler, t)
@@ -84,8 +84,8 @@ func TestPatch(t *testing.T) {
 		Method: "PATCH",
 		URL:    "yes",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Offset":        "4",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Offset": "4",
 		},
 		Code: http.StatusConflict,
 	}).Run(handler, t)
@@ -95,8 +95,8 @@ func TestPatch(t *testing.T) {
 		Method: "PATCH",
 		URL:    "yes",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Offset":        "5",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Offset": "5",
 		},
 		ReqBody: strings.NewReader("hellothisismorethan15bytes"),
 		Code:    http.StatusRequestEntityTooLarge,
@@ -190,8 +190,8 @@ func TestPatchOverflow(t *testing.T) {
 		Method: "PATCH",
 		URL:    "yes",
 		ReqHeader: map[string]string{
-			"TUS-Resumable":  "1.0.0",
-			"Offset":         "5",
+			"Tus-Resumable":  "1.0.0",
+			"Upload-Offset":  "5",
 			"Content-Length": "3",
 		},
 		ReqBody: body,

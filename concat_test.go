@@ -49,9 +49,9 @@ func TestConcatPartial(t *testing.T) {
 		Name:   "Successful POST request",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Entity-Length": "300",
-			"Concat":        "partial",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Length": "300",
+			"Upload-Concat": "partial",
 		},
 		Code: http.StatusCreated,
 	}).Run(handler, t)
@@ -61,11 +61,11 @@ func TestConcatPartial(t *testing.T) {
 		Method: "HEAD",
 		URL:    "foo",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
+			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Concat": "partial",
+			"Upload-Concat": "partial",
 		},
 	}).Run(handler, t)
 }
@@ -162,8 +162,8 @@ func TestConcatFinal(t *testing.T) {
 		Name:   "Successful POST request",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Concat":        "final; http://tus.io/files/a /files/b/",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Concat": "final; http://tus.io/files/a /files/b/",
 		},
 		Code: http.StatusCreated,
 	}).Run(handler, t)
@@ -173,12 +173,12 @@ func TestConcatFinal(t *testing.T) {
 		Method: "HEAD",
 		URL:    "foo",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
+			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Concat":        "final; http://tus.io/files/a http://tus.io/files/b",
-			"Entity-Length": "10",
+			"Upload-Concat": "final; http://tus.io/files/a http://tus.io/files/b",
+			"Upload-Length": "10",
 		},
 	}).Run(handler, t)
 
@@ -186,8 +186,8 @@ func TestConcatFinal(t *testing.T) {
 		Name:   "Concatenating non finished upload (id: c)",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Concat":        "final; http://tus.io/files/c",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Concat": "final; http://tus.io/files/c",
 		},
 		Code: http.StatusBadRequest,
 	}).Run(handler, t)
@@ -204,8 +204,8 @@ func TestConcatFinal(t *testing.T) {
 		Name:   "Exceeding MaxSize",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Concat":        "final; http://tus.io/files/a /files/b/",
+			"Tus-Resumable": "1.0.0",
+			"Upload-Concat": "final; http://tus.io/files/a /files/b/",
 		},
 		Code: http.StatusRequestEntityTooLarge,
 	}).Run(handler, t)

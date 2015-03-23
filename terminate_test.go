@@ -29,7 +29,7 @@ func TestTerminate(t *testing.T) {
 		Method: "DELETE",
 		URL:    "foo",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
+			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNoContent,
 	}).Run(handler, t)

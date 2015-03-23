@@ -36,13 +36,13 @@ func TestHead(t *testing.T) {
 		Method: "HEAD",
 		URL:    "yes",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
+			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Offset":        "11",
-			"Entity-Length": "44",
-			"Metadata":      "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n",
+			"Upload-Offset":   "11",
+			"Upload-Length":   "44",
+			"Upload-Metadata": "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n",
 		},
 	}).Run(handler, t)
 
@@ -51,7 +51,7 @@ func TestHead(t *testing.T) {
 		Method: "HEAD",
 		URL:    "no",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
+			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNotFound,
 	}).Run(handler, t)

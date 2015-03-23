@@ -22,15 +22,15 @@ var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
 	ErrMaxSizeExceeded     = errors.New("maximum size exceeded")
-	ErrInvalidEntityLength = errors.New("missing or invalid Entity-Length header")
-	ErrInvalidOffset       = errors.New("missing or invalid Offset header")
+	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
+	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
 	ErrFileLocked          = errors.New("file currently locked")
 	ErrIllegalOffset       = errors.New("illegal offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
 	ErrUploadNotFinished   = errors.New("one of the partial uploads is not finished")
-	ErrInvalidConcat       = errors.New("invalid Concat header")
+	ErrInvalidConcat       = errors.New("invalid Upload-Concat header")
 	ErrModifyFinal         = errors.New("modifying a final upload is not allowed")
 )
 
@@ -38,7 +38,7 @@ var (
 var ErrStatusCodes = map[error]int{
 	ErrUnsupportedVersion:  http.StatusPreconditionFailed,
 	ErrMaxSizeExceeded:     http.StatusRequestEntityTooLarge,
-	ErrInvalidEntityLength: http.StatusBadRequest,
+	ErrInvalidUploadLength: http.StatusBadRequest,
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
@@ -122,27 +122,27 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			// Preflight request
 			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
-			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Entity-Length, Offset, TUS-Resumable, Metadata")
+			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 			header.Set("Access-Control-Max-Age", "86400")
 
 		} else {
 			// Actual request
-			header.Set("Access-Control-Expose-Headers", "Offset, Location, Entity-Length, TUS-Version, TUS-Resumable, TUS-Max-Size, TUS-Extension, Metadata")
+			header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, TUS-Resumable, TUS-Max-Size, TUS-Extension, Upload-Metadata")
 		}
 	}
 
 	// Set current version used by the server
-	header.Set("TUS-Resumable", "1.0.0")
+	header.Set("Tus-Resumable", "1.0.0")
 
 	// Set appropriated headers in case of OPTIONS method allowing protocol
 	// discovery and end with an 204 No Content
 	if r.Method == "OPTIONS" {
 		if handler.config.MaxSize > 0 {
-			header.Set("TUS-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+			header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
 		}
 
-		header.Set("TUS-Version", "1.0.0")
-		header.Set("TUS-Extension", "file-creation,concatenation,termination")
+		header.Set("Tus-Version", "1.0.0")
+		header.Set("Tus-Extension", "file-creation,concatenation,termination")
 
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -151,7 +151,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Test if the version sent by the client is supported
 	// GET methods are not checked since a browser may visit this URL and does
 	// not include this header. This request is not part of the specification.
-	if r.Method != "GET" && r.Header.Get("TUS-Resumable") != "1.0.0" {
+	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
 		handler.sendError(w, ErrUnsupportedVersion)
 		return
 	}
@@ -163,8 +163,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a new file upload using the datastore after validating the length
 // and parsing the metadata.
 func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
-	// Parse Concat header
-	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Concat"))
+	// Parse Upload-Concat header
+	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
 	if err != nil {
 		handler.sendError(w, err)
 		return
@@ -172,7 +172,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 
 	// If the upload is a final upload created by concatenation multiple partial
 	// uploads the size is sum of all sizes of these files (no need for
-	// Entity-Length header)
+	// Upload-Length header)
 	var size int64
 	if isFinal {
 		size, err = handler.sizeOfUploads(partialUploads)
@@ -181,9 +181,9 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		size, err = strconv.ParseInt(r.Header.Get("Entity-Length"), 10, 64)
+		size, err = strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
 		if err != nil || size < 0 {
-			handler.sendError(w, ErrInvalidEntityLength)
+			handler.sendError(w, ErrInvalidUploadLength)
 			return
 		}
 	}
@@ -195,7 +195,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse metadata
-	meta := parseMeta(r.Header.Get("Metadata"))
+	meta := parseMeta(r.Header.Get("Upload-Metadata"))
 
 	info := FileInfo{
 		Size:           size,
@@ -232,9 +232,9 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add Concat header if possible
+	// Add Upload-Concat header if possible
 	if info.IsPartial {
-		w.Header().Set("Concat", "partial")
+		w.Header().Set("Upload-Concat", "partial")
 	}
 
 	if info.IsFinal {
@@ -242,15 +242,15 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 		for _, uploadID := range info.PartialUploads {
 			v += " " + handler.absFileURL(r, uploadID)
 		}
-		w.Header().Set("Concat", v)
+		w.Header().Set("Upload-Concat", v)
 	}
 
 	if len(info.MetaData) != 0 {
-		w.Header().Set("Metadata", serializeMeta(info.MetaData))
+		w.Header().Set("Upload-Metadata", serializeMeta(info.MetaData))
 	}
 
-	w.Header().Set("Entity-Length", strconv.FormatInt(info.Size, 10))
-	w.Header().Set("Offset", strconv.FormatInt(info.Offset, 10))
+	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
+	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -286,7 +286,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure the offsets match
-	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
+	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
 	if err != nil {
 		handler.sendError(w, ErrInvalidOffset)
 		return
@@ -466,8 +466,8 @@ func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
 	return handler.dataStore.WriteChunk(id, 0, reader)
 }
 
-// Parse the Metadata header as defined in the File Creation extension.
-// e.g. Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
+// Parse the Upload-Metadata header as defined in the File Creation extension.
+// e.g. Upload-Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
 func parseMeta(header string) map[string]string {
 	meta := make(map[string]string)
 
@@ -494,9 +494,9 @@ func parseMeta(header string) map[string]string {
 	return meta
 }
 
-// Serialize a map of strings into the Metadata header format used in the
+// Serialize a map of strings into the Upload-Metadata header format used in the
 // response for HEAD requests.
-// e.g. Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
+// e.g. Upload-Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
 func serializeMeta(meta map[string]string) string {
 	header := ""
 	for key, value := range meta {
@@ -512,9 +512,9 @@ func serializeMeta(meta map[string]string) string {
 	return header
 }
 
-// Parse the Concat header, e.g.
-// Concat: partial
-// Concat: final; http://tus.io/files/a /files/b/
+// Parse the Upload-Concat header, e.g.
+// Upload-Concat: partial
+// Upload-Concat: final; http://tus.io/files/a /files/b/
 func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
 	if len(header) == 0 {
 		return

@@ -15,10 +15,10 @@ func TestOptions(t *testing.T) {
 		Method: "OPTIONS",
 		Code:   http.StatusNoContent,
 		ResHeader: map[string]string{
-			"TUS-Extension": "file-creation,concatenation,termination",
-			"TUS-Version":   "1.0.0",
-			"TUS-Resumable": "1.0.0",
-			"TUS-Max-Size":  "400",
+			"Tus-Extension": "file-creation,concatenation,termination",
+			"Tus-Version":   "1.0.0",
+			"Tus-Resumable": "1.0.0",
+			"Tus-Max-Size":  "400",
 		},
 	}).Run(handler, t)
 
@@ -26,7 +26,7 @@ func TestOptions(t *testing.T) {
 		Name:   "Invalid or unsupported version",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "foo",
+			"Tus-Resumable": "foo",
 		},
 		Code: http.StatusPreconditionFailed,
 	}).Run(handler, t)

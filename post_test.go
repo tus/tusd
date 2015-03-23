@@ -44,9 +44,9 @@ func TestPost(t *testing.T) {
 		Name:   "Successful request",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Entity-Length": "300",
-			"Metadata":      "foo aGVsbG8=, bar d29ybGQ=",
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "300",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
 		},
 		Code: http.StatusCreated,
 		ResHeader: map[string]string{
@@ -58,9 +58,9 @@ func TestPost(t *testing.T) {
 		Name:   "Exceeding MaxSize",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"TUS-Resumable": "1.0.0",
-			"Entity-Length": "500",
-			"Metadata":      "foo aGVsbG8=, bar d29ybGQ=",
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "500",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
 		},
 		Code: http.StatusRequestEntityTooLarge,
 	}).Run(handler, t)
