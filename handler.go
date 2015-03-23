@@ -17,7 +17,7 @@ import (
 
 var logger = log.New(os.Stdout, "[tusd] ", 0)
 
-var reExtractFileId = regexp.MustCompile(`([^/]+)\/?$`)
+var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
 
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
@@ -80,7 +80,7 @@ func NewHandler(config Config) (*Handler, error) {
 		return nil, err
 	}
 
-	// Ensure base path ends with slash to remove logic from absFileUrl
+	// Ensure base path ends with slash to remove logic from absFileURL
 	if base != "" && string(base[len(base)-1]) != "/" {
 		base += "/"
 	}
@@ -218,7 +218,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	url := handler.absFileUrl(r, id)
+	url := handler.absFileURL(r, id)
 	w.Header().Set("Location", url)
 	w.WriteHeader(http.StatusCreated)
 }
@@ -239,8 +239,8 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 
 	if info.IsFinal {
 		v := "final;"
-		for _, uploadId := range info.PartialUploads {
-			v += " " + handler.absFileUrl(r, uploadId)
+		for _, uploadID := range info.PartialUploads {
+			v += " " + handler.absFileURL(r, uploadID)
 		}
 		w.Header().Set("Concat", v)
 	}
@@ -411,7 +411,7 @@ func (handler *Handler) sendError(w http.ResponseWriter, err error) {
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
 // it will be prepended else the host and protocol from the request is used.
-func (handler *Handler) absFileUrl(r *http.Request, id string) string {
+func (handler *Handler) absFileURL(r *http.Request, id string) string {
 	if handler.isBasePathAbs {
 		return handler.basePath + id
 	}
@@ -453,8 +453,8 @@ func (handler *Handler) sizeOfUploads(ids []string) (size int64, err error) {
 func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
 	readers := make([]io.Reader, len(uploads))
 
-	for index, uploadId := range uploads {
-		reader, err := handler.dataStore.GetReader(uploadId)
+	for index, uploadID := range uploads {
+		reader, err := handler.dataStore.GetReader(uploadID)
 		if err != nil {
 			return err
 		}
@@ -537,7 +537,7 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 			}
 
 			// Extract ids out of URL
-			result := reExtractFileId.FindStringSubmatch(value)
+			result := reExtractFileID.FindStringSubmatch(value)
 			if len(result) != 2 {
 				err = ErrInvalidConcat
 				return

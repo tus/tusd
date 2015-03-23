@@ -7,7 +7,7 @@ import (
 type MetaData map[string]string
 
 type FileInfo struct {
-	Id string
+	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
 	// Offset in bytes (zero-based)

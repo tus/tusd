@@ -28,7 +28,7 @@ type FileStore struct {
 
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	id = uid.Uid()
-	info.Id = id
+	info.ID = id
 
 	// Create .bin file with no content
 	file, err := os.OpenFile(store.binPath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
