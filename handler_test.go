@@ -57,7 +57,7 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	if w.Code != test.Code {
-		t.Errorf("Expected %v as status code (got %v)", test.Code, w.Code)
+		t.Errorf("Expected %v %s as status code (got %v %s)", test.Code, http.StatusText(test.Code), w.Code, http.StatusText(w.Code))
 	}
 
 	for key, value := range test.ResHeader {
