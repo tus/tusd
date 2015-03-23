@@ -132,7 +132,7 @@ func (s concatFinalStore) GetReader(id string) (io.Reader, error) {
 	return nil, ErrNotFound
 }
 
-func (s concatFinalStore) WriteChunk(id string, offset int64, src io.Reader) error {
+func (s concatFinalStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
 	if id != "foo" {
 		s.t.Error("unexpected file id")
 	}
@@ -146,7 +146,7 @@ func (s concatFinalStore) WriteChunk(id string, offset int64, src io.Reader) err
 		s.t.Error("unexpected content")
 	}
 
-	return nil
+	return 10, nil
 }
 
 func TestConcatFinal(t *testing.T) {

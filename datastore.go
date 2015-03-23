@@ -37,7 +37,8 @@ type DataStore interface {
 	// return an os.ErrNotExist which will be interpretet as a 404 Not Found.
 	// It will also lock resources while they are written to ensure only one
 	// write happens per time.
-	WriteChunk(id string, offset int64, src io.Reader) error
+	// The function call must return the number of bytes written.
+	WriteChunk(id string, offset int64, src io.Reader) (int64, error)
 	// Read the fileinformation used to validate the offset and respond to HEAD
 	// requests. It may return an os.ErrNotExist which will be interpretet as a
 	// 404 Not Found.

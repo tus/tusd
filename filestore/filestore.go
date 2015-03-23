@@ -42,20 +42,20 @@ func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	return
 }
 
-func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) error {
+func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
 	file, err := os.OpenFile(store.binPath(id), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer file.Close()
 
 	n, err := io.Copy(file, src)
 	if n > 0 {
 		if err := store.setOffset(id, offset+n); err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return err
+	return n, err
 }
 
 func (store FileStore) GetInfo(id string) (tusd.FileInfo, error) {

@@ -26,7 +26,7 @@ func (s patchStore) GetInfo(id string) (FileInfo, error) {
 	}, nil
 }
 
-func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) error {
+func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
 	if s.called {
 		s.t.Errorf("WriteChunk must be called only once")
 	}
@@ -45,7 +45,7 @@ func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) error {
 		s.t.Errorf("Expected source to be 'hello'")
 	}
 
-	return nil
+	return 5, nil
 }
 
 func TestPatch(t *testing.T) {
@@ -66,6 +66,9 @@ func TestPatch(t *testing.T) {
 		},
 		ReqBody: strings.NewReader("hello"),
 		Code:    http.StatusNoContent,
+		ResHeader: map[string]string{
+			"Upload-Offset": "10",
+		},
 	}).Run(handler, t)
 
 	(&httpTest{
@@ -120,7 +123,7 @@ func (s overflowPatchStore) GetInfo(id string) (FileInfo, error) {
 	}, nil
 }
 
-func (s overflowPatchStore) WriteChunk(id string, offset int64, src io.Reader) error {
+func (s overflowPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
 	if s.called {
 		s.t.Errorf("WriteChunk must be called only once")
 	}
@@ -139,7 +142,7 @@ func (s overflowPatchStore) WriteChunk(id string, offset int64, src io.Reader) e
 		s.t.Errorf("Expected 15 bytes got %v", len(data))
 	}
 
-	return nil
+	return 15, nil
 }
 
 // noEOFReader implements io.Reader, io.Writer, io.Closer but does not return

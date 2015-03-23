@@ -51,9 +51,12 @@ func TestFilestore(t *testing.T) {
 	}
 
 	// Write data to upload
-	err = store.WriteChunk(id, 0, strings.NewReader("hello world"))
+	bytesWritten, err := store.WriteChunk(id, 0, strings.NewReader("hello world"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if bytesWritten != int64(len("hello world")) {
+		t.Errorf("expected 11 bytes to be written")
 	}
 
 	// Check new offset

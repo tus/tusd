@@ -314,11 +314,14 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	// Limit the
 	reader := io.LimitReader(r.Body, maxSize)
 
-	err = handler.dataStore.WriteChunk(id, offset, reader)
+	bytesWritten, err := handler.dataStore.WriteChunk(id, offset, reader)
 	if err != nil {
 		handler.sendError(w, err)
 		return
 	}
+
+	// Send new offset to client
+	w.Header().Set("Upload-Offset", strconv.FormatInt(offset+bytesWritten, 10))
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -462,8 +465,9 @@ func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
 	}
 
 	reader := io.MultiReader(readers...)
+	_, err := handler.dataStore.WriteChunk(id, 0, reader)
 
-	return handler.dataStore.WriteChunk(id, 0, reader)
+	return err
 }
 
 // Parse the Upload-Metadata header as defined in the File Creation extension.
