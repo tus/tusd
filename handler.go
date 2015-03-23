@@ -127,7 +127,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		} else {
 			// Actual request
-			header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, TUS-Resumable, TUS-Max-Size, TUS-Extension, Upload-Metadata")
+			header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
 		}
 	}
 
