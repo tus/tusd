@@ -179,6 +179,7 @@ func TestConcatFinal(t *testing.T) {
 		ResHeader: map[string]string{
 			"Upload-Concat": "final; http://tus.io/files/a http://tus.io/files/b",
 			"Upload-Length": "10",
+			"Upload-Offset": "10",
 		},
 	}).Run(handler, t)
 
