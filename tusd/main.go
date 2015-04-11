@@ -15,6 +15,7 @@ var httpPort string
 var maxSize int64
 var dir string
 var storeSize int64
+var basepath string
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -25,6 +26,7 @@ func init() {
 	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of uploads in bytes")
 	flag.StringVar(&dir, "dir", "./data", "Directory to store uploads in")
 	flag.Int64Var(&storeSize, "store-size", 0, "Size of disk space allowed to storage")
+	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the hTTP server")
 
 	flag.Parse()
 }
@@ -65,7 +67,7 @@ func main() {
 	address := httpHost + ":" + httpPort
 	stdout.Printf("Using %s as address to listen.\n", address)
 
-	http.Handle("/files/", http.StripPrefix("/files/", handler))
+	http.Handle(basepath, http.StripPrefix(basepath, handler))
 	err = http.ListenAndServe(address, nil)
 	if err != nil {
 		stderr.Fatalf("Unable to listen: %s", err)
