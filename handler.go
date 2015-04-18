@@ -70,6 +70,9 @@ type Handler struct {
 	basePath      string
 	routeHandler  http.Handler
 	locks         map[string]bool
+
+	// For each finished upload the corresponding info object will be sent
+	Uploads chan FileInfo
 }
 
 // Create a new handler using the given configuration.
@@ -99,6 +102,7 @@ func NewHandler(config Config) (*Handler, error) {
 		isBasePathAbs: uri.IsAbs(),
 		routeHandler:  mux,
 		locks:         make(map[string]bool),
+		Uploads:       make(chan FileInfo),
 	}
 
 	mux.Post("", http.HandlerFunc(handler.postFile))
@@ -321,7 +325,14 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send new offset to client
-	w.Header().Set("Upload-Offset", strconv.FormatInt(offset+bytesWritten, 10))
+	newOffset := offset + bytesWritten
+	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
+
+	// If the upload is completed, send the info out to the channel
+	if newOffset == info.Size {
+		info.Size = newOffset
+		handler.Uploads <- info
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

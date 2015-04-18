@@ -67,6 +67,15 @@ func main() {
 	address := httpHost + ":" + httpPort
 	stdout.Printf("Using %s as address to listen.\n", address)
 
+	go func() {
+		for {
+			select {
+			case info := <-handler.Uploads:
+				stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+			}
+		}
+	}()
+
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
 	err = http.ListenAndServe(address, nil)
 	if err != nil {
