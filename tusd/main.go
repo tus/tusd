@@ -56,9 +56,10 @@ func main() {
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(maxSize)/1024/1024)
 
 	handler, err := tusd.NewHandler(tusd.Config{
-		MaxSize:   maxSize,
-		BasePath:  "files/",
-		DataStore: store,
+		MaxSize:               maxSize,
+		BasePath:              "files/",
+		DataStore:             store,
+		NotifyCompleteUploads: true,
 	})
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
@@ -70,7 +71,7 @@ func main() {
 	go func() {
 		for {
 			select {
-			case info := <-handler.Uploads:
+			case info := <-handler.CompleteUploads:
 				stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
 			}
 		}

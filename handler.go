@@ -61,6 +61,9 @@ type Config struct {
 	// If no trailing slash is presented it will be added. You may specify an
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
+	// Initiate the CompleteUploads channel in the Handler struct in order to
+	// be notified about complete uploads
+	NotifyCompleteUploads bool
 }
 
 type Handler struct {
@@ -71,8 +74,10 @@ type Handler struct {
 	routeHandler  http.Handler
 	locks         map[string]bool
 
-	// For each finished upload the corresponding info object will be sent
-	Uploads chan FileInfo
+	// For each finished upload the corresponding info object will be sent using
+	// this unbuffered channel. The NotifyCompleteUploads property in the Config
+	// struct must be set to true in order to work.
+	CompleteUploads chan FileInfo
 }
 
 // Create a new handler using the given configuration.
@@ -96,13 +101,13 @@ func NewHandler(config Config) (*Handler, error) {
 	mux := pat.New()
 
 	handler := &Handler{
-		config:        config,
-		dataStore:     config.DataStore,
-		basePath:      base,
-		isBasePathAbs: uri.IsAbs(),
-		routeHandler:  mux,
-		locks:         make(map[string]bool),
-		Uploads:       make(chan FileInfo),
+		config:          config,
+		dataStore:       config.DataStore,
+		basePath:        base,
+		isBasePathAbs:   uri.IsAbs(),
+		routeHandler:    mux,
+		locks:           make(map[string]bool),
+		CompleteUploads: make(chan FileInfo),
 	}
 
 	mux.Post("", http.HandlerFunc(handler.postFile))
@@ -329,9 +334,9 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
 
 	// If the upload is completed, send the info out to the channel
-	if newOffset == info.Size {
+	if handler.config.NotifyCompleteUploads && newOffset == info.Size {
 		info.Size = newOffset
-		handler.Uploads <- info
+		handler.CompleteUploads <- info
 	}
 
 	w.WriteHeader(http.StatusNoContent)
