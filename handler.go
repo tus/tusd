@@ -258,6 +258,7 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Upload-Metadata", serializeMeta(info.MetaData))
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
 	w.WriteHeader(http.StatusNoContent)

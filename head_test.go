@@ -43,6 +43,7 @@ func TestHead(t *testing.T) {
 			"Upload-Offset":   "11",
 			"Upload-Length":   "44",
 			"Upload-Metadata": "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n",
+			"Cache-Control":   "no-store",
 		},
 	}).Run(handler, t)
 
