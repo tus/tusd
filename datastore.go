@@ -48,6 +48,8 @@ type DataStore interface {
 	// should not be enabled any call to GetReader should return
 	// tusd.ErrNotImplemented. The length of the resource is determined by
 	// retrieving the offset using GetInfo.
+	// If the returned reader also implements the io.Closer interface, the
+	// Close() method will be invoked once everything has been read.
 	GetReader(id string) (io.Reader, error)
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.

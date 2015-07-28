@@ -24,7 +24,21 @@ func (s getStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func (s getStore) GetReader(id string) (io.Reader, error) {
-	return strings.NewReader("hello"), nil
+	return reader, nil
+}
+
+type closingStringReader struct {
+	*strings.Reader
+	closed bool
+}
+
+func (reader *closingStringReader) Close() error {
+	reader.closed = true
+	return nil
+}
+
+var reader = &closingStringReader{
+	Reader: strings.NewReader("hello"),
 }
 
 func TestGet(t *testing.T) {
@@ -42,4 +56,8 @@ func TestGet(t *testing.T) {
 			"Content-Length": "5",
 		},
 	}).Run(handler, t)
+
+	if !reader.closed {
+		t.Error("expected reader to be closed")
+	}
 }

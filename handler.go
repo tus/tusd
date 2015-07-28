@@ -383,6 +383,11 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, src)
+
+	// Try to close the reader if the io.Closer interface is implemented
+	if closer, ok := src.(io.Closer); ok {
+		closer.Close()
+	}
 }
 
 // Terminate an upload permanently.
