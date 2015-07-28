@@ -29,7 +29,7 @@ cd tusd
 Now you can run tusd:
 
 ```bash
-go run tusd/main.go
+go run cmd/tusd/main.go
 ```
 
 ## Using tusd manually
