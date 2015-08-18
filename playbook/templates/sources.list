@@ -1,0 +1,7 @@
+deb http://us.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release }} main restricted universe multiverse
+deb http://us.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release }}-updates main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu {{ ansible_distribution_release }}-security main restricted universe multiverse
+
+#deb-src http://us.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release }} main restricted universe multiverse
+#deb-src http://us.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release }}-updates main restricted universe multiverse
+#deb-src http://security.ubuntu.com/ubuntu {{ ansible_distribution_release }}-security main restricted universe multiverse

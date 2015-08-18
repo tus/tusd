@@ -1,0 +1,34 @@
+- name: Install infra-tusd-server
+  hosts: infra-tusd-server
+
+  tasks:
+    - name: Add US APT Mirrors
+      action: template src=templates/sources.list dest=/etc/apt/sources.list
+      register: apt_sources
+
+    - name: Update APT
+      apt: upgrade=dist cache_valid_time=3600 update_cache=yes dpkg_options='force-confold,force-confdef'
+      when: apt_sources|changed
+
+    - name: Install Packages
+      apt: pkg={{ item }} state=present
+      with_items:
+        - apg
+        - build-essential
+        - curl
+        - git-core
+        - htop
+        - iotop
+        - libpcre3
+        - logtail
+        - mlocate
+        - mtr
+        - mysql-client
+        - psmisc
+        - telnet
+        - vim
+        - wget
+
+    - name: Set bashrc
+      action: template src=templates/bashrc dest=/home/ubuntu/.bashrc
+      register: bashrc
