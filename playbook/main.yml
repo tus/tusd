@@ -29,6 +29,6 @@
         - vim
         - wget
 
-    - name: Set bashrc
-      action: template src=templates/bashrc dest=/home/ubuntu/.bashrc
+    - name: Add convenience shortcut wtf
+      action: lineinfile dest=/home/ubuntu/.bashrc line="alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'"
       register: bashrc
