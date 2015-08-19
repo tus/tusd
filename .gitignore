@@ -1,9 +1,3 @@
 tusd/data
 cover.out
 data/
-
-# Infra
-env.sh
-terraform/
-.DS_Store
-envs/production/infra-tusd.pem
