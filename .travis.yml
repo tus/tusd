@@ -19,7 +19,7 @@ script:
 
 before_deploy:
 - go get github.com/laher/goxc
-- goxc -t
+- goxc -t -bc="linux darwin windows"
 - goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows"
 
 deploy:
