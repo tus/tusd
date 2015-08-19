@@ -16,3 +16,30 @@ before_install:
 script:
 - go test -v -coverprofile=cover.out || go test -v
 - go test -v ./filestore -coverprofile=cover.out || go test -v ./filestore
+
+before_deploy:
+- go get github.com/laher/goxc
+- goxc -t
+- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: dV3wr9ebEps3YrzIoqmkYc7fw0IECz7QLPRENPSxTJyd5TTYXGsnTS26cMe2LdGwYrXw0njt2GGovMyBZFTtxyYI3mMO4AZRwvZfx/yGzPWJBbVi6NjZVRg/bpyK+mQJ5BUlkPAYJmRpdc6qD+nvCGakBOxoByC5XDK+yM+bKFs=
+  file:
+  - snapshot/tusd_darwin_386.zip
+  - snapshot/tusd_darwin_amd64.zip
+  - snapshot/tusd_linux_386.tar.gz
+  - snapshot/tusd_linux_amd64.tar.gz
+  - snapshot/tusd_linux_arm.tar.gz
+  - snapshot/tusd_snapshot_amd64.deb
+  - snapshot/tusd_snapshot_armhf.deb
+  - snapshot/tusd_snapshot_i386.deb
+  - snapshot/tusd_windows_386.zip
+  - snapshot/tusd_windows_amd64.zip
+  skip_cleanup: true
+
+  on:
+    tags: true
+    go: 1.4
+    repo: tus/tusd
