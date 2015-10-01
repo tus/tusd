@@ -11,7 +11,7 @@ import (
 )
 
 // Test interface implementation of Filestore
-var _ tusd.DataStore = FileStore{}
+var _ tusd.DataStore = NewFileStore("")
 
 func TestFilestore(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-")
@@ -19,7 +19,7 @@ func TestFilestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	store := FileStore{tmp}
+	store := NewFileStore(tmp)
 
 	// Create new upload
 	id, err := store.NewUpload(tusd.FileInfo{

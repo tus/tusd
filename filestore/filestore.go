@@ -7,6 +7,7 @@
 package filestore
 
 import (
+    "bytes"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -23,10 +24,20 @@ var defaultFilePerm = os.FileMode(0775)
 type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
 	// whether the path exists, you os.MkdirAll in this case on your own.
-	Path string
+	Path  string
+    locks map[string]bool
 }
 
-func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
+// NewFileStore creates a new FileStore instance.
+func NewFileStore(path string) (store *FileStore) {
+    store = &FileStore{
+        Path: path,
+        locks: make(map[string]bool),
+    }
+    return
+}
+
+func (store *FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	id = uid.Uid()
 	info.ID = id
 
@@ -42,8 +53,13 @@ func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	return
 }
 
-func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	file, err := os.OpenFile(store.binPath(id), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+func (store *FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+	if !store.getLock(id) {
+	    return 0, tusd.ErrFileLocked
+	}
+    defer store.clearLock(id)
+    
+    file, err := os.OpenFile(store.binPath(id), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return 0, err
 	}
@@ -58,21 +74,28 @@ func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64
 	return n, err
 }
 
-func (store FileStore) GetInfo(id string) (tusd.FileInfo, error) {
-	info := tusd.FileInfo{}
-	data, err := ioutil.ReadFile(store.infoPath(id))
+func (store *FileStore) GetInfo(id string) (info tusd.FileInfo, err error) {
+    data, err := ioutil.ReadFile(store.infoPath(id))
 	if err != nil {
 		return info, err
 	}
 	err = json.Unmarshal(data, &info)
-	return info, err
+	return
 }
 
-func (store FileStore) GetReader(id string) (io.Reader, error) {
-	return os.Open(store.binPath(id))
+func (store *FileStore) GetReader(id string) (io.Reader, error) {
+	if !store.getLock(id) {
+	    return bytes.NewReader(make([]byte, 0)), tusd.ErrFileLocked
+	}
+    defer store.clearLock(id)
+    return os.Open(store.binPath(id))
 }
 
-func (store FileStore) Terminate(id string) error {
+func (store *FileStore) Terminate(id string) error {
+    if !store.getLock(id) {
+        return tusd.ErrFileLocked
+    }
+    defer store.clearLock(id)
 	if err := os.Remove(store.infoPath(id)); err != nil {
 		return err
 	}
@@ -83,17 +106,17 @@ func (store FileStore) Terminate(id string) error {
 }
 
 // Return the path to the .bin storing the binary data
-func (store FileStore) binPath(id string) string {
+func (store *FileStore) binPath(id string) string {
 	return store.Path + "/" + id + ".bin"
 }
 
 // Return the path to the .info file storing the file's info
-func (store FileStore) infoPath(id string) string {
+func (store *FileStore) infoPath(id string) string {
 	return store.Path + "/" + id + ".info"
 }
 
 // Update the entire information. Everything will be overwritten.
-func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
+func (store *FileStore) writeInfo(id string, info tusd.FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -102,7 +125,7 @@ func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 }
 
 // Update the .info file using the new upload.
-func (store FileStore) setOffset(id string, offset int64) error {
+func (store *FileStore) setOffset(id string, offset int64) error {
 	info, err := store.GetInfo(id)
 	if err != nil {
 		return err
@@ -115,4 +138,20 @@ func (store FileStore) setOffset(id string, offset int64) error {
 
 	info.Offset = offset
 	return store.writeInfo(id, info)
+}
+
+// getLock obtains a lock on reading/writing data for the given file ID.
+func (store *FileStore) getLock(id string) (hasLock bool) {
+    if _, locked := store.locks[id]; locked {
+        hasLock = false
+        return
+    }
+    store.locks[id] = true
+    hasLock = true
+    return
+}
+
+// clearLock removes the lock for the given file ID.
+func (store *FileStore) clearLock(id string) {
+    delete(store.locks, id)
 }

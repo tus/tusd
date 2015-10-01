@@ -25,7 +25,6 @@ var (
 	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
 	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
-	ErrFileLocked          = errors.New("file currently locked")
 	ErrIllegalOffset       = errors.New("illegal offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
@@ -72,7 +71,6 @@ type Handler struct {
 	isBasePathAbs bool
 	basePath      string
 	routeHandler  http.Handler
-	locks         map[string]bool
 
 	// For each finished upload the corresponding info object will be sent using
 	// this unbuffered channel. The NotifyCompleteUploads property in the Config
@@ -106,7 +104,6 @@ func NewHandler(config Config) (*Handler, error) {
 		basePath:        base,
 		isBasePathAbs:   uri.IsAbs(),
 		routeHandler:    mux,
-		locks:           make(map[string]bool),
 		CompleteUploads: make(chan FileInfo),
 	}
 
@@ -276,20 +273,6 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
-
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, err)
@@ -354,20 +337,6 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
-
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, err)
@@ -400,20 +369,6 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 // Terminate an upload permanently.
 func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
-
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
 
 	err := handler.dataStore.Terminate(id)
 	if err != nil {

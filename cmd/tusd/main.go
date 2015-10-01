@@ -39,9 +39,7 @@ func main() {
 	}
 
 	var store tusd.DataStore
-	store = filestore.FileStore{
-		Path: dir,
-	}
+	store = filestore.NewFileStore(dir)
 
 	if storeSize > 0 {
 		store = limitedstore.New(storeSize, store)

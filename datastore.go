@@ -2,7 +2,14 @@ package tusd
 
 import (
 	"io"
+    "errors"
 )
+
+// Error indicating that the data store has locked the file for further edits.
+// This error is not a part of the official tus specification. Implementers of
+// tusd.DataStore have the option to return this error to signal a file is
+// locked for writing, and cannot be written to by another HTTP request.
+var ErrFileLocked = errors.New("file currently locked")
 
 type MetaData map[string]string
 
