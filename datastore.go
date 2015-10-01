@@ -1,8 +1,8 @@
 package tusd
 
 import (
+	"errors"
 	"io"
-    "errors"
 )
 
 // Error indicating that the data store has locked the file for further edits.
