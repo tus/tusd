@@ -124,7 +124,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Allow overriding the HTTP method. The reason for this is
 	// that some libraries/environments to not support PATCH and
 	// DELETE requests, e.g. Flash in a browser and parts of Java
-	if newMethod := r.Header.Get("Tus-Method-Override"); newMethod != "" {
+	if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
 		r.Method = newMethod
 	}
 

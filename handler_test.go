@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -74,5 +76,57 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) {
 
 	if test.ResBody != "" && string(w.Body.Bytes()) != test.ResBody {
 		t.Errorf("Expected '%s' as body (got '%s'", test.ResBody, string(w.Body.Bytes()))
+	}
+}
+
+type methodOverrideStore struct {
+	zeroStore
+	t      *testing.T
+	called bool
+}
+
+func (s methodOverrideStore) GetInfo(id string) (FileInfo, error) {
+	if id != "yes" {
+		return FileInfo{}, os.ErrNotExist
+	}
+
+	return FileInfo{
+		Offset: 5,
+		Size:   20,
+	}, nil
+}
+
+func (s *methodOverrideStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+	s.called = true
+
+	return 5, nil
+}
+
+func TestMethodOverride(t *testing.T) {
+	store := &methodOverrideStore{
+		t: t,
+	}
+	handler, _ := NewHandler(Config{
+		DataStore: store,
+	})
+
+	(&httpTest{
+		Name:   "Successful request",
+		Method: "POST",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"Tus-Resumable":          "1.0.0",
+			"Upload-Offset":          "5",
+			"X-HTTP-Method-Override": "PATCH",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusNoContent,
+		ResHeader: map[string]string{
+			"Upload-Offset": "10",
+		},
+	}).Run(handler, t)
+
+	if !store.called {
+		t.Fatal("WriteChunk implementation not called")
 	}
 }
