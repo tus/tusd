@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 var httpHost string
@@ -16,6 +17,7 @@ var maxSize int64
 var dir string
 var storeSize int64
 var basepath string
+var timeout int64
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -27,6 +29,7 @@ func init() {
 	flag.StringVar(&dir, "dir", "./data", "Directory to store uploads in")
 	flag.Int64Var(&storeSize, "store-size", 0, "Size of disk space allowed to storage")
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the hTTP server")
+	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds")
 
 	flag.Parse()
 }
@@ -78,8 +81,13 @@ func main() {
 	}()
 
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
-	err = http.ListenAndServe(address, nil)
-	if err != nil {
+
+	server := &http.Server{
+		Addr:        address,
+		ReadTimeout: time.Duration(timeout) * time.Millisecond,
+	}
+
+	if err = server.ListenAndServe(); err != nil {
 		stderr.Fatalf("Unable to listen: %s", err)
 	}
 }
