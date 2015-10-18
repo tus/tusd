@@ -82,13 +82,13 @@ func main() {
 
 The tusd server is built to be as flexible as possible and to allow the use
 of different upload storage mechanisms. By default the tusd binary includes
-[`filestore`](github.com/tus/tusd/filestore/) which will save every upload
+[`filestore`](/filestore/filestore.go) which will save every upload
 to a specific directory on disk.
 
 If you have different requirements, you can build your own storage backend
 which will save the files to S3, a remote FTP server or similar. Doing so
-is as simple as implementing the [`tusd.DateStore`](http://godoc.org/github.com/tus/tusd/#DataStore)
-interface and using the new struct in the [configuration object](github.com/tus/tusd/#Config).
+is as simple as implementing the [`tusd.DataStore`](http://godoc.org/github.com/tus/tusd/#DataStore)
+interface and using the new struct in the [configuration object](/handler.go#L53).
 Please consult the documentation about detailed information about the
 required methods.
 
