@@ -49,6 +49,14 @@ func (store *dataStore) Terminate(id string) error {
 	return nil
 }
 
+func (store *dataStore) LockFile(id string) (bool, error) {
+	return true, nil
+}
+
+func (store *dataStore) UnlockFile(id string) (error) {
+	return nil
+}
+
 func TestLimitedStore(t *testing.T) {
 	dataStore := &dataStore{
 		t: t,

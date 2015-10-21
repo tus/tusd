@@ -23,6 +23,11 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
+    // Indicates that a write operation is currently pending for this file.
+    // This field is not needed to implement the tus specification.
+    // Implementations of tusd.DataStore may use this to prevent write
+    // collisions or race conditions.
+    Locked bool
 }
 
 type DataStore interface {
@@ -54,4 +59,13 @@ type DataStore interface {
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error
+	// Lock the upload file for writing. This feature is not part of the
+	// official TUS specification. Handlers should call this prior to writing
+	// chunks or terminating files. Returns true if the file lock has been
+	// acquired.
+	LockFile(id string) (bool, error)
+	// Unlock the upload file for writing. This feature is not part of the
+	// official TUS specification. Handlers should defer calls to this after
+	// acquiring a lock.
+	UnlockFile(id string) error
 }
