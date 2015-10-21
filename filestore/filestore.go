@@ -98,7 +98,7 @@ func (store *FileStore) Terminate(id string) error {
 	return nil
 }
 
-func (store *FileStore) LockFile(id string) (hasLock bool, err) {
+func (store *FileStore) LockFile(id string) (hasLock bool, err error) {
 	info, err := store.GetInfo(id)
 	if err != nil {
 		hasLock = false
@@ -110,7 +110,7 @@ func (store *FileStore) LockFile(id string) (hasLock bool, err) {
 		return
 	}
 	info.Locked = true
-	err = writeInfo(id, info)
+	err = store.writeInfo(id, info)
 	if err != nil {
 		hasLock = false
 		return
@@ -125,7 +125,7 @@ func (store *FileStore) UnlockFile(id string) (err error) {
 		return
 	}
 	info.Locked = false
-	err = writeInfo(info)
+	err = store.writeInfo(id, info)
 	return
 }
 
