@@ -28,6 +28,14 @@ func (store zeroStore) Terminate(id string) error {
 	return ErrNotImplemented
 }
 
+func (store zeroStore) LockFile(id string) (bool, error) {
+	return true, nil
+}
+
+func (store zeroStore) UnlockFile(id string) (error) {
+	return nil
+}
+
 type httpTest struct {
 	Name string
 

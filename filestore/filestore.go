@@ -25,14 +25,12 @@ type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
 	// whether the path exists, you os.MkdirAll in this case on your own.
 	Path  string
-	locks map[string]bool
 }
 
 // NewFileStore creates a new FileStore instance.
 func NewFileStore(path string) (store *FileStore) {
 	store = &FileStore{
 		Path:  path,
-		locks: make(map[string]bool),
 	}
 	return
 }
@@ -54,11 +52,6 @@ func (store *FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 }
 
 func (store *FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	if !store.getLock(id) {
-		return 0, tusd.ErrFileLocked
-	}
-	defer store.clearLock(id)
-
 	file, err := os.OpenFile(store.binPath(id), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return 0, err
@@ -84,18 +77,18 @@ func (store *FileStore) GetInfo(id string) (info tusd.FileInfo, err error) {
 }
 
 func (store *FileStore) GetReader(id string) (io.Reader, error) {
-	if !store.getLock(id) {
+	hasLock, err := store.LockFile(id)
+	if err != nil {
+		return bytes.NewReader(make([]byte, 0)), err
+	}
+	if !hasLock {
 		return bytes.NewReader(make([]byte, 0)), tusd.ErrFileLocked
 	}
-	defer store.clearLock(id)
+	defer store.UnlockFile(id)
 	return os.Open(store.binPath(id))
 }
 
 func (store *FileStore) Terminate(id string) error {
-	if !store.getLock(id) {
-		return tusd.ErrFileLocked
-	}
-	defer store.clearLock(id)
 	if err := os.Remove(store.infoPath(id)); err != nil {
 		return err
 	}
@@ -103,6 +96,37 @@ func (store *FileStore) Terminate(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (store *FileStore) LockFile(id string) (hasLock bool, err) {
+	info, err := store.GetInfo(id)
+	if err != nil {
+		hasLock = false
+		return
+	}
+	if info.Locked {
+		// Cannot acquire lock if something else has the lock.
+		hasLock = false
+		return
+	}
+	info.Locked = true
+	err = writeInfo(id, info)
+	if err != nil {
+		hasLock = false
+		return
+	}
+	hasLock = true
+	return
+}
+
+func (store *FileStore) UnlockFile(id string) (err error) {
+	info, err := store.GetInfo(id)
+	if err != nil {
+		return
+	}
+	info.Locked = false
+	err = writeInfo(info)
+	return
 }
 
 // Return the path to the .bin storing the binary data
@@ -138,20 +162,4 @@ func (store *FileStore) setOffset(id string, offset int64) error {
 
 	info.Offset = offset
 	return store.writeInfo(id, info)
-}
-
-// getLock obtains a lock on reading/writing data for the given file ID.
-func (store *FileStore) getLock(id string) (hasLock bool) {
-	if _, locked := store.locks[id]; locked {
-		hasLock = false
-		return
-	}
-	store.locks[id] = true
-	hasLock = true
-	return
-}
-
-// clearLock removes the lock for the given file ID.
-func (store *FileStore) clearLock(id string) {
-	delete(store.locks, id)
 }

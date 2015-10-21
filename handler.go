@@ -25,6 +25,7 @@ var (
 	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
 	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
+	ErrFileLocked          = errors.New("file currently locked")
 	ErrIllegalOffset       = errors.New("illegal offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
@@ -272,6 +273,11 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 // space is left.
 func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
+	err := handler.getLock(id)
+	if err != nil {
+		handler.sendError(w, err)
+	}
+	defer handler.releaseLock(id)
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
@@ -369,8 +375,14 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 // Terminate an upload permanently.
 func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
-
-	err := handler.dataStore.Terminate(id)
+	err := handler.getLock(id)
+	if err != nil {
+		handler.sendError(w, err)
+		return
+	}
+	defer handler.releaseLock(id)
+	
+	err = handler.dataStore.Terminate(id)
 	if err != nil {
 		handler.sendError(w, err)
 		return
@@ -452,6 +464,24 @@ func (handler *Handler) fillFinalUpload(id string, uploads []string) error {
 	_, err := handler.dataStore.WriteChunk(id, 0, reader)
 
 	return err
+}
+
+// Get the lock from the data store, returning an error if a true error occurred
+// or if the file could not be locked.
+func (handler *Handler) getLock(id string) (error) {
+	hasLock, err := handler.dataStore.LockFile(id)
+	if err != nil {
+		return err
+	}
+	if !hasLock {
+		return ErrFileLocked
+	}
+	return nil
+}
+
+// Release the lock from the data store
+func (handler *Handler) releaseLock(id string) (error) {
+	return handler.dataStore.UnlockFile(id)
 }
 
 // Parse the Upload-Metadata header as defined in the File Creation extension.
