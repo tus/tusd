@@ -168,7 +168,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// GET methods are not checked since a browser may visit this URL and does
 	// not include this header. This request is not part of the specification.
 	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
-		handler.sendError(w, ErrUnsupportedVersion)
+		header.Set("Content-Length", "0")
+		w.WriteHeader(http.StatusPreconditionFailed)
 		return
 	}
 
