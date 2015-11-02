@@ -168,7 +168,8 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// GET methods are not checked since a browser may visit this URL and does
 	// not include this header. This request is not part of the specification.
 	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
-		handler.sendError(w, ErrUnsupportedVersion)
+		header.Set("Content-Length", "0")
+		w.WriteHeader(http.StatusPreconditionFailed)
 		return
 	}
 
@@ -244,7 +245,12 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		handler.sendError(w, err)
+		status := http.StatusInternalServerError
+		if os.IsNotExist(err) {
+			status = http.StatusNotFound
+		}
+		w.Header().Set("Content-Length", "0")
+		w.WriteHeader(status)
 		return
 	}
 
