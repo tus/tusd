@@ -168,7 +168,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// GET methods are not checked since a browser may visit this URL and does
 	// not include this header. This request is not part of the specification.
 	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
-		handler.sendError(w, ErrUnsupportedVersion)
+		handler.sendError(w, r, ErrUnsupportedVersion)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	// Parse Upload-Concat header
 	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -193,20 +193,20 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	if isFinal {
 		size, err = handler.sizeOfUploads(partialUploads)
 		if err != nil {
-			handler.sendError(w, err)
+			handler.sendError(w, r, err)
 			return
 		}
 	} else {
 		size, err = strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
 		if err != nil || size < 0 {
-			handler.sendError(w, ErrInvalidUploadLength)
+			handler.sendError(w, r, ErrInvalidUploadLength)
 			return
 		}
 	}
 
 	// Test whether the size is still allowed
 	if handler.config.MaxSize > 0 && size > handler.config.MaxSize {
-		handler.sendError(w, ErrMaxSizeExceeded)
+		handler.sendError(w, r, ErrMaxSizeExceeded)
 		return
 	}
 
@@ -223,13 +223,13 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 
 	id, err := handler.dataStore.NewUpload(info)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
 	if isFinal {
 		if err := handler.fillFinalUpload(id, partialUploads); err != nil {
-			handler.sendError(w, err)
+			handler.sendError(w, r, err)
 			return
 		}
 	}
@@ -241,10 +241,11 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 
 // Returns the length and offset for the HEAD request
 func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
+
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -278,7 +279,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
+		handler.sendError(w, r, ErrFileLocked)
 		return
 	}
 
@@ -292,25 +293,25 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
 	// Modifying a final upload is not allowed
 	if info.IsFinal {
-		handler.sendError(w, ErrModifyFinal)
+		handler.sendError(w, r, ErrModifyFinal)
 		return
 	}
 
 	// Ensure the offsets match
 	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
 	if err != nil {
-		handler.sendError(w, ErrInvalidOffset)
+		handler.sendError(w, r, ErrInvalidOffset)
 		return
 	}
 
 	if offset != info.Offset {
-		handler.sendError(w, ErrIllegalOffset)
+		handler.sendError(w, r, ErrIllegalOffset)
 		return
 	}
 
@@ -319,7 +320,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 
 	// Test if this upload fits into the file's size
 	if offset+length > info.Size {
-		handler.sendError(w, ErrSizeExceeded)
+		handler.sendError(w, r, ErrSizeExceeded)
 		return
 	}
 
@@ -333,7 +334,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 
 	bytesWritten, err := handler.dataStore.WriteChunk(id, offset, reader)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -356,7 +357,7 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
+		handler.sendError(w, r, ErrFileLocked)
 		return
 	}
 
@@ -370,7 +371,7 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -383,7 +384,7 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 	// Get reader
 	src, err := handler.dataStore.GetReader(id)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -403,7 +404,7 @@ func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, ErrFileLocked)
+		handler.sendError(w, r, ErrFileLocked)
 		return
 	}
 
@@ -417,7 +418,7 @@ func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 
 	err := handler.dataStore.Terminate(id)
 	if err != nil {
-		handler.sendError(w, err)
+		handler.sendError(w, r, err)
 		return
 	}
 
@@ -426,7 +427,7 @@ func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
 
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
-func (handler *Handler) sendError(w http.ResponseWriter, err error) {
+func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
 	// Interpret os.ErrNotExist as 404 Not Found
 	if os.IsNotExist(err) {
 		err = ErrNotFound
@@ -436,7 +437,14 @@ func (handler *Handler) sendError(w http.ResponseWriter, err error) {
 	if !ok {
 		status = 500
 	}
+
+	reason := err.Error()
+	if r.Method == "HEAD" {
+		reason = ""
+	}
+
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
 	w.Write([]byte(err.Error() + "\n"))
 }
