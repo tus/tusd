@@ -18,7 +18,7 @@ func (s terminateStore) Terminate(id string) error {
 }
 
 func TestTerminate(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		DataStore: terminateStore{
 			t: t,
 		},

@@ -32,7 +32,7 @@ func (s postStore) NewUpload(info FileInfo) (string, error) {
 }
 
 func TestPost(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: postStore{

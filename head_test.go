@@ -26,7 +26,7 @@ func (s headStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func TestHead(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		BasePath:  "https://buy.art/",
 		DataStore: headStore{},
 	})

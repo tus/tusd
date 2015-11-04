@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/bmizerany/pat"
 )
 
 var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
@@ -73,7 +71,6 @@ type Handler struct {
 	dataStore     DataStore
 	isBasePathAbs bool
 	basePath      string
-	routeHandler  http.Handler
 	locks         map[string]bool
 	logger        *log.Logger
 
@@ -105,8 +102,6 @@ func NewHandler(config Config) (*Handler, error) {
 		base = "/" + base
 	}
 
-	mux := pat.New()
-
 	handler := &Handler{
 		config:          config,
 		dataStore:       config.DataStore,
@@ -117,20 +112,7 @@ func NewHandler(config Config) (*Handler, error) {
 		logger:          logger,
 	}
 
-	handler.routeHandler = handler.TusMiddleware(mux)
-
-	mux.Post("", http.HandlerFunc(handler.postFile))
-	mux.Head(":id", http.HandlerFunc(handler.headFile))
-	mux.Get(":id", http.HandlerFunc(handler.getFile))
-	mux.Del(":id", http.HandlerFunc(handler.delFile))
-	mux.Add("PATCH", ":id", http.HandlerFunc(handler.patchFile))
-
 	return handler, nil
-}
-
-// Implement the http.Handler interface.
-func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.routeHandler.ServeHTTP(w, r)
 }
 
 func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {

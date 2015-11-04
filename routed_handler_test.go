@@ -106,7 +106,7 @@ func TestMethodOverride(t *testing.T) {
 	store := &methodOverrideStore{
 		t: t,
 	}
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		DataStore: store,
 	})
 

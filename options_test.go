@@ -6,7 +6,7 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize: 400,
 	})
 

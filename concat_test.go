@@ -37,7 +37,7 @@ func (s concatPartialStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func TestConcatPartial(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: concatPartialStore{
@@ -150,7 +150,7 @@ func (s concatFinalStore) WriteChunk(id string, offset int64, src io.Reader) (in
 }
 
 func TestConcatFinal(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: concatFinalStore{
@@ -193,7 +193,7 @@ func TestConcatFinal(t *testing.T) {
 		Code: http.StatusBadRequest,
 	}).Run(handler, t)
 
-	handler, _ = NewHandler(Config{
+	handler, _ = NewRoutedHandler(Config{
 		MaxSize:  9,
 		BasePath: "files",
 		DataStore: concatFinalStore{
