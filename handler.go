@@ -42,7 +42,7 @@ var ErrStatusCodes = map[error]int{
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset:       http.StatusConflict,
+	ErrMismatchOffset:      http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -112,11 +112,12 @@ func NewHandler(config Config) (*Handler, error) {
 		dataStore:       config.DataStore,
 		basePath:        base,
 		isBasePathAbs:   uri.IsAbs(),
-		routeHandler:    mux,
 		locks:           make(map[string]bool),
 		CompleteUploads: make(chan FileInfo),
 		logger:          logger,
 	}
+
+	handler.routeHandler = handler.TusMiddleware(mux)
 
 	mux.Post("", http.HandlerFunc(handler.postFile))
 	mux.Head(":id", http.HandlerFunc(handler.headFile))
@@ -129,59 +130,65 @@ func NewHandler(config Config) (*Handler, error) {
 
 // Implement the http.Handler interface.
 func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Allow overriding the HTTP method. The reason for this is
-	// that some libraries/environments to not support PATCH and
-	// DELETE requests, e.g. Flash in a browser and parts of Java
-	if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
-		r.Method = newMethod
-	}
-
-	go handler.logger.Println(r.Method, r.URL.Path)
-
-	header := w.Header()
-
-	if origin := r.Header.Get("Origin"); origin != "" {
-		header.Set("Access-Control-Allow-Origin", origin)
-
-		if r.Method == "OPTIONS" {
-			// Preflight request
-			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
-			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
-			header.Set("Access-Control-Max-Age", "86400")
-
-		} else {
-			// Actual request
-			header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
-		}
-	}
-
-	// Set current version used by the server
-	header.Set("Tus-Resumable", "1.0.0")
-
-	// Set appropriated headers in case of OPTIONS method allowing protocol
-	// discovery and end with an 204 No Content
-	if r.Method == "OPTIONS" {
-		if handler.config.MaxSize > 0 {
-			header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
-		}
-
-		header.Set("Tus-Version", "1.0.0")
-		header.Set("Tus-Extension", "creation,concatenation,termination")
-
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	// Test if the version sent by the client is supported
-	// GET methods are not checked since a browser may visit this URL and does
-	// not include this header. This request is not part of the specification.
-	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
-		handler.sendError(w, r, ErrUnsupportedVersion)
-		return
-	}
-
-	// Proceed with routing the request
 	handler.routeHandler.ServeHTTP(w, r)
+}
+
+func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow overriding the HTTP method. The reason for this is
+		// that some libraries/environments to not support PATCH and
+		// DELETE requests, e.g. Flash in a browser and parts of Java
+		if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
+			r.Method = newMethod
+		}
+
+		go handler.logger.Println(r.Method, r.URL.Path)
+
+		header := w.Header()
+
+		if origin := r.Header.Get("Origin"); origin != "" {
+			header.Set("Access-Control-Allow-Origin", origin)
+
+			if r.Method == "OPTIONS" {
+				// Preflight request
+				header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
+				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Set("Access-Control-Max-Age", "86400")
+
+			} else {
+				// Actual request
+				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+			}
+		}
+
+		// Set current version used by the server
+		header.Set("Tus-Resumable", "1.0.0")
+
+		// Set appropriated headers in case of OPTIONS method allowing protocol
+		// discovery and end with an 204 No Content
+		if r.Method == "OPTIONS" {
+			if handler.config.MaxSize > 0 {
+				header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+			}
+
+			header.Set("Tus-Version", "1.0.0")
+			header.Set("Tus-Extension", "creation,concatenation,termination")
+
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		// Test if the version sent by the client is supported
+		// GET methods are not checked since a browser may visit this URL and does
+		// not include this header. This request is not part of the specification.
+		if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
+			handler.sendError(w, r, ErrUnsupportedVersion)
+			return
+		}
+
+		// Proceed with routing the request
+		h.ServeHTTP(w, r)
+	})
 }
 
 // Create a new file upload using the datastore after validating the length
