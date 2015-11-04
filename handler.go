@@ -27,7 +27,7 @@ var (
 	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
 	ErrFileLocked          = errors.New("file currently locked")
-	ErrIllegalOffset       = errors.New("illegal offset")
+	ErrMismatchOffset      = errors.New("mismatched offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
 	ErrUploadNotFinished   = errors.New("one of the partial uploads is not finished")
@@ -44,7 +44,7 @@ var ErrStatusCodes = map[error]int{
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrIllegalOffset:       http.StatusConflict,
+	ErrMismatchOffset:       http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -320,7 +320,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if offset != info.Offset {
-		handler.sendError(w, r, ErrIllegalOffset)
+		handler.sendError(w, r, ErrMismatchOffset)
 		return
 	}
 
