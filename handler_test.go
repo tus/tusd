@@ -117,6 +117,7 @@ func TestMethodOverride(t *testing.T) {
 		ReqHeader: map[string]string{
 			"Tus-Resumable":          "1.0.0",
 			"Upload-Offset":          "5",
+			"Content-Type":           "application/offset+octet-stream",
 			"X-HTTP-Method-Override": "PATCH",
 		},
 		ReqBody: strings.NewReader("hello"),
