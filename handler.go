@@ -284,6 +284,13 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Check for presence of a valid Upload-Offset Header
+	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
+	if err != nil || offset < 0 {
+		handler.sendError(w, r, ErrInvalidOffset)
+		return
+	}
+
 	id := r.URL.Query().Get(":id")
 
 	// Ensure file is not locked
@@ -309,13 +316,6 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	// Modifying a final upload is not allowed
 	if info.IsFinal {
 		handler.sendError(w, r, ErrModifyFinal)
-		return
-	}
-
-	// Ensure the offsets match
-	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
-	if err != nil {
-		handler.sendError(w, r, ErrInvalidOffset)
 		return
 	}
 
