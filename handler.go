@@ -22,6 +22,7 @@ var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
 	ErrMaxSizeExceeded     = errors.New("maximum size exceeded")
+	ErrInvalidContentType  = errors.New("missing or invalid Content-Type header")
 	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
 	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
@@ -38,6 +39,7 @@ var (
 var ErrStatusCodes = map[error]int{
 	ErrUnsupportedVersion:  http.StatusPreconditionFailed,
 	ErrMaxSizeExceeded:     http.StatusRequestEntityTooLarge,
+	ErrInvalidContentType:  http.StatusBadRequest,
 	ErrInvalidUploadLength: http.StatusBadRequest,
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
@@ -275,6 +277,13 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 // Add a chunk to an upload. Only allowed if the upload is not locked and enough
 // space is left.
 func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
+
+	//Check for presence of application/offset+octet-stream
+	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
+		handler.sendError(w, r, ErrInvalidContentType)
+		return
+	}
+
 	id := r.URL.Query().Get(":id")
 
 	// Ensure file is not locked
