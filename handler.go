@@ -48,6 +48,7 @@ var ErrStatusCodes = map[error]int{
 	ErrModifyFinal:         http.StatusForbidden,
 }
 
+// Config provides a way to configure the Handler depending on your needs.
 type Config struct {
 	// DataStore implementation used to store and retrieve the single uploads.
 	// Must no be nil.
@@ -66,6 +67,9 @@ type Config struct {
 	Logger *log.Logger
 }
 
+// Handler exposes methods to handle requests as part of the tus protocol.
+// These are PostFile and PatchFile. It also includes GetFile and DelFile
+// however these are part of the spec. They are provided for convenience.
 type Handler struct {
 	config        Config
 	dataStore     DataStore
@@ -118,6 +122,11 @@ func NewHandler(config Config) (*Handler, error) {
 	return handler, nil
 }
 
+// TusMiddleware checks various aspects of the request and ensures that it
+// conforms with the spec. Also handles method overriding for clients which
+// cannot make PATCH AND DELETE requests. If you are using the tusd handlers
+// directly you will need to wrap at least the POST and PATCH endpoints in
+// this middleware.
 func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow overriding the HTTP method. The reason for this is
@@ -176,8 +185,8 @@ func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-// Create a new file upload using the datastore after validating the length
-// and parsing the metadata.
+// PostFile creates a new file upload using the datastore after validating the
+// length and parsing the metadata.
 func (handler *Handler) PostFile(w http.ResponseWriter, r *http.Request) {
 	// Parse Upload-Concat header
 	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
@@ -239,7 +248,7 @@ func (handler *Handler) PostFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Returns the length and offset for the HEAD request
+// HeadFile returns the length and offset for the HEAD request
 func (handler *Handler) HeadFile(w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Query().Get(":id")
@@ -272,8 +281,8 @@ func (handler *Handler) HeadFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Add a chunk to an upload. Only allowed if the upload is not locked and enough
-// space is left.
+// PatchFile adds a chunk to an upload. Only allowed if the upload is not
+// locked and enough space is left.
 func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 
 	//Check for presence of application/offset+octet-stream
@@ -358,7 +367,8 @@ func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Download a file using a GET request. This is not part of the specification.
+// GetFile handles requests to download a file using a GET request. This is not
+// part of the specification.
 func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
@@ -405,7 +415,7 @@ func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Terminate an upload permanently.
+// DelFile terminates an upload permanently.
 func (handler *Handler) DelFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 

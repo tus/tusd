@@ -59,7 +59,7 @@ func main() {
 	// Create a new HTTP handler for the tusd server by providing
 	// a configuration object. The DataStore property must be set
 	// in order to allow the handler to function.
-	handler, err := tusd.NewHandler(tusd.Config{
+	handler, err := tusd.NewRoutedHandler(tusd.Config{
 		BasePath:              "files/",
 		DataStore:             store,
 	})
@@ -77,6 +77,9 @@ func main() {
 	}
 }
 ```
+
+If you need to customize the GET and DELETE endpoints use `tusd.NewHandler`
+instead of `tusd.NewRoutedHandler`.
 
 ## Implementing own storages
 
