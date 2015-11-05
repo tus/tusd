@@ -80,7 +80,10 @@ type Handler struct {
 	CompleteUploads chan FileInfo
 }
 
-// Create a new handler using the given configuration.
+// NewHandler creates a new handler without routing using the given
+// configuration. It exposes the http handlers which need to be combined with
+// a router (aka mux) of your choice. If you are looking for preconfigured
+// handler see NewRoutedHandler.
 func NewHandler(config Config) (*Handler, error) {
 	logger := config.Logger
 	if logger == nil {
@@ -175,7 +178,7 @@ func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {
 
 // Create a new file upload using the datastore after validating the length
 // and parsing the metadata.
-func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) PostFile(w http.ResponseWriter, r *http.Request) {
 	// Parse Upload-Concat header
 	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
 	if err != nil {
@@ -237,7 +240,7 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Returns the length and offset for the HEAD request
-func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) HeadFile(w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
@@ -271,7 +274,7 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 
 // Add a chunk to an upload. Only allowed if the upload is not locked and enough
 // space is left.
-func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 
 	//Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -356,7 +359,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Download a file using a GET request. This is not part of the specification.
-func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
 	// Ensure file is not locked
@@ -403,7 +406,7 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // Terminate an upload permanently.
-func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) DelFile(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get(":id")
 
 	// Ensure file is not locked

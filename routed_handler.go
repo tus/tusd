@@ -27,11 +27,11 @@ func NewRoutedHandler(config Config) (*RoutedHandler, error) {
 
 	routedHandler.routeHandler = handler.TusMiddleware(mux)
 
-	mux.Post("", http.HandlerFunc(handler.postFile))
-	mux.Head(":id", http.HandlerFunc(handler.headFile))
-	mux.Get(":id", http.HandlerFunc(handler.getFile))
-	mux.Del(":id", http.HandlerFunc(handler.delFile))
-	mux.Add("PATCH", ":id", http.HandlerFunc(handler.patchFile))
+	mux.Post("", http.HandlerFunc(handler.PostFile))
+	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
+	mux.Get(":id", http.HandlerFunc(handler.GetFile))
+	mux.Del(":id", http.HandlerFunc(handler.DelFile))
+	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
 
 	return routedHandler, nil
 }
