@@ -459,11 +459,11 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 	if r.Method == "HEAD" {
 		reason = ""
 	}
-
+	reason += "\n"
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
+	w.Write([]byte(reason))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
