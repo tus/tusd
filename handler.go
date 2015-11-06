@@ -298,7 +298,7 @@ func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := r.URL.Query().Get(":id")
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -370,7 +370,7 @@ func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -417,7 +417,7 @@ func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
 
 // DelFile terminates an upload permanently.
 func (handler *Handler) DelFile(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -594,14 +594,13 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			// Extract ids out of URL
-			result := reExtractFileID.FindStringSubmatch(value)
-			if len(result) != 2 {
+			id := extractIDFromPath(value)
+			if id == "" {
 				err = ErrInvalidConcat
 				return
 			}
 
-			partialUploads = append(partialUploads, result[1])
+			partialUploads = append(partialUploads, id)
 		}
 	}
 
@@ -612,4 +611,13 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 	}
 
 	return
+}
+
+// extractIDFromPath pulls the last segment from the url provided
+func extractIDFromPath(url string) string {
+	result := reExtractFileID.FindStringSubmatch(url)
+	if len(result) != 2 {
+		return ""
+	}
+	return result[1]
 }
