@@ -15,8 +15,6 @@ import (
 	"github.com/bmizerany/pat"
 )
 
-var logger = log.New(os.Stdout, "[tusd] ", 0)
-
 var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
 
 var (
@@ -66,6 +64,8 @@ type Config struct {
 	// Initiate the CompleteUploads channel in the Handler struct in order to
 	// be notified about complete uploads
 	NotifyCompleteUploads bool
+	// Logger the logger to use internally
+	Logger *log.Logger
 }
 
 type Handler struct {
@@ -75,6 +75,7 @@ type Handler struct {
 	basePath      string
 	routeHandler  http.Handler
 	locks         map[string]bool
+	logger        *log.Logger
 
 	// For each finished upload the corresponding info object will be sent using
 	// this unbuffered channel. The NotifyCompleteUploads property in the Config
@@ -84,6 +85,10 @@ type Handler struct {
 
 // Create a new handler using the given configuration.
 func NewHandler(config Config) (*Handler, error) {
+	logger := config.Logger
+	if logger == nil {
+		logger = log.New(os.Stdout, "[tusd] ", 0)
+	}
 	base := config.BasePath
 	uri, err := url.Parse(base)
 	if err != nil {
@@ -110,6 +115,7 @@ func NewHandler(config Config) (*Handler, error) {
 		routeHandler:    mux,
 		locks:           make(map[string]bool),
 		CompleteUploads: make(chan FileInfo),
+		logger:          logger,
 	}
 
 	mux.Post("", http.HandlerFunc(handler.postFile))
@@ -130,7 +136,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Method = newMethod
 	}
 
-	go logger.Println(r.Method, r.URL.Path)
+	go handler.logger.Println(r.Method, r.URL.Path)
 
 	header := w.Header()
 
