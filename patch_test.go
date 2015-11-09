@@ -62,6 +62,7 @@ func TestPatch(t *testing.T) {
 		URL:    "yes",
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
 			"Upload-Offset": "5",
 		},
 		ReqBody: strings.NewReader("hello"),
@@ -77,6 +78,7 @@ func TestPatch(t *testing.T) {
 		URL:    "no",
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
 			"Upload-Offset": "5",
 		},
 		Code: http.StatusNotFound,
@@ -88,6 +90,7 @@ func TestPatch(t *testing.T) {
 		URL:    "yes",
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
 			"Upload-Offset": "4",
 		},
 		Code: http.StatusConflict,
@@ -99,6 +102,7 @@ func TestPatch(t *testing.T) {
 		URL:    "yes",
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
 			"Upload-Offset": "5",
 		},
 		ReqBody: strings.NewReader("hellothisismorethan15bytes"),
@@ -194,6 +198,7 @@ func TestPatchOverflow(t *testing.T) {
 		URL:    "yes",
 		ReqHeader: map[string]string{
 			"Tus-Resumable":  "1.0.0",
+			"Content-Type":   "application/offset+octet-stream",
 			"Upload-Offset":  "5",
 			"Content-Length": "3",
 		},

@@ -22,11 +22,12 @@ var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
 	ErrMaxSizeExceeded     = errors.New("maximum size exceeded")
+	ErrInvalidContentType  = errors.New("missing or invalid Content-Type header")
 	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
 	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
 	ErrNotFound            = errors.New("upload not found")
 	ErrFileLocked          = errors.New("file currently locked")
-	ErrIllegalOffset       = errors.New("illegal offset")
+	ErrMismatchOffset      = errors.New("mismatched offset")
 	ErrSizeExceeded        = errors.New("resource's size exceeded")
 	ErrNotImplemented      = errors.New("feature not implemented")
 	ErrUploadNotFinished   = errors.New("one of the partial uploads is not finished")
@@ -38,11 +39,12 @@ var (
 var ErrStatusCodes = map[error]int{
 	ErrUnsupportedVersion:  http.StatusPreconditionFailed,
 	ErrMaxSizeExceeded:     http.StatusRequestEntityTooLarge,
+	ErrInvalidContentType:  http.StatusBadRequest,
 	ErrInvalidUploadLength: http.StatusBadRequest,
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrIllegalOffset:       http.StatusConflict,
+	ErrMismatchOffset:       http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -275,6 +277,20 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 // Add a chunk to an upload. Only allowed if the upload is not locked and enough
 // space is left.
 func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
+
+	//Check for presence of application/offset+octet-stream
+	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
+		handler.sendError(w, r, ErrInvalidContentType)
+		return
+	}
+
+	//Check for presence of a valid Upload-Offset Header
+	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
+	if err != nil || offset < 0 {
+		handler.sendError(w, r, ErrInvalidOffset)
+		return
+	}
+
 	id := r.URL.Query().Get(":id")
 
 	// Ensure file is not locked
@@ -303,15 +319,8 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure the offsets match
-	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
-	if err != nil {
-		handler.sendError(w, r, ErrInvalidOffset)
-		return
-	}
-
 	if offset != info.Offset {
-		handler.sendError(w, r, ErrIllegalOffset)
+		handler.sendError(w, r, ErrMismatchOffset)
 		return
 	}
 
@@ -446,7 +455,7 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
-	w.Write([]byte(err.Error() + "\n"))
+	w.Write([]byte(err.Error()))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
