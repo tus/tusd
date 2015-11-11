@@ -3,6 +3,7 @@ package tusd
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -26,7 +27,7 @@ func (s headStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func TestHead(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		BasePath:  "https://buy.art/",
 		DataStore: headStore{},
 	})
@@ -46,14 +47,32 @@ func TestHead(t *testing.T) {
 			"Cache-Control":   "no-store",
 		},
 	}).Run(handler, t)
+}
 
-	(&httpTest{
+func TestHead404(t *testing.T) {
+	handler, _ := NewRoutedHandler(Config{
+		BasePath:  "https://buy.art/",
+		DataStore: headStore{},
+	})
+
+	resp := (&httpTest{
 		Name:   "Non-existing file",
 		Method: "HEAD",
 		URL:    "no",
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
 		},
-		Code: http.StatusNotFound,
+		Code:    http.StatusNotFound,
+		ResBody: "",
 	}).Run(handler, t)
+
+	body := string(resp.Body.Bytes())
+	if body != "\n" {
+		t.Errorf("Expected body to be empty. Got: %v", body)
+	}
+
+	contentLength := resp.Header().Get("Content-Length")
+	if contentLength != strconv.Itoa(len(body)) {
+		t.Errorf("Expected content length header to match body length. Got: %v", contentLength)
+	}
 }

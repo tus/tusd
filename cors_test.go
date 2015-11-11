@@ -6,7 +6,7 @@ import (
 )
 
 func TestCORS(t *testing.T) {
-	handler, _ := NewHandler(Config{})
+	handler, _ := NewRoutedHandler(Config{})
 
 	(&httpTest{
 		Name:   "Preflight request",

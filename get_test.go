@@ -42,7 +42,7 @@ var reader = &closingStringReader{
 }
 
 func TestGet(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		DataStore: getStore{},
 	})
 

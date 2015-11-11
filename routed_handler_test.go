@@ -44,7 +44,7 @@ type httpTest struct {
 	ResHeader map[string]string
 }
 
-func (test *httpTest) Run(handler http.Handler, t *testing.T) {
+func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
 	t.Log(test.Name)
 
 	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
@@ -77,6 +77,8 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) {
 	if test.ResBody != "" && string(w.Body.Bytes()) != test.ResBody {
 		t.Errorf("Expected '%s' as body (got '%s'", test.ResBody, string(w.Body.Bytes()))
 	}
+
+	return w
 }
 
 type methodOverrideStore struct {
@@ -106,7 +108,7 @@ func TestMethodOverride(t *testing.T) {
 	store := &methodOverrideStore{
 		t: t,
 	}
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		DataStore: store,
 	})
 

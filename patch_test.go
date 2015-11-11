@@ -49,7 +49,7 @@ func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, e
 }
 
 func TestPatch(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize: 100,
 		DataStore: patchStore{
 			t: t,
@@ -178,7 +178,7 @@ func (r *noEOFReader) Write(src []byte) (int, error) {
 }
 
 func TestPatchOverflow(t *testing.T) {
-	handler, _ := NewHandler(Config{
+	handler, _ := NewRoutedHandler(Config{
 		MaxSize: 100,
 		DataStore: overflowPatchStore{
 			t: t,

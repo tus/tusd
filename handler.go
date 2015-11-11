@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/bmizerany/pat"
 )
 
 var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
@@ -42,7 +40,7 @@ var ErrStatusCodes = map[error]int{
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset:       http.StatusConflict,
+	ErrMismatchOffset:      http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -50,6 +48,7 @@ var ErrStatusCodes = map[error]int{
 	ErrModifyFinal:         http.StatusForbidden,
 }
 
+// Config provides a way to configure the Handler depending on your needs.
 type Config struct {
 	// DataStore implementation used to store and retrieve the single uploads.
 	// Must no be nil.
@@ -68,12 +67,14 @@ type Config struct {
 	Logger *log.Logger
 }
 
+// Handler exposes methods to handle requests as part of the tus protocol.
+// These are PostFile and PatchFile. It also includes GetFile and DelFile
+// however these are part of the spec. They are provided for convenience.
 type Handler struct {
 	config        Config
 	dataStore     DataStore
 	isBasePathAbs bool
 	basePath      string
-	routeHandler  http.Handler
 	locks         map[string]bool
 	logger        *log.Logger
 
@@ -83,7 +84,10 @@ type Handler struct {
 	CompleteUploads chan FileInfo
 }
 
-// Create a new handler using the given configuration.
+// NewHandler creates a new handler without routing using the given
+// configuration. It exposes the http handlers which need to be combined with
+// a router (aka mux) of your choice. If you are looking for preconfigured
+// handler see NewRoutedHandler.
 func NewHandler(config Config) (*Handler, error) {
 	logger := config.Logger
 	if logger == nil {
@@ -105,88 +109,85 @@ func NewHandler(config Config) (*Handler, error) {
 		base = "/" + base
 	}
 
-	mux := pat.New()
-
 	handler := &Handler{
 		config:          config,
 		dataStore:       config.DataStore,
 		basePath:        base,
 		isBasePathAbs:   uri.IsAbs(),
-		routeHandler:    mux,
 		locks:           make(map[string]bool),
 		CompleteUploads: make(chan FileInfo),
 		logger:          logger,
 	}
 
-	mux.Post("", http.HandlerFunc(handler.postFile))
-	mux.Head(":id", http.HandlerFunc(handler.headFile))
-	mux.Get(":id", http.HandlerFunc(handler.getFile))
-	mux.Del(":id", http.HandlerFunc(handler.delFile))
-	mux.Add("PATCH", ":id", http.HandlerFunc(handler.patchFile))
-
 	return handler, nil
 }
 
-// Implement the http.Handler interface.
-func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Allow overriding the HTTP method. The reason for this is
-	// that some libraries/environments to not support PATCH and
-	// DELETE requests, e.g. Flash in a browser and parts of Java
-	if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
-		r.Method = newMethod
-	}
+// TusMiddleware checks various aspects of the request and ensures that it
+// conforms with the spec. Also handles method overriding for clients which
+// cannot make PATCH AND DELETE requests. If you are using the tusd handlers
+// directly you will need to wrap at least the POST and PATCH endpoints in
+// this middleware.
+func (handler *Handler) TusMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow overriding the HTTP method. The reason for this is
+		// that some libraries/environments to not support PATCH and
+		// DELETE requests, e.g. Flash in a browser and parts of Java
+		if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
+			r.Method = newMethod
+		}
 
-	go handler.logger.Println(r.Method, r.URL.Path)
+		go handler.logger.Println(r.Method, r.URL.Path)
 
-	header := w.Header()
+		header := w.Header()
 
-	if origin := r.Header.Get("Origin"); origin != "" {
-		header.Set("Access-Control-Allow-Origin", origin)
+		if origin := r.Header.Get("Origin"); origin != "" {
+			header.Set("Access-Control-Allow-Origin", origin)
 
+			if r.Method == "OPTIONS" {
+				// Preflight request
+				header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
+				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Set("Access-Control-Max-Age", "86400")
+
+			} else {
+				// Actual request
+				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+			}
+		}
+
+		// Set current version used by the server
+		header.Set("Tus-Resumable", "1.0.0")
+
+		// Set appropriated headers in case of OPTIONS method allowing protocol
+		// discovery and end with an 204 No Content
 		if r.Method == "OPTIONS" {
-			// Preflight request
-			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
-			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
-			header.Set("Access-Control-Max-Age", "86400")
+			if handler.config.MaxSize > 0 {
+				header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+			}
 
-		} else {
-			// Actual request
-			header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
-		}
-	}
+			header.Set("Tus-Version", "1.0.0")
+			header.Set("Tus-Extension", "creation,concatenation,termination")
 
-	// Set current version used by the server
-	header.Set("Tus-Resumable", "1.0.0")
-
-	// Set appropriated headers in case of OPTIONS method allowing protocol
-	// discovery and end with an 204 No Content
-	if r.Method == "OPTIONS" {
-		if handler.config.MaxSize > 0 {
-			header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
 
-		header.Set("Tus-Version", "1.0.0")
-		header.Set("Tus-Extension", "creation,concatenation,termination")
+		// Test if the version sent by the client is supported
+		// GET methods are not checked since a browser may visit this URL and does
+		// not include this header. This request is not part of the specification.
+		if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
+			handler.sendError(w, r, ErrUnsupportedVersion)
+			return
+		}
 
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	// Test if the version sent by the client is supported
-	// GET methods are not checked since a browser may visit this URL and does
-	// not include this header. This request is not part of the specification.
-	if r.Method != "GET" && r.Header.Get("Tus-Resumable") != "1.0.0" {
-		handler.sendError(w, r, ErrUnsupportedVersion)
-		return
-	}
-
-	// Proceed with routing the request
-	handler.routeHandler.ServeHTTP(w, r)
+		// Proceed with routing the request
+		h.ServeHTTP(w, r)
+	})
 }
 
-// Create a new file upload using the datastore after validating the length
-// and parsing the metadata.
-func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
+// PostFile creates a new file upload using the datastore after validating the
+// length and parsing the metadata.
+func (handler *Handler) PostFile(w http.ResponseWriter, r *http.Request) {
 	// Parse Upload-Concat header
 	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
 	if err != nil {
@@ -247,8 +248,8 @@ func (handler *Handler) postFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Returns the length and offset for the HEAD request
-func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
+// HeadFile returns the length and offset for the HEAD request
+func (handler *Handler) HeadFile(w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Query().Get(":id")
 	info, err := handler.dataStore.GetInfo(id)
@@ -280,9 +281,9 @@ func (handler *Handler) headFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Add a chunk to an upload. Only allowed if the upload is not locked and enough
-// space is left.
-func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
+// PatchFile adds a chunk to an upload. Only allowed if the upload is not
+// locked and enough space is left.
+func (handler *Handler) PatchFile(w http.ResponseWriter, r *http.Request) {
 
 	//Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -297,7 +298,7 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := r.URL.Query().Get(":id")
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -366,9 +367,10 @@ func (handler *Handler) patchFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Download a file using a GET request. This is not part of the specification.
-func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+// GetFile handles requests to download a file using a GET request. This is not
+// part of the specification.
+func (handler *Handler) GetFile(w http.ResponseWriter, r *http.Request) {
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -413,9 +415,9 @@ func (handler *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Terminate an upload permanently.
-func (handler *Handler) delFile(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+// DelFile terminates an upload permanently.
+func (handler *Handler) DelFile(w http.ResponseWriter, r *http.Request) {
+	id := extractIDFromPath(r.URL.Path)
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -457,11 +459,11 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 	if r.Method == "HEAD" {
 		reason = ""
 	}
-
+	reason += "\n"
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
+	w.Write([]byte(reason))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -592,14 +594,13 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			// Extract ids out of URL
-			result := reExtractFileID.FindStringSubmatch(value)
-			if len(result) != 2 {
+			id := extractIDFromPath(value)
+			if id == "" {
 				err = ErrInvalidConcat
 				return
 			}
 
-			partialUploads = append(partialUploads, result[1])
+			partialUploads = append(partialUploads, id)
 		}
 	}
 
@@ -610,4 +611,13 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 	}
 
 	return
+}
+
+// extractIDFromPath pulls the last segment from the url provided
+func extractIDFromPath(url string) string {
+	result := reExtractFileID.FindStringSubmatch(url)
+	if len(result) != 2 {
+		return ""
+	}
+	return result[1]
 }

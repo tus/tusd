@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/filestore"
-	"github.com/tus/tusd/limitedstore"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/tus/tusd"
+	"github.com/tus/tusd/filestore"
+	"github.com/tus/tusd/limitedstore"
 )
 
 var httpHost string
@@ -59,7 +60,7 @@ func main() {
 
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(maxSize)/1024/1024)
 
-	handler, err := tusd.NewHandler(tusd.Config{
+	handler, err := tusd.NewRoutedHandler(tusd.Config{
 		MaxSize:               maxSize,
 		BasePath:              "files/",
 		DataStore:             store,
