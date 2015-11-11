@@ -187,10 +187,8 @@ func TestPatchOverflow(t *testing.T) {
 
 	body := &noEOFReader{}
 
-	go func() {
-		body.Write([]byte("hellothisismorethan15bytes"))
-		body.Close()
-	}()
+	body.Write([]byte("hellothisismorethan15bytes"))
+	body.Close()
 
 	(&httpTest{
 		Name:   "Too big body exceeding file size",
