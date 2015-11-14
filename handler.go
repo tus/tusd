@@ -42,7 +42,7 @@ var ErrStatusCodes = map[error]int{
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset:       http.StatusConflict,
+	ErrMismatchOffset:      http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -453,15 +453,17 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 		status = 500
 	}
 
-	reason := err.Error()
+	reason := err.Error() + "\n"
 	if r.Method == "HEAD" {
 		reason = ""
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	//https://golang.org/src/net/http/server.go#L1429
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
+	w.Write([]byte(reason))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
