@@ -145,7 +145,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method == "OPTIONS" {
 			// Preflight request
-			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
+			header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE")
 			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 			header.Set("Access-Control-Max-Age", "86400")
 
