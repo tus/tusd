@@ -158,6 +158,9 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set current version used by the server
 	header.Set("Tus-Resumable", "1.0.0")
 
+	// Add nosniff to all responses https://golang.org/src/net/http/server.go#L1429
+	header.Set("X-Content-Type-Options", "nosniff")
+
 	// Set appropriated headers in case of OPTIONS method allowing protocol
 	// discovery and end with an 204 No Content
 	if r.Method == "OPTIONS" {
@@ -458,9 +461,7 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 		reason = ""
 	}
 
-	//https://golang.org/src/net/http/server.go#L1429
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
 	w.Write([]byte(reason))
