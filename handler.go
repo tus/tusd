@@ -42,7 +42,7 @@ var ErrStatusCodes = map[error]int{
 	ErrInvalidOffset:       http.StatusBadRequest,
 	ErrNotFound:            http.StatusNotFound,
 	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset:       http.StatusConflict,
+	ErrMismatchOffset:      http.StatusConflict,
 	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
 	ErrNotImplemented:      http.StatusNotImplemented,
 	ErrUploadNotFinished:   http.StatusBadRequest,
@@ -145,7 +145,7 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method == "OPTIONS" {
 			// Preflight request
-			header.Set("Access-Control-Allow-Methods", "POST, HEAD, PATCH, OPTIONS")
+			header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
 			header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 			header.Set("Access-Control-Max-Age", "86400")
 
@@ -157,6 +157,9 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Set current version used by the server
 	header.Set("Tus-Resumable", "1.0.0")
+
+	// Add nosniff to all responses https://golang.org/src/net/http/server.go#L1429
+	header.Set("X-Content-Type-Options", "nosniff")
 
 	// Set appropriated headers in case of OPTIONS method allowing protocol
 	// discovery and end with an 204 No Content
@@ -453,15 +456,15 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 		status = 500
 	}
 
-	reason := err.Error()
+	reason := err.Error() + "\n"
 	if r.Method == "HEAD" {
 		reason = ""
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
-	w.Write([]byte(err.Error()))
+	w.Write([]byte(reason))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
