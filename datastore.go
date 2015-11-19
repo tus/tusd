@@ -34,13 +34,13 @@ type DataStore interface {
 	// Write the chunk read from src into the file specified by the id at the
 	// given offset. The handler will take care of validating the offset and
 	// limiting the size of the src to not overflow the file's size. It may
-	// return an os.ErrNotExist which will be interpretet as a 404 Not Found.
+	// return an os.ErrNotExist which will be interpreted as a 404 Not Found.
 	// It will also lock resources while they are written to ensure only one
 	// write happens per time.
 	// The function call must return the number of bytes written.
 	WriteChunk(id string, offset int64, src io.Reader) (int64, error)
 	// Read the fileinformation used to validate the offset and respond to HEAD
-	// requests. It may return an os.ErrNotExist which will be interpretet as a
+	// requests. It may return an os.ErrNotExist which will be interpreted as a
 	// 404 Not Found.
 	GetInfo(id string) (FileInfo, error)
 	// Get an io.Reader to allow downloading the file. This feature is not
