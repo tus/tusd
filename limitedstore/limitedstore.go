@@ -106,7 +106,7 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 
   // Reverse traversal through the
   // uploads in terms of size, biggest upload first
-  j := len(store.uploads)
+  j := len(store.uploads)-1
 	for j >= 0 {
     id := sorted_uploads[j].key
 		if err := store.terminate(id); err != nil {
