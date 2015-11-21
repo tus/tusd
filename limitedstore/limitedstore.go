@@ -14,6 +14,7 @@ package limitedstore
 import (
 	"github.com/tus/tusd"
 	"sync"
+  "sort"
 )
 
 type LimitedStore struct {
@@ -25,6 +26,19 @@ type LimitedStore struct {
 
 	mutex *sync.Mutex
 }
+
+// Pair structure to perform map-sorting
+type Pair struct {
+  key string
+  value int64
+}
+
+type Pairlist []Pair
+
+func (p Pairlist) Len() int           { return len(p) }
+func (p Pairlist) Swap(i, j int)       { p[i], p[j] = p[j], p[i] }
+func (p Pairlist) Less(i, j int) bool  { return p[i].value < p[j].value }
+
 
 // Create a new limited store with the given size as the maximum storage size
 func New(storeSize int64, dataStore tusd.DataStore) *LimitedStore {
@@ -82,8 +96,19 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 		// Enough space is available to store the new upload
 		return nil
 	}
+  sorted_uploads := make(Pairlist, len(store.uploads))
+  i := 0
+  for u,h := range store.uploads {
+    sorted_uploads[i] = Pair{u, h}
+    i++
+  }
+  sort.Sort(sorted_uploads)
 
-	for id, _ := range store.uploads {
+  // Reverse traversal through the
+  // uploads in terms of size, biggest upload first
+  j := len(store.uploads)
+	for j >= 0 {
+    id := sorted_uploads[j].key
 		if err := store.terminate(id); err != nil {
 			return err
 		}
@@ -92,6 +117,7 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 			// Enough space has been freed to store the new upload
 			return nil
 		}
+    j--
 	}
 
 	return nil
