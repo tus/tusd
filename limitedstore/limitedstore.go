@@ -27,17 +27,17 @@ type LimitedStore struct {
 	mutex *sync.Mutex
 }
 
-// Pair structure to perform map-sorting
-type Pair struct {
+// pair structure to perform map-sorting
+type pair struct {
   key string
   value int64
 }
 
-type Pairlist []Pair
+type pairlist []pair
 
-func (p Pairlist) Len() int           { return len(p) }
-func (p Pairlist) Swap(i, j int)       { p[i], p[j] = p[j], p[i] }
-func (p Pairlist) Less(i, j int) bool  { return p[i].value < p[j].value }
+func (p pairlist) Len() int           { return len(p) }
+func (p pairlist) Swap(i, j int)       { p[i], p[j] = p[j], p[i] }
+func (p pairlist) Less(i, j int) bool  { return p[i].value < p[j].value }
 
 
 // Create a new limited store with the given size as the maximum storage size
@@ -96,10 +96,10 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 		// Enough space is available to store the new upload
 		return nil
 	}
-  sorted_uploads := make(Pairlist, len(store.uploads))
+  sorted_uploads := make(pairlist, len(store.uploads))
   i := 0
   for u,h := range store.uploads {
-    sorted_uploads[i] = Pair{u, h}
+    sorted_uploads[i] = pair{u, h}
     i++
   }
   sort.Sort(sort.Reverse(sorted_uploads))
