@@ -102,13 +102,12 @@ func (store *LimitedStore) ensureSpace(size int64) error {
     sorted_uploads[i] = Pair{u, h}
     i++
   }
-  sort.Sort(sorted_uploads)
+  sort.Sort(sort.Reverse(sorted_uploads))
 
-  // Reverse traversal through the
+  // Forward traversal through the
   // uploads in terms of size, biggest upload first
-  j := len(store.uploads)-1
-	for j >= 0 {
-    id := sorted_uploads[j].key
+  for _,k := sorted_uploads {
+    id := k.key
 		if err := store.terminate(id); err != nil {
 			return err
 		}
