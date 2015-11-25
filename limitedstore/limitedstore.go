@@ -106,7 +106,7 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 
   // Forward traversal through the
   // uploads in terms of size, biggest upload first
-  for _,k := sorted_uploads {
+  for _,k := range sorted_uploads {
     id := k.key
 		if err := store.terminate(id); err != nil {
 			return err
@@ -116,7 +116,6 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 			// Enough space has been freed to store the new upload
 			return nil
 		}
-    j--
 	}
 
 	return nil
