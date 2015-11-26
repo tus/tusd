@@ -61,5 +61,9 @@ func TestHead(t *testing.T) {
 			"Tus-Resumable": "1.0.0",
 		},
 		Code: http.StatusNotFound,
+		ResHeader: map[string]string{
+			"Content-Length": "0",
+		},
+		ResBody: "",
 	}).Run(handler, t)
 }
