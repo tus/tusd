@@ -31,7 +31,7 @@ func TestHead(t *testing.T) {
 		DataStore: headStore{},
 	})
 
-	(&httpTest{
+	res := (&httpTest{
 		Name:   "Successful request",
 		Method: "HEAD",
 		URL:    "yes",
@@ -40,12 +40,18 @@ func TestHead(t *testing.T) {
 		},
 		Code: http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Upload-Offset":   "11",
-			"Upload-Length":   "44",
-			"Upload-Metadata": "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n",
-			"Cache-Control":   "no-store",
+			"Upload-Offset": "11",
+			"Upload-Length": "44",
+			"Cache-Control": "no-store",
 		},
 	}).Run(handler, t)
+
+	// Since the order of a map is not guaranteed in Go, we need to be prepared
+	// for the case, that the order of the metadata may have been changed
+	if v := res.Header().Get("Upload-Metadata"); v != "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n" &&
+		v != "type aW1hZ2UvcG5n,name bHVucmpzLnBuZw==" {
+		t.Errorf("Expected valid metadata (got '%s')", v)
+	}
 
 	(&httpTest{
 		Name:   "Non-existing file",
