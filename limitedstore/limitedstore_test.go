@@ -3,29 +3,30 @@ package limitedstore
 import (
 	"github.com/tus/tusd"
 	"io"
+	"strconv"
 	"testing"
 )
 
 type dataStore struct {
-	t                  *testing.T
-	firstUploadCreated bool
-	uploadTerminated   bool
+	t                    *testing.T
+	numCreatedUploads    int
+	numTerminatedUploads int
 }
 
 func (store *dataStore) NewUpload(info tusd.FileInfo) (string, error) {
-	if !store.firstUploadCreated {
-		if info.Size != 80 {
-			store.t.Errorf("expect size to be 80, got %v", info.Size)
-		}
-		store.firstUploadCreated = true
+	uploadId := store.numCreatedUploads
 
-		return "1", nil
+	// We expect the uploads to be created in a specific order.
+	// These sizes correlate to this order.
+	expectedSize := []int64{30, 60, 80}[uploadId]
+
+	if info.Size != expectedSize {
+		store.t.Errorf("expect size to be %v, got %v", expectedSize, info.Size)
 	}
 
-	if info.Size != 50 {
-		store.t.Errorf("expect size to be 50, got %v", info.Size)
-	}
-	return "2", nil
+	store.numCreatedUploads += 1
+
+	return strconv.Itoa(uploadId), nil
 }
 
 func (store *dataStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
@@ -41,10 +42,15 @@ func (store *dataStore) GetReader(id string) (io.Reader, error) {
 }
 
 func (store *dataStore) Terminate(id string) error {
-	if id != "1" {
-		store.t.Errorf("expect first upload to be terminated, got %v", id)
+	// We expect the uploads to be terminated in a specific order (the bigger
+	// come first)
+	expectedUploadId := []string{"1", "0"}[store.numTerminatedUploads]
+
+	if id != expectedUploadId {
+		store.t.Errorf("exptect upload %v to be terminated, got %v", expectedUploadId, id)
 	}
-	store.uploadTerminated = true
+
+	store.numTerminatedUploads += 1
 
 	return nil
 }
@@ -55,29 +61,40 @@ func TestLimitedStore(t *testing.T) {
 	}
 	store := New(100, dataStore)
 
-	// Create new upload (80 bytes)
+	// Create new upload (30 bytes)
 	id, err := store.NewUpload(tusd.FileInfo{
-		Size: 80,
+		Size: 30,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "0" {
+		t.Errorf("expected first upload to be created, got %v", id)
+	}
+
+	// Create new upload (60 bytes)
+	id, err = store.NewUpload(tusd.FileInfo{
+		Size: 60,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "1" {
-		t.Errorf("expected first upload to be created, got %v", id)
+		t.Errorf("expected second upload to be created, got %v", id)
 	}
 
-	// Create new upload (50 bytes)
+	// Create new upload (80 bytes)
 	id, err = store.NewUpload(tusd.FileInfo{
-		Size: 50,
+		Size: 80,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "2" {
-		t.Errorf("expected second upload to be created, got %v", id)
+		t.Errorf("expected thrid upload to be created, got %v", id)
 	}
 
-	if !dataStore.uploadTerminated {
-		t.Error("expected first upload to be terminated")
+	if dataStore.numTerminatedUploads != 2 {
+		t.Error("expected two uploads to be terminated")
 	}
 }
