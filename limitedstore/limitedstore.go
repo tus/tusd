@@ -14,8 +14,8 @@ package limitedstore
 
 import (
 	"github.com/tus/tusd"
+	"sort"
 	"sync"
-  "sort"
 )
 
 type LimitedStore struct {
@@ -30,16 +30,15 @@ type LimitedStore struct {
 
 // pair structure to perform map-sorting
 type pair struct {
-  key string
-  value int64
+	key   string
+	value int64
 }
 
 type pairlist []pair
 
 func (p pairlist) Len() int           { return len(p) }
-func (p pairlist) Swap(i, j int)       { p[i], p[j] = p[j], p[i] }
-func (p pairlist) Less(i, j int) bool  { return p[i].value < p[j].value }
-
+func (p pairlist) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p pairlist) Less(i, j int) bool { return p[i].value < p[j].value }
 
 // Create a new limited store with the given size as the maximum storage size
 func New(storeSize int64, dataStore tusd.DataStore) *LimitedStore {
@@ -97,18 +96,19 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 		// Enough space is available to store the new upload
 		return nil
 	}
-  sorted_uploads := make(pairlist, len(store.uploads))
-  i := 0
-  for u,h := range store.uploads {
-    sorted_uploads[i] = pair{u, h}
-    i++
-  }
-  sort.Sort(sort.Reverse(sorted_uploads))
 
-  // Forward traversal through the
-  // uploads in terms of size, biggest upload first
-  for _,k := range sorted_uploads {
-    id := k.key
+	sortedUploads := make(pairlist, len(store.uploads))
+	i := 0
+	for u, h := range store.uploads {
+		sortedUploads[i] = pair{u, h}
+		i++
+	}
+	sort.Sort(sort.Reverse(sortedUploads))
+
+	// Forward traversal through the uploads in terms of size, biggest upload first
+	for _, k := range sortedUploads {
+		id := k.key
+
 		if err := store.terminate(id); err != nil {
 			return err
 		}
