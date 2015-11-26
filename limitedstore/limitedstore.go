@@ -2,12 +2,13 @@
 // datastores (tusd.DataStore) while limiting the used storage size.
 // It will start terminating existing uploads if not enough space is left in
 // order to create a new upload.
+// The order in which the uploads will be terminated is defined by their size,
+// whereas the biggest ones are deleted first.
 // This package's functionality is very limited and naive. It will terminate
-// uploads whether they are finished yet or not and it won't terminate them
-// intelligently (e.g. bigger uploads first). Only one datastore is allowed to
+// uploads whether they are finished yet or not. Only one datastore is allowed to
 // access the underlying storage else the limited store will not function
 // properly. Two tusd.FileStore instances using the same directory, for example.
-// In addition the limited store will keep a list of the uploads' ids in memory
+// In addition the limited store will keep a list of the uploads' IDs in memory
 // which may create a growing memory leak.
 package limitedstore
 
