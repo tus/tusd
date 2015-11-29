@@ -78,6 +78,9 @@ func main() {
 }
 ```
 
+If you need to customize the GET and DELETE endpoints use
+`tusd.NewUnroutedHandler` instead of `tusd.NewHandler`.
+
 ## Implementing own storages
 
 The tusd server is built to be as flexible as possible and to allow the use
