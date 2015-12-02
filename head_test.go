@@ -53,7 +53,7 @@ func TestHead(t *testing.T) {
 		t.Errorf("Expected valid metadata (got '%s')", v)
 	}
 
-	(&httpTest{
+	res = (&httpTest{
 		Name:   "Non-existing file",
 		Method: "HEAD",
 		URL:    "no",
@@ -64,6 +64,9 @@ func TestHead(t *testing.T) {
 		ResHeader: map[string]string{
 			"Content-Length": "0",
 		},
-		ResBody: "",
 	}).Run(handler, t)
+
+	if string(res.Body.Bytes()) != "" {
+		t.Errorf("Expected empty body for failed HEAD request")
+	}
 }

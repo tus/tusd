@@ -457,6 +457,8 @@ func (handler *Handler) sendError(w http.ResponseWriter, r *http.Request, err er
 	}
 
 	reason := err.Error() + "\n"
+
+	// Avoid sending a response to a HEAD request. They expect an empty body.
 	if r.Method == "HEAD" {
 		reason = ""
 	}
