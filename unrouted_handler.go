@@ -254,7 +254,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 
-	id := extractIDFromPath(r.URL.Path)
+	id, err := extractIDFromPath(r.URL.Path)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -301,7 +305,11 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id := extractIDFromPath(r.URL.Path)
+	id, err := extractIDFromPath(r.URL.Path)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -373,7 +381,11 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	id := extractIDFromPath(r.URL.Path)
+	id, err := extractIDFromPath(r.URL.Path)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -420,7 +432,11 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	id := extractIDFromPath(r.URL.Path)
+	id, err := extractIDFromPath(r.URL.Path)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
 
 	// Ensure file is not locked
 	if _, ok := handler.locks[id]; ok {
@@ -436,7 +452,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		delete(handler.locks, id)
 	}()
 
-	err := handler.dataStore.Terminate(id)
+	err = handler.dataStore.Terminate(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -597,9 +613,9 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			id := extractIDFromPath(value)
-			if id == "" {
-				err = ErrInvalidConcat
+			id, extractErr := extractIDFromPath(value)
+			if extractErr != nil {
+				err = extractErr
 				return
 			}
 
@@ -617,10 +633,10 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 }
 
 // extractIDFromPath pulls the last segment from the url provided
-func extractIDFromPath(url string) string {
+func extractIDFromPath(url string) (string, error) {
 	result := reExtractFileID.FindStringSubmatch(url)
 	if len(result) != 2 {
-		return ""
+		return "", ErrNotFound
 	}
-	return result[1]
+	return result[1], nil
 }
