@@ -67,9 +67,9 @@ type Config struct {
 	Logger *log.Logger
 }
 
-// UnroutedHandler exposes methods to handle requests as part of the tus protocol.
-// These are PostFile and PatchFile. It also includes GetFile and DelFile
-// however these are part of the spec. They are provided for convenience.
+// UnroutedHandler exposes methods to handle requests as part of the tus protocol,
+// such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method
+// is provided which is, however, not part of the specification.
 type UnroutedHandler struct {
 	config        Config
 	dataStore     DataStore
