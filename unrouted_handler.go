@@ -254,7 +254,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 
-	id := r.URL.Query().Get(":id")
+	id := extractIDFromPath(r.URL.Path)
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
