@@ -122,12 +122,12 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	return handler, nil
 }
 
-// TusMiddleware checks various aspects of the request and ensures that it
+// Middleware checks various aspects of the request and ensures that it
 // conforms with the spec. Also handles method overriding for clients which
 // cannot make PATCH AND DELETE requests. If you are using the tusd handlers
 // directly you will need to wrap at least the POST and PATCH endpoints in
 // this middleware.
-func (handler *UnroutedHandler) TusMiddleware(h http.Handler) http.Handler {
+func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments to not support PATCH and

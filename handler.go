@@ -33,7 +33,7 @@ func NewHandler(config Config) (*Handler, error) {
 
 	mux := pat.New()
 
-	routedHandler.routeHandler = handler.TusMiddleware(mux)
+	routedHandler.routeHandler = handler.Middleware(mux)
 
 	mux.Post("", http.HandlerFunc(handler.PostFile))
 	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
