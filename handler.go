@@ -15,7 +15,7 @@ type Handler struct {
 
 // NewHandler creates a routed tus protocol handler. This is the simplest
 // way to use tusd but may not be as configurable as you require. If you are
-// integrating this into an existing app you may like to use tusd.NewHandler
+// integrating this into an existing app you may like to use tusd.NewUnroutedHandler
 // instead. Using tusd.NewUnroutedHandler allows the tus handlers to be combined into
 // your existing router (aka mux) directly. It also allows the GET and DELETE
 // endpoints to be customized. These are not part of the protocol so can be
