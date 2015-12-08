@@ -369,10 +369,21 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	newOffset := offset + bytesWritten
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
 
-	// If the upload is completed, send the info out to the channel
-	if handler.config.NotifyCompleteUploads && newOffset == info.Size {
-		info.Size = newOffset
-		handler.CompleteUploads <- info
+	// If the upload is completed, ...
+	if newOffset == info.Size {
+		// ... allow custom mechanism to finish and cleanup the upload
+		if store, ok := handler.dataStore.(FinisherDataStore); ok {
+			if err := store.FinishUpload(id); err != nil {
+				handler.sendError(w, r, err)
+				return
+			}
+		}
+
+		// ... send the info out to the channel
+		if handler.config.NotifyCompleteUploads {
+			info.Size = newOffset
+			handler.CompleteUploads <- info
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)

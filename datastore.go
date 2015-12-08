@@ -55,3 +55,9 @@ type DataStore interface {
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error
 }
+
+type FinisherDataStore interface {
+	DataStore
+
+	FinishUpload(id string) error
+}
