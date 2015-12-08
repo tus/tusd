@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/filestore"
-	"github.com/tus/tusd/limitedstore"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/tus/tusd"
+	"github.com/tus/tusd/filestore"
+	"github.com/tus/tusd/limitedstore"
 )
 
 var httpHost string
