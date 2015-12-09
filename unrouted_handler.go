@@ -75,7 +75,6 @@ type UnroutedHandler struct {
 	dataStore     DataStore
 	isBasePathAbs bool
 	basePath      string
-	locks         map[string]bool
 	logger        *log.Logger
 
 	// For each finished upload the corresponding info object will be sent using
@@ -114,7 +113,6 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		dataStore:       config.DataStore,
 		basePath:        base,
 		isBasePathAbs:   uri.IsAbs(),
-		locks:           make(map[string]bool),
 		CompleteUploads: make(chan FileInfo),
 		logger:          logger,
 	}
@@ -288,17 +286,16 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// PatchFile adds a chunk to an upload. Only allowed if the upload is not
-// locked and enough space is left.
+// PatchFile adds a chunk to an upload. Only allowed enough space is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
 
-	//Check for presence of application/offset+octet-stream
+	// Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
 		handler.sendError(w, r, ErrInvalidContentType)
 		return
 	}
 
-	//Check for presence of a valid Upload-Offset Header
+	// Check for presence of a valid Upload-Offset Header
 	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
 	if err != nil || offset < 0 {
 		handler.sendError(w, r, ErrInvalidOffset)
@@ -310,20 +307,6 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		handler.sendError(w, r, err)
 		return
 	}
-
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, r, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
 
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
@@ -387,20 +370,6 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, r, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
-
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -437,20 +406,6 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		handler.sendError(w, r, err)
 		return
 	}
-
-	// Ensure file is not locked
-	if _, ok := handler.locks[id]; ok {
-		handler.sendError(w, r, ErrFileLocked)
-		return
-	}
-
-	// Lock file for further writes (heads are allowed)
-	handler.locks[id] = true
-
-	// File will be unlocked regardless of an error or success
-	defer func() {
-		delete(handler.locks, id)
-	}()
 
 	err = handler.dataStore.Terminate(id)
 	if err != nil {
