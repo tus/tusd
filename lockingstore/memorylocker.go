@@ -21,7 +21,7 @@ func (locker *MemoryLocker) LockUpload(id string) error {
 		return tusd.ErrFileLocked
 	}
 
-	handler.locks[id] = true
+	locker.locks[id] = true
 
 	return nil
 }
