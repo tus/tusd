@@ -7,7 +7,8 @@ import (
 )
 
 func TestMemoryLocker(t *testing.T) {
-	locker := New()
+	var locker Locker
+	locker = New()
 
 	if err := locker.LockUpload("one"); err != nil {
 		t.Errorf("unexpected error when locking file: %s", err)
