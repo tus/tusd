@@ -1,3 +1,5 @@
+// Package filestore provide a storage backend based on the local file system.
+//
 // FileStore is a storage backend used as a tusd.DataStore in tusd.NewHandler.
 // It stores the uploads in a directory specified in two different files: The
 // `[id].info` files are used to store the fileinfo in JSON format. The
