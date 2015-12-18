@@ -15,6 +15,7 @@ import (
 	"os"
 
 	"github.com/tus/tusd"
+	"github.com/tus/tusd/lockingstore"
 	"github.com/tus/tusd/uid"
 )
 
@@ -24,8 +25,23 @@ var defaultFilePerm = os.FileMode(0775)
 // methods.
 type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
-	// whether the path exists, you os.MkdirAll in this case on your own.
+	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
+}
+
+// New creates a new file based storage backend. The directory specified will
+// be used as the only storage entry. This method does not check
+// whether the path exists, use os.MkdirAll to ensure.
+// In addition, a locking mechanism is provided using lockingstore.LockingStore
+// and FileLocker.
+func New(path string) tusd.DataStore {
+	store := FileStore{path}
+	locker := FileLocker{path}
+
+	return lockingstore.LockingStore{
+		DataStore: &store,
+		Locker:    &locker,
+	}
 }
 
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
