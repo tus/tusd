@@ -12,7 +12,7 @@ type MemoryLocker struct {
 }
 
 // New creates a new lock memory persistor.
-func New() *MemoryLocker {
+func NewMemoryLocker() *MemoryLocker {
 	return &MemoryLocker{
 		locks: make(map[string]bool),
 	}
