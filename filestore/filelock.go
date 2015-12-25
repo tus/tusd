@@ -8,6 +8,13 @@ import (
 	"github.com/tus/tusd"
 )
 
+// FileLocker provides an exclusive upload locking mechansim using lock files
+// which are stored on disk. Each of them stores the PID of the process which
+// aquired the lock. This allows locks to be automatically freed when a process
+// is unable to release it on its own because the process is not alive anymore.
+//
+// Please consult the package lockingstore for instructions on how to use this
+// locker.
 type FileLocker struct {
 	// Relative or absolute path to store the locks in.
 	Path string
