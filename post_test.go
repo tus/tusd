@@ -1,8 +1,10 @@
-package tusd
+package tusd_test
 
 import (
 	"net/http"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 type postStore struct {
