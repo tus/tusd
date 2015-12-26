@@ -51,6 +51,14 @@ type DataStore interface {
 	// If the returned reader also implements the io.Closer interface, the
 	// Close() method will be invoked once everything has been read.
 	GetReader(id string) (io.Reader, error)
+}
+
+// TerminaterDataStore is the interface which must be implemented by DataStores
+// if they want to receive DELETE requests using the Handler. If this interface
+// is not implemented, no request handler for this method is attached.
+type TerminaterDataStore interface {
+	DataStore
+
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error
@@ -60,4 +68,25 @@ type FinisherDataStore interface {
 	DataStore
 
 	FinishUpload(id string) error
+}
+
+// LockerDataStore is the interface required for custom lock persisting mechanisms.
+// Common ways to store this information is in memory, on disk or using an
+// external service, such as ZooKeeper.
+// When multiple processes are attempting to access an upload, whether it be
+// by reading or writing, a syncronization mechanism is required to prevent
+// data corruption, especially to ensure correct offset values and the proper
+// order of chunks inside a single upload.
+type LockerDataStore interface {
+	DataStore
+
+	// LockUpload attempts to obtain an exclusive lock for the upload specified
+	// by its id.
+	// If this operation fails because the resource is already locked, the
+	// tusd.ErrFileLocked must be returned. If no error is returned, the attempt
+	// is consider to be successful and the upload to be locked until UnlockUpload
+	// is invoked for the same upload.
+	LockUpload(id string) error
+	// UnlockUpload releases an existing lock for the given upload.
+	UnlockUpload(id string) error
 }

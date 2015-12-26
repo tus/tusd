@@ -95,3 +95,29 @@ func TestFilestore(t *testing.T) {
 		t.Fatal("expected os.ErrIsNotExist")
 	}
 }
+
+func TestFileLocker(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tusd-file-locker")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var locker tusd.LockerDataStore
+	locker = FileStore{dir}
+
+	if err := locker.LockUpload("one"); err != nil {
+		t.Errorf("unexpected error when locking file: %s", err)
+	}
+
+	if err := locker.LockUpload("one"); err != tusd.ErrFileLocked {
+		t.Errorf("expected error when locking locked file: %s", err)
+	}
+
+	if err := locker.UnlockUpload("one"); err != nil {
+		t.Errorf("unexpected error when unlocking file: %s", err)
+	}
+
+	if err := locker.UnlockUpload("one"); err != nil {
+		t.Errorf("unexpected error when unlocking file again: %s", err)
+	}
+}

@@ -43,10 +43,8 @@ func main() {
 		stderr.Fatalf("Unable to ensure directory exists: %s", err)
 	}
 
-	var store tusd.DataStore
-	store = filestore.FileStore{
-		Path: dir,
-	}
+	var store tusd.TerminaterDataStore
+	store = filestore.New(dir)
 
 	if storeSize > 0 {
 		store = limitedstore.New(storeSize, store)

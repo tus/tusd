@@ -1,4 +1,4 @@
-package tusd
+package tusd_test
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 type getStore struct {

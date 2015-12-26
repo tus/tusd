@@ -1,9 +1,11 @@
-package tusd
+package tusd_test
 
 import (
 	"net/http"
 	"os"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 type headStore struct {

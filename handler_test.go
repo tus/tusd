@@ -1,4 +1,4 @@
-package tusd
+package tusd_test
 
 import (
 	"io"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 type zeroStore struct{}
@@ -24,10 +26,6 @@ func (store zeroStore) GetInfo(id string) (FileInfo, error) {
 
 func (store zeroStore) GetReader(id string) (io.Reader, error) {
 	return nil, ErrNotImplemented
-}
-
-func (store zeroStore) Terminate(id string) error {
-	return ErrNotImplemented
 }
 
 type httpTest struct {

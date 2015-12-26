@@ -1,8 +1,10 @@
-package tusd
+package tusd_test
 
 import (
 	"net/http"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 func TestOptions(t *testing.T) {
@@ -15,7 +17,7 @@ func TestOptions(t *testing.T) {
 		Method: "OPTIONS",
 		Code:   http.StatusNoContent,
 		ResHeader: map[string]string{
-			"Tus-Extension": "creation,concatenation,termination",
+			"Tus-Extension": "creation,concatenation",
 			"Tus-Version":   "1.0.0",
 			"Tus-Resumable": "1.0.0",
 			"Tus-Max-Size":  "400",

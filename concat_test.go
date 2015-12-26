@@ -1,4 +1,4 @@
-package tusd
+package tusd_test
 
 import (
 	"io"
@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	. "github.com/tus/tusd"
 )
 
 type concatPartialStore struct {

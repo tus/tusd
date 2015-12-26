@@ -1,0 +1,3 @@
+[submodule "vendor/github.com/nightlyone/lockfile"]
+	path = vendor/github.com/nightlyone/lockfile
+	url = https://github.com/nightlyone/lockfile.git
