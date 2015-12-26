@@ -206,3 +206,87 @@ func TestPatchOverflow(t *testing.T) {
 		Code:    http.StatusNoContent,
 	}).Run(handler, t)
 }
+
+const (
+	LOCK = iota
+	INFO
+	WRITE
+	UNLOCK
+	END
+)
+
+type lockingPatchStore struct {
+	zeroStore
+	callOrder chan int
+}
+
+func (s lockingPatchStore) GetInfo(id string) (FileInfo, error) {
+	s.callOrder <- INFO
+
+	return FileInfo{
+		Offset: 0,
+		Size:   20,
+	}, nil
+}
+
+func (s lockingPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+	s.callOrder <- WRITE
+
+	return 5, nil
+}
+
+func (s lockingPatchStore) LockUpload(id string) error {
+	s.callOrder <- LOCK
+	return nil
+}
+
+func (s lockingPatchStore) UnlockUpload(id string) error {
+	s.callOrder <- UNLOCK
+	return nil
+}
+
+func TestLockingPatch(t *testing.T) {
+	callOrder := make(chan int, 10)
+
+	handler, _ := NewHandler(Config{
+		DataStore: lockingPatchStore{
+			callOrder: callOrder,
+		},
+	})
+
+	(&httpTest{
+		Name:   "Uploading to locking store",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
+			"Upload-Offset": "0",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusNoContent,
+	}).Run(handler, t)
+
+	callOrder <- END
+	close(callOrder)
+
+	if <-callOrder != LOCK {
+		t.Error("expected call to LockUpload")
+	}
+
+	if <-callOrder != INFO {
+		t.Error("expected call to GetInfo")
+	}
+
+	if <-callOrder != WRITE {
+		t.Error("expected call to WriteChunk")
+	}
+
+	if <-callOrder != UNLOCK {
+		t.Error("expected call to UnlockUpload")
+	}
+
+	if <-callOrder != END {
+		t.Error("expected no more calls to happen")
+	}
+}

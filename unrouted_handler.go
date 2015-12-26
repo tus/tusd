@@ -257,6 +257,16 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		handler.sendError(w, r, err)
 		return
 	}
+
+	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+		if err := locker.LockUpload(id); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		defer locker.UnlockUpload(id)
+	}
+
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -306,6 +316,15 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
+	}
+
+	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+		if err := locker.LockUpload(id); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		defer locker.UnlockUpload(id)
 	}
 
 	info, err := handler.dataStore.GetInfo(id)
@@ -370,6 +389,15 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+		if err := locker.LockUpload(id); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		defer locker.UnlockUpload(id)
+	}
+
 	info, err := handler.dataStore.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -405,6 +433,15 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
+	}
+
+	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+		if err := locker.LockUpload(id); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		defer locker.UnlockUpload(id)
 	}
 
 	err = handler.dataStore.Terminate(id)
