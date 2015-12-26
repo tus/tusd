@@ -1,9 +1,18 @@
+// Package filestore provide a storage backend based on the local file system.
+//
 // FileStore is a storage backend used as a tusd.DataStore in tusd.NewHandler.
 // It stores the uploads in a directory specified in two different files: The
 // `[id].info` files are used to store the fileinfo in JSON format. The
 // `[id].bin` files contain the raw binary data uploaded.
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
+//
+// In addition, it provides an exclusive upload locking mechansim using lock files
+// which are stored on disk. Each of them stores the PID of the process which
+// aquired the lock. This allows locks to be automatically freed when a process
+// is unable to release it on its own because the process is not alive anymore.
+// For more information, consult the documentation for tusd.LockerDataStore
+// interface, which is implemented by FileStore
 package filestore
 
 import (
@@ -11,9 +20,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/uid"
+
+	"github.com/nightlyone/lockfile"
 )
 
 var defaultFilePerm = os.FileMode(0775)
@@ -22,8 +34,16 @@ var defaultFilePerm = os.FileMode(0775)
 // methods.
 type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
-	// whether the path exists, you os.MkdirAll in this case on your own.
+	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
+}
+
+// New creates a new file based storage backend. The directory specified will
+// be used as the only storage entry. This method does not check
+// whether the path exists, use os.MkdirAll to ensure.
+// In addition, a locking mechanism is provided.
+func New(path string) FileStore {
+	return FileStore{path}
 }
 
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
@@ -82,17 +102,62 @@ func (store FileStore) Terminate(id string) error {
 	return nil
 }
 
-// Return the path to the .bin storing the binary data
+func (store FileStore) LockUpload(id string) error {
+	lock, err := store.newLock(id)
+	if err != nil {
+		return err
+	}
+
+	err = lock.TryLock()
+	if err == lockfile.ErrBusy {
+		return tusd.ErrFileLocked
+	}
+
+	return err
+}
+
+func (store FileStore) UnlockUpload(id string) error {
+	lock, err := store.newLock(id)
+	if err != nil {
+		return err
+	}
+
+	err = lock.Unlock()
+
+	// A "no such file or directory" will be returned if no lockfile was found.
+	// Since this means that the file has never been locked, we drop the error
+	// and continue as if nothing happend.
+	if os.IsNotExist(err) {
+		err = nil
+	}
+
+	return nil
+}
+
+// newLock contructs a new Lockfile instance.
+func (store FileStore) newLock(id string) (lockfile.Lockfile, error) {
+	path, err := filepath.Abs(store.Path + "/" + id + ".lock")
+	if err != nil {
+		return lockfile.Lockfile(""), err
+	}
+
+	// We use Lockfile directly instead of lockfile.New to bypass the unnecessary
+	// check whether the provided path is absolute since we just resolved it
+	// on our own.
+	return lockfile.Lockfile(path), nil
+}
+
+// binPath returns the path to the .bin storing the binary data.
 func (store FileStore) binPath(id string) string {
 	return store.Path + "/" + id + ".bin"
 }
 
-// Return the path to the .info file storing the file's info
+// infoPath returns the path to the .info file storing the file's info.
 func (store FileStore) infoPath(id string) string {
 	return store.Path + "/" + id + ".info"
 }
 
-// Update the entire information. Everything will be overwritten.
+// writeInfo updates the entire information. Everything will be overwritten.
 func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
@@ -101,7 +166,7 @@ func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 	return ioutil.WriteFile(store.infoPath(id), data, defaultFilePerm)
 }
 
-// Update the .info file using the new upload.
+// setOffset updates the .info file to match the new offset.
 func (store FileStore) setOffset(id string, offset int64) error {
 	info, err := store.GetInfo(id)
 	if err != nil {

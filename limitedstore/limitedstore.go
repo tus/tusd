@@ -1,4 +1,6 @@
-// Package limitedstore implements a simple wrapper around existing
+// Package limitedstore provides a storage with a limited space.
+//
+// This goal is achieved by using a simple wrapper around existing
 // datastores (tusd.DataStore) while limiting the used storage size.
 // It will start terminating existing uploads if not enough space is left in
 // order to create a new upload.

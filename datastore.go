@@ -55,3 +55,24 @@ type DataStore interface {
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error
 }
+
+// LockerDataStore is the interface required for custom lock persisting mechanisms.
+// Common ways to store this information is in memory, on disk or using an
+// external service, such as ZooKeeper.
+// When multiple processes are attempting to access an upload, whether it be
+// by reading or writing, a syncronization mechanism is required to prevent
+// data corruption, especially to ensure correct offset values and the proper
+// order of chunks inside a single upload.
+type LockerDataStore interface {
+	DataStore
+
+	// LockUpload attempts to obtain an exclusive lock for the upload specified
+	// by its id.
+	// If this operation fails because the resource is already locked, the
+	// tusd.ErrFileLocked must be returned. If no error is returned, the attempt
+	// is consider to be successful and the upload to be locked until UnlockUpload
+	// is invoked for the same upload.
+	LockUpload(id string) error
+	// UnlockUpload releases an existing lock for the given upload.
+	UnlockUpload(id string) error
+}

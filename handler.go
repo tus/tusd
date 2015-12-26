@@ -1,3 +1,4 @@
+// Package tusd provides ways to accept tusd calls using HTTP.
 package tusd
 
 import (
