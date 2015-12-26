@@ -24,10 +24,6 @@ func (store zeroStore) GetReader(id string) (io.Reader, error) {
 	return nil, tusd.ErrNotImplemented
 }
 
-func (store zeroStore) Terminate(id string) error {
-	return tusd.ErrNotImplemented
-}
-
 func TestMemoryLocker(t *testing.T) {
 	var locker tusd.LockerDataStore
 	locker = NewMemoryLocker(&zeroStore{})

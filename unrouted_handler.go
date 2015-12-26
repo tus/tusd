@@ -76,6 +76,7 @@ type UnroutedHandler struct {
 	isBasePathAbs bool
 	basePath      string
 	logger        *log.Logger
+	extensions    string
 
 	// For each finished upload the corresponding info object will be sent using
 	// this unbuffered channel. The NotifyCompleteUploads property in the Config
@@ -108,6 +109,12 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		base = "/" + base
 	}
 
+	// Only promote extesions using the Tus-Extension header which are implemented
+	extensions := "creation,concatenation"
+	if _, ok := config.DataStore.(TerminaterDataStore); ok {
+		extensions += ",termination"
+	}
+
 	handler := &UnroutedHandler{
 		config:          config,
 		dataStore:       config.DataStore,
@@ -115,6 +122,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		isBasePathAbs:   uri.IsAbs(),
 		CompleteUploads: make(chan FileInfo),
 		logger:          logger,
+		extensions:      extensions,
 	}
 
 	return handler, nil
@@ -167,7 +175,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			}
 
 			header.Set("Tus-Version", "1.0.0")
-			header.Set("Tus-Extension", "creation,concatenation,termination")
+			header.Set("Tus-Extension", handler.extensions)
 
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -429,6 +437,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
+	// Abort the request handling if the required interface is not implemented
+	tstore, ok := handler.config.DataStore.(TerminaterDataStore)
+	if !ok {
+		handler.sendError(w, r, ErrNotImplemented)
+		return
+	}
+
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -444,7 +459,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
-	err = handler.dataStore.Terminate(id)
+	err = tstore.Terminate(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return

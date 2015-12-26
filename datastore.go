@@ -51,6 +51,14 @@ type DataStore interface {
 	// If the returned reader also implements the io.Closer interface, the
 	// Close() method will be invoked once everything has been read.
 	GetReader(id string) (io.Reader, error)
+}
+
+// TerminaterDataStore is the interface which must be implemented by DataStores
+// if they want to receive DELETE requests using the Handler. If this interface
+// is not implemented, no request handler for this method is attached.
+type TerminaterDataStore interface {
+	DataStore
+
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error

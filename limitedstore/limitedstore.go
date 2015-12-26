@@ -22,7 +22,7 @@ import (
 
 type LimitedStore struct {
 	StoreSize int64
-	tusd.DataStore
+	tusd.TerminaterDataStore
 
 	uploads  map[string]int64
 	usedSize int64
@@ -42,13 +42,15 @@ func (p pairlist) Len() int           { return len(p) }
 func (p pairlist) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p pairlist) Less(i, j int) bool { return p[i].value < p[j].value }
 
-// Create a new limited store with the given size as the maximum storage size
-func New(storeSize int64, dataStore tusd.DataStore) *LimitedStore {
+// New creates a new limited store with the given size as the maximum storage
+// size. The wrapped data store needs to implement the TerminaterDataStore
+// interface, in order to provide the required Terminate method.
+func New(storeSize int64, dataStore tusd.TerminaterDataStore) *LimitedStore {
 	return &LimitedStore{
-		StoreSize: storeSize,
-		DataStore: dataStore,
-		uploads:   make(map[string]int64),
-		mutex:     new(sync.Mutex),
+		StoreSize:           storeSize,
+		TerminaterDataStore: dataStore,
+		uploads:             make(map[string]int64),
+		mutex:               new(sync.Mutex),
 	}
 }
 
@@ -60,7 +62,7 @@ func (store *LimitedStore) NewUpload(info tusd.FileInfo) (string, error) {
 		return "", err
 	}
 
-	id, err := store.DataStore.NewUpload(info)
+	id, err := store.TerminaterDataStore.NewUpload(info)
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +81,7 @@ func (store *LimitedStore) Terminate(id string) error {
 }
 
 func (store *LimitedStore) terminate(id string) error {
-	err := store.DataStore.Terminate(id)
+	err := store.TerminaterDataStore.Terminate(id)
 	if err != nil {
 		return err
 	}
