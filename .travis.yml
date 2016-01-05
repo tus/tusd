@@ -21,7 +21,7 @@ before_install:
 - go get ./...
 
 script:
-- go test ./...
+- go test $(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name "vendor" -or -name "data" \))
 
 before_deploy:
 - go get github.com/laher/goxc
