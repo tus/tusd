@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,34 +20,39 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
-
-const MinPartSize = int64(5 * 1024 * 1024)
 
 // See the tusd.DataStore interface for documentation about the different
 // methods.
 type S3Store struct {
 	Bucket      string
-	Service     *s3.S3
+	Service     s3iface.S3API
 	MaxPartSize int64
+	MinPartSize int64
 }
 
-func New(bucket string, service *s3.S3) *S3Store {
+func New(bucket string, service s3iface.S3API) *S3Store {
 	return &S3Store{
 		Bucket:      bucket,
 		Service:     service,
 		MaxPartSize: 6 * 1024 * 1024,
+		MinPartSize: 5 * 1024 * 1024,
 	}
 }
 
 func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
-	uploadId := uid.Uid()
+	var uploadId string
+	if info.ID == "" {
+		uploadId = uid.Uid()
+	} else {
+		uploadId = info.ID
+	}
 
 	infoJson, err := json.Marshal(info)
 	if err != nil {
-		return id, err
+		return "", err
 	}
 
 	// Create object on S3 containing information about the file
@@ -59,7 +63,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
 	if err != nil {
-		return id, err
+		return "", err
 	}
 
 	// Create the actual multipart upload
@@ -68,7 +72,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		Key:    aws.String(uploadId),
 	})
 	if err != nil {
-		return id, err
+		return "", err
 	}
 
 	id = uploadId + "+" + *res.UploadId
@@ -88,9 +92,6 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	size := info.Size
 	bytesUploaded := int64(0)
 
-	fmt.Println("size:", size)
-	fmt.Println("offset:", offset)
-
 	// Get number of parts to generate next number
 	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
 		Bucket:   aws.String(store.Bucket),
@@ -103,10 +104,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	list := *listPtr
 	numParts := len(list.Parts)
-	fmt.Println("numParts:", numParts)
 	nextPartNum := int64(numParts + 1)
-
-	fmt.Println("nextNum:", nextPartNum)
 
 	for {
 		// Create a temporary file to store the part in it
@@ -117,27 +115,19 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		defer os.Remove(file.Name())
 		defer file.Close()
 
-		fmt.Println("max:", store.MaxPartSize)
-
 		limitedReader := io.LimitReader(src, store.MaxPartSize)
 		n, err := io.Copy(file, limitedReader)
-		fmt.Println("err:", err)
 		if err != nil && err != io.EOF {
 			return bytesUploaded, err
 		}
 
-		fmt.Println("n:", n)
-		fmt.Println("offset:", offset)
-
-		if (size - offset) <= MinPartSize {
+		if (size - offset) <= store.MinPartSize {
 			if (size - offset) != n {
 				return bytesUploaded, nil
 			}
-		} else if n < MinPartSize {
+		} else if n < store.MinPartSize {
 			return bytesUploaded, nil
 		}
-
-		fmt.Println("upload…")
 
 		// Seek to the beginning of the file
 		file.Seek(0, 0)
@@ -153,17 +143,10 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 			return bytesUploaded, err
 		}
 
-		pos, _ := file.Seek(1, 0)
-		fmt.Println("pos:", pos)
-
 		offset += bytesUploaded
 		bytesUploaded += n
 		nextPartNum += 1
 	}
-
-	fmt.Println("bytes:", bytesUploaded)
-
-	return bytesUploaded, nil
 }
 
 func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
@@ -197,7 +180,6 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
-		fmt.Println(err, err.(awserr.Error).Code())
 		if err, ok := err.(awserr.Error); ok && err.Code() == "NoSuchUpload" {
 			info.Offset = info.Size
 			return info, nil
@@ -238,7 +220,7 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 
 	// Test whether the multipart upload exists to find out if the upload
 	// never existsted or just has not been finished yet
-	_, err := store.Service.ListParts(&s3.ListPartsInput{
+	_, err = store.Service.ListParts(&s3.ListPartsInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      aws.String(uploadId),
 		UploadId: aws.String(multipartId),
@@ -283,8 +265,6 @@ func (store S3Store) Terminate(id string) error {
 
 func (store S3Store) FinishUpload(id string) error {
 	uploadId, multipartId := splitIds(id)
-
-	println("Finish upload")
 
 	// Get uploaded parts
 	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
