@@ -1,3 +1,15 @@
 [submodule "vendor/github.com/nightlyone/lockfile"]
 	path = vendor/github.com/nightlyone/lockfile
 	url = https://github.com/nightlyone/lockfile.git
+[submodule "vendor/github.com/aws/aws-sdk-go"]
+	path = vendor/github.com/aws/aws-sdk-go
+	url = https://github.com/aws/aws-sdk-go
+[submodule "vendor/github.com/bmizerany/pat"]
+	path = vendor/github.com/bmizerany/pat
+	url = https://github.com/bmizerany/pat
+[submodule "vendor/github.com/golang/mock"]
+	path = vendor/github.com/golang/mock
+	url = https://github.com/golang/mock
+[submodule "vendor/github.com/stretchr/testify"]
+	path = vendor/github.com/stretchr/testify
+	url = https://github.com/stretchr/testify
