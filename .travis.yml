@@ -17,7 +17,7 @@ matrix:
   allow_failures:
   - go: tip
 
-before_install:
+install:
 - export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name "vendor" -or -name "data" \))
 - go get $PACKAGES
 
