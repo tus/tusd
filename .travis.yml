@@ -18,10 +18,11 @@ matrix:
   - go: tip
 
 before_install:
-- go get ./...
+- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name "vendor" -or -name "data" \))
+- go get $PACKAGES
 
 script:
-- go test $(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name "vendor" -or -name "data" \))
+- go test $PACKAGES
 
 before_deploy:
 - go get github.com/laher/goxc
