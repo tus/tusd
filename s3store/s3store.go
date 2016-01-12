@@ -158,7 +158,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		Key:    aws.String(uploadId + ".info"),
 	})
 	if err != nil {
-		if err, ok := err.(awserr.Error); ok && err.Code() == "NoSuchKey" {
+		if isAwsError(err, "NoSuchKey") {
 			return info, tusd.ErrNotFound
 		}
 
@@ -180,7 +180,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
-		if err, ok := err.(awserr.Error); ok && err.Code() == "NoSuchUpload" {
+		if isAwsError(err, "NoSuchUpload") {
 			info.Offset = info.Size
 			return info, nil
 		} else {
@@ -204,7 +204,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 func (store S3Store) GetReader(id string) (io.Reader, error) {
 	uploadId, multipartId := splitIds(id)
 
-	// Get file info stored in seperate object
+	// Attempt to get upload content
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    aws.String(uploadId),
@@ -214,7 +214,10 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 		return res.Body, nil
 	}
 
-	if err, ok := err.(awserr.Error); !ok || err.Code() != "NoSuchKey" {
+	// If the file cannot be found, we ignore this error and continue since the
+	// upload may not have been finished yet. In this case we do not want to
+	// return a ErrNotFound but a more meaning-full message.
+	if !isAwsError(err, "NoSuchKey") {
 		return nil, err
 	}
 
@@ -231,7 +234,7 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 		return nil, errors.New("cannot stream non-finished upload")
 	}
 
-	if err, ok := err.(awserr.Error); ok && err.Code() == "NoSuchUpload" {
+	if isAwsError(err, "NoSuchUpload") {
 		// Neither the object nor the multipart upload exists, so we return a 404
 		return nil, tusd.ErrNotFound
 	}
@@ -309,4 +312,13 @@ func splitIds(id string) (uploadId, multipartId string) {
 	uploadId = id[:index]
 	multipartId = id[index+1:]
 	return
+}
+
+// isAwsError tests whether an error object is an instance of the AWS error
+// specified by its code.
+func isAwsError(err error, code string) bool {
+	if err, ok := err.(awserr.Error); ok && err.Code() == code {
+		return true
+	}
+	return false
 }
