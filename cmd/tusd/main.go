@@ -11,6 +11,12 @@ import (
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/limitedstore"
+	"github.com/tus/tusd/s3store"
+
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/service/s3"
+  "github.com/aws/aws-sdk-go/aws/session"
+  "github.com/aws/aws-sdk-go/aws"
 )
 
 var httpHost string
@@ -20,6 +26,7 @@ var dir string
 var storeSize int64
 var basepath string
 var timeout int64
+var s3Bucket string
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -32,19 +39,34 @@ func init() {
 	flag.Int64Var(&storeSize, "store-size", 0, "Size of disk space allowed to storage")
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the hTTP server")
 	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds")
+	flag.StringVar(&s3Bucket, "s3-bucket", "", "")
 
 	flag.Parse()
 }
 
 func main() {
-
-	stdout.Printf("Using '%s' as directory storage.\n", dir)
-	if err := os.MkdirAll(dir, os.FileMode(0775)); err != nil {
-		stderr.Fatalf("Unable to ensure directory exists: %s", err)
-	}
-
 	var store tusd.TerminaterDataStore
-	store = filestore.New(dir)
+	if s3Bucket == "" {
+		stdout.Printf("Using '%s' as directory storage.\n", dir)
+		if err := os.MkdirAll(dir, os.FileMode(0775)); err != nil {
+			stderr.Fatalf("Unable to ensure directory exists: %s", err)
+		}
+
+		store = filestore.New(dir)
+	} else {
+		// Attempt to find location for S3 bucket
+		svc := s3.New(session.New())
+		res, err := svc.GetBucketLocation(&s3.GetBucketLocationInput{
+			Bucket: aws.String(s3Bucket), // Required
+		})
+		if err != nil {
+			stderr.Fatalf("Unable to get bucket location: %s", err)
+		}
+
+		region := res.LocationConstraint
+		stdout.Printf("Using 's3://%s' (%s) as S3 bucket for storage.\n", s3Bucket, region)
+		store = s3store.New(s3Bucket, s3.New(session.New(), aws.NewConfig().WithCredentials(credentials.NewEnvCredentials())))
+	}
 
 	if storeSize > 0 {
 		store = limitedstore.New(storeSize, store)
