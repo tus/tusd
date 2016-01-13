@@ -24,6 +24,7 @@ script:
 - go test ./...
 
 before_deploy:
+- export GOROOT_BOOTSTRAP=$GOROOT
 - go get github.com/laher/goxc
 - goxc -t -bc="linux darwin windows"
 - goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows"
@@ -47,5 +48,5 @@ deploy:
 
   on:
     tags: true
-    go: 1.4
+    go: 1.5
     repo: tus/tusd
