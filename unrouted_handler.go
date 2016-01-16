@@ -13,7 +13,11 @@ import (
 	"strings"
 )
 
-var reExtractFileID = regexp.MustCompile(`([^/]+)\/?$`)
+var (
+	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
+	reForwardedHost  = regexp.MustCompile(`host=([^,]+)`)
+	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
+)
 
 var (
 	ErrUnsupportedVersion  = errors.New("unsupported version")
@@ -65,6 +69,10 @@ type Config struct {
 	NotifyCompleteUploads bool
 	// Logger the logger to use internally
 	Logger *log.Logger
+	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
+	// potentially set by proxies when generating an absolute URL in the
+	// reponse to POST requests.
+	RespectForwardedHeaders bool
 }
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -500,14 +508,49 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 	}
 
 	// Read origin and protocol from request
-	url := "http://"
-	if r.TLS != nil {
-		url = "https://"
-	}
+	host, proto := getHostAndProtocol(r, handler.config.RespectForwardedHeaders)
 
-	url += r.Host + handler.basePath + id
+	url := proto + "://" + host + handler.basePath + id
 
 	return url
+}
+
+// getHostAndProtocol extracts the host and used protocol (either HTTP or HTTPS)
+// from the given request. If `allowForwarded` is set, the X-Forwarded-Host,
+// X-Forwarded-Proto and Forwarded headers will also be checked to
+// support proxies.
+func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto string) {
+	if r.TLS != nil {
+		proto = "https"
+	} else {
+		proto = "http"
+	}
+
+	host = r.Host
+
+	if !allowForwarded {
+		return
+	}
+
+	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
+		host = h
+	}
+
+	if h := r.Header.Get("X-Forwarded-Proto"); h == "http" || h == "https" {
+		proto = h
+	}
+
+	if h := r.Header.Get("Forwarded"); h != "" {
+		if r := reForwardedHost.FindStringSubmatch(h); len(r) == 2 {
+			host = r[1]
+		}
+
+		if r := reForwardedProto.FindStringSubmatch(h); len(r) == 2 {
+			proto = r[1]
+		}
+	}
+
+	return
 }
 
 // The get sum of all sizes for a list of upload ids while checking whether
