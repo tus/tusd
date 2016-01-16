@@ -10,10 +10,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/uid"
@@ -244,24 +246,64 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 
 func (store S3Store) Terminate(id string) error {
 	uploadId, multipartId := splitIds(id)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	errs := make([]error, 0, 3)
 
-	// Abort the multipart upload first
-	_, err := store.Service.AbortMultipartUpload(&s3.AbortMultipartUploadInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
-	if err != nil {
-		if err, ok := err.(awserr.Error); ok && err.Code() == "NoSuchUpload" {
-			// Test whether the multipart upload exists to find out if the upload
-			// never existsted or just has not been finished yet (TODO)
-			return tusd.ErrNotFound
+	go func() {
+		defer wg.Done()
+
+		// Abort the multipart upload
+		_, err := store.Service.AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(store.Bucket),
+			Key:      aws.String(uploadId),
+			UploadId: aws.String(multipartId),
+		})
+		if err != nil && !isAwsError(err, "NoSuchUpload") {
+			errs = append(errs, err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Delete the info and content file
+		res, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+			Bucket: aws.String(store.Bucket),
+			Delete: &s3.Delete{
+				Objects: []*s3.ObjectIdentifier{
+					{
+						Key: aws.String(uploadId),
+					},
+					{
+						Key: aws.String(uploadId + ".info"),
+					},
+				},
+				Quiet: aws.Bool(true),
+			},
+		})
+
+		if err != nil {
+			errs = append(errs, err)
+			return
 		}
 
-		return err
-	}
+		for _, s3Err := range res.Errors {
+			if *s3Err.Code != "NoSuchKey" {
+				errs = append(errs, fmt.Errorf("AWS S3 Error (%s) for object %s: %s", *s3Err.Code, *s3Err.Key, *s3Err.Message))
+			}
+		}
+	}()
 
-	// TODO delete info file
+	wg.Wait()
+
+	if len(errs) > 0 {
+		message := "Multiple errors occured:\n"
+		for _, err := range errs {
+			message += "\t" + err.Error() + "\n"
+		}
+		return errors.New(message)
+	}
 
 	return nil
 }

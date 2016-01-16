@@ -442,3 +442,80 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(int64(10), bytesRead)
 }
+
+func TestTerminate(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	// Order is not important in this situation.
+	s3obj.EXPECT().AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("uploadId"),
+		UploadId: aws.String("multipartId"),
+	}).Return(nil, nil)
+
+	s3obj.EXPECT().DeleteObjects(&s3.DeleteObjectsInput{
+		Bucket: aws.String("bucket"),
+		Delete: &s3.Delete{
+			Objects: []*s3.ObjectIdentifier{
+				{
+					Key: aws.String("uploadId"),
+				},
+				{
+					Key: aws.String("uploadId.info"),
+				},
+			},
+			Quiet: aws.Bool(true),
+		},
+	}).Return(&s3.DeleteObjectsOutput{}, nil)
+
+	err := store.Terminate("uploadId+multipartId")
+	assert.Nil(err)
+}
+
+func TestTerminateWithErrors(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	// Order is not important in this situation.
+	// NoSuchUpload errors should be ignored
+	s3obj.EXPECT().AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("uploadId"),
+		UploadId: aws.String("multipartId"),
+	}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil))
+
+	s3obj.EXPECT().DeleteObjects(&s3.DeleteObjectsInput{
+		Bucket: aws.String("bucket"),
+		Delete: &s3.Delete{
+			Objects: []*s3.ObjectIdentifier{
+				{
+					Key: aws.String("uploadId"),
+				},
+				{
+					Key: aws.String("uploadId.info"),
+				},
+			},
+			Quiet: aws.Bool(true),
+		},
+	}).Return(&s3.DeleteObjectsOutput{
+		Errors: []*s3.Error{
+			{
+				Code:    aws.String("hello"),
+				Key:     aws.String("uploadId"),
+				Message: aws.String("it's me."),
+			},
+		},
+	}, nil)
+
+	err := store.Terminate("uploadId+multipartId")
+	assert.Equal("Multiple errors occured:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
+}
