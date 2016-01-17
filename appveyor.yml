@@ -12,8 +12,8 @@ build_script:
   - go version
 
 test_script:
-  - go test -v .
-  - go test -v ./filestore
-  - go test -v ./limitedstore
-  - go test -v ./memorylicker
-  - go test -v ./s3store
+  - go test .
+  - go test ./filestore
+  - go test ./limitedstore
+  - go test ./memorylocker
+  - go test ./s3store
