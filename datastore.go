@@ -64,9 +64,16 @@ type TerminaterDataStore interface {
 	Terminate(id string) error
 }
 
+// FinisherDataStore is the interface which can be implemented by DataStores
+// which need to do additional operations once an entire upload has been
+// completed. These tasks may include but are not limited to freeing unused
+// resources or notifying other services. For example, S3Store uses this
+// interface for removing a temporary object.
 type FinisherDataStore interface {
 	DataStore
 
+	// FinishUpload executes additional operations for the finished upload which
+	// is specified by its ID.
 	FinishUpload(id string) error
 }
 
