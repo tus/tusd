@@ -1,8 +1,13 @@
 clone_folder: c:\projects\go\src\github.com\tus\tusd
 
+environment:
+  GOPATH: c:\projects\go
+  GO15VENDOREXPERIMENT: 1
+
+install:
+  - git submodule update --init --recursive
+
 build_script:
-  - set GOPATH=c:\projects\go
-  - set GO15VENDOREXPERIMENT=1
   - go env
   - go version
 
