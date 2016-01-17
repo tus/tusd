@@ -2,8 +2,10 @@ clone_folder: c:\projects\go\src\github.com\tus\tusd
 
 build_script:
   - set GOPATH=c:\projects\go
+  - set GO15VENDOREXPERIMENT=1
   - go env
-  - go get -v ./...
+  - go version
+  - move c:\projects\go\src\github.com\tus\tusd\vendor\* c:\projects\go\src\
 
 test_script:
   - go test -v ./...
