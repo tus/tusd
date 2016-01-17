@@ -1,9 +1,72 @@
-// S3Store is a storage backend used as a tusd.DataStore in tusd.NewHandler.
-// It stores the uploads in a directory specified in two different files: The
-// `[id].info` files are used to store the fileinfo in JSON format. The
-// `[id].bin` files contain the raw binary data uploaded.
-// No cleanup is performed so you may want to run a cronjob to ensure your disk
-// is not filled up with old and finished uploads.
+// Package s3store provides a storage backend using AWS S3 or compatible servers.
+//
+// Configuration
+//
+// In order to allow this backend to function properly, the user accessing the
+// bucket must have at least following AWS IAM policy permissions for the
+// bucket and all of its subresources:
+// 	s3:AbortMultipartUpload
+// 	s3:DeleteObject
+// 	s3:GetObject
+// 	s3:ListMultipartUploadParts
+// 	s3:PutObject
+//
+// While this package uses the official AWS SDK for Go, S3Store is able
+// to work with any S3-compatible service such as Riak CS. In order to change
+// the HTTP endpoint used for sending requests to, consult the AWS Go SDK
+// (http://docs.aws.amazon.com/sdk-for-go/api/aws/Config.html#WithEndpoint-instance_method).
+//
+// Implementation
+//
+// Once a new tus upload is initiated, multiple objects in S3 are created:
+//
+// First of all, a new info object is stored which contains a JSON-encoded blob
+// of general information about the upload including its size and meta data.
+// This kind of objects have the suffix ".info" in their key.
+//
+// In addition a new multipart upload
+// (http://docs.aws.amazon.com/AmazonS3/latest/dev/uploadobjusingmpu.html) is
+// created. Whenever a new chunk is uploaded to tusd using a PATCH request, a
+// new part is pushed to the multipart upload on S3.
+//
+// Once the upload is finish, the multipart upload is completed, resulting in
+// the entire file being stored in the bucket. The info object, containing
+// meta data is not deleted. It is recommended to copy the finished upload to
+// another bucket to avoid it being deleted by the Termination extension.
+//
+// If an upload is about to being terminated, the multipart upload is aborted
+// which removes all of the uploaded parts from the bucket. In addition, the
+// info object is also deleted. If the upload has been finished already, the
+// finished object containing the entire upload is also removed.
+//
+// Considerations
+//
+// In order to support tus' principle of resumable upload, S3's Multipart-Uploads
+// are internally used.
+// For each incoming PATCH request (a call to WriteChunk), a new part is uploaded
+// to S3. However, each part of a multipart upload, except the last one, must
+// be 5MB or bigger. This introduces a problem, since in tus' perspective
+// it's totally fine to upload just a few kilobytes in a single request.
+//
+// Therefore, a few special condition have been implemented:
+//
+// Each PATCH request must contain a body of, at least, 5MB. If the size
+// is smaller than this limit, the entire request will be dropped and not
+// even passed to the storage server. If your server supports a different
+// limit, you can adjust this value using S3Store.MinPartSize.
+//
+// When receiving a PATCH request, its body will be temporarily stored on disk.
+// This requirement has been made to ensure the minimum size of a single part
+// and to allow the calculating of a checksum. Once the part has been uploaded
+// to S3, the temporary file will be removed immediately. Therefore, please
+// ensure that the server running this storage backend has enough disk space
+// available to hold these caches.
+//
+// In addition, it must be mentioned that AWS S3 only offeres eventual
+// consistency (https://aws.amazon.com/s3/faqs/#What_data_consistency_model_does_Amazon_S3_employ).
+// Therefore, it is required to build additional measurements in order to
+// prevent concurrent access to the same upload resources which may result in
+// data corruption. See tusd.LockerDataStore for more information.
 package s3store
 
 import (
@@ -29,14 +92,34 @@ import (
 // See the tusd.DataStore interface for documentation about the different
 // methods.
 type S3Store struct {
-	Bucket      string
-	Service     s3iface.S3API
+	// Bucket used to store the data in, e.g. "tusdstore.example.com"
+	Bucket string
+	// Service specifies an interface used to communicate with the S3 backend.
+	// Usually, this is an instance of github.com/aws/aws-sdk-go/service/s3.S3
+	// (http://docs.aws.amazon.com/sdk-for-go/api/service/s3/S3.html).
+	Service s3iface.S3API
+	// MaxPartSize specifies the maximum size of a single part uploaded to S3
+	// in bytes. This value must be bigger than MinPartSize! In order to
+	// choose the correct number, two things have to be kept in mind:
+	//
+	// If this value is too big and uploading the part to S3 is interrupted
+	// expectedly, the entire part is discarded and the end user is required
+	// to resume the upload and re-upload the entire big part. In addition, the
+	// entire part must be written to disk before submitting to S3.
+	//
+	// If this value is too low, a lot of requests to S3 may be made, depending
+	// on how fast data is coming in. This may result in an eventual overhead.
 	MaxPartSize int64
+	// MinPartSize specifies the minimum size of a single part uploaded to S3
+	// in bytes. This number needs to match with the underlying S3 backend or else
+	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
 }
 
-func New(bucket string, service s3iface.S3API) *S3Store {
-	return &S3Store{
+// New constructs a new storage using the supplied bucket and service object.
+// The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
+func New(bucket string, service s3iface.S3API) S3Store {
+	return S3Store{
 		Bucket:      bucket,
 		Service:     service,
 		MaxPartSize: 6 * 1024 * 1024,

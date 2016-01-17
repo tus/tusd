@@ -36,10 +36,10 @@ func init() {
 	flag.StringVar(&httpPort, "port", "1080", "Port to bind HTTP server to")
 	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of uploads in bytes")
 	flag.StringVar(&dir, "dir", "./data", "Directory to store uploads in")
-	flag.Int64Var(&storeSize, "store-size", 0, "Size of disk space allowed to storage")
-	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the hTTP server")
+	flag.Int64Var(&storeSize, "store-size", 0, "Size of space allowed for storage")
+	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds")
-	flag.StringVar(&s3Bucket, "s3-bucket", "", "")
+	flag.StringVar(&s3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 
 	flag.Parse()
 }
