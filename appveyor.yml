@@ -5,7 +5,10 @@ build_script:
   - set GO15VENDOREXPERIMENT=1
   - go env
   - go version
-  - move c:\projects\go\src\github.com\tus\tusd\vendor\* c:\projects\go\src\
 
 test_script:
-  - go test -v ./...
+  - go test -v .
+  - go test -v ./filestore
+  - go test -v ./limitedstore
+  - go test -v ./memorylicker
+  - go test -v ./s3store
