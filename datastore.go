@@ -43,14 +43,6 @@ type DataStore interface {
 	// requests. It may return an os.ErrNotExist which will be interpreted as a
 	// 404 Not Found.
 	GetInfo(id string) (FileInfo, error)
-	// Get an io.Reader to allow downloading the file. This feature is not
-	// part of the official tus specification. If this additional function
-	// should not be enabled any call to GetReader should return
-	// tusd.ErrNotImplemented. The length of the resource is determined by
-	// retrieving the offset using GetInfo.
-	// If the returned reader also implements the io.Closer interface, the
-	// Close() method will be invoked once everything has been read.
-	GetReader(id string) (io.Reader, error)
 }
 
 // TerminaterDataStore is the interface which must be implemented by DataStores
@@ -96,4 +88,22 @@ type LockerDataStore interface {
 	LockUpload(id string) error
 	// UnlockUpload releases an existing lock for the given upload.
 	UnlockUpload(id string) error
+}
+
+// GetReaderDataStore is the interface which must be implemented if handler should
+// expose and support the GET route. It will allow clients to download the
+// content of an upload regardless whether it's finished or not.
+// Please, be aware that this feature is not part of the official tus
+// specification. Instead it's a custom mechanism by tusd.
+type GetReaderDataStore interface {
+	DataStore
+
+	// GetReader returns a reader which allows iterating of the content of an
+	// upload specified by its ID. It should attempt to provide a reader even if
+	// the upload has not been finished yet but it's not required.
+	// If the returned reader also implements the io.Closer interface, the
+	// Close() method will be invoked once everything has been read.
+	// If the given upload could not be found, the error tusd.ErrNotFound should
+	// be returned.
+	GetReader(id string) (io.Reader, error)
 }

@@ -402,6 +402,12 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
+	dataStore, ok := handler.dataStore.(GetReaderDataStore)
+	if !ok {
+		handler.sendError(w, r, ErrNotImplemented)
+		return
+	}
+
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -430,7 +436,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get reader
-	src, err := handler.dataStore.GetReader(id)
+	src, err := dataStore.GetReader(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -545,10 +551,15 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 // Fill an empty upload with the content of the uploads by their ids. The data
 // will be written in the order as they appear in the slice
 func (handler *UnroutedHandler) fillFinalUpload(id string, uploads []string) error {
+	dataStore, ok := handler.dataStore.(GetReaderDataStore)
+	if !ok {
+		return ErrNotImplemented
+	}
+
 	readers := make([]io.Reader, len(uploads))
 
 	for index, uploadID := range uploads {
-		reader, err := handler.dataStore.GetReader(uploadID)
+		reader, err := dataStore.GetReader(uploadID)
 		if err != nil {
 			return err
 		}
