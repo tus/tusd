@@ -17,6 +17,12 @@ import (
 
 //go:generate mockgen -destination=./s3store_mock_test.go -package=s3store_test github.com/aws/aws-sdk-go/service/s3/s3iface S3API
 
+// Test interface implementations
+var _ tusd.DataStore = s3store.S3Store{}
+var _ tusd.GetReaderDataStore = s3store.S3Store{}
+var _ tusd.TerminaterDataStore = s3store.S3Store{}
+var _ tusd.FinisherDataStore = s3store.S3Store{}
+
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

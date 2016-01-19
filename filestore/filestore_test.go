@@ -12,6 +12,9 @@ import (
 
 // Test interface implementation of Filestore
 var _ tusd.DataStore = FileStore{}
+var _ tusd.GetReaderDataStore = FileStore{}
+var _ tusd.TerminaterDataStore = FileStore{}
+var _ tusd.LockerDataStore = FileStore{}
 
 func TestFilestore(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-")
