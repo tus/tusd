@@ -29,6 +29,10 @@
 // created. Whenever a new chunk is uploaded to tusd using a PATCH request, a
 // new part is pushed to the multipart upload on S3.
 //
+// If meta data is associated with the upload during creation, it will be added
+// to the multipart upload and after finishing it, the meta data will be passed
+// to the final object.
+//
 // Once the upload is finish, the multipart upload is completed, resulting in
 // the entire file being stored in the bucket. The info object, containing
 // meta data is not deleted. It is recommended to copy the finished upload to
@@ -151,10 +155,20 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		return "", err
 	}
 
+	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
+	metadata := make(map[string]*string, len(info.MetaData))
+	for key, value := range info.MetaData {
+		// Copying the value is required in order to prevent it from being
+		// overwritten by the next iteration.
+		v := value
+		metadata[key] = &v
+	}
+
 	// Create the actual multipart upload
 	res, err := store.Service.CreateMultipartUpload(&s3.CreateMultipartUploadInput{
-		Bucket: aws.String(store.Bucket),
-		Key:    aws.String(uploadId),
+		Bucket:   aws.String(store.Bucket),
+		Key:      aws.String(uploadId),
+		Metadata: metadata,
 	})
 	if err != nil {
 		return "", err

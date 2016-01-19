@@ -28,16 +28,23 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal(store.Bucket, "bucket")
 	assert.Equal(store.Service, s3obj)
 
+	s1 := "hello"
+	s2 := "world"
+
 	gomock.InOrder(
 		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
-			ContentLength: aws.Int64(int64(111)),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"world","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(136)),
 		}),
 		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
+			Metadata: map[string]*string{
+				"foo": &s1,
+				"bar": &s2,
+			},
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
@@ -46,6 +53,10 @@ func TestNewUpload(t *testing.T) {
 	info := tusd.FileInfo{
 		ID:   "uploadId",
 		Size: 500,
+		MetaData: map[string]string{
+			"foo": "hello",
+			"bar": "world",
+		},
 	}
 
 	id, err := store.NewUpload(info)
