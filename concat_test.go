@@ -1,11 +1,8 @@
 package tusd_test
 
 import (
-	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
-	"strings"
 	"testing"
 
 	. "github.com/tus/tusd"
@@ -38,6 +35,10 @@ func (s concatPartialStore) GetInfo(id string) (FileInfo, error) {
 	}, nil
 }
 
+func (s concatPartialStore) ConcatUploads(id string, uploads []string) error {
+	return nil
+}
+
 func TestConcatPartial(t *testing.T) {
 	handler, _ := NewHandler(Config{
 		MaxSize:  400,
@@ -46,6 +47,16 @@ func TestConcatPartial(t *testing.T) {
 			t: t,
 		},
 	})
+
+	(&httpTest{
+		Name:   "Successful OPTIONS request",
+		Method: "OPTIONS",
+		URL:    "",
+		ResHeader: map[string]string{
+			"Tus-Extension": "creation,concatenation",
+		},
+		Code: http.StatusNoContent,
+	}).Run(handler, t)
 
 	(&httpTest{
 		Name:   "Successful POST request",
@@ -122,33 +133,15 @@ func (s concatFinalStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{}, ErrNotFound
 }
 
-func (s concatFinalStore) GetReader(id string) (io.Reader, error) {
-	if id == "a" {
-		return strings.NewReader("hello"), nil
-	}
-
-	if id == "b" {
-		return strings.NewReader("world"), nil
-	}
-
-	return nil, ErrNotFound
-}
-
-func (s concatFinalStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+func (s concatFinalStore) ConcatUploads(id string, uploads []string) error {
 	if id != "foo" {
-		s.t.Error("unexpected file id")
+		s.t.Error("expected final file id to be foo")
 	}
 
-	if offset != 0 {
-		s.t.Error("expected offset to be 0")
+	if !reflect.DeepEqual(uploads, []string{"a", "b"}) {
+		s.t.Errorf("expected Concatenating uploads to be a and b")
 	}
-
-	b, _ := ioutil.ReadAll(src)
-	if string(b) != "helloworld" {
-		s.t.Error("unexpected content")
-	}
-
-	return 10, nil
+	return nil
 }
 
 func TestConcatFinal(t *testing.T) {

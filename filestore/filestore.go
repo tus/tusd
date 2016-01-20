@@ -102,6 +102,34 @@ func (store FileStore) Terminate(id string) error {
 	return nil
 }
 
+func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) {
+	file, err := os.OpenFile(store.binPath(dest), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var bytesRead int64
+	defer func() {
+		err = store.setOffset(dest, bytesRead)
+	}()
+
+	for _, id := range uploads {
+		src, err := store.GetReader(id)
+		if err != nil {
+			return err
+		}
+
+		n, err := io.Copy(file, src)
+		bytesRead += n
+		if err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
 func (store FileStore) LockUpload(id string) error {
 	lock, err := store.newLock(id)
 	if err != nil {

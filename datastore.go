@@ -107,3 +107,18 @@ type GetReaderDataStore interface {
 	// be returned.
 	GetReader(id string) (io.Reader, error)
 }
+
+// ConcaterDataStore is the interface required to be implemented if the
+// Concatenation extension should be enabled. Only in this case, the handler
+// will parse and respect the Upload-Concat header.
+type ConcaterDataStore interface {
+	DataStore
+
+	// ConcatUploads concatenations the content from the provided partial uploads
+	// and write the result in the destination upload which is specified by its
+	// ID. The caller (usually the handler) must and will ensure that this
+	// destination upload has been created before with enough space to hold all
+	// partial uploads. The order, in which the partial uploads are supplied,
+	// must be respected during concatenation.
+	ConcatUploads(destination string, partialUploads []string) error
+}

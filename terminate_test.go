@@ -31,7 +31,7 @@ func TestTerminate(t *testing.T) {
 		Method: "OPTIONS",
 		URL:    "",
 		ResHeader: map[string]string{
-			"Tus-Extension": "creation,concatenation,termination",
+			"Tus-Extension": "creation,termination",
 		},
 		Code: http.StatusNoContent,
 	}).Run(handler, t)

@@ -110,9 +110,12 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	}
 
 	// Only promote extesions using the Tus-Extension header which are implemented
-	extensions := "creation,concatenation"
+	extensions := "creation"
 	if _, ok := config.DataStore.(TerminaterDataStore); ok {
 		extensions += ",termination"
+	}
+	if _, ok := config.DataStore.(ConcaterDataStore); ok {
+		extensions += ",concatenation"
 	}
 
 	handler := &UnroutedHandler{
@@ -197,8 +200,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
+	// Only use the proper Upload-Concat header if the concatenation extension
+	// is even supported by the data store.
+	var concatHeader string
+	concatStore, ok := handler.dataStore.(ConcaterDataStore)
+	if ok {
+		concatHeader = r.Header.Get("Upload-Concat")
+	}
+
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploads, err := parseConcat(r.Header.Get("Upload-Concat"))
+	isPartial, isFinal, partialUploads, err := parseConcat(concatHeader)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -246,7 +257,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if isFinal {
-		if err := handler.fillFinalUpload(id, partialUploads); err != nil {
+		if err := concatStore.ConcatUploads(id, partialUploads); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -546,30 +557,6 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 	}
 
 	return
-}
-
-// Fill an empty upload with the content of the uploads by their ids. The data
-// will be written in the order as they appear in the slice
-func (handler *UnroutedHandler) fillFinalUpload(id string, uploads []string) error {
-	dataStore, ok := handler.dataStore.(GetReaderDataStore)
-	if !ok {
-		return ErrNotImplemented
-	}
-
-	readers := make([]io.Reader, len(uploads))
-
-	for index, uploadID := range uploads {
-		reader, err := dataStore.GetReader(uploadID)
-		if err != nil {
-			return err
-		}
-		readers[index] = reader
-	}
-
-	reader := io.MultiReader(readers...)
-	_, err := handler.dataStore.WriteChunk(id, 0, reader)
-
-	return err
 }
 
 // Parse the Upload-Metadata header as defined in the File Creation extension.
