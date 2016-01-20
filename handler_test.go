@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	. "github.com/tus/tusd"
 )
 
@@ -43,7 +45,7 @@ type httpTest struct {
 }
 
 func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
-	t.Log(test.Name)
+	t.Logf("'%s' in %s", test.Name, assert.CallerInfo()[1])
 
 	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
 

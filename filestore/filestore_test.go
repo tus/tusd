@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tus/tusd"
 )
 
@@ -18,10 +20,10 @@ var _ tusd.LockerDataStore = FileStore{}
 var _ tusd.ConcaterDataStore = FileStore{}
 
 func TestFilestore(t *testing.T) {
+	a := assert.New(t)
+
 	tmp, err := ioutil.TempDir("", "tusd-filestore-")
-	if err != nil {
-		t.Fatal(err)
-	}
+	a.NoError(err)
 
 	store := FileStore{tmp}
 
@@ -32,96 +34,55 @@ func TestFilestore(t *testing.T) {
 			"hello": "world",
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id == "" {
-		t.Errorf("id must not be empty")
-	}
+	a.NoError(err)
+	a.NotEqual("", id)
 
 	// Check info without writing
 	info, err := store.GetInfo(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Size != 42 {
-		t.Errorf("expected size to be 42")
-	}
-	if info.Offset != 0 {
-		t.Errorf("expected offset to be 0")
-	}
-	if len(info.MetaData) != 1 || info.MetaData["hello"] != "world" {
-		t.Errorf("expected metadata to have one value")
-	}
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(tusd.MetaData{"hello": "world"}, info.MetaData)
 
 	// Write data to upload
 	bytesWritten, err := store.WriteChunk(id, 0, strings.NewReader("hello world"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytesWritten != int64(len("hello world")) {
-		t.Errorf("expected 11 bytes to be written")
-	}
+	a.NoError(err)
+	a.EqualValues(len("hello world"), bytesWritten)
 
 	// Check new offset
 	info, err = store.GetInfo(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Size != 42 {
-		t.Errorf("expected size to be 42")
-	}
-	if info.Offset != int64(len("hello world")) {
-		t.Errorf("expected offset to be 0")
-	}
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(11, info.Offset)
 
 	// Read content
 	reader, err := store.GetReader(id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	a.NoError(err)
+
 	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "hello world" {
-		t.Errorf("expected content to be 'hello world'")
-	}
+	a.NoError(err)
+	a.Equal("hello world", string(content))
 	reader.(io.Closer).Close()
 
 	// Terminate upload
-	if err := store.Terminate(id); err != nil {
-		t.Fatal(err)
-	}
+	a.NoError(store.Terminate(id))
 
 	// Test if upload is deleted
-	if _, err := store.GetInfo(id); !os.IsNotExist(err) {
-		t.Fatal("expected os.ErrIsNotExist")
-	}
+	_, err = store.GetInfo(id)
+	a.True(os.IsNotExist(err))
 }
 
 func TestFileLocker(t *testing.T) {
+	a := assert.New(t)
+
 	dir, err := ioutil.TempDir("", "tusd-file-locker")
-	if err != nil {
-		t.Fatal(err)
-	}
+	a.NoError(err)
 
 	var locker tusd.LockerDataStore
 	locker = FileStore{dir}
 
-	if err := locker.LockUpload("one"); err != nil {
-		t.Errorf("unexpected error when locking file: %s", err)
-	}
-
-	if err := locker.LockUpload("one"); err != tusd.ErrFileLocked {
-		t.Errorf("expected error when locking locked file: %s", err)
-	}
-
-	if err := locker.UnlockUpload("one"); err != nil {
-		t.Errorf("unexpected error when unlocking file: %s", err)
-	}
-
-	if err := locker.UnlockUpload("one"); err != nil {
-		t.Errorf("unexpected error when unlocking file again: %s", err)
-	}
+	a.NoError(locker.LockUpload("one"))
+	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
+	a.NoError(locker.UnlockUpload("one"))
+	a.NoError(locker.UnlockUpload("one"))
 }

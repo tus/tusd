@@ -1,14 +1,17 @@
 package limitedstore
 
 import (
-	"github.com/tus/tusd"
 	"io"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/tus/tusd"
 )
 
 type dataStore struct {
-	t                    *testing.T
+	t                    *assert.Assertions
 	numCreatedUploads    int
 	numTerminatedUploads int
 }
@@ -20,9 +23,7 @@ func (store *dataStore) NewUpload(info tusd.FileInfo) (string, error) {
 	// These sizes correlate to this order.
 	expectedSize := []int64{30, 60, 80}[uploadId]
 
-	if info.Size != expectedSize {
-		store.t.Errorf("expect size to be %v, got %v", expectedSize, info.Size)
-	}
+	store.t.Equal(expectedSize, info.Size)
 
 	store.numCreatedUploads += 1
 
@@ -46,9 +47,7 @@ func (store *dataStore) Terminate(id string) error {
 	// come first)
 	expectedUploadId := []string{"1", "0"}[store.numTerminatedUploads]
 
-	if id != expectedUploadId {
-		store.t.Errorf("exptect upload %v to be terminated, got %v", expectedUploadId, id)
-	}
+	store.t.Equal(expectedUploadId, id)
 
 	store.numTerminatedUploads += 1
 
@@ -56,8 +55,9 @@ func (store *dataStore) Terminate(id string) error {
 }
 
 func TestLimitedStore(t *testing.T) {
+	a := assert.New(t)
 	dataStore := &dataStore{
-		t: t,
+		t: a,
 	}
 	store := New(100, dataStore)
 
@@ -65,34 +65,22 @@ func TestLimitedStore(t *testing.T) {
 	id, err := store.NewUpload(tusd.FileInfo{
 		Size: 30,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "0" {
-		t.Errorf("expected first upload to be created, got %v", id)
-	}
+	a.NoError(err)
+	a.Equal("0", id)
 
 	// Create new upload (60 bytes)
 	id, err = store.NewUpload(tusd.FileInfo{
 		Size: 60,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "1" {
-		t.Errorf("expected second upload to be created, got %v", id)
-	}
+	a.NoError(err)
+	a.Equal("1", id)
 
 	// Create new upload (80 bytes)
 	id, err = store.NewUpload(tusd.FileInfo{
 		Size: 80,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "2" {
-		t.Errorf("expected thrid upload to be created, got %v", id)
-	}
+	a.NoError(err)
+	a.Equal("2", id)
 
 	if dataStore.numTerminatedUploads != 2 {
 		t.Error("expected two uploads to be terminated")

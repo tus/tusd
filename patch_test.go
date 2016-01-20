@@ -8,12 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	. "github.com/tus/tusd"
 )
 
 type patchStore struct {
 	zeroStore
-	t      *testing.T
+	t      *assert.Assertions
 	called bool
 }
 
@@ -29,23 +31,14 @@ func (s patchStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	if s.called {
-		s.t.Errorf("WriteChunk must be called only once")
-	}
+	s.t.False(s.called, "WriteChunk must be called only once")
 	s.called = true
 
-	if offset != 5 {
-		s.t.Errorf("Expected offset to be 5 (got %v)", offset)
-	}
+	s.t.Equal(int64(5), offset)
 
 	data, err := ioutil.ReadAll(src)
-	if err != nil {
-		s.t.Error(err)
-	}
-
-	if string(data) != "hello" {
-		s.t.Errorf("Expected source to be 'hello'")
-	}
+	s.t.Nil(err)
+	s.t.Equal("hello", string(data))
 
 	return 5, nil
 }
@@ -54,7 +47,7 @@ func TestPatch(t *testing.T) {
 	handler, _ := NewHandler(Config{
 		MaxSize: 100,
 		DataStore: patchStore{
-			t: t,
+			t: assert.New(t),
 		},
 	})
 
@@ -114,7 +107,7 @@ func TestPatch(t *testing.T) {
 
 type overflowPatchStore struct {
 	zeroStore
-	t      *testing.T
+	t      *assert.Assertions
 	called bool
 }
 
@@ -130,23 +123,14 @@ func (s overflowPatchStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func (s overflowPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	if s.called {
-		s.t.Errorf("WriteChunk must be called only once")
-	}
+	s.t.False(s.called, "WriteChunk must be called only once")
 	s.called = true
 
-	if offset != 5 {
-		s.t.Errorf("Expected offset to be 5 (got %v)", offset)
-	}
+	s.t.Equal(int64(5), offset)
 
 	data, err := ioutil.ReadAll(src)
-	if err != nil {
-		s.t.Error(err)
-	}
-
-	if len(data) != 15 {
-		s.t.Errorf("Expected 15 bytes got %v", len(data))
-	}
+	s.t.Nil(err)
+	s.t.Equal("hellothisismore", string(data))
 
 	return 15, nil
 }
@@ -183,7 +167,7 @@ func TestPatchOverflow(t *testing.T) {
 	handler, _ := NewHandler(Config{
 		MaxSize: 100,
 		DataStore: overflowPatchStore{
-			t: t,
+			t: assert.New(t),
 		},
 	})
 

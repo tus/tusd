@@ -4,6 +4,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tus/tusd"
 )
 
@@ -25,22 +27,13 @@ func (store zeroStore) GetReader(id string) (io.Reader, error) {
 }
 
 func TestMemoryLocker(t *testing.T) {
+	a := assert.New(t)
+
 	var locker tusd.LockerDataStore
 	locker = NewMemoryLocker(&zeroStore{})
 
-	if err := locker.LockUpload("one"); err != nil {
-		t.Errorf("unexpected error when locking file: %s", err)
-	}
-
-	if err := locker.LockUpload("one"); err != tusd.ErrFileLocked {
-		t.Errorf("expected error when locking locked file: %s", err)
-	}
-
-	if err := locker.UnlockUpload("one"); err != nil {
-		t.Errorf("unexpected error when unlocking file: %s", err)
-	}
-
-	if err := locker.UnlockUpload("one"); err != nil {
-		t.Errorf("unexpected error when unlocking file again: %s", err)
-	}
+	a.NoError(locker.LockUpload("one"))
+	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
+	a.NoError(locker.UnlockUpload("one"))
+	a.NoError(locker.UnlockUpload("one"))
 }

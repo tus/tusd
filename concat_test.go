@@ -2,29 +2,22 @@ package tusd_test
 
 import (
 	"net/http"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/tus/tusd"
 )
 
 type concatPartialStore struct {
-	t *testing.T
+	t *assert.Assertions
 	zeroStore
 }
 
 func (s concatPartialStore) NewUpload(info FileInfo) (string, error) {
-	if !info.IsPartial {
-		s.t.Error("expected upload to be partial")
-	}
-
-	if info.IsFinal {
-		s.t.Error("expected upload to not be final")
-	}
-
-	if len(info.PartialUploads) != 0 {
-		s.t.Error("expected no partial uploads")
-	}
+	s.t.True(info.IsPartial)
+	s.t.False(info.IsFinal)
+	s.t.Nil(info.PartialUploads)
 
 	return "foo", nil
 }
@@ -44,7 +37,7 @@ func TestConcatPartial(t *testing.T) {
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: concatPartialStore{
-			t: t,
+			t: assert.New(t),
 		},
 	})
 
@@ -84,22 +77,14 @@ func TestConcatPartial(t *testing.T) {
 }
 
 type concatFinalStore struct {
-	t *testing.T
+	t *assert.Assertions
 	zeroStore
 }
 
 func (s concatFinalStore) NewUpload(info FileInfo) (string, error) {
-	if info.IsPartial {
-		s.t.Error("expected upload to not be partial")
-	}
-
-	if !info.IsFinal {
-		s.t.Error("expected upload to be final")
-	}
-
-	if !reflect.DeepEqual(info.PartialUploads, []string{"a", "b"}) {
-		s.t.Error("unexpected partial uploads")
-	}
+	s.t.False(info.IsPartial)
+	s.t.True(info.IsFinal)
+	s.t.Equal([]string{"a", "b"}, info.PartialUploads)
 
 	return "foo", nil
 }
@@ -134,13 +119,9 @@ func (s concatFinalStore) GetInfo(id string) (FileInfo, error) {
 }
 
 func (s concatFinalStore) ConcatUploads(id string, uploads []string) error {
-	if id != "foo" {
-		s.t.Error("expected final file id to be foo")
-	}
+	s.t.Equal("foo", id)
+	s.t.Equal([]string{"a", "b"}, uploads)
 
-	if !reflect.DeepEqual(uploads, []string{"a", "b"}) {
-		s.t.Errorf("expected Concatenating uploads to be a and b")
-	}
 	return nil
 }
 
@@ -149,7 +130,7 @@ func TestConcatFinal(t *testing.T) {
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: concatFinalStore{
-			t: t,
+			t: assert.New(t),
 		},
 	})
 
@@ -192,7 +173,7 @@ func TestConcatFinal(t *testing.T) {
 		MaxSize:  9,
 		BasePath: "files",
 		DataStore: concatFinalStore{
-			t: t,
+			t: assert.New(t),
 		},
 	})
 
