@@ -86,3 +86,53 @@ func TestFileLocker(t *testing.T) {
 	a.NoError(locker.UnlockUpload("one"))
 	a.NoError(locker.UnlockUpload("one"))
 }
+
+func TestConcatUploads(t *testing.T) {
+	a := assert.New(t)
+
+	tmp, err := ioutil.TempDir("", "tusd-filestore-concat-")
+	a.NoError(err)
+
+	store := FileStore{tmp}
+
+	// Create new upload to hold concatenated upload
+	finId, err := store.NewUpload(tusd.FileInfo{Size: 9})
+	a.NoError(err)
+	a.NotEqual("", finId)
+
+	// Create three uploads for concatenating
+	ids := make([]string, 3)
+	contents := []string{
+		"abc",
+		"def",
+		"ghi",
+	}
+	for i := 0; i < 3; i++ {
+		id, err := store.NewUpload(tusd.FileInfo{Size: 3})
+		a.NoError(err)
+
+		n, err := store.WriteChunk(id, 0, strings.NewReader(contents[i]))
+		a.NoError(err)
+		a.EqualValues(3, n)
+
+		ids[i] = id
+	}
+
+	err = store.ConcatUploads(finId, ids)
+	a.NoError(err)
+
+	// Check offset
+	info, err := store.GetInfo(finId)
+	a.NoError(err)
+	a.EqualValues(9, info.Size)
+	a.EqualValues(9, info.Offset)
+
+	// Read content
+	reader, err := store.GetReader(finId)
+	a.NoError(err)
+
+	content, err := ioutil.ReadAll(reader)
+	a.NoError(err)
+	a.Equal("abcdefghi", string(content))
+	reader.(io.Closer).Close()
+}
