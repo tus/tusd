@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"fmt"
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
@@ -19,6 +20,10 @@ import (
   "github.com/aws/aws-sdk-go/aws"
 )
 
+var VersionName = "n/a"
+var GitCommit = "n/a"
+var BuildDate = "n/a"
+
 var httpHost string
 var httpPort string
 var maxSize int64
@@ -27,6 +32,7 @@ var storeSize int64
 var basepath string
 var timeout int64
 var s3Bucket string
+var version bool
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -40,11 +46,18 @@ func init() {
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds")
 	flag.StringVar(&s3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
+	flag.BoolVar(&version, "version", false, "Print tusd version information")
 
 	flag.Parse()
 }
 
 func main() {
+	if version {
+		fmt.Printf("Version: %s\nCommit: %s\nDate: %s\n", VersionName, GitCommit, BuildDate)
+
+		return
+	}
+
 	var store tusd.TerminaterDataStore
 	if s3Bucket == "" {
 		stdout.Printf("Using '%s' as directory storage.\n", dir)

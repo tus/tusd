@@ -28,7 +28,7 @@ before_deploy:
 - export GOROOT_BOOTSTRAP=$GOROOT
 - go get github.com/laher/goxc
 - goxc -t -bc="linux darwin windows"
-- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows"
+- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows" -ldflags="-X main.VersionName=$TRAVIS_TAG -X main.GitCommit=$TRAVIS_COMMIT -X 'main.BuildDate=$(date --utc)'"
 
 deploy:
   provider: releases
