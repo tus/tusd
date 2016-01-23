@@ -26,10 +26,6 @@ func (store zeroStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{}, nil
 }
 
-func (store zeroStore) GetReader(id string) (io.Reader, error) {
-	return nil, ErrNotImplemented
-}
-
 type httpTest struct {
 	Name string
 
