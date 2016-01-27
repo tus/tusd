@@ -10,6 +10,13 @@ import (
 	"github.com/tus/tusd"
 )
 
+var _ tusd.DataStore = &LimitedStore{}
+var _ tusd.GetReaderDataStore = &LimitedStore{}
+var _ tusd.TerminaterDataStore = &LimitedStore{}
+var _ tusd.LockerDataStore = &LimitedStore{}
+var _ tusd.ConcaterDataStore = &LimitedStore{}
+var _ tusd.FinisherDataStore = &LimitedStore{}
+
 type dataStore struct {
 	t                    *assert.Assertions
 	numCreatedUploads    int
