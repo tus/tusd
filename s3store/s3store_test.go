@@ -22,6 +22,7 @@ var _ tusd.DataStore = s3store.S3Store{}
 var _ tusd.GetReaderDataStore = s3store.S3Store{}
 var _ tusd.TerminaterDataStore = s3store.S3Store{}
 var _ tusd.FinisherDataStore = s3store.S3Store{}
+var _ tusd.ConcaterDataStore = s3store.S3Store{}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -535,4 +536,89 @@ func TestTerminateWithErrors(t *testing.T) {
 
 	err := store.Terminate("uploadId+multipartId")
 	assert.Equal("Multiple errors occured:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
+}
+
+func TestConcatUploads(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		CopySource: aws.String("bucket/aaa"),
+		PartNumber: aws.Int64(1),
+	}).Return(nil, nil)
+
+	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		CopySource: aws.String("bucket/bbb"),
+		PartNumber: aws.Int64(2),
+	}).Return(nil, nil)
+
+	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		CopySource: aws.String("bucket/ccc"),
+		PartNumber: aws.Int64(3),
+	}).Return(nil, nil)
+
+	// Output from s3Store.FinishUpload
+	gomock.InOrder(
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId"),
+			UploadId: aws.String("multipartId"),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					ETag:       aws.String("foo"),
+					PartNumber: aws.Int64(1),
+				},
+				{
+					ETag:       aws.String("bar"),
+					PartNumber: aws.Int64(2),
+				},
+				{
+					ETag:       aws.String("baz"),
+					PartNumber: aws.Int64(3),
+				},
+			},
+		}, nil),
+		s3obj.EXPECT().CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId"),
+			UploadId: aws.String("multipartId"),
+			MultipartUpload: &s3.CompletedMultipartUpload{
+				Parts: []*s3.CompletedPart{
+					{
+						ETag:       aws.String("foo"),
+						PartNumber: aws.Int64(1),
+					},
+					{
+						ETag:       aws.String("bar"),
+						PartNumber: aws.Int64(2),
+					},
+					{
+						ETag:       aws.String("baz"),
+						PartNumber: aws.Int64(3),
+					},
+				},
+			},
+		}).Return(nil, nil),
+	)
+
+	err := store.ConcatUploads("uploadId+multipartId", []string{
+		"aaa+AAA",
+		"bbb+BBB",
+		"ccc+CCC",
+	})
+	assert.Nil(err)
 }

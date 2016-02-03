@@ -66,7 +66,7 @@
 // ensure that the server running this storage backend has enough disk space
 // available to hold these caches.
 //
-// In addition, it must be mentioned that AWS S3 only offeres eventual
+// In addition, it must be mentioned that AWS S3 only offers eventual
 // consistency (https://aws.amazon.com/s3/faqs/#What_data_consistency_model_does_Amazon_S3_employ).
 // Therefore, it is required to build additional measurements in order to
 // prevent concurrent access to the same upload resources which may result in
@@ -395,11 +395,7 @@ func (store S3Store) Terminate(id string) error {
 	wg.Wait()
 
 	if len(errs) > 0 {
-		message := "Multiple errors occured:\n"
-		for _, err := range errs {
-			message += "\t" + err.Error() + "\n"
-		}
-		return errors.New(message)
+		return newMultiError(errs)
 	}
 
 	return nil
@@ -440,6 +436,46 @@ func (store S3Store) FinishUpload(id string) error {
 	})
 
 	return err
+}
+
+func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
+	uploadId, multipartId := splitIds(dest)
+
+	numPartialUploads := len(partialUploads)
+	errs := make([]error, 0, numPartialUploads)
+
+	// Copy partial uploads concurrently
+	var wg sync.WaitGroup
+	wg.Add(numPartialUploads)
+	for i, partialId := range partialUploads {
+		go func(i int, partialId string) {
+			defer wg.Done()
+
+			partialUploadId, _ := splitIds(partialId)
+
+			_, err := store.Service.UploadPartCopy(&s3.UploadPartCopyInput{
+				Bucket:   aws.String(store.Bucket),
+				Key:      aws.String(uploadId),
+				UploadId: aws.String(multipartId),
+				// Part numbers must be in the range of 1 to 10000, inclusive. Since
+				// slice indexes start at 0, we add 1 to ensure that i >= 1.
+				PartNumber: aws.Int64(int64(i + 1)),
+				CopySource: aws.String(store.Bucket + "/" + partialUploadId),
+			})
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+		}(i, partialId)
+	}
+
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return newMultiError(errs)
+	}
+
+	return store.FinishUpload(dest)
 }
 
 func splitIds(id string) (uploadId, multipartId string) {
