@@ -25,3 +25,24 @@
 [submodule "vendor/github.com/pmezard/go-difflib"]
 	path = vendor/github.com/pmezard/go-difflib
 	url = https://github.com/pmezard/go-difflib
+[submodule "vendor/github.com/hashicorp/consul"]
+	path = vendor/github.com/hashicorp/consul
+	url = https://github.com/hashicorp/consul
+[submodule "vendor/github.com/hashicorp/go-cleanhttp"]
+	path = vendor/github.com/hashicorp/go-cleanhttp
+	url = https://github.com/hashicorp/go-cleanhttp
+[submodule "vendor/github.com/hashicorp/serf"]
+	path = vendor/github.com/hashicorp/serf
+	url = https://github.com/hashicorp/serf
+[submodule "vendor/github.com/armon/go-radix"]
+	path = vendor/github.com/armon/go-radix
+	url = https://github.com/armon/go-radix
+[submodule "vendor/github.com/hashicorp/golang-lru"]
+	path = vendor/github.com/hashicorp/golang-lru
+	url = https://github.com/hashicorp/golang-lru
+[submodule "vendor/github.com/hashicorp/hcl"]
+	path = vendor/github.com/hashicorp/hcl
+	url = https://github.com/hashicorp/hcl
+[submodule "vendor/github.com/hashicorp/go-msgpack"]
+	path = vendor/github.com/hashicorp/go-msgpack
+	url = https://github.com/hashicorp/go-msgpack
