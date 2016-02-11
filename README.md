@@ -15,7 +15,7 @@ moment allowing to continue seamlessly after e.g. network interruptions.
 
 **Requirements:**
 
-* [Go](http://golang.org/doc/install) (1.2 or newer)
+* [Go](http://golang.org/doc/install) (1.3 or newer)
 
 **Running tusd from source:**
 
