@@ -1,4 +1,4 @@
-// Package memorylocker provides an in-memory locking mechanism
+// Package memorylocker provides an in-memory locking mechanism.
 //
 // When multiple processes are attempting to access an upload, whether it be
 // by reading or writing, a syncronization mechanism is required to prevent
