@@ -67,7 +67,7 @@
 // available to hold these caches.
 //
 // In addition, it must be mentioned that AWS S3 only offers eventual
-// consistency (https://aws.amazon.com/s3/faqs/#What_data_consistency_model_does_Amazon_S3_employ).
+// consistency (https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel).
 // Therefore, it is required to build additional measurements in order to
 // prevent concurrent access to the same upload resources which may result in
 // data corruption. See tusd.LockerDataStore for more information.
