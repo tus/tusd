@@ -18,21 +18,26 @@ import (
 // cheap mechansim. Locks will only exist as long as this object is kept in
 // reference and will be erased if the program exits.
 type MemoryLocker struct {
-	tusd.DataStore
 	locks map[string]bool
 }
 
-// New creates a new lock memory wrapper around the provided storage.
-func NewMemoryLocker(store tusd.DataStore) *MemoryLocker {
+// New creates a new lock memory.
+func NewMemoryLocker(_ tusd.DataStore) *MemoryLocker {
+	return New()
+}
+
+func New() *MemoryLocker {
 	return &MemoryLocker{
-		DataStore: store,
-		locks:     make(map[string]bool),
+		locks: make(map[string]bool),
 	}
+}
+
+func (locker *MemoryLocker) UseIn(composer *tusd.StoreComposer) {
+	composer.UseLocker(locker)
 }
 
 // LockUpload tries to obtain the exclusive lock.
 func (locker *MemoryLocker) LockUpload(id string) error {
-
 	// Ensure file is not locked
 	if _, ok := locker.locks[id]; ok {
 		return tusd.ErrFileLocked

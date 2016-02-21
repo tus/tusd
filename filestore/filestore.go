@@ -46,6 +46,13 @@ func New(path string) FileStore {
 	return FileStore{path}
 }
 
+func (store FileStore) UseIn(composer *tusd.StoreComposer) {
+	composer.UseCore(store)
+	composer.UseGetReader(store)
+	composer.UseTerminater(store)
+	composer.UseLocker(store)
+}
+
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	id = uid.Uid()
 	info.ID = id

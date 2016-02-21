@@ -1,0 +1,50 @@
+package tusd
+
+#define USE_FUNC(TYPE) func (store *StoreComposer) Use ## TYPE(x TYPE ## DataStore) { \
+  store.Uses ## TYPE = x != nil; \
+  store.TYPE = x; \
+}
+
+#define USE_FIELD(TYPE) Uses ## TYPE bool; \
+  TYPE TYPE ## DataStore
+
+#define USE_FROM(TYPE) if mod, ok := store.(TYPE ## DataStore); ok { \
+  composer.Use ## TYPE (mod) \
+}
+
+type StoreComposer struct {
+  Core DataStore
+
+  USE_FIELD(Terminater)
+  USE_FIELD(Finisher)
+  USE_FIELD(Locker)
+  USE_FIELD(GetReader)
+  USE_FIELD(Concater)
+}
+
+func NewStoreComposer() *StoreComposer {
+  return &StoreComposer{}
+}
+
+func NewStoreComposerFromDataStore(store DataStore) *StoreComposer {
+  composer := NewStoreComposer()
+  composer.UseCore(store)
+
+  USE_FROM(Terminater)
+  USE_FROM(Finisher)
+  USE_FROM(Locker)
+  USE_FROM(GetReader)
+  USE_FROM(Concater)
+
+  return composer
+}
+
+func (store *StoreComposer) UseCore(core DataStore) {
+  store.Core = core
+}
+
+USE_FUNC(Terminater)
+USE_FUNC(Finisher)
+USE_FUNC(Locker)
+USE_FUNC(GetReader)
+USE_FUNC(Concater)

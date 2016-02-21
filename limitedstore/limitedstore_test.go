@@ -11,11 +11,7 @@ import (
 )
 
 var _ tusd.DataStore = &LimitedStore{}
-var _ tusd.GetReaderDataStore = &LimitedStore{}
 var _ tusd.TerminaterDataStore = &LimitedStore{}
-var _ tusd.LockerDataStore = &LimitedStore{}
-var _ tusd.ConcaterDataStore = &LimitedStore{}
-var _ tusd.FinisherDataStore = &LimitedStore{}
 
 type dataStore struct {
 	t                    *assert.Assertions
@@ -45,10 +41,6 @@ func (store *dataStore) GetInfo(id string) (tusd.FileInfo, error) {
 	return tusd.FileInfo{}, nil
 }
 
-func (store *dataStore) GetReader(id string) (io.Reader, error) {
-	return nil, tusd.ErrNotImplemented
-}
-
 func (store *dataStore) Terminate(id string) error {
 	// We expect the uploads to be terminated in a specific order (the bigger
 	// come first)
@@ -66,7 +58,7 @@ func TestLimitedStore(t *testing.T) {
 	dataStore := &dataStore{
 		t: a,
 	}
-	store := New(100, dataStore)
+	store := New(100, dataStore, dataStore)
 
 	// Create new upload (30 bytes)
 	id, err := store.NewUpload(tusd.FileInfo{

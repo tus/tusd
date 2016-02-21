@@ -49,8 +49,6 @@ type DataStore interface {
 // if they want to receive DELETE requests using the Handler. If this interface
 // is not implemented, no request handler for this method is attached.
 type TerminaterDataStore interface {
-	DataStore
-
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.
 	Terminate(id string) error
@@ -62,8 +60,6 @@ type TerminaterDataStore interface {
 // resources or notifying other services. For example, S3Store uses this
 // interface for removing a temporary object.
 type FinisherDataStore interface {
-	DataStore
-
 	// FinishUpload executes additional operations for the finished upload which
 	// is specified by its ID.
 	FinishUpload(id string) error
@@ -77,8 +73,6 @@ type FinisherDataStore interface {
 // data corruption, especially to ensure correct offset values and the proper
 // order of chunks inside a single upload.
 type LockerDataStore interface {
-	DataStore
-
 	// LockUpload attempts to obtain an exclusive lock for the upload specified
 	// by its id.
 	// If this operation fails because the resource is already locked, the
@@ -96,8 +90,6 @@ type LockerDataStore interface {
 // Please, be aware that this feature is not part of the official tus
 // specification. Instead it's a custom mechanism by tusd.
 type GetReaderDataStore interface {
-	DataStore
-
 	// GetReader returns a reader which allows iterating of the content of an
 	// upload specified by its ID. It should attempt to provide a reader even if
 	// the upload has not been finished yet but it's not required.
@@ -112,8 +104,6 @@ type GetReaderDataStore interface {
 // Concatenation extension should be enabled. Only in this case, the handler
 // will parse and respect the Upload-Concat header.
 type ConcaterDataStore interface {
-	DataStore
-
 	// ConcatUploads concatenations the content from the provided partial uploads
 	// and write the result in the destination upload which is specified by its
 	// ID. The caller (usually the handler) must and will ensure that this
