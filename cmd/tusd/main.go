@@ -2,22 +2,22 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
-	"fmt"
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/limitedstore"
 	"github.com/tus/tusd/s3store"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-  "github.com/aws/aws-sdk-go/aws/session"
-  "github.com/aws/aws-sdk-go/aws"
 )
 
 var VersionName = "n/a"
@@ -67,18 +67,12 @@ func main() {
 
 		store = filestore.New(dir)
 	} else {
-		// Attempt to find location for S3 bucket
-		svc := s3.New(session.New())
-		res, err := svc.GetBucketLocation(&s3.GetBucketLocationInput{
-			Bucket: aws.String(s3Bucket), // Required
-		})
-		if err != nil {
-			stderr.Fatalf("Unable to get bucket location: %s", err)
-		}
+		stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", s3Bucket)
 
-		region := res.LocationConstraint
-		stdout.Printf("Using 's3://%s' (%s) as S3 bucket for storage.\n", s3Bucket, region)
-		store = s3store.New(s3Bucket, s3.New(session.New(), aws.NewConfig().WithCredentials(credentials.NewEnvCredentials())))
+		// Derive credentials from AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID and
+		// AWS_REGION environment variables.
+		credentials := aws.NewConfig().WithCredentials(credentials.NewEnvCredentials())
+		store = s3store.New(s3Bucket, s3.New(session.New(), credentials))
 	}
 
 	if storeSize > 0 {
