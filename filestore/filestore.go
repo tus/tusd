@@ -77,11 +77,6 @@ func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64
 	defer file.Close()
 
 	n, err := io.Copy(file, src)
-	if n > 0 {
-		if err := store.setOffset(id, offset+n); err != nil {
-			return 0, err
-		}
-	}
 	return n, err
 }
 
@@ -91,8 +86,18 @@ func (store FileStore) GetInfo(id string) (tusd.FileInfo, error) {
 	if err != nil {
 		return info, err
 	}
-	err = json.Unmarshal(data, &info)
-	return info, err
+	if err := json.Unmarshal(data, &info); err != nil {
+		return info, err
+	}
+
+	stat, err := os.Stat(store.binPath(id))
+	if err != nil {
+		return info, err
+	}
+
+	info.Offset = stat.Size()
+
+	return info, nil
 }
 
 func (store FileStore) GetReader(id string) (io.Reader, error) {
@@ -116,20 +121,13 @@ func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) 
 	}
 	defer file.Close()
 
-	var bytesRead int64
-	defer func() {
-		err = store.setOffset(dest, bytesRead)
-	}()
-
 	for _, id := range uploads {
 		src, err := store.GetReader(id)
 		if err != nil {
 			return err
 		}
 
-		n, err := io.Copy(file, src)
-		bytesRead += n
-		if err != nil {
+		if _, err := io.Copy(file, src); err != nil {
 			return err
 		}
 	}
@@ -199,20 +197,4 @@ func (store FileStore) writeInfo(id string, info tusd.FileInfo) error {
 		return err
 	}
 	return ioutil.WriteFile(store.infoPath(id), data, defaultFilePerm)
-}
-
-// setOffset updates the .info file to match the new offset.
-func (store FileStore) setOffset(id string, offset int64) error {
-	info, err := store.GetInfo(id)
-	if err != nil {
-		return err
-	}
-
-	// never decrement the offset
-	if info.Offset >= offset {
-		return nil
-	}
-
-	info.Offset = offset
-	return store.writeInfo(id, info)
 }
