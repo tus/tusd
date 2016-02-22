@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -10,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/tus/tusd"
@@ -151,10 +152,13 @@ func invokeHook(info tusd.FileInfo) {
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
 
-	for k, v := range info.MetaData {
-		k = strings.ToUpper(k)
-		env = append(env, "TUS_METADATA_"+k+"="+v)
+	jsonInfo, err := json.Marshal(info)
+	if err != nil {
+		stderr.Printf("Error encoding JSON for hook: %s", err)
 	}
+
+	reader := bytes.NewReader(jsonInfo)
+	cmd.Stdin = reader
 
 	cmd.Env = env
 	cmd.Dir = hooksDir

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo "Upload finished"
-printenv
+echo "Upload $TUS_ID ($TUS_SIZE bytes) finished"
+cat /dev/stdin | jq .
