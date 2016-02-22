@@ -45,6 +45,8 @@ var stderr = log.New(os.Stderr, "[tusd] ", 0)
 
 var hookInstalled bool
 
+var greeting string
+
 func init() {
 	flag.StringVar(&httpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
 	flag.StringVar(&httpPort, "port", "1080", "Port to bind HTTP server to")
@@ -65,6 +67,24 @@ func init() {
 
 		stdout.Printf("Using '%s' for hooks", hooksDir)
 	}
+
+	greeting = fmt.Sprintf(
+		`Welcome to tusd
+===============
+
+Congratulations for setting up tusd! You are now part of the chosen elite and
+able to experience the feeling of resumable uploads! We hope you are as excited
+as we are (a lot)!
+
+However, there is something I want to tell you personally: While you got tusd
+running (you did an awesome job!), this is the root directory of the server
+and tus requests are only accepted at the %s route.
+
+So don't waste time, head over there and experience the future!
+
+Version = %s
+GitCommit = %s
+BuildDate = %s`, basepath, VersionName, GitCommit, BuildDate)
 }
 
 func main() {
@@ -125,6 +145,12 @@ func main() {
 		}
 	}()
 
+	// Do not display the greeting if the tusd handler will be mounted at the root
+	// path. Else this would cause a "multiple registrations for /" panic.
+	if basepath != "/" {
+		http.HandleFunc("/", displayGreeting)
+	}
+
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
 
 	timeoutDuration := time.Duration(timeout) * time.Millisecond
@@ -171,6 +197,10 @@ func invokeHook(info tusd.FileInfo) {
 			stderr.Printf("Error running postfinish hook for %s: %s", info.ID, err)
 		}
 	}()
+}
+
+func displayGreeting(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(greeting))
 }
 
 // Listener wraps a net.Listener, and gives a place to store the timeout
