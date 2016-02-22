@@ -147,7 +147,7 @@ func invokeHook(info tusd.FileInfo) {
 
 	stdout.Println("Invoking hooks…")
 
-	cmd := exec.Command(hooksDir + "/postfinish")
+	cmd := exec.Command(hooksDir + "/post-finish")
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
