@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/tus/tusd"
@@ -33,10 +38,13 @@ var storeSize int64
 var basepath string
 var timeout int64
 var s3Bucket string
+var hooksDir string
 var version bool
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
+
+var hookInstalled bool
 
 func init() {
 	flag.StringVar(&httpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
@@ -47,9 +55,17 @@ func init() {
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds")
 	flag.StringVar(&s3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
+	flag.StringVar(&hooksDir, "hooks-dir", "", "")
 	flag.BoolVar(&version, "version", false, "Print tusd version information")
 
 	flag.Parse()
+
+	if hooksDir != "" {
+		hooksDir, _ = filepath.Abs(hooksDir)
+		hookInstalled = true
+
+		stdout.Printf("Using '%s' for hooks", hooksDir)
+	}
 }
 
 func main() {
@@ -112,7 +128,7 @@ func main() {
 		for {
 			select {
 			case info := <-handler.CompleteUploads:
-				stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+				invokeHook(info)
 			}
 		}
 	}()
@@ -128,6 +144,41 @@ func main() {
 	if err = http.Serve(listener, nil); err != nil {
 		stderr.Fatalf("Unable to serve: %s", err)
 	}
+}
+
+func invokeHook(info tusd.FileInfo) {
+	stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+
+	if !hookInstalled {
+		return
+	}
+
+	stdout.Println("Invoking hooks…")
+
+	cmd := exec.Command(hooksDir + "/post-finish")
+	env := os.Environ()
+	env = append(env, "TUS_ID="+info.ID)
+	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
+
+	jsonInfo, err := json.Marshal(info)
+	if err != nil {
+		stderr.Printf("Error encoding JSON for hook: %s", err)
+	}
+
+	reader := bytes.NewReader(jsonInfo)
+	cmd.Stdin = reader
+
+	cmd.Env = env
+	cmd.Dir = hooksDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	go func() {
+		err := cmd.Run()
+		if err != nil {
+			stderr.Printf("Error running postfinish hook for %s: %s", info.ID, err)
+		}
+	}()
 }
 
 // Listener wraps a net.Listener, and gives a place to store the timeout

@@ -376,7 +376,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			info.Size = newOffset
+			info.Offset = newOffset
 			handler.CompleteUploads <- info
 		}
 	}

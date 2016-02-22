@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "Upload $TUS_ID ($TUS_SIZE bytes) finished"
+cat /dev/stdin | jq .
