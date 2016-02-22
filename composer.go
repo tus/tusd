@@ -42,6 +42,49 @@ func NewStoreComposerFromDataStore(store DataStore) *StoreComposer {
 	return composer
 }
 
+func (store *StoreComposer) Capabilities() string {
+	str := "Core: "
+
+	if store.Core != nil {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+
+	str += ` Terminater: `
+	if store.UsesTerminater {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+	str += ` Finisher: `
+	if store.UsesFinisher {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+	str += ` Locker: `
+	if store.UsesLocker {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+	str += ` GetReader: `
+	if store.UsesGetReader {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+	str += ` Concater: `
+	if store.UsesConcater {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+
+	return str
+}
+
 func (store *StoreComposer) UseCore(core DataStore) {
 	store.Core = core
 }

@@ -12,6 +12,13 @@ package tusd
   composer.Use ## TYPE (mod) \
 }
 
+#define USE_CAP(TYPE) str += ` TYPE: `; \
+if store.Uses ## TYPE { \
+  str += "✓" \
+} else { \
+  str += "✗" \
+}
+
 type StoreComposer struct {
   Core DataStore
 
@@ -37,6 +44,24 @@ func NewStoreComposerFromDataStore(store DataStore) *StoreComposer {
   USE_FROM(Concater)
 
   return composer
+}
+
+func (store *StoreComposer) Capabilities() string {
+  str := "Core: "
+
+  if store.Core != nil {
+    str += "✓"
+  } else {
+    str += "✗"
+  }
+
+  USE_CAP(Terminater)
+  USE_CAP(Finisher)
+  USE_CAP(Locker)
+  USE_CAP(GetReader)
+  USE_CAP(Concater)
+
+  return str
 }
 
 func (store *StoreComposer) UseCore(core DataStore) {

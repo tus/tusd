@@ -106,6 +106,8 @@ func main() {
 	address := httpHost + ":" + httpPort
 	stdout.Printf("Using %s as address to listen.\n", address)
 
+	stdout.Printf(composer.Capabilities())
+
 	go func() {
 		for {
 			select {
