@@ -41,7 +41,7 @@ var stderr = log.New(os.Stderr, "[tusd] ", 0)
 func init() {
 	flag.StringVar(&httpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
 	flag.StringVar(&httpPort, "port", "1080", "Port to bind HTTP server to")
-	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of uploads in bytes")
+	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	flag.StringVar(&dir, "dir", "./data", "Directory to store uploads in")
 	flag.Int64Var(&storeSize, "store-size", 0, "Size of space allowed for storage")
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
