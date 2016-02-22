@@ -95,7 +95,7 @@ func main() {
 
 	handler, err := tusd.NewHandler(tusd.Config{
 		MaxSize:               maxSize,
-		BasePath:              "files/",
+		BasePath:              basepath,
 		StoreComposer:         composer,
 		NotifyCompleteUploads: true,
 	})
