@@ -88,6 +88,8 @@ BuildDate = %s`, basepath, VersionName, GitCommit, BuildDate)
 }
 
 func main() {
+	// Print version and other information and exit if the -version flag has been
+	// passed.
 	if version {
 		fmt.Printf("Version: %s\nCommit: %s\nDate: %s\n", VersionName, GitCommit, BuildDate)
 
@@ -95,6 +97,8 @@ func main() {
 	}
 
 	var store tusd.TerminaterDataStore
+	// Attempt to use S3 as a backend if the -s3-bucket option has been supplied.
+	// If not, we default to storing them locally on disk.
 	if s3Bucket == "" {
 		stdout.Printf("Using '%s' as directory storage.\n", dir)
 		if err := os.MkdirAll(dir, os.FileMode(0775)); err != nil {
