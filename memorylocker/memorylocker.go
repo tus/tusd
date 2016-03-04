@@ -11,6 +11,8 @@
 package memorylocker
 
 import (
+	"sync"
+
 	"github.com/tus/tusd"
 )
 
@@ -19,6 +21,7 @@ import (
 // reference and will be erased if the program exits.
 type MemoryLocker struct {
 	locks map[string]bool
+	mutex *sync.Mutex
 }
 
 // NewMemoryLocker creates a new in-memory locker. The DataStore parameter
@@ -32,6 +35,7 @@ func NewMemoryLocker(_ tusd.DataStore) *MemoryLocker {
 func New() *MemoryLocker {
 	return &MemoryLocker{
 		locks: make(map[string]bool),
+		mutex: new(sync.Mutex),
 	}
 }
 
@@ -41,6 +45,9 @@ func (locker *MemoryLocker) UseIn(composer *tusd.StoreComposer) {
 
 // LockUpload tries to obtain the exclusive lock.
 func (locker *MemoryLocker) LockUpload(id string) error {
+	locker.mutex.Lock()
+	defer locker.mutex.Unlock()
+
 	// Ensure file is not locked
 	if _, ok := locker.locks[id]; ok {
 		return tusd.ErrFileLocked
@@ -53,6 +60,9 @@ func (locker *MemoryLocker) LockUpload(id string) error {
 
 // UnlockUpload releases a lock. If no such lock exists, no error will be returned.
 func (locker *MemoryLocker) UnlockUpload(id string) error {
+	locker.mutex.Lock()
+	defer locker.mutex.Unlock()
+
 	// Deleting a non-existing key does not end in unexpected errors or panic
 	// since this operation results in a no-op
 	delete(locker.locks, id)
