@@ -1,6 +1,7 @@
 package tusd
 
 import (
+	"errors"
 	"log"
 	"net/url"
 	"os"
@@ -56,8 +57,13 @@ func (config *Config) validate() error {
 
 	if config.StoreComposer == nil {
 		config.StoreComposer = newStoreComposerFromDataStore(config.DataStore)
+		config.DataStore = nil
 	} else if config.DataStore != nil {
-		// TODO: consider returning an error
+		return errors.New("tusd: either StoreComposer or DataStore may be set in Config, but not both")
+	}
+
+	if config.StoreComposer.Core == nil {
+		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
 	}
 
 	return nil

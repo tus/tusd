@@ -8,7 +8,11 @@ import (
 )
 
 func TestCORS(t *testing.T) {
-	handler, _ := NewHandler(Config{})
+	store := NewStoreComposer()
+	store.UseCore(zeroStore{})
+	handler, _ := NewHandler(Config{
+		StoreComposer: store,
+	})
 
 	(&httpTest{
 		Name:   "Preflight request",
