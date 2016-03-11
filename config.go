@@ -55,7 +55,7 @@ func (config *Config) validate() error {
 	config.isAbs = uri.IsAbs()
 
 	if config.StoreComposer == nil {
-		config.StoreComposer = NewStoreComposerFromDataStore(config.DataStore)
+		config.StoreComposer = newStoreComposerFromDataStore(config.DataStore)
 	} else if config.DataStore != nil {
 		// TODO: consider returning an error
 	}

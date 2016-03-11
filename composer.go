@@ -1,5 +1,8 @@
 package tusd
 
+// StoreComposer represents a composable data store. It consists of the core
+// data store and optional extensions. Please consult the package's overview
+// for a more detailed introduction in how to use this structure.
 type StoreComposer struct {
 	Core DataStore
 
@@ -15,11 +18,15 @@ type StoreComposer struct {
 	Concater       ConcaterDataStore
 }
 
+// NewStoreComposer creates a new and empty store composer.
 func NewStoreComposer() *StoreComposer {
 	return &StoreComposer{}
 }
 
-func NewStoreComposerFromDataStore(store DataStore) *StoreComposer {
+// newStoreComposerFromDataStore creates a new store composer and attempts to
+// extract the extensions for the provided store. This is intended to be used
+// for transitioning from data stores to composers.
+func newStoreComposerFromDataStore(store DataStore) *StoreComposer {
 	composer := NewStoreComposer()
 	composer.UseCore(store)
 
@@ -42,6 +49,8 @@ func NewStoreComposerFromDataStore(store DataStore) *StoreComposer {
 	return composer
 }
 
+// Capabilities returns a string representing the provided extensions in a
+// human-readable format meant for debugging.
 func (store *StoreComposer) Capabilities() string {
 	str := "Core: "
 
@@ -85,27 +94,29 @@ func (store *StoreComposer) Capabilities() string {
 	return str
 }
 
+// UseCore will set the used core data store. If the argument is nil, the
+// property will be unset.
 func (store *StoreComposer) UseCore(core DataStore) {
 	store.Core = core
 }
 
-func (store *StoreComposer) UseTerminater(x TerminaterDataStore) {
-	store.UsesTerminater = x != nil
-	store.Terminater = x
+func (store *StoreComposer) UseTerminater(ext TerminaterDataStore) {
+	store.UsesTerminater = ext != nil
+	store.Terminater = ext
 }
-func (store *StoreComposer) UseFinisher(x FinisherDataStore) {
-	store.UsesFinisher = x != nil
-	store.Finisher = x
+func (store *StoreComposer) UseFinisher(ext FinisherDataStore) {
+	store.UsesFinisher = ext != nil
+	store.Finisher = ext
 }
-func (store *StoreComposer) UseLocker(x LockerDataStore) {
-	store.UsesLocker = x != nil
-	store.Locker = x
+func (store *StoreComposer) UseLocker(ext LockerDataStore) {
+	store.UsesLocker = ext != nil
+	store.Locker = ext
 }
-func (store *StoreComposer) UseGetReader(x GetReaderDataStore) {
-	store.UsesGetReader = x != nil
-	store.GetReader = x
+func (store *StoreComposer) UseGetReader(ext GetReaderDataStore) {
+	store.UsesGetReader = ext != nil
+	store.GetReader = ext
 }
-func (store *StoreComposer) UseConcater(x ConcaterDataStore) {
-	store.UsesConcater = x != nil
-	store.Concater = x
+func (store *StoreComposer) UseConcater(ext ConcaterDataStore) {
+	store.UsesConcater = ext != nil
+	store.Concater = ext
 }

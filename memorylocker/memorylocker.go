@@ -39,6 +39,7 @@ func New() *MemoryLocker {
 	}
 }
 
+// UseIn adds this locker to the passed composer.
 func (locker *MemoryLocker) UseIn(composer *tusd.StoreComposer) {
 	composer.UseLocker(locker)
 }

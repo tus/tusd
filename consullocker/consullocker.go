@@ -45,6 +45,7 @@ func New(client *consul.Client) *ConsulLocker {
 	}
 }
 
+// UseIn adds this locker to the passed composer.
 func (locker *ConsulLocker) UseIn(composer *tusd.StoreComposer) {
 	composer.UseLocker(locker)
 }
