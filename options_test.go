@@ -8,8 +8,11 @@ import (
 )
 
 func TestOptions(t *testing.T) {
+	store := NewStoreComposer()
+	store.UseCore(zeroStore{})
 	handler, _ := NewHandler(Config{
-		MaxSize: 400,
+		StoreComposer: store,
+		MaxSize:       400,
 	})
 
 	(&httpTest{

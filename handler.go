@@ -1,4 +1,3 @@
-// Package tusd provides ways to accept tusd calls using HTTP.
 package tusd
 
 import (
@@ -22,6 +21,10 @@ type Handler struct {
 // endpoints to be customized. These are not part of the protocol so can be
 // changed depending on your needs.
 func NewHandler(config Config) (*Handler, error) {
+	if err := config.validate(); err != nil {
+		return nil, err
+	}
+
 	handler, err := NewUnroutedHandler(config)
 	if err != nil {
 		return nil, err
@@ -41,12 +44,12 @@ func NewHandler(config Config) (*Handler, error) {
 	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
 
 	// Only attach the DELETE handler if the Terminate() method is provided
-	if _, ok := config.DataStore.(TerminaterDataStore); ok {
+	if config.StoreComposer.UsesTerminater {
 		mux.Del(":id", http.HandlerFunc(handler.DelFile))
 	}
 
 	// GET handler requires the GetReader() method
-	if _, ok := config.DataStore.(GetReaderDataStore); ok {
+	if config.StoreComposer.UsesGetReader {
 		mux.Get(":id", http.HandlerFunc(handler.GetFile))
 	}
 

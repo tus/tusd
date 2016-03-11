@@ -12,27 +12,19 @@
 // properly. Two tusd.FileStore instances using the same directory, for example.
 // In addition the limited store will keep a list of the uploads' IDs in memory
 // which may create a growing memory leak.
-//
-// While LimitedStore implements the GetReader, LockUpload, UnlockUpload,
-// FinishUpload and ConcatUploads methods, it does not contain proper definitions
-// for them. When invoked, the call will be passed to the underlying
-// data store as long as it provides these methods. If not, either an error
-// is returned or nothing happens (see the specific methods for more
-// detailed information). The motivation behind this decision was, that this
-// allows to expose the additional extensions implemented using the
-// interfaces, such as GetReaderDataStore.
 package limitedstore
 
 import (
 	"github.com/tus/tusd"
-	"io"
 	"sort"
 	"sync"
 )
 
 type LimitedStore struct {
+	tusd.DataStore
+	terminater tusd.TerminaterDataStore
+
 	StoreSize int64
-	tusd.TerminaterDataStore
 
 	uploads  map[string]int64
 	usedSize int64
@@ -55,13 +47,19 @@ func (p pairlist) Less(i, j int) bool { return p[i].value < p[j].value }
 // New creates a new limited store with the given size as the maximum storage
 // size. The wrapped data store needs to implement the TerminaterDataStore
 // interface, in order to provide the required Terminate method.
-func New(storeSize int64, dataStore tusd.TerminaterDataStore) *LimitedStore {
+func New(storeSize int64, dataStore tusd.DataStore, terminater tusd.TerminaterDataStore) *LimitedStore {
 	return &LimitedStore{
-		StoreSize:           storeSize,
-		TerminaterDataStore: dataStore,
-		uploads:             make(map[string]int64),
-		mutex:               new(sync.Mutex),
+		StoreSize:  storeSize,
+		DataStore:  dataStore,
+		terminater: terminater,
+		uploads:    make(map[string]int64),
+		mutex:      new(sync.Mutex),
 	}
+}
+
+func (store *LimitedStore) UseIn(composer *tusd.StoreComposer) {
+	composer.UseCore(store)
+	composer.UseTerminater(store)
 }
 
 func (store *LimitedStore) NewUpload(info tusd.FileInfo) (string, error) {
@@ -72,7 +70,7 @@ func (store *LimitedStore) NewUpload(info tusd.FileInfo) (string, error) {
 		return "", err
 	}
 
-	id, err := store.TerminaterDataStore.NewUpload(info)
+	id, err := store.DataStore.NewUpload(info)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +89,7 @@ func (store *LimitedStore) Terminate(id string) error {
 }
 
 func (store *LimitedStore) terminate(id string) error {
-	err := store.TerminaterDataStore.Terminate(id)
+	err := store.terminater.Terminate(id)
 	if err != nil {
 		return err
 	}
@@ -134,56 +132,4 @@ func (store *LimitedStore) ensureSpace(size int64) error {
 	}
 
 	return nil
-}
-
-// GetReader will pass the call to the underlying data store if it implements
-// the tusd.GetReaderDataStore interface. Else tusd.ErrNotImplemented will be
-// returned.
-func (store *LimitedStore) GetReader(id string) (io.Reader, error) {
-	if s, ok := store.TerminaterDataStore.(tusd.GetReaderDataStore); ok {
-		return s.GetReader(id)
-	} else {
-		return nil, tusd.ErrNotImplemented
-	}
-}
-
-// LockUpload will pass the call to the underlying data store if it implements
-// the tusd.LockerDataStore interface. Else this function simply returns nil.
-func (store *LimitedStore) LockUpload(id string) error {
-	if s, ok := store.TerminaterDataStore.(tusd.LockerDataStore); ok {
-		return s.LockUpload(id)
-	}
-
-	return nil
-}
-
-// UnlockUpload will pass the call to the underlying data store if it implements
-// the tusd.LockerDataStore interface. Else this function simply returns nil.
-func (store *LimitedStore) UnlockUpload(id string) error {
-	if s, ok := store.TerminaterDataStore.(tusd.LockerDataStore); ok {
-		return s.UnlockUpload(id)
-	}
-
-	return nil
-}
-
-// FinishUpload will pass the call to the underlying data store if it implements
-// the tusd.FinisherDataStore interface. Else this function simply returns nil.
-func (store *LimitedStore) FinishUpload(id string) error {
-	if s, ok := store.TerminaterDataStore.(tusd.FinisherDataStore); ok {
-		return s.FinishUpload(id)
-	}
-
-	return nil
-}
-
-// ConcatUploads will pass the call to the underlying data store if it implements
-// the tusd.ConcaterDataStore interface. Else tusd.ErrNotImplemented will be
-// returned.
-func (store *LimitedStore) ConcatUploads(dest string, src []string) error {
-	if s, ok := store.TerminaterDataStore.(tusd.ConcaterDataStore); ok {
-		return s.ConcatUploads(dest, src)
-	} else {
-		return tusd.ErrNotImplemented
-	}
 }

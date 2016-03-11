@@ -45,6 +45,11 @@ func New(client *consul.Client) *ConsulLocker {
 	}
 }
 
+// UseIn adds this locker to the passed composer.
+func (locker *ConsulLocker) UseIn(composer *tusd.StoreComposer) {
+	composer.UseLocker(locker)
+}
+
 // LockUpload tries to obtain the exclusive lock.
 func (locker *ConsulLocker) LockUpload(id string) error {
 	lock, err := locker.Client.LockOpts(&consul.LockOptions{

@@ -131,6 +131,16 @@ func New(bucket string, service s3iface.S3API) S3Store {
 	}
 }
 
+// UseIn sets this store as the core data store in the passed composer and adds
+// all possible extension to it.
+func (store S3Store) UseIn(composer *tusd.StoreComposer) {
+	composer.UseCore(store)
+	composer.UseTerminater(store)
+	composer.UseFinisher(store)
+	composer.UseGetReader(store)
+	composer.UseConcater(store)
+}
+
 func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	var uploadId string
 	if info.ID == "" {

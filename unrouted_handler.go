@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -52,35 +51,12 @@ var ErrStatusCodes = map[error]int{
 	ErrModifyFinal:         http.StatusForbidden,
 }
 
-// Config provides a way to configure the Handler depending on your needs.
-type Config struct {
-	// DataStore implementation used to store and retrieve the single uploads.
-	// Must no be nil.
-	DataStore DataStore
-	// MaxSize defines how many bytes may be stored in one single upload. If its
-	// value is is 0 or smaller no limit will be enforced.
-	MaxSize int64
-	// BasePath defines the URL path used for handling uploads, e.g. "/files/".
-	// If no trailing slash is presented it will be added. You may specify an
-	// absolute URL containing a scheme, e.g. "http://tus.io"
-	BasePath string
-	// Initiate the CompleteUploads channel in the Handler struct in order to
-	// be notified about complete uploads
-	NotifyCompleteUploads bool
-	// Logger the logger to use internally
-	Logger *log.Logger
-	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
-	// potentially set by proxies when generating an absolute URL in the
-	// reponse to POST requests.
-	RespectForwardedHeaders bool
-}
-
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
 // such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method
 // is provided which is, however, not part of the specification.
 type UnroutedHandler struct {
 	config        Config
-	dataStore     DataStore
+	composer      *StoreComposer
 	isBasePathAbs bool
 	basePath      string
 	logger        *log.Logger
@@ -97,42 +73,26 @@ type UnroutedHandler struct {
 // a router (aka mux) of your choice. If you are looking for preconfigured
 // handler see NewHandler.
 func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
-	logger := config.Logger
-	if logger == nil {
-		logger = log.New(os.Stdout, "[tusd] ", 0)
-	}
-	base := config.BasePath
-	uri, err := url.Parse(base)
-	if err != nil {
+	if err := config.validate(); err != nil {
 		return nil, err
-	}
-
-	// Ensure base path ends with slash to remove logic from absFileURL
-	if base != "" && string(base[len(base)-1]) != "/" {
-		base += "/"
-	}
-
-	// Ensure base path begins with slash if not absolute (starts with scheme)
-	if !uri.IsAbs() && len(base) > 0 && string(base[0]) != "/" {
-		base = "/" + base
 	}
 
 	// Only promote extesions using the Tus-Extension header which are implemented
 	extensions := "creation"
-	if _, ok := config.DataStore.(TerminaterDataStore); ok {
+	if config.StoreComposer.UsesTerminater {
 		extensions += ",termination"
 	}
-	if _, ok := config.DataStore.(ConcaterDataStore); ok {
+	if config.StoreComposer.UsesConcater {
 		extensions += ",concatenation"
 	}
 
 	handler := &UnroutedHandler{
 		config:          config,
-		dataStore:       config.DataStore,
-		basePath:        base,
-		isBasePathAbs:   uri.IsAbs(),
+		composer:        config.StoreComposer,
+		basePath:        config.BasePath,
+		isBasePathAbs:   config.isAbs,
 		CompleteUploads: make(chan FileInfo),
-		logger:          logger,
+		logger:          config.Logger,
 		extensions:      extensions,
 	}
 
@@ -211,8 +171,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Only use the proper Upload-Concat header if the concatenation extension
 	// is even supported by the data store.
 	var concatHeader string
-	concatStore, ok := handler.dataStore.(ConcaterDataStore)
-	if ok {
+	if handler.composer.UsesConcater {
 		concatHeader = r.Header.Get("Upload-Concat")
 	}
 
@@ -258,14 +217,14 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		PartialUploads: partialUploads,
 	}
 
-	id, err := handler.dataStore.NewUpload(info)
+	id, err := handler.composer.Core.NewUpload(info)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
 	if isFinal {
-		if err := concatStore.ConcatUploads(id, partialUploads); err != nil {
+		if err := handler.composer.Concater.ConcatUploads(id, partialUploads); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -290,7 +249,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+	if handler.composer.UsesLocker {
+		locker := handler.composer.Locker
 		if err := locker.LockUpload(id); err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -299,7 +259,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.dataStore.GetInfo(id)
+	info, err := handler.composer.Core.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -350,7 +310,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+	if handler.composer.UsesLocker {
+		locker := handler.composer.Locker
 		if err := locker.LockUpload(id); err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -359,7 +320,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.dataStore.GetInfo(id)
+	info, err := handler.composer.Core.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -393,7 +354,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	// Limit the
 	reader := io.LimitReader(r.Body, maxSize)
 
-	bytesWritten, err := handler.dataStore.WriteChunk(id, offset, reader)
+	bytesWritten, err := handler.composer.Core.WriteChunk(id, offset, reader)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -406,8 +367,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	// If the upload is completed, ...
 	if newOffset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
-		if store, ok := handler.dataStore.(FinisherDataStore); ok {
-			if err := store.FinishUpload(id); err != nil {
+		if handler.composer.UsesFinisher {
+			if err := handler.composer.Finisher.FinishUpload(id); err != nil {
 				handler.sendError(w, r, err)
 				return
 			}
@@ -426,8 +387,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	dataStore, ok := handler.dataStore.(GetReaderDataStore)
-	if !ok {
+	if !handler.composer.UsesGetReader {
 		handler.sendError(w, r, ErrNotImplemented)
 		return
 	}
@@ -438,7 +398,8 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+	if handler.composer.UsesLocker {
+		locker := handler.composer.Locker
 		if err := locker.LockUpload(id); err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -447,7 +408,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.dataStore.GetInfo(id)
+	info, err := handler.composer.Core.GetInfo(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -460,7 +421,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get reader
-	src, err := dataStore.GetReader(id)
+	src, err := handler.composer.GetReader.GetReader(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -479,8 +440,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
 	// Abort the request handling if the required interface is not implemented
-	tstore, ok := handler.config.DataStore.(TerminaterDataStore)
-	if !ok {
+	if !handler.composer.UsesTerminater {
 		handler.sendError(w, r, ErrNotImplemented)
 		return
 	}
@@ -491,7 +451,8 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if locker, ok := handler.dataStore.(LockerDataStore); ok {
+	if handler.composer.UsesLocker {
+		locker := handler.composer.Locker
 		if err := locker.LockUpload(id); err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -500,7 +461,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
-	err = tstore.Terminate(id)
+	err = handler.composer.Terminater.Terminate(id)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -591,7 +552,7 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // of a final resource.
 func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err error) {
 	for _, id := range ids {
-		info, err := handler.dataStore.GetInfo(id)
+		info, err := handler.composer.Core.GetInfo(id)
 		if err != nil {
 			return size, err
 		}

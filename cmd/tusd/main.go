@@ -17,6 +17,7 @@ import (
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/limitedstore"
+	"github.com/tus/tusd/memorylocker"
 	"github.com/tus/tusd/s3store"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -50,7 +51,7 @@ var greeting string
 func init() {
 	flag.StringVar(&httpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
 	flag.StringVar(&httpPort, "port", "1080", "Port to bind HTTP server to")
-	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of uploads in bytes")
+	flag.Int64Var(&maxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	flag.StringVar(&dir, "dir", "./data", "Directory to store uploads in")
 	flag.Int64Var(&storeSize, "store-size", 0, "Size of space allowed for storage")
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
@@ -96,27 +97,32 @@ func main() {
 		return
 	}
 
-	var store tusd.TerminaterDataStore
 	// Attempt to use S3 as a backend if the -s3-bucket option has been supplied.
 	// If not, we default to storing them locally on disk.
+	composer := tusd.NewStoreComposer()
 	if s3Bucket == "" {
 		stdout.Printf("Using '%s' as directory storage.\n", dir)
 		if err := os.MkdirAll(dir, os.FileMode(0775)); err != nil {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
 
-		store = filestore.New(dir)
+		store := filestore.New(dir)
+		store.UseIn(composer)
 	} else {
 		stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", s3Bucket)
 
 		// Derive credentials from AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID and
 		// AWS_REGION environment variables.
 		credentials := aws.NewConfig().WithCredentials(credentials.NewEnvCredentials())
-		store = s3store.New(s3Bucket, s3.New(session.New(), credentials))
+		store := s3store.New(s3Bucket, s3.New(session.New(), credentials))
+		store.UseIn(composer)
+
+		locker := memorylocker.New()
+		locker.UseIn(composer)
 	}
 
 	if storeSize > 0 {
-		store = limitedstore.New(storeSize, store)
+		limitedstore.New(storeSize, composer.Core, composer.Terminater).UseIn(composer)
 		stdout.Printf("Using %.2fMB as storage size.\n", float64(storeSize)/1024/1024)
 
 		// We need to ensure that a single upload can fit into the storage size
@@ -130,7 +136,7 @@ func main() {
 	handler, err := tusd.NewHandler(tusd.Config{
 		MaxSize:               maxSize,
 		BasePath:              basepath,
-		DataStore:             store,
+		StoreComposer:         composer,
 		NotifyCompleteUploads: true,
 	})
 	if err != nil {
@@ -139,6 +145,8 @@ func main() {
 
 	address := httpHost + ":" + httpPort
 	stdout.Printf("Using %s as address to listen.\n", address)
+
+	stdout.Printf(composer.Capabilities())
 
 	go func() {
 		for {
