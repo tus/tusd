@@ -8,9 +8,8 @@ import (
 
 // Handler is a ready to use handler with routing (using pat)
 type Handler struct {
-	unroutedHandler *UnroutedHandler
-	routeHandler    http.Handler
-	CompleteUploads chan FileInfo
+	*UnroutedHandler
+	http.Handler
 }
 
 // NewHandler creates a routed tus protocol handler. This is the simplest
@@ -31,13 +30,12 @@ func NewHandler(config Config) (*Handler, error) {
 	}
 
 	routedHandler := &Handler{
-		unroutedHandler: handler,
-		CompleteUploads: handler.CompleteUploads,
+		UnroutedHandler: handler,
 	}
 
 	mux := pat.New()
 
-	routedHandler.routeHandler = handler.Middleware(mux)
+	routedHandler.Handler = handler.Middleware(mux)
 
 	mux.Post("", http.HandlerFunc(handler.PostFile))
 	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
@@ -54,9 +52,4 @@ func NewHandler(config Config) (*Handler, error) {
 	}
 
 	return routedHandler, nil
-}
-
-// ServeHTTP Implements the http.Handler interface.
-func (rHandler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rHandler.routeHandler.ServeHTTP(w, r)
 }
