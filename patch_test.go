@@ -25,8 +25,9 @@ func (s patchStore) GetInfo(id string) (FileInfo, error) {
 	}
 
 	return FileInfo{
+		ID:     id,
 		Offset: 5,
-		Size:   20,
+		Size:   10,
 	}, nil
 }
 
@@ -44,12 +45,18 @@ func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, e
 }
 
 func TestPatch(t *testing.T) {
+	a := assert.New(t)
+
 	handler, _ := NewHandler(Config{
 		MaxSize: 100,
 		DataStore: patchStore{
-			t: assert.New(t),
+			t: a,
 		},
+		NotifyCompleteUploads: true,
 	})
+
+	c := make(chan FileInfo, 1)
+	handler.CompleteUploads = c
 
 	(&httpTest{
 		Name:   "Successful request",
@@ -66,6 +73,11 @@ func TestPatch(t *testing.T) {
 			"Upload-Offset": "10",
 		},
 	}).Run(handler, t)
+
+	info := <-c
+	a.Equal("yes", info.ID)
+	a.Equal(int64(10), info.Size)
+	a.Equal(int64(10), info.Offset)
 
 	(&httpTest{
 		Name:   "Non-existing file",
