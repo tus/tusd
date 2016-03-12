@@ -126,13 +126,19 @@ func (s concatFinalStore) ConcatUploads(id string, uploads []string) error {
 }
 
 func TestConcatFinal(t *testing.T) {
+	a := assert.New(t)
+
 	handler, _ := NewHandler(Config{
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: concatFinalStore{
-			t: assert.New(t),
+			t: a,
 		},
+		NotifyCompleteUploads: true,
 	})
+
+	c := make(chan FileInfo, 1)
+	handler.CompleteUploads = c
 
 	(&httpTest{
 		Name:   "Successful POST request",
@@ -143,6 +149,14 @@ func TestConcatFinal(t *testing.T) {
 		},
 		Code: http.StatusCreated,
 	}).Run(handler, t)
+
+	info := <-c
+	a.Equal("foo", info.ID)
+	a.Equal(int64(10), info.Size)
+	a.Equal(int64(10), info.Offset)
+	a.False(info.IsPartial)
+	a.True(info.IsFinal)
+	a.Equal([]string{"a", "b"}, info.PartialUploads)
 
 	(&httpTest{
 		Name:   "Successful HEAD request",

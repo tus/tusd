@@ -238,6 +238,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(w, r, err)
 			return
 		}
+		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
 			info.ID = id
