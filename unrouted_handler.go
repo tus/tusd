@@ -66,6 +66,12 @@ type UnroutedHandler struct {
 	// this unbuffered channel. The NotifyCompleteUploads property in the Config
 	// struct must be set to true in order to work.
 	CompleteUploads chan FileInfo
+	// TerminatedUploads is used to send notifications whenever an upload is
+	// terminated by a user. The FileInfo will contain information about This
+	// upload gathered before the termination. Sending to this channel will only
+	// happen if the NotifyTerminatedUploads field is set to true in the Config
+	// structure.
+	TerminatedUploads chan FileInfo
 }
 
 // NewUnroutedHandler creates a new handler without routing using the given
@@ -87,13 +93,14 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	}
 
 	handler := &UnroutedHandler{
-		config:          config,
-		composer:        config.StoreComposer,
-		basePath:        config.BasePath,
-		isBasePathAbs:   config.isAbs,
-		CompleteUploads: make(chan FileInfo),
-		logger:          config.Logger,
-		extensions:      extensions,
+		config:            config,
+		composer:          config.StoreComposer,
+		basePath:          config.BasePath,
+		isBasePathAbs:     config.isAbs,
+		CompleteUploads:   make(chan FileInfo),
+		TerminatedUploads: make(chan FileInfo),
+		logger:            config.Logger,
+		extensions:        extensions,
 	}
 
 	return handler, nil
@@ -461,6 +468,15 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
+	var info FileInfo
+	if handler.config.NotifyTerminatedUploads {
+		info, err = handler.composer.Core.GetInfo(id)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
 	err = handler.composer.Terminater.Terminate(id)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -468,6 +484,10 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	if handler.config.NotifyTerminatedUploads {
+		handler.TerminatedUploads <- info
+	}
 }
 
 // Send the error in the response body. The status code will be looked up in

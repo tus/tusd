@@ -134,10 +134,11 @@ func main() {
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(maxSize)/1024/1024)
 
 	handler, err := tusd.NewHandler(tusd.Config{
-		MaxSize:               maxSize,
-		BasePath:              basepath,
-		StoreComposer:         composer,
-		NotifyCompleteUploads: true,
+		MaxSize:                 maxSize,
+		BasePath:                basepath,
+		StoreComposer:           composer,
+		NotifyCompleteUploads:   true,
+		NotifyTerminatedUploads: true,
 	})
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
@@ -152,7 +153,9 @@ func main() {
 		for {
 			select {
 			case info := <-handler.CompleteUploads:
-				invokeHook(info)
+				invokeHook("post-finish", info)
+			case info := <-handler.TerminatedUploads:
+				invokeHook("post-terminate", info)
 			}
 		}
 	}()
@@ -176,16 +179,21 @@ func main() {
 	}
 }
 
-func invokeHook(info tusd.FileInfo) {
-	stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+func invokeHook(name string, info tusd.FileInfo) {
+	switch name {
+	case "post-finish":
+		stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+	case "post-terminate":
+		stdout.Printf("Upload %s terminated\n", info.ID)
+	}
 
 	if !hookInstalled {
 		return
 	}
 
-	stdout.Println("Invoking hooks…")
+	stdout.Printf("Invoking %s hook…\n", name)
 
-	cmd := exec.Command(hooksDir + "/post-finish")
+	cmd := exec.Command(hooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
@@ -206,7 +214,7 @@ func invokeHook(info tusd.FileInfo) {
 	go func() {
 		err := cmd.Run()
 		if err != nil {
-			stderr.Printf("Error running postfinish hook for %s: %s", info.ID, err)
+			stderr.Printf("Error running %s hook for %s: %s", name, info.ID, err)
 		}
 	}()
 }

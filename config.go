@@ -12,7 +12,7 @@ type Config struct {
 	// DataStore implementation used to store and retrieve the single uploads.
 	// The usage of this field is deprecated and should be avoided in favor of
 	// StoreComposer.
-	DataStore     DataStore
+	DataStore DataStore
 	// StoreComposer points to the store composer from which the core data store
 	// and optional dependencies should be taken. May only be nil if DataStore is
 	// set.
@@ -28,6 +28,9 @@ type Config struct {
 	// Initiate the CompleteUploads channel in the Handler struct in order to
 	// be notified about complete uploads
 	NotifyCompleteUploads bool
+	// NotifyTerminatedUploads indicates whether sending notifications about
+	// terminated uploads using the TerminatedUploads channel should be enabled.
+	NotifyTerminatedUploads bool
 	// Logger the logger to use internally
 	Logger *log.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers

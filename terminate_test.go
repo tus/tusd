@@ -5,11 +5,20 @@ import (
 	"testing"
 
 	. "github.com/tus/tusd"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type terminateStore struct {
 	t *testing.T
 	zeroStore
+}
+
+func (s terminateStore) GetInfo(id string) (FileInfo, error) {
+	return FileInfo{
+		ID:   id,
+		Size: 10,
+	}, nil
 }
 
 func (s terminateStore) Terminate(id string) error {
@@ -24,7 +33,11 @@ func TestTerminate(t *testing.T) {
 		DataStore: terminateStore{
 			t: t,
 		},
+		NotifyTerminatedUploads: true,
 	})
+
+	c := make(chan FileInfo, 1)
+	handler.TerminatedUploads = c
 
 	(&httpTest{
 		Name:   "Successful OPTIONS request",
@@ -45,6 +58,12 @@ func TestTerminate(t *testing.T) {
 		},
 		Code: http.StatusNoContent,
 	}).Run(handler, t)
+
+	info := <-c
+
+	a := assert.New(t)
+	a.Equal("foo", info.ID)
+	a.Equal(int64(10), info.Size)
 }
 
 func TestTerminateNotImplemented(t *testing.T) {
