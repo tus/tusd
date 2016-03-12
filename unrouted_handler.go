@@ -62,12 +62,15 @@ type UnroutedHandler struct {
 	logger        *log.Logger
 	extensions    string
 
-	// For each finished upload the corresponding info object will be sent using
-	// this unbuffered channel. The NotifyCompleteUploads property in the Config
-	// struct must be set to true in order to work.
+	// CompleteUploads is used to send notifications whenever an upload is
+	// completed by a user. The FileInfo will contain information about this
+	// upload after it is completed. Sending to this channel will only
+	// happen if the NotifyCompleteUploads field is set to true in the Config
+	// structure. Notifications will also be sent for completions using the
+	// Concatenation extension.
 	CompleteUploads chan FileInfo
 	// TerminatedUploads is used to send notifications whenever an upload is
-	// terminated by a user. The FileInfo will contain information about This
+	// terminated by a user. The FileInfo will contain information about this
 	// upload gathered before the termination. Sending to this channel will only
 	// happen if the NotifyTerminatedUploads field is set to true in the Config
 	// structure.

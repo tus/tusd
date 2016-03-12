@@ -25,13 +25,13 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
-	// Initiate the CompleteUploads channel in the Handler struct in order to
-	// be notified about complete uploads
+	// NotifyCompleteUploads indicates whether sending notifications about
+	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool
 	// NotifyTerminatedUploads indicates whether sending notifications about
 	// terminated uploads using the TerminatedUploads channel should be enabled.
 	NotifyTerminatedUploads bool
-	// Logger the logger to use internally
+	// Logger is the logger to use internally, mostly for printing requests.
 	Logger *log.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
