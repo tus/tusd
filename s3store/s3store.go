@@ -278,6 +278,11 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		return info, err
 	}
 
+	// The JSON object stored on S3 does not contain the proper upload ID because
+	// the ID has constructed after the storing happened. Therefore we set it
+	// manually.
+	info.ID = id
+
 	// Get uploaded parts and their offset
 	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
 		Bucket:   aws.String(store.Bucket),

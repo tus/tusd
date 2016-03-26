@@ -123,6 +123,7 @@ func TestGetInfo(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(300), info.Offset)
+	assert.Equal("uploadId+multipartId", info.ID)
 }
 
 func TestGetInfoFinished(t *testing.T) {
