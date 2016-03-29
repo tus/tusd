@@ -6,6 +6,11 @@ go:
 - 1.6rc2
 - tip
 sudo: false
+cache:
+  apt: true
+  directories:
+  - $HOME/.gimme
+  - $HOME/.frey
 env:
   global:
   - GO15VENDOREXPERIMENT=1
