@@ -1,6 +1,6 @@
 PHONY: frey
 frey:
-	@npm install --global frey@0.3.12
+	@npm install --global frey@0.3.11
 
 PHONY: deploy
 deploy:
