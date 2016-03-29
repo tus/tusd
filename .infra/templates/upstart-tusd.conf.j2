@@ -1,0 +1,25 @@
+stop on runlevel [016]
+start on (started networking)
+
+# The respawn limits function as follows: If the process is respawned
+# more than count times within an interval of timeout seconds,
+# the process will be stopped automatically, and not restarted.
+# Unless set explicitly, the limit defaults to 10 times within 5 seconds.
+# http://upstart.ubuntu.com/wiki/Stanzas#respawn_limit
+respawn
+respawn limit 10 5
+
+limit nofile 32768 32768
+
+pre-stop exec status tusd | grep -q "stop/waiting" && initctl emit --no-wait stopped JOB=tusd || true
+
+script
+  set -e
+  set -x
+  mkfifo /tmp/tusd-log-fifo
+  ( logger -t tusd </tmp/tusd-log-fifo & )
+  exec >/tmp/tusd-log-fifo
+  rm /tmp/tusd-log-fifo
+  exec bash -c "cd /srv/tusd/current/tusd_linux_amd64/ \
+    && exec sudo -EHu www-data ./tusd -port=8080 -dir=/mnt/tusd-data -store-size=10737418240"
+end script

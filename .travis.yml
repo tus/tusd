@@ -17,7 +17,7 @@ matrix:
   - go: tip
 
 install:
-- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
+- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
 - rsync -r ./vendor/ $GOPATH/src
 
 script:
@@ -50,3 +50,6 @@ deploy:
     tags: true
     go: 1.5
     repo: tus/tusd
+
+after_deploy:
+  - if [ "${TRAVIS_PULL_REQUEST}" == "false" ] && [ "${TRAVIS_BRANCH}" == "master" ]; then (make frey && frey setup --projectDir .infra) else echo "Skipping deploy for non-master/PRs"; fi
