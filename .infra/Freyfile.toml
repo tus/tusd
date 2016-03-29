@@ -156,7 +156,7 @@
     ansistrano_group      = "ubuntu"
 
   [[deploy.playbooks.tasks]]
-    copy = "src=../env.sh dest={{{config.global.approot}}}/current/tusd_linux_amd64/env.sh mode=0600 owner=root group=root"
+    copy = "src={{ playbook_dir }}/env.sh dest={{{config.global.approot}}}/current/tusd_linux_amd64/env.sh mode=0600 owner=root group=root"
     name = "tusd | Upload environment"
 
   [[deploy.playbooks.tasks]]
