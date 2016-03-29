@@ -131,10 +131,6 @@
     fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
 
   [[setup.playbooks.tasks]]
-    file = "path={{{config.global.approot}}}/shared/logs state=directory owner=www-data group=www-data mode=0755 recurse=yes"
-    name = "infra-tusd | Create shared log dir"
-
-  [[setup.playbooks.tasks]]
     file = "path=/mnt/tusd-data state=directory owner=www-data group=www-data mode=0755 recurse=yes"
     name = "infra-tusd | Create tusd data dir"
 
