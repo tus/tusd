@@ -13,7 +13,7 @@
 
 [infra.provider.aws]
   access_key = "${var.FREY_AWS_ACCESS_KEY}"
-  region = "us-east-1"
+  region     = "us-east-1"
   secret_key = "${var.FREY_AWS_SECRET_KEY}"
 
 [infra.variable.ami.default]
@@ -127,6 +127,26 @@
   name  = "Setup infra-tusd"
 
   [[setup.playbooks.roles]]
+    role                  = "{{{init.paths.roles_dir}}}/upstart/v1.0.0"
+    upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -store-size=10737418240"
+    upstart_description   = "tusd server"
+    upstart_name          = "{{{config.global.appname}}}"
+    upstart_pidfile_path  = "{{{config.global.approot}}}/shared/{{{config.global.appname}}}.pid"
+    upstart_respawn       = true
+    upstart_respawn_limit = true
+    upstart_runtime_root  = "{{{config.global.approot}}}/current/tusd_linux_amd64/"
+    upstart_user          = "www-data"
+
+  [[setup.playbooks.roles]]
+    role = "{{{init.paths.roles_dir}}}/rsyslog/v3.0.1"
+    [setup.playbooks.roles.rsyslog_rsyslog_d_files.49-tusd]
+      # Send {{{config.global.appname}}} messages to a dedicated logfile
+      directives = [ "&~" ]
+      [[setup.playbooks.roles.rsyslog_rsyslog_d_files.49-tusd.rules]]
+        rule    = ":programname, startswith, \"{{{config.global.appname}}}\""
+        logpath = "{{{config.global.approot}}}/shared/logs/{{{config.global.appname}}}.log"
+
+  [[setup.playbooks.roles]]
     role = "{{{init.paths.roles_dir}}}/fqdn/v1.0.0"
     fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
 
@@ -134,15 +154,13 @@
     file = "path=/mnt/tusd-data state=directory owner=www-data group=www-data mode=0755 recurse=yes"
     name = "infra-tusd | Create tusd data dir"
 
-  [[setup.playbooks.tasks]]
-    action = "template src=templates/upstart-tusd.conf.j2 dest=/etc/init/tusd.conf"
-    name   = "infra-tusd | Install upstart file"
-
 [[deploy.playbooks]]
   hosts = "infra-tusd-server"
   name  = "Deploy infra-tusd"
 
   [[deploy.playbooks.roles]]
+    # @todo On travis, we could directly use the generated
+    # /home/travis/gopath/src/github.com/tus/tusd/snapshot/tusd_linux_amd64.tar.gz
     role                  = "{{{init.paths.roles_dir}}}/deploy/v1.4.0"
     ansistrano_get_url    = "https://github.com/tus/tusd/releases/download/0.1.2/tusd_linux_amd64.tar.gz"
     ansistrano_deploy_to  = "{{{config.global.approot}}}"
