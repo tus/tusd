@@ -151,6 +151,7 @@
     ansistrano_get_url    = "https://github.com/tus/tusd/releases/download/0.1.2/tusd_linux_amd64.tar.gz"
     ansistrano_deploy_to  = "{{{config.global.approot}}}"
     ansistrano_deploy_via = "download_unarchive"
+    ansistrano_group      = "ubuntu"
 
   [[deploy.playbooks.tasks]]
     copy = "src=../env.sh dest={{{config.global.approot}}}/current/env.sh mode=0600 owner=root group=root"
