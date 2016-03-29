@@ -3,6 +3,6 @@ cover.out
 data/
 .infra/env.sh
 .infra/env.infra.sh
-.infra/ssh/infra-tusd.pem
+.infra/ssh/tusd.pem
 .infra/Frey-residu*
-.infra/ssh/frey-infra-tusd.pem
+.infra/ssh/frey-tusd.pem

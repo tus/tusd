@@ -1,5 +1,5 @@
 [global]
-  appname = "infra-tusd"
+  appname = "tusd"
   approot = "/srv/tusd"
 
 [global.ssh]
@@ -30,44 +30,44 @@
   default = "us-east-1"
 
 [infra.output.public_address]
-  value = "${aws_instance.infra-tusd-server.0.public_dns}"
+  value = "${aws_instance.tusd.0.public_dns}"
 [infra.output.public_addresses]
-  value = "${join(\"\n\", aws_instance.infra-tusd-server.*.public_dns)}"
+  value = "${join(\"\n\", aws_instance.tusd.*.public_dns)}"
 [infra.output.endpoint]
   value = "http://${aws_route53_record.www.name}:80/"
 
-[infra.resource.aws_instance.infra-tusd-server]
+[infra.resource.aws_instance.tusd]
   ami             = "${lookup(var.ami, var.region)}"
   instance_type   = "c3.large"
-  key_name        = "infra-tusd"
-  security_groups = ["fw-infra-tusd-main"]
-  [infra.resource.aws_instance.infra-tusd-server.connection]
+  key_name        = "tusd"
+  security_groups = ["fw-tusd-main"]
+  [infra.resource.aws_instance.tusd.connection]
     key_file = "{{{config.global.ssh.privatekey_file}}}"
     user     = "{{{config.global.ssh.user}}}"
-  [infra.resource.aws_instance.infra-tusd-server.tags]
+  [infra.resource.aws_instance.tusd.tags]
     Name = "${var.FREY_DOMAIN}"
 
 [infra.resource.aws_route53_record.www]
   name    = "${var.FREY_DOMAIN}"
-  records = ["${aws_instance.infra-tusd-server.public_dns}"]
+  records = ["${aws_instance.tusd.public_dns}"]
   ttl     = "300"
   type    = "CNAME"
   zone_id = "${var.FREY_AWS_ZONE_ID}"
 
-[infra.resource.aws_security_group.fw-infra-tusd-main]
+[infra.resource.aws_security_group.fw-tusd-main]
   description = "Infra tusd"
-  name        = "fw-infra-tusd-main"
-  [[infra.resource.aws_security_group.fw-infra-tusd-main.ingress]]
+  name        = "fw-tusd-main"
+  [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
     cidr_blocks = ["${var.ip_all}"]
     from_port   = 8080
     protocol    = "tcp"
     to_port     = 8080
-  [[infra.resource.aws_security_group.fw-infra-tusd-main.ingress]]
+  [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
     cidr_blocks = ["${var.ip_all}"]
     from_port   = 80
     protocol    = "tcp"
     to_port     = 80
-  [[infra.resource.aws_security_group.fw-infra-tusd-main.ingress]]
+  [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
     cidr_blocks = [
       "${var.ip_kevin}",
       "${var.ip_marius}",
@@ -78,8 +78,8 @@
     to_port   = 22
 
 [[install.playbooks]]
-  hosts = "infra-tusd-server"
-  name  = "Install infra-tusd-server"
+  hosts = "tusd"
+  name  = "Install tusd"
 
   [[install.playbooks.roles]]
     role         = "{{{init.paths.roles_dir}}}/apt/v1.0.0"
@@ -123,8 +123,8 @@
 
 
 [[setup.playbooks]]
-  hosts = "infra-tusd-server"
-  name  = "Setup infra-tusd"
+  hosts = "tusd"
+  name  = "Setup tusd"
 
   [[setup.playbooks.roles]]
     role                  = "{{{init.paths.roles_dir}}}/upstart/v1.0.0"
@@ -152,11 +152,11 @@
 
   [[setup.playbooks.tasks]]
     file = "path=/mnt/tusd-data state=directory owner=www-data group=www-data mode=0755 recurse=yes"
-    name = "infra-tusd | Create tusd data dir"
+    name = "tusd | Create tusd data dir"
 
 [[deploy.playbooks]]
-  hosts = "infra-tusd-server"
-  name  = "Deploy infra-tusd"
+  hosts = "tusd"
+  name  = "Deploy tusd"
 
   [[deploy.playbooks.roles]]
     # @todo On travis, we could directly use the generated
@@ -169,20 +169,20 @@
 
   [[deploy.playbooks.tasks]]
     copy = "src=../env.sh dest={{{config.global.approot}}}/current/env.sh mode=0600 owner=root group=root"
-    name = "infra-tusd | Upload environment"
+    name = "tusd | Upload environment"
 
   [[deploy.playbooks.tasks]]
     name = "tusd | Set file attributes"
     file = "path={{{config.global.approot}}}/current/tusd_linux_amd64/tusd mode=0755 owner=www-data group=www-data"
 
 [[restart.playbooks]]
-  hosts = "infra-tusd-server"
-  name  = "Restart infra-tusd"
+  hosts = "tusd"
+  name  = "Restart tusd"
 
   [[restart.playbooks.tasks]]
     shell = "iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080"
-    name   = "infra-tusd | Redirect HTTP traffic to tusd"
+    name   = "tusd | Redirect HTTP traffic to tusd"
 
   [[restart.playbooks.tasks]]
     action = "service name=tusd state=restarted"
-    name   = "infra-tusd | Restart"
+    name   = "tusd | Restart"
