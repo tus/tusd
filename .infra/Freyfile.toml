@@ -18,14 +18,6 @@
 
 [infra.variable.ami.default]
   us-east-1 = "ami-9bce7af0"
-[infra.variable.ip_all]
-  default = "0.0.0.0/0"
-[infra.variable.ip_kevin]
-  default = "62.163.187.106/32"
-[infra.variable.ip_marius]
-  default = "84.146.0.0/16"
-[infra.variable.ip_tim]
-  default = "24.134.75.132/32"
 [infra.variable.region]
   default = "us-east-1"
 
@@ -58,21 +50,17 @@
   description = "Infra tusd"
   name        = "fw-tusd-main"
   [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
-    cidr_blocks = ["${var.ip_all}"]
+    cidr_blocks = [ "0.0.0.0/0" ]
     from_port   = 8080
     protocol    = "tcp"
     to_port     = 8080
   [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
-    cidr_blocks = ["${var.ip_all}"]
+    cidr_blocks = [ "0.0.0.0/0" ]
     from_port   = 80
     protocol    = "tcp"
     to_port     = 80
   [[infra.resource.aws_security_group.fw-tusd-main.ingress]]
-    cidr_blocks = [
-      "${var.ip_kevin}",
-      "${var.ip_marius}",
-      "${var.ip_tim}",
-    ]
+  cidr_blocks = [ "0.0.0.0/0" ]
     from_port = 22
     protocol  = "tcp"
     to_port   = 22
