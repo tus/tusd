@@ -43,7 +43,7 @@ deploy:
   - snapshot/tusd_windows_amd64.zip
   skip_cleanup: true
   on:
-    tags: true
+    # tags: true
     go: 1.5
     repo: tus/tusd
 after_deploy:
