@@ -29,7 +29,7 @@ before_deploy:
 - go get github.com/laher/goxc
 - goxc -t -bc="linux darwin windows"
 - goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows" -build-ldflags="-X main.VersionName=$TRAVIS_TAG -X main.GitCommit=$TRAVIS_COMMIT -X 'main.BuildDate=$(date --utc)'"
-- if [ "${TRAVIS_PULL_REQUEST}" == "false" ] && [ "${TRAVIS_BRANCH}" == "master" ]; then (make frey && frey setup --projectDir .infra); else echo "Skipping deploy fornon-master/PRs"; fi
+- if [ "${TRAVIS_PULL_REQUEST}" == "false" ] && [ "${TRAVIS_BRANCH}" == "master" ]; then (make frey && frey setup --force-yes --projectDir .infra); else echo "Skipping deploy fornon-master/PRs"; fi
 deploy:
   provider: releases
   api_key:
