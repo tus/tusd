@@ -5,30 +5,25 @@ go:
 - 1.5
 - 1.6rc2
 - tip
-
 sudo: false
-
 env:
   global:
   - GO15VENDOREXPERIMENT=1
-
 matrix:
   allow_failures:
   - go: tip
-
 install:
-- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
+- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd"
+  -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
 - rsync -r ./vendor/ $GOPATH/src
-
 script:
 - go test $PACKAGES
-
 before_deploy:
 - export GOROOT_BOOTSTRAP=$GOROOT
 - go get github.com/laher/goxc
 - goxc -t -bc="linux darwin windows"
-- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows" -build-ldflags="-X main.VersionName=$TRAVIS_TAG -X main.GitCommit=$TRAVIS_COMMIT -X 'main.BuildDate=$(date --utc)'"
-
+- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows" -build-ldflags="-X main.VersionName=$TRAVIS_TAG
+  -X main.GitCommit=$TRAVIS_COMMIT -X 'main.BuildDate=$(date --utc)'"
 deploy:
   provider: releases
   api_key:
@@ -45,11 +40,11 @@ deploy:
   - snapshot/tusd_windows_386.zip
   - snapshot/tusd_windows_amd64.zip
   skip_cleanup: true
-
   on:
     tags: true
     go: 1.5
     repo: tus/tusd
-
 after_deploy:
-  - if [ "${TRAVIS_PULL_REQUEST}" == "false" ] && [ "${TRAVIS_BRANCH}" == "master" ]; then (make frey && frey setup --projectDir .infra) else echo "Skipping deploy for non-master/PRs"; fi
+- if [ "${TRAVIS_PULL_REQUEST}" == "false" ] && [ "${TRAVIS_BRANCH}" == "master" ];
+  then (make frey && frey setup --projectDir .infra) else echo "Skipping deploy for
+  non-master/PRs"; fi
