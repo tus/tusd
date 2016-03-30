@@ -122,14 +122,14 @@
     upstart_pidfile_path  = "{{{config.global.approot}}}/shared/{{{config.global.appname}}}.pid"
     upstart_respawn       = true
     upstart_respawn_limit = true
-    upstart_runtime_root  = "{{{config.global.approot}}}/current/tusd_linux_amd64/"
+    upstart_runtime_root  = "{{{config.global.approot}}}/current/tusd_linux_amd64"
     upstart_user          = "www-data"
 
   [[setup.playbooks.roles]]
     role = "{{{init.paths.roles_dir}}}/rsyslog/v3.0.1"
     [setup.playbooks.roles.rsyslog_rsyslog_d_files.49-tusd]
       # Send {{{config.global.appname}}} messages to a dedicated logfile
-      directives = [ "&~" ]
+      directives = [ "& stop" ]
       [[setup.playbooks.roles.rsyslog_rsyslog_d_files.49-tusd.rules]]
         rule    = ":programname, startswith, \"{{{config.global.appname}}}\""
         logpath = "{{{config.global.approot}}}/shared/logs/{{{config.global.appname}}}.log"
@@ -154,10 +154,6 @@
     ansistrano_deploy_to  = "{{{config.global.approot}}}"
     ansistrano_deploy_via = "download_unarchive"
     ansistrano_group      = "ubuntu"
-
-  [[deploy.playbooks.tasks]]
-    copy = "src={{ playbook_dir }}/env.sh dest={{{config.global.approot}}}/current/tusd_linux_amd64/env.sh mode=0600 owner=root group=root"
-    name = "tusd | Upload environment"
 
   [[deploy.playbooks.tasks]]
     name = "tusd | Set file attributes"

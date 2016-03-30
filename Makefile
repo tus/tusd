@@ -1,6 +1,6 @@
 PHONY: frey
 frey:
-	@npm install --global frey@0.3.12
+	@npm install --global frey@0.3.13
 
 PHONY: deploy
 deploy:
@@ -17,3 +17,7 @@ console:
 PHONY: deploy-localfrey
 deploy-localfrey:
 	@cd .infra && source env.sh && babel-node ${HOME}/code/frey/src/cli.js setup
+
+PHONY: console-localfrey
+console-localfrey:
+	@cd .infra && source env.sh && babel-node ${HOME}/code/frey/src/cli.js remote
