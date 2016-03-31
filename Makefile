@@ -1,6 +1,12 @@
+FREY_VERSION := 0.3.13
+
 PHONY: frey
 frey:
-	@npm install --global frey@0.3.13
+	@grep $(FREY_VERSION) node_modules/frey/package.json 2>&1 > /dev/null || npm install frey@$(FREY_VERSION)
+
+PHONY: provision
+provision: frey
+	@source env.sh && node_modules/.bin/frey install
 
 PHONY: deploy
 deploy:
