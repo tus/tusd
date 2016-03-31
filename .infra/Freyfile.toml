@@ -88,6 +88,9 @@
       "wget",
     ]
 
+  [[install.playbooks.roles]]
+    role = "{{{init.paths.roles_dir}}}/unattended-upgrades/v1.2.0"
+
   [[install.playbooks.tasks]]
     lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
     name       = "Common | Add convenience shortcut wtf"
