@@ -348,6 +348,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Do not proxy the call to the data store if the upload is already completed
+	if info.Offset == info.Size {
+		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	// Get Content-Length if possible
 	length := r.ContentLength
 
@@ -362,7 +369,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		maxSize = length
 	}
 
-	// Limit the
+	// Limit the data read from the request's body to the allowed maxiumum
 	reader := io.LimitReader(r.Body, maxSize)
 
 	bytesWritten, err := handler.composer.Core.WriteChunk(id, offset, reader)

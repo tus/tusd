@@ -286,3 +286,41 @@ func TestLockingPatch(t *testing.T) {
 		t.Error("expected no more calls to happen")
 	}
 }
+
+type finishedPatchStore struct {
+	zeroStore
+}
+
+func (s finishedPatchStore) GetInfo(id string) (FileInfo, error) {
+	return FileInfo{
+		Offset: 20,
+		Size:   20,
+	}, nil
+}
+
+func (s finishedPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+	panic("WriteChunk must not be called")
+}
+
+func TestFinishedPatch(t *testing.T) {
+
+	handler, _ := NewHandler(Config{
+		DataStore: finishedPatchStore{},
+	})
+
+	(&httpTest{
+		Name:   "Uploading to finished upload",
+		Method: "PATCH",
+		URL:    "yes",
+		ReqHeader: map[string]string{
+			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/offset+octet-stream",
+			"Upload-Offset": "20",
+		},
+		ReqBody: strings.NewReader(""),
+		Code:    http.StatusNoContent,
+		ResHeader: map[string]string{
+			"Upload-Offset": "20",
+		},
+	}).Run(handler, t)
+}
