@@ -445,6 +445,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if filename, ok := info.MetaData["filename"]; ok {
+		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
+	}
+
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, src)

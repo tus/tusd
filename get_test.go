@@ -22,6 +22,9 @@ func (s getStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{
 		Offset: 5,
 		Size:   20,
+		MetaData: map[string]string{
+			"filename": "file.jpg\"evil",
+		},
 	}, nil
 }
 
@@ -55,7 +58,8 @@ func TestGet(t *testing.T) {
 		Code:    http.StatusOK,
 		ResBody: "hello",
 		ResHeader: map[string]string{
-			"Content-Length": "5",
+			"Content-Length":      "5",
+			"Content-Disposition": `inline;filename="file.jpg\"evil"`,
 		},
 	}).Run(handler, t)
 
