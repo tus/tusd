@@ -259,7 +259,7 @@ func (c *Conn) Read(b []byte) (int, error) {
 	if c.ReadTimeout > 0 {
 		err = c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 	} else {
-		err = c.Conn.SetReadDeadline(0)
+		err = c.Conn.SetReadDeadline(time.Time{})
 	}
 
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *Conn) Write(b []byte) (int, error) {
 	if c.WriteTimeout > 0 {
 		err = c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
 	} else {
-		err = c.Conn.SetWriteDeadline(0)
+		err = c.Conn.SetWriteDeadline(time.Time{})
 	}
 
 	if err != nil {
