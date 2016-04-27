@@ -255,18 +255,32 @@ type Conn struct {
 }
 
 func (c *Conn) Read(b []byte) (int, error) {
-	err := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+	var err error
+	if c.ReadTimeout > 0 {
+		err = c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+	} else {
+		err = c.Conn.SetReadDeadline(0)
+	}
+
 	if err != nil {
 		return 0, err
 	}
+
 	return c.Conn.Read(b)
 }
 
 func (c *Conn) Write(b []byte) (int, error) {
-	err := c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
+	var err error
+	if c.WriteTimeout > 0 {
+		err = c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
+	} else {
+		err = c.Conn.SetWriteDeadline(0)
+	}
+
 	if err != nil {
 		return 0, err
 	}
+
 	return c.Conn.Write(b)
 }
 
