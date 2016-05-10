@@ -18,7 +18,7 @@ func TestOptions(t *testing.T) {
 	(&httpTest{
 		Name:   "Successful request",
 		Method: "OPTIONS",
-		Code:   http.StatusNoContent,
+		Code:   http.StatusOK,
 		ResHeader: map[string]string{
 			"Tus-Extension": "creation",
 			"Tus-Version":   "1.0.0",

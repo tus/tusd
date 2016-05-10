@@ -20,7 +20,7 @@ func TestCORS(t *testing.T) {
 		ReqHeader: map[string]string{
 			"Origin": "tus.io",
 		},
-		Code: http.StatusNoContent,
+		Code: http.StatusOK,
 		ResHeader: map[string]string{
 			"Access-Control-Allow-Headers": "",
 			"Access-Control-Allow-Methods": "",

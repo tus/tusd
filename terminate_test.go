@@ -46,7 +46,7 @@ func TestTerminate(t *testing.T) {
 		ResHeader: map[string]string{
 			"Tus-Extension": "creation,termination",
 		},
-		Code: http.StatusNoContent,
+		Code: http.StatusOK,
 	}).Run(handler, t)
 
 	(&httpTest{

@@ -158,7 +158,14 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			header.Set("Tus-Version", "1.0.0")
 			header.Set("Tus-Extension", handler.extensions)
 
-			w.WriteHeader(http.StatusNoContent)
+			// Although the 204 No Content status code is a better fit in this case,
+			// since we do not have a response body included, we cannot use it here
+			// as some browsers only accept 200 OK as successful response to a
+			// preflight request. If we send them the 204 No Content the response
+			// will be ignored or interpreted as a rejection.
+			// For example, the Presto engine, which is used in older versions of
+			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
