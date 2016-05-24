@@ -50,5 +50,4 @@ deploy:
     go: 1.5
     repo: tus/tusd
 after_deploy:
-- .infra/scripts/rebuild-env.sh
 - make frey && frey setup --force-yes --projectDir .infra
