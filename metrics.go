@@ -23,7 +23,9 @@ type Metrics struct {
 // incRequestsTotal increases the counter for this request method atomically by
 // one. The method must be one of GET, HEAD, POST, PATCH, DELETE.
 func (m Metrics) incRequestsTotal(method string) {
-	atomic.AddUint64(m.RequestsTotal[method], 1)
+	if ptr, ok := m.RequestsTotal[method]; ok {
+		atomic.AddUint64(ptr, 1)
+	}
 }
 
 // incErrorsTotal increases the counter for this error atomically by one.
@@ -60,11 +62,12 @@ func (m Metrics) incUploadsTerminated() {
 func newMetrics() Metrics {
 	return Metrics{
 		RequestsTotal: map[string]*uint64{
-			"GET":    new(uint64),
-			"HEAD":   new(uint64),
-			"POST":   new(uint64),
-			"PATCH":  new(uint64),
-			"DELETE": new(uint64),
+			"GET":     new(uint64),
+			"HEAD":    new(uint64),
+			"POST":    new(uint64),
+			"PATCH":   new(uint64),
+			"DELETE":  new(uint64),
+			"OPTIONS": new(uint64),
 		},
 		ErrorsTotal:       newErrorsTotalMap(),
 		BytesReceived:     new(uint64),
