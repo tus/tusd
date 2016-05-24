@@ -338,6 +338,28 @@ func (_mr *_MockS3APIRecorder) DeleteObjectsRequest(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObjectsRequest", arg0)
 }
 
+func (_m *MockS3API) GetBucketAccelerateConfiguration(_param0 *s3.GetBucketAccelerateConfigurationInput) (*s3.GetBucketAccelerateConfigurationOutput, error) {
+	ret := _m.ctrl.Call(_m, "GetBucketAccelerateConfiguration", _param0)
+	ret0, _ := ret[0].(*s3.GetBucketAccelerateConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) GetBucketAccelerateConfiguration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBucketAccelerateConfiguration", arg0)
+}
+
+func (_m *MockS3API) GetBucketAccelerateConfigurationRequest(_param0 *s3.GetBucketAccelerateConfigurationInput) (*request.Request, *s3.GetBucketAccelerateConfigurationOutput) {
+	ret := _m.ctrl.Call(_m, "GetBucketAccelerateConfigurationRequest", _param0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*s3.GetBucketAccelerateConfigurationOutput)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) GetBucketAccelerateConfigurationRequest(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBucketAccelerateConfigurationRequest", arg0)
+}
+
 func (_m *MockS3API) GetBucketAcl(_param0 *s3.GetBucketAclInput) (*s3.GetBucketAclOutput, error) {
 	ret := _m.ctrl.Call(_m, "GetBucketAcl", _param0)
 	ret0, _ := ret[0].(*s3.GetBucketAclOutput)
@@ -874,6 +896,28 @@ func (_mr *_MockS3APIRecorder) ListObjectsRequest(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListObjectsRequest", arg0)
 }
 
+func (_m *MockS3API) ListObjectsV2(_param0 *s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, error) {
+	ret := _m.ctrl.Call(_m, "ListObjectsV2", _param0)
+	ret0, _ := ret[0].(*s3.ListObjectsV2Output)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) ListObjectsV2(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListObjectsV2", arg0)
+}
+
+func (_m *MockS3API) ListObjectsV2Request(_param0 *s3.ListObjectsV2Input) (*request.Request, *s3.ListObjectsV2Output) {
+	ret := _m.ctrl.Call(_m, "ListObjectsV2Request", _param0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*s3.ListObjectsV2Output)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) ListObjectsV2Request(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListObjectsV2Request", arg0)
+}
+
 func (_m *MockS3API) ListParts(_param0 *s3.ListPartsInput) (*s3.ListPartsOutput, error) {
 	ret := _m.ctrl.Call(_m, "ListParts", _param0)
 	ret0, _ := ret[0].(*s3.ListPartsOutput)
@@ -904,6 +948,28 @@ func (_m *MockS3API) ListPartsRequest(_param0 *s3.ListPartsInput) (*request.Requ
 
 func (_mr *_MockS3APIRecorder) ListPartsRequest(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListPartsRequest", arg0)
+}
+
+func (_m *MockS3API) PutBucketAccelerateConfiguration(_param0 *s3.PutBucketAccelerateConfigurationInput) (*s3.PutBucketAccelerateConfigurationOutput, error) {
+	ret := _m.ctrl.Call(_m, "PutBucketAccelerateConfiguration", _param0)
+	ret0, _ := ret[0].(*s3.PutBucketAccelerateConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) PutBucketAccelerateConfiguration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PutBucketAccelerateConfiguration", arg0)
+}
+
+func (_m *MockS3API) PutBucketAccelerateConfigurationRequest(_param0 *s3.PutBucketAccelerateConfigurationInput) (*request.Request, *s3.PutBucketAccelerateConfigurationOutput) {
+	ret := _m.ctrl.Call(_m, "PutBucketAccelerateConfigurationRequest", _param0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*s3.PutBucketAccelerateConfigurationOutput)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) PutBucketAccelerateConfigurationRequest(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PutBucketAccelerateConfigurationRequest", arg0)
 }
 
 func (_m *MockS3API) PutBucketAcl(_param0 *s3.PutBucketAclInput) (*s3.PutBucketAclOutput, error) {
