@@ -66,7 +66,7 @@ func init() {
 	flag.StringVar(&basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
 	flag.StringVar(&s3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
-	flag.StringVar(&hooksDir, "hooks-dir", "", "")
+	flag.StringVar(&hooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.BoolVar(&version, "version", false, "Print tusd version information")
 	flag.BoolVar(&exposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 
