@@ -6,3 +6,4 @@ data/
 .infra/ssh/tusd.pem
 .infra/Frey-residu*
 .infra/ssh/frey-tusd.pem
+node_modules/
