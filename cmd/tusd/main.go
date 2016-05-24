@@ -18,12 +18,15 @@ import (
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/limitedstore"
 	"github.com/tus/tusd/memorylocker"
+	"github.com/tus/tusd/prometheuscollector"
 	"github.com/tus/tusd/s3store"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var VersionName = "n/a"
@@ -40,6 +43,7 @@ var timeout int64
 var s3Bucket string
 var hooksDir string
 var version bool
+var exposeMetrics bool
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -47,6 +51,11 @@ var stderr = log.New(os.Stderr, "[tusd] ", 0)
 var hookInstalled bool
 
 var greeting string
+
+var openConnections = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "connections_open_total",
+	Help: "Current number of open connections.",
+})
 
 func init() {
 	flag.StringVar(&httpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
@@ -59,6 +68,7 @@ func init() {
 	flag.StringVar(&s3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 	flag.StringVar(&hooksDir, "hooks-dir", "", "")
 	flag.BoolVar(&version, "version", false, "Print tusd version information")
+	flag.BoolVar(&exposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 
 	flag.Parse()
 
@@ -160,6 +170,13 @@ func main() {
 		}
 	}()
 
+	if exposeMetrics {
+		prometheus.MustRegister(openConnections)
+		prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
+
+		http.Handle("/metrics", prometheus.Handler())
+	}
+
 	// Do not display the greeting if the tusd handler will be mounted at the root
 	// path. Else this would cause a "multiple registrations for /" panic.
 	if basepath != "/" {
@@ -238,6 +255,9 @@ func (l *Listener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	go openConnections.Inc()
+
 	tc := &Conn{
 		Conn:         c,
 		ReadTimeout:  l.ReadTimeout,
@@ -282,6 +302,11 @@ func (c *Conn) Write(b []byte) (int, error) {
 	}
 
 	return c.Conn.Write(b)
+}
+
+func (c *Conn) Close() error {
+	go openConnections.Dec()
+	return c.Conn.Close()
 }
 
 func NewListener(addr string, readTimeout, writeTimeout time.Duration) (net.Listener, error) {

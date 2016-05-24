@@ -75,6 +75,8 @@ type UnroutedHandler struct {
 	// happen if the NotifyTerminatedUploads field is set to true in the Config
 	// structure.
 	TerminatedUploads chan FileInfo
+	// Metrics provides numbers of the usage for this handler.
+	Metrics Metrics
 }
 
 // NewUnroutedHandler creates a new handler without routing using the given
@@ -104,6 +106,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		TerminatedUploads: make(chan FileInfo),
 		logger:            config.Logger,
 		extensions:        extensions,
+		Metrics:           newMetrics(),
 	}
 
 	return handler, nil
@@ -123,7 +126,10 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		go handler.logger.Println(r.Method, r.URL.Path)
+		go func() {
+			handler.logger.Println(r.Method, r.URL.Path)
+			handler.Metrics.incRequestsTotal(r.Method)
+		}()
 
 		header := w.Header()
 
@@ -251,11 +257,15 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			info.ID = id
 			handler.CompleteUploads <- info
 		}
+
+		go handler.Metrics.incUploadsFinished()
 	}
 
 	url := handler.absFileURL(r, id)
 	w.Header().Set("Location", url)
 	w.WriteHeader(http.StatusCreated)
+
+	go handler.Metrics.incUploadsCreated()
 }
 
 // HeadFile returns the length and offset for the HEAD request
@@ -388,6 +398,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	// Send new offset to client
 	newOffset := offset + bytesWritten
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
+	go handler.Metrics.incBytesReceived(uint64(bytesWritten))
 
 	// If the upload is completed, ...
 	if newOffset == info.Size {
@@ -404,6 +415,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 			info.Offset = newOffset
 			handler.CompleteUploads <- info
 		}
+
+		go handler.Metrics.incUploadsFinished()
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -510,6 +523,8 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	if handler.config.NotifyTerminatedUploads {
 		handler.TerminatedUploads <- info
 	}
+
+	go handler.Metrics.incUploadsTerminated()
 }
 
 // Send the error in the response body. The status code will be looked up in
@@ -534,6 +549,8 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(status)
 	w.Write([]byte(reason))
+
+	go handler.Metrics.incErrorsTotal(err)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
