@@ -157,6 +157,8 @@ func main() {
 	address := httpHost + ":" + httpPort
 	stdout.Printf("Using %s as address to listen.\n", address)
 
+	stdout.Printf("Using %s as the base path.\n", basepath)
+
 	stdout.Printf(composer.Capabilities())
 
 	go func() {
