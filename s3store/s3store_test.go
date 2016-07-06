@@ -36,13 +36,13 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal(store.Service, s3obj)
 
 	s1 := "hello"
-	s2 := "world"
+	s2 := "men?"
 
 	gomock.InOrder(
 		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"world","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
 			ContentLength: aws.Int64(int64(136)),
 		}),
 		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
@@ -62,7 +62,7 @@ func TestNewUpload(t *testing.T) {
 		Size: 500,
 		MetaData: map[string]string{
 			"foo": "hello",
-			"bar": "world",
+			"bar": "menü",
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestGetInfo(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
-			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:   aws.String("bucket"),
@@ -124,6 +124,8 @@ func TestGetInfo(t *testing.T) {
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(300), info.Offset)
 	assert.Equal("uploadId+multipartId", info.ID)
+	assert.Equal("hello", info.MetaData["foo"])
+	assert.Equal("menü", info.MetaData["bar"])
 }
 
 func TestGetInfoFinished(t *testing.T) {

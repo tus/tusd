@@ -31,7 +31,13 @@
 //
 // If meta data is associated with the upload during creation, it will be added
 // to the multipart upload and after finishing it, the meta data will be passed
-// to the final object.
+// to the final object. However, the metadata which will be attached to the
+// final object can only contain ASCII characters and every non-ASCII character
+// will be replaced by a question mark (for example, "Menü" will be "Men?").
+// However, this does not apply for the metadata returned by the GetInfo
+// function since it relies on the info object for reading the metadata.
+// Therefore, HEAD responses will always contain the unchanged metadata, Base64-
+// encoded, even if it contains non-ASCII characters.
 //
 // Once the upload is finish, the multipart upload is completed, resulting in
 // the entire file being stored in the bucket. The info object, containing
@@ -81,6 +87,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -92,6 +99,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
+
+// This regular expression matches every character which is not defined in the
+// ASCII tables which range from 00 to 7F, inclusive.
+var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F])`)
 
 // See the tusd.DataStore interface for documentation about the different
 // methods.
@@ -162,7 +173,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
 	}
 
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
@@ -170,7 +181,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	for key, value := range info.MetaData {
 		// Copying the value is required in order to prevent it from being
 		// overwritten by the next iteration.
-		v := value
+		v := nonASCIIRegexp.ReplaceAllString(value, "?")
 		metadata[key] = &v
 	}
 
@@ -181,7 +192,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		Metadata: metadata,
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("s3store: unable to create multipart upload:\n%s", err)
 	}
 
 	id = uploadId + "+" + *res.UploadId
