@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,9 +16,27 @@ type HookType string
 const (
 	HookPostFinish    HookType = "post-finish"
 	HookPostTerminate HookType = "post-terminate"
+	HookPreCreate     HookType = "pre-create"
 )
 
-func SetupHooks(handler *tusd.Handler) {
+type hookDataStore struct {
+	tusd.DataStore
+}
+
+func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) {
+	if output, err := invokeHookSync(HookPreCreate, info, true); err != nil {
+		return "", fmt.Errorf("pre-create hook failed:  %s\n%s", err, string(output))
+	}
+	return store.DataStore.NewUpload(info)
+}
+
+func SetupPreHooks(composer *tusd.StoreComposer) {
+	composer.UseCore(hookDataStore{
+		DataStore: composer.Core,
+	})
+}
+
+func SetupPostHooks(handler *tusd.Handler) {
 	go func() {
 		for {
 			select {
@@ -31,6 +50,15 @@ func SetupHooks(handler *tusd.Handler) {
 }
 
 func invokeHook(typ HookType, info tusd.FileInfo) {
+	go func() {
+		_, err := invokeHookSync(typ, info, false)
+		if err != nil {
+			stderr.Printf("Error running %s hook for %s: %s", string(typ), info.ID, err)
+		}
+	}()
+}
+
+func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
 	case HookPostFinish:
 		stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
@@ -39,7 +67,7 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 	}
 
 	if !Flags.HooksInstalled {
-		return
+		return nil, nil
 	}
 
 	name := string(typ)
@@ -52,7 +80,7 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
-		stderr.Printf("Error encoding JSON for hook: %s", err)
+		return nil, err
 	}
 
 	reader := bytes.NewReader(jsonInfo)
@@ -60,13 +88,12 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 
 	cmd.Env = env
 	cmd.Dir = Flags.HooksDir
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	go func() {
-		err := cmd.Run()
-		if err != nil {
-			stderr.Printf("Error running %s hook for %s: %s", name, info.ID, err)
-		}
-	}()
+	if !captureOutput {
+		cmd.Stdout = os.Stdout
+		return nil, cmd.Run()
+	} else {
+		return cmd.Output()
+	}
 }

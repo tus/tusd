@@ -1,0 +1,8 @@
+#!/bin/bash
+
+filename=$(cat /dev/stdin | jq .MetaData.filename)
+
+if [ -n "$filename" ]; then
+  echo "Error: no filename provided"
+  exit 1
+fi

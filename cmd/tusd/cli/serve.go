@@ -8,6 +8,8 @@ import (
 )
 
 func Serve() {
+	SetupPreHooks(Composer)
+
 	handler, err := tusd.NewHandler(tusd.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
@@ -27,7 +29,7 @@ func Serve() {
 	stdout.Printf("Using %s as the base path.\n", basepath)
 	stdout.Printf(Composer.Capabilities())
 
-	SetupHooks(handler)
+	SetupPostHooks(handler)
 
 	if Flags.ExposeMetrics {
 		SetupMetrics(handler)
