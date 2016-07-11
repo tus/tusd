@@ -44,6 +44,7 @@ var s3Bucket string
 var hooksDir string
 var version bool
 var exposeMetrics bool
+var behindProxy bool
 
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
@@ -69,6 +70,7 @@ func init() {
 	flag.StringVar(&hooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.BoolVar(&version, "version", false, "Print tusd version information")
 	flag.BoolVar(&exposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
+	flag.BoolVar(&behindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 
 	flag.Parse()
 
@@ -147,6 +149,7 @@ func main() {
 		MaxSize:                 maxSize,
 		BasePath:                basepath,
 		StoreComposer:           composer,
+		RespectForwardedHeaders: behindProxy,
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,
 	})
