@@ -24,7 +24,8 @@ So don't waste time, head over there and experience the future!
 
 Version = %s
 GitCommit = %s
-BuildDate = %s`, Flags.Basepath, VersionName, GitCommit, BuildDate)
+BuildDate = %s
+`, Flags.Basepath, VersionName, GitCommit, BuildDate)
 }
 
 func DisplayGreeting(w http.ResponseWriter, r *http.Request) {
