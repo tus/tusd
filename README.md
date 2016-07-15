@@ -27,6 +27,16 @@ Windows in various formats of the
 **Requirements:**
 
 * [Go](http://golang.org/doc/install) (1.3 or newer)
+* [aws/aws-sdk-go](https://github.com/aws/aws-sdk-go)
+* [beorn7/perks](https://github.com/bmizerany/perks)
+* [bmizerany/pat](https://github.com/bmizerany/pat)
+* [golang/protobuf](https://github.com/golang/protobuf)
+* [matttproud/golang_protobuf_extensions](https://github.com/matttproud/golang_protobuf_extensions)
+* [nightlyone/lockfile](https://github.com/nightlyone/lockfile)
+* [prometheus/client_golang](https://github.com/prometheus/client_golang)
+* [prometheus/client_model](https://github.com/prometheus/client_model)
+* [prometheus/common](https://github.com/prometheus/common)
+* [prometheus/procfs](https://github.com/prometheus/procfs)
 
 **Running tusd from source:**
 
@@ -77,7 +87,7 @@ func main() {
 	// Create a new HTTP handler for the tusd server by providing a configuration.
 	// The StoreComposer property must be set to allow the handler to function.
 	handler, err := tusd.NewHandler(tusd.Config{
-		BasePath:      "files/",
+		BasePath:      "/files/",
 		StoreComposer: composer,
 	})
 	if err != nil {
@@ -87,7 +97,7 @@ func main() {
 	// Right now, nothing has happened since we need to start the HTTP server on
 	// our own. In the end, tusd will start listening on and accept request at
 	// http://localhost:8080/files
-	http.Handle("files/", http.StripPrefix("files/", handler))
+	http.Handle("/files/", http.StripPrefix("/files/", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic("Unable to listen: %s", err)
