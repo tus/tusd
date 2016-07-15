@@ -77,7 +77,7 @@ func main() {
 	// Create a new HTTP handler for the tusd server by providing a configuration.
 	// The StoreComposer property must be set to allow the handler to function.
 	handler, err := tusd.NewHandler(tusd.Config{
-		BasePath:      "files/",
+		BasePath:      "/files/",
 		StoreComposer: composer,
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func main() {
 	// Right now, nothing has happened since we need to start the HTTP server on
 	// our own. In the end, tusd will start listening on and accept request at
 	// http://localhost:8080/files
-	http.Handle("files/", http.StripPrefix("files/", handler))
+	http.Handle("/files/", http.StripPrefix("/files/", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic("Unable to listen: %s", err)
