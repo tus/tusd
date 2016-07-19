@@ -8,23 +8,26 @@ import (
 var greeting string
 
 func PrepareGreeting() {
+	// @todo: Introduce configurable metrics endpoint.
+	// See: https://github.com/tus/tusd/issues/52
 	greeting = fmt.Sprintf(
 		`Welcome to tusd
 ===============
 
-Congratulations for setting up tusd! You are now part of the chosen elite and
-able to experience the feeling of resumable uploads! We hope you are as excited
-as we are (a lot)!
+Congratulations on setting up tusd! Thanks for joining our cause, you have taken the first step towards making the future of resumable uploading a reality! We hope you are as excited about this as we are!
 
-However, there is something you should be aware of: While you got tusd
-running (you did an awesome job!), this is the root directory of the server
-and tus requests are only accepted at the %s route.
+While you did an awesome job on getting tusd running, this is just the welcome message, so let's talk about the places that really matter:
 
-So don't waste time, head over there and experience the future!
+- %s - send your tus uploads to this endpoint
+- %s - gather statistics to keep tusd running smoothly
+- https://github.com/tus/tusd/issues - report your bugs here
+
+So quit lollygagging, send over your files and experience the future!
 
 Version = %s
 GitCommit = %s
-BuildDate = %s`, Flags.Basepath, VersionName, GitCommit, BuildDate)
+BuildDate = %s
+`, Flags.Basepath, "/metrics", VersionName, GitCommit, BuildDate)
 }
 
 func DisplayGreeting(w http.ResponseWriter, r *http.Request) {
