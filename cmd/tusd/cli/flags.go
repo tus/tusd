@@ -17,6 +17,7 @@ var Flags struct {
 	HooksDir      string
 	ShowVersion   bool
 	ExposeMetrics bool
+	MetricsPath   string
 	BehindProxy   bool
 
 	HooksInstalled bool
@@ -34,6 +35,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.HooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
+	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 
 	flag.Parse()
