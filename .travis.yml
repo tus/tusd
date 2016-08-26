@@ -22,6 +22,7 @@ matrix:
 install:
 - export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
 - rsync -r ./vendor/ $GOPATH/src
+- go get $PACKAGES
 script:
 - go test $PACKAGES
 before_deploy:
