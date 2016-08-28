@@ -89,7 +89,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	}
 
 	// Only promote extesions using the Tus-Extension header which are implemented
-	extensions := "creation"
+	extensions := "creation,creation-with-upload"
 	if config.StoreComposer.UsesTerminater {
 		extensions += ",termination"
 	}
@@ -191,6 +191,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
+	// Check for presence of application/offset+octet-stream
+	containsChunk := false
+	if contentType := r.Header.Get("Content-Type"); contentType != "" {
+		if contentType != "application/offset+octet-stream" {
+			handler.sendError(w, r, ErrInvalidContentType)
+			return
+		}
+		containsChunk = true
+	}
+
 	// Only use the proper Upload-Concat header if the concatenation extension
 	// is even supported by the data store.
 	var concatHeader string
@@ -210,6 +220,12 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Upload-Length header)
 	var size int64
 	if isFinal {
+		// A final upload must not contain a chunk within the creation request
+		if containsChunk {
+			handler.sendError(w, r, ErrModifyFinal)
+			return
+		}
+
 		size, err = handler.sizeOfUploads(partialUploads)
 		if err != nil {
 			handler.sendError(w, r, err)
@@ -246,6 +262,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Add the Location header directly after creating the new resource to even
+	// include it in cases of failure when an error is returned
+	url := handler.absFileURL(r, id)
+	w.Header().Set("Location", url)
+
+	go handler.Metrics.incUploadsCreated()
+
 	if isFinal {
 		if err := handler.composer.Concater.ConcatUploads(id, partialUploads); err != nil {
 			handler.sendError(w, r, err)
@@ -257,15 +280,26 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			info.ID = id
 			handler.CompleteUploads <- info
 		}
-
-		go handler.Metrics.incUploadsFinished()
 	}
 
-	url := handler.absFileURL(r, id)
-	w.Header().Set("Location", url)
-	w.WriteHeader(http.StatusCreated)
+	if containsChunk {
+		if handler.composer.UsesLocker {
+			locker := handler.composer.Locker
+			if err := locker.LockUpload(id); err != nil {
+				handler.sendError(w, r, err)
+				return
+			}
 
-	go handler.Metrics.incUploadsCreated()
+			defer locker.UnlockUpload(id)
+		}
+
+		if err := handler.writeChunk(id, info, w, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 // HeadFile returns the length and offset for the HEAD request
@@ -372,13 +406,23 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := handler.writeChunk(id, info, w, r); err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PatchFile adds a chunk to an upload. Only allowed enough space is left.
+func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.ResponseWriter, r *http.Request) error {
 	// Get Content-Length if possible
 	length := r.ContentLength
+	offset := info.Offset
 
 	// Test if this upload fits into the file's size
 	if offset+length > info.Size {
-		handler.sendError(w, r, ErrSizeExceeded)
-		return
+		return ErrSizeExceeded
 	}
 
 	maxSize := info.Size - offset
@@ -386,13 +430,18 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		maxSize = length
 	}
 
-	// Limit the data read from the request's body to the allowed maxiumum
-	reader := io.LimitReader(r.Body, maxSize)
+	var bytesWritten int64
+	// Prevent a nil pointer derefernce when accessing the body which may not be
+	// available in the case of a malicious request.
+	if r.Body != nil {
+		// Limit the data read from the request's body to the allowed maxiumum
+		reader := io.LimitReader(r.Body, maxSize)
 
-	bytesWritten, err := handler.composer.Core.WriteChunk(id, offset, reader)
-	if err != nil {
-		handler.sendError(w, r, err)
-		return
+		var err error
+		bytesWritten, err = handler.composer.Core.WriteChunk(id, offset, reader)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Send new offset to client
@@ -405,8 +454,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		// ... allow custom mechanism to finish and cleanup the upload
 		if handler.composer.UsesFinisher {
 			if err := handler.composer.Finisher.FinishUpload(id); err != nil {
-				handler.sendError(w, r, err)
-				return
+				return err
 			}
 		}
 
@@ -419,7 +467,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		go handler.Metrics.incUploadsFinished()
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // GetFile handles requests to download a file using a GET request. This is not

@@ -20,7 +20,7 @@ func TestOptions(t *testing.T) {
 		Method: "OPTIONS",
 		Code:   http.StatusOK,
 		ResHeader: map[string]string{
-			"Tus-Extension": "creation",
+			"Tus-Extension": "creation,creation-with-upload",
 			"Tus-Version":   "1.0.0",
 			"Tus-Resumable": "1.0.0",
 			"Tus-Max-Size":  "400",

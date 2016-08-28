@@ -44,7 +44,7 @@ func TestTerminate(t *testing.T) {
 		Method: "OPTIONS",
 		URL:    "",
 		ResHeader: map[string]string{
-			"Tus-Extension": "creation,termination",
+			"Tus-Extension": "creation,creation-with-upload,termination",
 		},
 		Code: http.StatusOK,
 	}).Run(handler, t)

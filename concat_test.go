@@ -46,7 +46,7 @@ func TestConcatPartial(t *testing.T) {
 		Method: "OPTIONS",
 		URL:    "",
 		ResHeader: map[string]string{
-			"Tus-Extension": "creation,concatenation",
+			"Tus-Extension": "creation,creation-with-upload,concatenation",
 		},
 		Code: http.StatusOK,
 	}).Run(handler, t)

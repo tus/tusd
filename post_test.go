@@ -1,44 +1,57 @@
 package tusd_test
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/tus/tusd"
 )
 
 type postStore struct {
-	t *testing.T
+	t *assert.Assertions
 	zeroStore
 }
 
 func (s postStore) NewUpload(info FileInfo) (string, error) {
-	if info.Size != 300 {
-		s.t.Errorf("Expected size to be 300 (got %v)", info.Size)
-	}
+	s.t.Equal(int64(300), info.Size)
 
 	metaData := info.MetaData
-	if len(metaData) != 2 {
-		s.t.Errorf("Expected two elements in metadata")
-	}
-
-	if v := metaData["foo"]; v != "hello" {
-		s.t.Errorf("Expected foo element to be 'hello' but got %s", v)
-	}
-
-	if v := metaData["bar"]; v != "world" {
-		s.t.Errorf("Expected bar element to be 'world' but got %s", v)
-	}
+	s.t.Equal(2, len(metaData))
+	s.t.Equal("hello", metaData["foo"])
+	s.t.Equal("world", metaData["bar"])
 
 	return "foo", nil
 }
 
+func (s postStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+	s.t.Equal(int64(0), offset)
+
+	data, err := ioutil.ReadAll(src)
+	s.t.Nil(err)
+	s.t.Equal("hello", string(data))
+
+	return 5, nil
+}
+
+func (s postStore) ConcatUploads(id string, uploads []string) error {
+	s.t.True(false, "concatenation should not be attempted")
+	return nil
+}
+
 func TestPost(t *testing.T) {
+	a := assert.New(t)
+
 	handler, _ := NewHandler(Config{
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: postStore{
-			t: t,
+			t: a,
 		},
 	})
 
@@ -87,7 +100,7 @@ func TestPost(t *testing.T) {
 		MaxSize:  400,
 		BasePath: "files",
 		DataStore: postStore{
-			t: t,
+			t: a,
 		},
 		RespectForwardedHeaders: true,
 	})
@@ -139,5 +152,72 @@ func TestPost(t *testing.T) {
 		ResHeader: map[string]string{
 			"Location": "http://tus.io/files/foo",
 		},
+	}).Run(handler, t)
+}
+
+func TestPostWithUpload(t *testing.T) {
+	a := assert.New(t)
+
+	handler, _ := NewHandler(Config{
+		MaxSize:  400,
+		BasePath: "files",
+		DataStore: postStore{
+			t: a,
+		},
+	})
+
+	(&httpTest{
+		Name:   "Successful request",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "300",
+			"Content-Type":    "application/offset+octet-stream",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusCreated,
+		ResHeader: map[string]string{
+			"Location":      "http://tus.io/files/foo",
+			"Upload-Offset": "5",
+		},
+	}).Run(handler, t)
+
+	(&httpTest{
+		Name:   "Exceeding upload size",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "300",
+			"Content-Type":    "application/offset+octet-stream",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+		},
+		ReqBody: bytes.NewReader(make([]byte, 400)),
+		Code:    http.StatusRequestEntityTooLarge,
+	}).Run(handler, t)
+
+	(&httpTest{
+		Name:   "Incorrect content type",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"Tus-Resumable": "1.0.0",
+			"Content-Type":  "application/false",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusBadRequest,
+	}).Run(handler, t)
+
+	(&httpTest{
+		Name:   "Upload and final concatenation",
+		Method: "POST",
+		ReqHeader: map[string]string{
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "300",
+			"Content-Type":    "application/offset+octet-stream",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+			"Upload-Concat":   "final; http://tus.io/files/a http://tus.io/files/b",
+		},
+		ReqBody: strings.NewReader("hello"),
+		Code:    http.StatusForbidden,
 	}).Run(handler, t)
 }
