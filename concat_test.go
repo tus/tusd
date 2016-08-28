@@ -69,7 +69,7 @@ func TestConcatPartial(t *testing.T) {
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
 		},
-		Code: http.StatusNoContent,
+		Code: http.StatusOK,
 		ResHeader: map[string]string{
 			"Upload-Concat": "partial",
 		},
@@ -165,7 +165,7 @@ func TestConcatFinal(t *testing.T) {
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
 		},
-		Code: http.StatusNoContent,
+		Code: http.StatusOK,
 		ResHeader: map[string]string{
 			"Upload-Concat": "final; http://tus.io/files/a http://tus.io/files/b",
 			"Upload-Length": "10",

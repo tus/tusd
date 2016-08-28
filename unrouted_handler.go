@@ -313,7 +313,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 // PatchFile adds a chunk to an upload. Only allowed enough space is left.
