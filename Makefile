@@ -1,24 +1,25 @@
-FREY_VERSION := 0.3.13
+FREY_VERSION := 0.3.23
 
 .PHONY: frey
 frey:
-	@grep $(FREY_VERSION) node_modules/frey/package.json 2>&1 > /dev/null || npm install frey@$(FREY_VERSION)
+	@cd .infra && mkdir -p node_modules
+	@cd .infra && (grep $(FREY_VERSION) node_modules/frey/package.json 2>&1 > /dev/null || npm install frey@$(FREY_VERSION))
 
 .PHONY: provision
 provision: frey
-	@source env.sh && node_modules/.bin/frey install
+	@cd .infra && source env.sh && node_modules/.bin/frey install
 
 .PHONY: deploy
-deploy:
-	@cd .infra && source env.sh && frey setup
+deploy: frey
+	@cd .infra && source env.sh && node_modules/.bin/frey setup
 
 .PHONY: launch
-launch:
-	@cd .infra && source env.infra.sh && frey infra
+launch: frey
+	@cd .infra && source env.infra.sh && node_modules/.bin/frey infra
 
 .PHONY: console
-console:
-	@cd .infra && source env.sh && frey remote
+console: frey
+	@cd .infra && source env.sh && node_modules/.bin/frey remote
 
 .PHONY: deploy-localfrey
 deploy-localfrey:
