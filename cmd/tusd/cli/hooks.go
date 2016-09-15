@@ -70,10 +70,18 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		return nil, nil
 	}
 
-	name := string(typ)
-	stdout.Printf("Invoking %s hook…\n", name)
+	// Build path to hook
+	hook_path := Flags.HooksDir + "/" + string(typ)
 
-	cmd := exec.Command(Flags.HooksDir + "/" + name)
+	// Check if the hook actually exists and return early if it doesn't
+	if _, err := os.Stat(hook_path); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	// Execute the hook
+	stdout.Printf("Invoking %s hook…\n", hook_path)
+
+	cmd := exec.Command(hook_path)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
