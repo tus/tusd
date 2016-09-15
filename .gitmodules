@@ -4,9 +4,6 @@
 [submodule "vendor/github.com/nightlyone/lockfile"]
 	path = vendor/github.com/nightlyone/lockfile
 	url = https://github.com/nightlyone/lockfile
-[submodule "vendor/github.com/aws/aws-sdk-go"]
-	path = vendor/github.com/aws/aws-sdk-go
-	url = https://github.com/aws/aws-sdk-go
 [submodule "vendor/github.com/go-ini/ini"]
 	path = vendor/github.com/go-ini/ini
 	url = https://github.com/go-ini/ini
@@ -25,9 +22,6 @@
 [submodule "vendor/github.com/pmezard/go-difflib"]
 	path = vendor/github.com/pmezard/go-difflib
 	url = https://github.com/pmezard/go-difflib
-[submodule "vendor/github.com/hashicorp/consul"]
-	path = vendor/github.com/hashicorp/consul
-	url = https://github.com/hashicorp/consul
 [submodule "vendor/github.com/hashicorp/go-cleanhttp"]
 	path = vendor/github.com/hashicorp/go-cleanhttp
 	url = https://github.com/hashicorp/go-cleanhttp

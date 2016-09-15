@@ -40,7 +40,7 @@ func TestHead(t *testing.T) {
 		ReqHeader: map[string]string{
 			"Tus-Resumable": "1.0.0",
 		},
-		Code: http.StatusNoContent,
+		Code: http.StatusOK,
 		ResHeader: map[string]string{
 			"Upload-Offset": "11",
 			"Upload-Length": "44",

@@ -25,7 +25,7 @@ func CreateComposer() {
 		dir := Flags.UploadDir
 
 		stdout.Printf("Using '%s' as directory storage.\n", dir)
-		if err := os.MkdirAll(dir, os.FileMode(0775)); err != nil {
+		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
 

@@ -907,6 +907,16 @@ func (_mr *_MockS3APIRecorder) ListObjectsV2(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListObjectsV2", arg0)
 }
 
+func (_m *MockS3API) ListObjectsV2Pages(_param0 *s3.ListObjectsV2Input, _param1 func(*s3.ListObjectsV2Output, bool) bool) error {
+	ret := _m.ctrl.Call(_m, "ListObjectsV2Pages", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockS3APIRecorder) ListObjectsV2Pages(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListObjectsV2Pages", arg0, arg1)
+}
+
 func (_m *MockS3API) ListObjectsV2Request(_param0 *s3.ListObjectsV2Input) (*request.Request, *s3.ListObjectsV2Output) {
 	ret := _m.ctrl.Call(_m, "ListObjectsV2Request", _param0)
 	ret0, _ := ret[0].(*request.Request)

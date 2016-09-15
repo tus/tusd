@@ -28,7 +28,7 @@ import (
 	"github.com/nightlyone/lockfile"
 )
 
-var defaultFilePerm = os.FileMode(0775)
+var defaultFilePerm = os.FileMode(0664)
 
 // See the tusd.DataStore interface for documentation about the different
 // methods.

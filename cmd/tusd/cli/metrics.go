@@ -18,5 +18,6 @@ func SetupMetrics(handler *tusd.Handler) {
 	prometheus.MustRegister(MetricsOpenConnections)
 	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
 
-	http.Handle("/metrics", prometheus.Handler())
+	stdout.Printf("Using %s as the metrics path.\n", Flags.MetricsPath)
+	http.Handle(Flags.MetricsPath, prometheus.Handler())
 }

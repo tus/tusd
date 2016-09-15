@@ -27,13 +27,14 @@ func Serve() {
 
 	stdout.Printf("Using %s as address to listen.\n", address)
 	stdout.Printf("Using %s as the base path.\n", basepath)
-	stdout.Printf(Composer.Capabilities())
 
 	SetupPostHooks(handler)
 
 	if Flags.ExposeMetrics {
 		SetupMetrics(handler)
 	}
+
+	stdout.Printf(Composer.Capabilities())
 
 	// Do not display the greeting if the tusd handler will be mounted at the root
 	// path. Else this would cause a "multiple registrations for /" panic.
