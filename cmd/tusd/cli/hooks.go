@@ -90,10 +90,22 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	cmd.Dir = Flags.HooksDir
 	cmd.Stderr = os.Stderr
 
+	// If `captureOutput` is true, this function will return the output (both,
+	// stderr and stdout), else it will use this process' stdout
+	var output []byte
 	if !captureOutput {
 		cmd.Stdout = os.Stdout
-		return nil, cmd.Run()
+		err = cmd.Run()
 	} else {
-		return cmd.Output()
+		output, err = cmd.Output()
 	}
+
+	// Ignore the error, only, if the hook's file could not be found. This usually
+	// means that the user is only using a subset of the available hooks.
+	if os.IsNotExist(err) {
+		stdout.Printf("Unable to invoke %s hook: %s\n", name, err)
+		err = nil
+	}
+
+	return output, err
 }
