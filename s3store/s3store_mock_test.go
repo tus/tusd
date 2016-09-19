@@ -1377,3 +1377,43 @@ func (_m *MockS3API) UploadPartRequest(_param0 *s3.UploadPartInput) (*request.Re
 func (_mr *_MockS3APIRecorder) UploadPartRequest(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UploadPartRequest", arg0)
 }
+
+func (_m *MockS3API) WaitUntilBucketExists(_param0 *s3.HeadBucketInput) error {
+	ret := _m.ctrl.Call(_m, "WaitUntilBucketExists", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockS3APIRecorder) WaitUntilBucketExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WaitUntilBucketExists", arg0)
+}
+
+func (_m *MockS3API) WaitUntilBucketNotExists(_param0 *s3.HeadBucketInput) error {
+	ret := _m.ctrl.Call(_m, "WaitUntilBucketNotExists", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockS3APIRecorder) WaitUntilBucketNotExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WaitUntilBucketNotExists", arg0)
+}
+
+func (_m *MockS3API) WaitUntilObjectExists(_param0 *s3.HeadObjectInput) error {
+	ret := _m.ctrl.Call(_m, "WaitUntilObjectExists", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockS3APIRecorder) WaitUntilObjectExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WaitUntilObjectExists", arg0)
+}
+
+func (_m *MockS3API) WaitUntilObjectNotExists(_param0 *s3.HeadObjectInput) error {
+	ret := _m.ctrl.Call(_m, "WaitUntilObjectNotExists", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockS3APIRecorder) WaitUntilObjectNotExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WaitUntilObjectNotExists", arg0)
+}
