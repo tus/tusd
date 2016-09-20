@@ -21,9 +21,10 @@ matrix:
   allow_failures:
   - go: tip
 install:
-- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
+- export PACKAGES=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 - rsync -r ./vendor/ $GOPATH/src
-- go get $PACKAGES
+- go get github.com/aws/aws-sdk-go
+- go get github.com/hashicorp/consul
 script:
 - go test $PACKAGES
 before_deploy:
