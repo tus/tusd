@@ -53,7 +53,7 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 	go func() {
 		_, err := invokeHookSync(typ, info, false)
 		if err != nil {
-			stderr.Printf("Error running %s hook for %s: %s", string(typ), info.ID, err)
+			logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
 		}
 	}()
 }
@@ -61,9 +61,9 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
 	case HookPostFinish:
-		stdout.Printf("Upload %s (%d bytes) finished\n", info.ID, info.Size)
+		logEv("UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 	case HookPostTerminate:
-		stdout.Printf("Upload %s terminated\n", info.ID)
+		logEv("UploadTerminated", "id", info.ID)
 	}
 
 	if !Flags.HooksInstalled {
@@ -71,7 +71,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	}
 
 	name := string(typ)
-	stdout.Printf("Invoking %s hook…\n", name)
+	logEv("HookInvocationStart", "type", name, "id", info.ID)
 
 	cmd := exec.Command(Flags.HooksDir + "/" + name)
 	env := os.Environ()
@@ -103,7 +103,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	// Ignore the error, only, if the hook's file could not be found. This usually
 	// means that the user is only using a subset of the available hooks.
 	if os.IsNotExist(err) {
-		stdout.Printf("Unable to invoke %s hook: %s\n", name, err)
+		logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
 		err = nil
 	}
 
