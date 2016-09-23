@@ -10,10 +10,13 @@ install:
 build_script:
   - go env
   - go version
+  - go get ./s3store
+  - go get ./consullocker
 
 test_script:
   - go test .
   - go test ./filestore
   - go test ./limitedstore
   - go test ./memorylocker
+  - go test ./consullocker
   - go test ./s3store
