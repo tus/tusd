@@ -166,7 +166,7 @@ func (store FileStore) UnlockUpload(id string) error {
 		err = nil
 	}
 
-	return nil
+	return err
 }
 
 // newLock contructs a new Lockfile instance.
