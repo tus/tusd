@@ -80,7 +80,7 @@ func newMetrics() Metrics {
 func newErrorsTotalMap() map[string]*uint64 {
 	m := make(map[string]*uint64, len(ErrStatusCodes)+1)
 
-	for err, _ := range ErrStatusCodes {
+	for err := range ErrStatusCodes {
 		m[err.Error()] = new(uint64)
 	}
 

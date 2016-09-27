@@ -538,7 +538,7 @@ func TestTerminateWithErrors(t *testing.T) {
 	}, nil)
 
 	err := store.Terminate("uploadId+multipartId")
-	assert.Equal("Multiple errors occured:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
+	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
 }
 
 func TestConcatUploads(t *testing.T) {
