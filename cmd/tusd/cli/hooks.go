@@ -51,10 +51,8 @@ func SetupPostHooks(handler *tusd.Handler) {
 
 func invokeHook(typ HookType, info tusd.FileInfo) {
 	go func() {
-		_, err := invokeHookSync(typ, info, false)
-		if err != nil {
-			logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
-		}
+		// Error handling is token care of by the function.
+		_, _ = invokeHookSync(typ, info, false)
 	}()
 }
 
@@ -100,10 +98,15 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		output, err = cmd.Output()
 	}
 
+	if err != nil {
+		logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
+	} else {
+		logEv("HookInvocationFinish", "type", string(typ), "id", info.ID)
+	}
+
 	// Ignore the error, only, if the hook's file could not be found. This usually
 	// means that the user is only using a subset of the available hooks.
 	if os.IsNotExist(err) {
-		logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
 		err = nil
 	}
 
