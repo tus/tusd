@@ -146,8 +146,16 @@ setup {
       fqdn = "master.tus.io"
     }
     tasks {
-      file = "path=/mnt/tusd-data state=directory owner=www-data group=www-data mode=0755 recurse=yes"
+      file = "path=/mnt/tusd-data state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
       name = "tusd | Create tusd data dir"
+    }
+    tasks {
+      name = "tusd | Create purger crontab (clean up >24h (1400minutes) files)"
+      cron {
+        name         = "purger"
+        special_time = "hourly"
+        job          = "find /mnt/tusd-data -type f -mmin +1440 -print0 | xargs -n 200 -r -0 rm || true"
+      }
     }
   }
 }
