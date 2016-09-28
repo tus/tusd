@@ -8,3 +8,5 @@ data/
 .infra/ssh/frey-tusd.pem
 node_modules/
 .DS_Store
+
+.infra/env.devinfra.sh
