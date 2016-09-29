@@ -16,7 +16,6 @@ go test $packages
 # The consul package only supports Go1.6+ and therefore we will only run the
 # corresponding tests on these versions.
 goversion=$(go version)
-if [[ "$goversion" != *"go1.3"* ]] &&
    [[ "$goversion" != *"go1.4"* ]] &&
    [[ "$goversion" != *"go1.5"* ]]; then
 
