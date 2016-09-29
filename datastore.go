@@ -69,7 +69,7 @@ type FinisherDataStore interface {
 // Common ways to store this information is in memory, on disk or using an
 // external service, such as ZooKeeper.
 // When multiple processes are attempting to access an upload, whether it be
-// by reading or writing, a syncronization mechanism is required to prevent
+// by reading or writing, a synchronization mechanism is required to prevent
 // data corruption, especially to ensure correct offset values and the proper
 // order of chunks inside a single upload.
 type LockerDataStore interface {

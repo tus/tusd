@@ -61,11 +61,7 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	for key, value := range test.ResHeader {
 		header := w.HeaderMap.Get(key)
 
-		if value == "" && header == "" {
-			t.Errorf("Expected '%s' in response", key)
-		}
-
-		if value != "" && value != header {
+		if value != header {
 			t.Errorf("Expected '%s' as '%s' (got '%s')", value, key, header)
 		}
 	}

@@ -126,10 +126,9 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		go func() {
-			handler.logger.Println(r.Method, r.URL.Path)
-			handler.Metrics.incRequestsTotal(r.Method)
-		}()
+		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path)
+
+		go handler.Metrics.incRequestsTotal(r.Method)
 
 		header := w.Header()
 
@@ -171,7 +170,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			// will be ignored or interpreted as a rejection.
 			// For example, the Presto engine, which is used in older versions of
 			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
-			w.WriteHeader(http.StatusOK)
+			handler.sendResp(w, r, http.StatusOK)
 			return
 		}
 
@@ -191,15 +190,10 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	// Check for presence of application/offset+octet-stream
-	containsChunk := false
-	if contentType := r.Header.Get("Content-Type"); contentType != "" {
-		if contentType != "application/offset+octet-stream" {
-			handler.sendError(w, r, ErrInvalidContentType)
-			return
-		}
-		containsChunk = true
-	}
+	// Check for presence of application/offset+octet-stream. If another content
+	// type is defined, it will be ignored and treated as none was set because
+	// some HTTP clients may enforce a default value for this header.
+	containsChunk := r.Header.Get("Content-Type") == "application/offset+octet-stream"
 
 	// Only use the proper Upload-Concat header if the concatenation extension
 	// is even supported by the data store.
@@ -268,6 +262,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Location", url)
 
 	go handler.Metrics.incUploadsCreated()
+	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if isFinal {
 		if err := handler.composer.Concater.ConcatUploads(id, partialUploads); err != nil {
@@ -299,7 +294,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	handler.sendResp(w, r, http.StatusCreated)
 }
 
 // HeadFile returns the length and offset for the HEAD request
@@ -347,7 +342,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
-	w.WriteHeader(http.StatusOK)
+	handler.sendResp(w, r, http.StatusOK)
 }
 
 // PatchFile adds a chunk to an upload. Only allowed enough space is left.
@@ -402,7 +397,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	// Do not proxy the call to the data store if the upload is already completed
 	if info.Offset == info.Size {
 		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
-		w.WriteHeader(http.StatusNoContent)
+		handler.sendResp(w, r, http.StatusNoContent)
 		return
 	}
 
@@ -411,7 +406,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	handler.sendResp(w, r, http.StatusNoContent)
 }
 
 // PatchFile adds a chunk to an upload. Only allowed enough space is left.
@@ -430,6 +425,8 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 		maxSize = length
 	}
 
+	handler.log("ChunkWriteStart", "id", id, "maxSize", i64toa(maxSize), "offset", i64toa(offset))
+
 	var bytesWritten int64
 	// Prevent a nil pointer derefernce when accessing the body which may not be
 	// available in the case of a malicious request.
@@ -443,6 +440,8 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 			return err
 		}
 	}
+
+	handler.log("ChunkWriteComplete", "id", id, "bytesWritten", i64toa(bytesWritten))
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
@@ -502,7 +501,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 	// Do not do anything if no data is stored yet.
 	if info.Offset == 0 {
-		w.WriteHeader(http.StatusNoContent)
+		handler.sendResp(w, r, http.StatusNoContent)
 		return
 	}
 
@@ -518,7 +517,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
-	w.WriteHeader(http.StatusOK)
+	handler.sendResp(w, r, http.StatusOK)
 	io.Copy(w, src)
 
 	// Try to close the reader if the io.Closer interface is implemented
@@ -566,7 +565,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	handler.sendResp(w, r, http.StatusNoContent)
 
 	if handler.config.NotifyTerminatedUploads {
 		handler.TerminatedUploads <- info
@@ -598,7 +597,16 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(status)
 	w.Write([]byte(reason))
 
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path, "error", err.Error())
+
 	go handler.Metrics.incErrorsTotal(err)
+}
+
+// sendResp writes the header to w with the specified status code.
+func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request, status int) {
+	w.WriteHeader(status)
+
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -771,4 +779,8 @@ func extractIDFromPath(url string) (string, error) {
 		return "", ErrNotFound
 	}
 	return result[1], nil
+}
+
+func i64toa(num int64) string {
+	return strconv.FormatInt(num, 10)
 }

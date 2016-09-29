@@ -272,7 +272,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 	uploadId, multipartId := splitIds(id)
 
-	// Get file info stored in seperate object
+	// Get file info stored in separate object
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    aws.String(uploadId + ".info"),
@@ -335,7 +335,7 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 		Key:    aws.String(uploadId),
 	})
 	if err == nil {
-		// No error occured, and we are able to stream the object
+		// No error occurred, and we are able to stream the object
 		return res.Body, nil
 	}
 

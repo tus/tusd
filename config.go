@@ -35,7 +35,7 @@ type Config struct {
 	Logger *log.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
-	// reponse to POST requests.
+	// response to POST requests.
 	RespectForwardedHeaders bool
 }
 

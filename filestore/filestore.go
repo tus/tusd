@@ -7,9 +7,9 @@
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
 //
-// In addition, it provides an exclusive upload locking mechansim using lock files
+// In addition, it provides an exclusive upload locking mechanism using lock files
 // which are stored on disk. Each of them stores the PID of the process which
-// aquired the lock. This allows locks to be automatically freed when a process
+// acquired the lock. This allows locks to be automatically freed when a process
 // is unable to release it on its own because the process is not alive anymore.
 // For more information, consult the documentation for tusd.LockerDataStore
 // interface, which is implemented by FileStore
@@ -161,12 +161,12 @@ func (store FileStore) UnlockUpload(id string) error {
 
 	// A "no such file or directory" will be returned if no lockfile was found.
 	// Since this means that the file has never been locked, we drop the error
-	// and continue as if nothing happend.
+	// and continue as if nothing happened.
 	if os.IsNotExist(err) {
 		err = nil
 	}
 
-	return nil
+	return err
 }
 
 // newLock contructs a new Lockfile instance.

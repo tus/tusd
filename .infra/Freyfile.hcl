@@ -33,15 +33,9 @@ infra variable {
 }
 
 infra output {
-  public_address {
-    value = "${aws_instance.tusd.0.public_dns}"
-  }
-  public_addresses {
-    value = "${join("\n", aws_instance.tusd.*.public_dns)}"
-  }
-  endpoint {
-    value = "http://${aws_route53_record.www.name}:80/"
-  }
+  public_address { value = "${aws_instance.tusd.0.public_dns}" }
+  public_addresses { value = "${join("\n", aws_instance.tusd.*.public_dns)}" }
+  endpoint { value = "http://${aws_route53_record.www.name}:80/" }
 }
 
 infra resource aws_instance tusd {
@@ -53,13 +47,11 @@ infra resource aws_instance tusd {
     key_file = "{{{config.global.ssh.privatekey_file}}}"
     user     = "{{{config.global.ssh.user}}}"
   }
-  tags {
-    "Name" = "${var.FREY_DOMAIN}"
-  }
+  tags { Name = "master.tus.io" }
 }
 
 infra resource "aws_route53_record" www {
-  name    = "${var.FREY_DOMAIN}"
+  name    = "master.tus.io"
   records = ["${aws_instance.tusd.public_dns}"]
   ttl     = "300"
   type    = "CNAME"
@@ -110,7 +102,7 @@ install {
     }
     tasks {
       name = "Common | Set motd"
-      copy = "content='Welcome to {{lookup('env', 'FREY_DOMAIN')}}' dest=/etc/motd owner=root group=root mode=0644 backup=yes"
+      copy = "content='Welcome to master.tus.io' dest=/etc/motd owner=root group=root mode=0644 backup=yes"
     }
     tasks {
       name   = "Common | Set timezone variables"
@@ -151,11 +143,19 @@ setup {
     }
     roles {
       role = "{{{init.paths.roles_dir}}}/fqdn/v1.0.0"
-      fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
+      fqdn = "master.tus.io"
     }
     tasks {
-      file = "path=/mnt/tusd-data state=directory owner=www-data group=www-data mode=0755 recurse=yes"
+      file = "path=/mnt/tusd-data state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
       name = "tusd | Create tusd data dir"
+    }
+    tasks {
+      name = "tusd | Create purger crontab (clean up >24h (1400minutes) files)"
+      cron {
+        name         = "purger"
+        special_time = "hourly"
+        job          = "find /mnt/tusd-data -type f -mmin +1440 -print0 | xargs -n 200 -r -0 rm || true"
+      }
     }
   }
 }
