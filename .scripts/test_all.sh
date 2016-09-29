@@ -8,7 +8,7 @@ packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 packages=$(echo "$packages" | sed '/consul/d')
 
 # Install the AWS SDK which is explicitly not vendored
-go get -u github.com/aws/aws-sdk-go
+go get -u -v github.com/aws/aws-sdk-go/...
 
 # Test all packages which are allowed on all Go versions
 go test $packages
@@ -21,7 +21,7 @@ if [[ "$goversion" != *"go1.3"* ]] &&
    [[ "$goversion" != *"go1.5"* ]]; then
 
   # Install the Consul packages which are not vendored.
-  go get -u github.com/hashicorp/consul
+  go get -u -v github.com/hashicorp/consul/...
 
   go test ./consullocker
 else
