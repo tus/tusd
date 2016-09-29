@@ -2,27 +2,26 @@
 
 set -e
 
-# Find all packages inside the current directory, excluding the consullocker
-# since this may not be run on all Go versions.
+# Find all packages containing Go source code inside the current directory
 packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
-packages=$(echo "$packages" | sed '/consul/d')
-
-# Install the AWS SDK which is explicitly not vendored
-go get -u -v github.com/aws/aws-sdk-go/...
-
-# Test all packages which are allowed on all Go versions
-go test $packages
 
 # The consul package only supports Go1.6+ and therefore we will only run the
 # corresponding tests on these versions.
 goversion=$(go version)
-   [[ "$goversion" != *"go1.4"* ]] &&
-   [[ "$goversion" != *"go1.5"* ]]; then
+if [[ "$goversion" == *"go1.4"* ]] ||
+   [[ "$goversion" == *"go1.7"* ]]; then
 
-  # Install the Consul packages which are not vendored.
-  go get -u -v github.com/hashicorp/consul/...
-
-  go test ./consullocker
-else
   echo "Skipping tests requiring Consul which is not supported on $goversion"
+
+  # Exclude consullocker since this may not be run on all Go versions.
+  packages=$(echo "$packages" | sed '/consul/d')
+else
+  # Install the Consul packages which are not vendored.
+  go get -u github.com/hashicorp/consul/...
 fi
+
+# Install the AWS SDK which is explicitly not vendored
+go get -u github.com/aws/aws-sdk-go/...
+
+# Test all packages which are allowed on all Go versions
+go test $packages
