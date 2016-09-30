@@ -200,11 +200,17 @@ func TestPostWithUpload(t *testing.T) {
 		Name:   "Incorrect content type",
 		Method: "POST",
 		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/false",
+			"Tus-Resumable":   "1.0.0",
+			"Upload-Length":   "300",
+			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+			"Content-Type":    "application/false",
 		},
 		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusBadRequest,
+		Code:    http.StatusCreated,
+		ResHeader: map[string]string{
+			"Location":      "http://tus.io/files/foo",
+			"Upload-Offset": "",
+		},
 	}).Run(handler, t)
 
 	(&httpTest{

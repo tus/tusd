@@ -2,9 +2,9 @@ package tusd_test
 
 import (
 	"github.com/tus/tusd"
-	"github.com/tus/tusd/consullocker"
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/limitedstore"
+	"github.com/tus/tusd/memorylocker"
 )
 
 func ExampleNewStoreComposer() {
@@ -13,8 +13,8 @@ func ExampleNewStoreComposer() {
 	fs := filestore.New("./data")
 	fs.UseIn(composer)
 
-	cl := consullocker.New(nil)
-	cl.UseIn(composer)
+	ml := memorylocker.New()
+	ml.UseIn(composer)
 
 	ls := limitedstore.New(1024*1024*1024, composer.Core, composer.Terminater)
 	ls.UseIn(composer)

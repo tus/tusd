@@ -1,6 +1,5 @@
 language: go
 go:
-- 1.3
 - 1.4
 - 1.5
 - 1.6
@@ -21,35 +20,22 @@ matrix:
   allow_failures:
   - go: tip
 install:
-- export PACKAGES=$(find ./ -maxdepth 1 -type d -not \( -name ".git" -or -name "cmd" -or -name ".infra" -or -name "vendor" -or -name "data" -or -name ".hooks" \))
 - rsync -r ./vendor/ $GOPATH/src
-- go get $PACKAGES
 script:
-- go test $PACKAGES
+- ./.scripts/test_all.sh
 before_deploy:
-- export GOROOT_BOOTSTRAP=$GOROOT
-- go get github.com/laher/goxc
-- goxc -t -bc="linux darwin windows"
-- goxc -d=./ -wd=./cmd/tusd -bc="linux darwin windows" -build-ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=$TRAVIS_TAG -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=$TRAVIS_COMMIT -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'"
+- ./.scripts/build_all.sh
 deploy:
   provider: releases
   api_key:
     secure: dV3wr9ebEps3YrzIoqmkYc7fw0IECz7QLPRENPSxTJyd5TTYXGsnTS26cMe2LdGwYrXw0njt2GGovMyBZFTtxyYI3mMO4AZRwvZfx/yGzPWJBbVi6NjZVRg/bpyK+mQJ5BUlkPAYJmRpdc6qD+nvCGakBOxoByC5XDK+yM+bKFs=
-  file:
-  - snapshot/tusd_darwin_386.zip
-  - snapshot/tusd_darwin_amd64.zip
-  - snapshot/tusd_linux_386.tar.gz
-  - snapshot/tusd_linux_amd64.tar.gz
-  - snapshot/tusd_linux_arm.tar.gz
-  - snapshot/tusd_snapshot_amd64.deb
-  - snapshot/tusd_snapshot_armhf.deb
-  - snapshot/tusd_snapshot_i386.deb
-  - snapshot/tusd_windows_386.zip
-  - snapshot/tusd_windows_amd64.zip
+  file_glob: true
+  file: tusd_*.*
   skip_cleanup: true
   on:
+    all_branches: true
     tags: true
-    go: 1.5
+    go: 1.7
     repo: tus/tusd
 after_deploy:
 - make frey && frey setup --force-yes --projectDir .infra

@@ -1,0 +1,97 @@
+{
+	"comment": "",
+	"ignore": "test github.com/hashicorp/consul/ github.com/aws/aws-sdk-go/",
+	"package": [
+		{
+			"checksumSHA1": "spyv5/YFBjYyZLZa1U2LBfDR8PM=",
+			"path": "github.com/beorn7/perks/quantile",
+			"revision": "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",
+			"revisionTime": "2016-08-04T10:47:26Z"
+		},
+		{
+			"checksumSHA1": "AKjqgiWov1IJWbnpCkjVEs6NunQ=",
+			"path": "github.com/bmizerany/pat",
+			"revision": "c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c",
+			"revisionTime": "2016-02-17T10:30:50Z"
+		},
+		{
+			"checksumSHA1": "Lf3uUXTkKK5DJ37BxQvxO1Fq+K8=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "6d212800a42e8ab5c146b8ace3490ee17e5225f9",
+			"revisionTime": "2016-09-07T16:21:46Z"
+		},
+		{
+			"checksumSHA1": "JSHl8b3nI8EWvzm+uyrIqj2Hiu4=",
+			"path": "github.com/golang/mock/gomock",
+			"revision": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
+			"revisionTime": "2016-01-21T18:51:14Z"
+		},
+		{
+			"checksumSHA1": "sZSeW3Dc6lUqm1CzMUdu3poimoA=",
+			"path": "github.com/golang/protobuf/proto",
+			"revision": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a",
+			"revisionTime": "2016-08-24T20:12:15Z"
+		},
+		{
+			"checksumSHA1": "bKMZjd2wPw13VwoE7mBeSv5djFA=",
+			"path": "github.com/matttproud/golang_protobuf_extensions/pbutil",
+			"revision": "c12348ce28de40eed0136aa2b644d0ee0650e56c",
+			"revisionTime": "2016-04-24T11:30:07Z"
+		},
+		{
+			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
+			"path": "github.com/pmezard/go-difflib/difflib",
+			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+			"revisionTime": "2016-01-10T10:55:54Z"
+		},
+		{
+			"checksumSHA1": "Ph+qmEo8RdBKBHZUhx0y5Oyk/U0=",
+			"path": "github.com/prometheus/client_golang/prometheus",
+			"revision": "5636dc67ae776adf5590da7349e70fbb9559972d",
+			"revisionTime": "2016-09-16T18:03:40Z"
+		},
+		{
+			"checksumSHA1": "DvwvOlPNAgRntBzt3b3OSRMS2N4=",
+			"path": "github.com/prometheus/client_model/go",
+			"revision": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",
+			"revisionTime": "2015-02-12T10:17:44Z"
+		},
+		{
+			"checksumSHA1": "mHyjbJ3BWOfUV6q9f5PBt0gaY1k=",
+			"path": "github.com/prometheus/common/expfmt",
+			"revision": "9a94032291f2192936512bab367bc45e77990d6a",
+			"revisionTime": "2016-09-17T18:44:01Z"
+		},
+		{
+			"checksumSHA1": "GWlM3d2vPYyNATtTFgftS10/A9w=",
+			"path": "github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
+			"revision": "9a94032291f2192936512bab367bc45e77990d6a",
+			"revisionTime": "2016-09-17T18:44:01Z"
+		},
+		{
+			"checksumSHA1": "Jx0GXl5hGnO25s3ryyvtdWHdCpw=",
+			"path": "github.com/prometheus/common/model",
+			"revision": "9a94032291f2192936512bab367bc45e77990d6a",
+			"revisionTime": "2016-09-17T18:44:01Z"
+		},
+		{
+			"checksumSHA1": "W218eJZPXJG783fUr/z6IaAZyes=",
+			"path": "github.com/prometheus/procfs",
+			"revision": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5",
+			"revisionTime": "2016-04-11T19:08:41Z"
+		},
+		{
+			"checksumSHA1": "iydUphwYqZRq3WhstEdGsbvBAKs=",
+			"path": "github.com/stretchr/testify/assert",
+			"revision": "d77da356e56a7428ad25149ca77381849a6a5232",
+			"revisionTime": "2016-06-15T09:26:46Z"
+		},
+		{
+			"checksumSHA1": "0zBf3a7Gzqypt1sWefwx4NkOEIc=",
+			"path": "gopkg.in/Acconut/lockfile.v1",
+			"revision": "941fc61ce4d67dd432b94ed0bd445ad5fb9391a9",
+			"revisionTime": "2016-05-20T15:30:20Z"
+		}
+	],
+	"rootPath": "github.com/tus/tusd"
+}
