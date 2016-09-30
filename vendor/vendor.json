@@ -39,12 +39,6 @@
 			"revisionTime": "2016-04-24T11:30:07Z"
 		},
 		{
-			"checksumSHA1": "dSCW0yEU+VThfWk5v/GkSdrjIu4=",
-			"path": "github.com/nightlyone/lockfile",
-			"revision": "3d299f51e376213fcdcfd213a76afce6b290bf9d",
-			"revisionTime": "2016-06-19T19:46:32Z"
-		},
-		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",
 			"revision": "792786c7400a136282c1664665ae0a8db921c6c2",
@@ -91,6 +85,12 @@
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "d77da356e56a7428ad25149ca77381849a6a5232",
 			"revisionTime": "2016-06-15T09:26:46Z"
+		},
+		{
+			"checksumSHA1": "0zBf3a7Gzqypt1sWefwx4NkOEIc=",
+			"path": "gopkg.in/Acconut/lockfile.v1",
+			"revision": "941fc61ce4d67dd432b94ed0bd445ad5fb9391a9",
+			"revisionTime": "2016-05-20T15:30:20Z"
 		}
 	],
 	"rootPath": "github.com/tus/tusd"

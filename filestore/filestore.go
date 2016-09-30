@@ -25,7 +25,7 @@ import (
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/uid"
 
-	"github.com/nightlyone/lockfile"
+	"gopkg.in/Acconut/lockfile.v1"
 )
 
 var defaultFilePerm = os.FileMode(0664)
