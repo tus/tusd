@@ -44,10 +44,16 @@ infra output {
   }
 }
 
+infra resource aws_key_pair "infra-tusd-main" {
+  key_name   = "infra-tusd-main"
+  public_key = "${file("{{{config.global.ssh.publickey_file}}}")}"
+}
+
 infra resource aws_instance tusd {
   ami             = "${lookup(var.amis, var.region)}"
   instance_type   = "c3.large"
-  key_name        = "infra-tusd"
+  key_name        = "${aws_key_pair.infra-tusd-main.key_name}"
+
   security_groups = ["fw-tusd-main"]
   connection {
     key_file = "{{{config.global.ssh.privatekey_file}}}"
