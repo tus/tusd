@@ -90,4 +90,19 @@ func TestGet(t *testing.T) {
 			ResBody: "",
 		}).Run(handler, t)
 	})
+
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+
+		handler, _ := NewUnroutedHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "foo",
+			Code:   http.StatusNotImplemented,
+		}).Run(http.HandlerFunc(handler.GetFile), t)
+	})
 }

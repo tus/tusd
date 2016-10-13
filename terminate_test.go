@@ -77,7 +77,7 @@ func TestTerminate(t *testing.T) {
 		composer := NewStoreComposer()
 		composer.UseCore(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := NewUnroutedHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -87,7 +87,7 @@ func TestTerminate(t *testing.T) {
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
 			},
-			Code: http.StatusMethodNotAllowed,
-		}).Run(handler, t)
+			Code: http.StatusNotImplemented,
+		}).Run(http.HandlerFunc(handler.DelFile), t)
 	})
 }
