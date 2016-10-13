@@ -19,12 +19,12 @@ func (reader *closingStringReader) Close() error {
 	return nil
 }
 
-var reader = &closingStringReader{
-	Reader: strings.NewReader("hello"),
-}
-
 func TestGet(t *testing.T) {
 	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore) {
+		reader := &closingStringReader{
+			Reader: strings.NewReader("hello"),
+		}
+
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				Offset: 5,

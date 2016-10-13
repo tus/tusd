@@ -1,326 +1,254 @@
 package tusd_test
 
 import (
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/tus/tusd"
 )
 
-type patchStore struct {
-	zeroStore
-	t      *assert.Assertions
-	called bool
-}
-
-func (s patchStore) GetInfo(id string) (FileInfo, error) {
-	if id != "yes" {
-		return FileInfo{}, os.ErrNotExist
-	}
-
-	return FileInfo{
-		ID:     id,
-		Offset: 5,
-		Size:   10,
-	}, nil
-}
-
-func (s patchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	s.t.False(s.called, "WriteChunk must be called only once")
-	s.called = true
-
-	s.t.Equal(int64(5), offset)
-
-	data, err := ioutil.ReadAll(src)
-	s.t.Nil(err)
-	s.t.Equal("hello", string(data))
-
-	return 5, nil
-}
-
 func TestPatch(t *testing.T) {
-	a := assert.New(t)
+	SubTest(t, "UploadChunk", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:     "yes",
+				Offset: 5,
+				Size:   10,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+		)
 
-	handler, _ := NewHandler(Config{
-		MaxSize: 100,
-		DataStore: patchStore{
-			t: a,
-		},
-		NotifyCompleteUploads: true,
+		handler, _ := NewHandler(Config{
+			DataStore:             store,
+			NotifyCompleteUploads: true,
+		})
+
+		c := make(chan FileInfo, 1)
+		handler.CompleteUploads = c
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+			},
+			ReqBody: strings.NewReader("hello"),
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "10",
+			},
+		}).Run(handler, t)
+
+		a := assert.New(t)
+		info := <-c
+		a.Equal("yes", info.ID)
+		a.EqualValues(int64(10), info.Size)
+		a.Equal(int64(10), info.Offset)
 	})
 
-	c := make(chan FileInfo, 1)
-	handler.CompleteUploads = c
+	SubTest(t, "MethodOverriding", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:     "yes",
+				Offset: 5,
+				Size:   10,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+		)
 
-	(&httpTest{
-		Name:   "Successful request",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "5",
-		},
-		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusNoContent,
-		ResHeader: map[string]string{
-			"Upload-Offset": "10",
-		},
-	}).Run(handler, t)
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
 
-	info := <-c
-	a.Equal("yes", info.ID)
-	a.Equal(int64(10), info.Size)
-	a.Equal(int64(10), info.Offset)
-
-	(&httpTest{
-		Name:   "Non-existing file",
-		Method: "PATCH",
-		URL:    "no",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "5",
-		},
-		Code: http.StatusNotFound,
-	}).Run(handler, t)
-
-	(&httpTest{
-		Name:   "Wrong offset",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "4",
-		},
-		Code: http.StatusConflict,
-	}).Run(handler, t)
-
-	(&httpTest{
-		Name:   "Exceeding file size",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "5",
-		},
-		ReqBody: strings.NewReader("hellothisismorethan15bytes"),
-		Code:    http.StatusRequestEntityTooLarge,
-	}).Run(handler, t)
-}
-
-type overflowPatchStore struct {
-	zeroStore
-	t      *assert.Assertions
-	called bool
-}
-
-func (s overflowPatchStore) GetInfo(id string) (FileInfo, error) {
-	if id != "yes" {
-		return FileInfo{}, os.ErrNotExist
-	}
-
-	return FileInfo{
-		Offset: 5,
-		Size:   20,
-	}, nil
-}
-
-func (s overflowPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	s.t.False(s.called, "WriteChunk must be called only once")
-	s.called = true
-
-	s.t.Equal(int64(5), offset)
-
-	data, err := ioutil.ReadAll(src)
-	s.t.Nil(err)
-	s.t.Equal("hellothisismore", string(data))
-
-	return 15, nil
-}
-
-// noEOFReader implements io.Reader, io.Writer, io.Closer but does not return
-// an io.EOF when the internal buffer is empty. This way we can simulate slow
-// networks.
-type noEOFReader struct {
-	closed bool
-	buffer []byte
-}
-
-func (r *noEOFReader) Read(dst []byte) (int, error) {
-	if r.closed && len(r.buffer) == 0 {
-		return 0, io.EOF
-	}
-
-	n := copy(dst, r.buffer)
-	r.buffer = r.buffer[n:]
-	return n, nil
-}
-
-func (r *noEOFReader) Close() error {
-	r.closed = true
-	return nil
-}
-
-func (r *noEOFReader) Write(src []byte) (int, error) {
-	r.buffer = append(r.buffer, src...)
-	return len(src), nil
-}
-
-func TestPatchOverflow(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		MaxSize: 100,
-		DataStore: overflowPatchStore{
-			t: assert.New(t),
-		},
+		(&httpTest{
+			Method: "POST",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable":          "1.0.0",
+				"Upload-Offset":          "5",
+				"Content-Type":           "application/offset+octet-stream",
+				"X-HTTP-Method-Override": "PATCH",
+			},
+			ReqBody: strings.NewReader("hello"),
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "10",
+			},
+		}).Run(handler, t)
 	})
 
-	body := &noEOFReader{}
+	SubTest(t, "UploadChunkToFinished", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 20,
+			Size:   20,
+		}, nil)
 
-	body.Write([]byte("hellothisismorethan15bytes"))
-	body.Close()
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
 
-	(&httpTest{
-		Name:   "Too big body exceeding file size",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":  "1.0.0",
-			"Content-Type":   "application/offset+octet-stream",
-			"Upload-Offset":  "5",
-			"Content-Length": "3",
-		},
-		ReqBody: body,
-		Code:    http.StatusNoContent,
-	}).Run(handler, t)
-}
-
-const (
-	LOCK = iota
-	INFO
-	WRITE
-	UNLOCK
-	END
-)
-
-type lockingPatchStore struct {
-	zeroStore
-	callOrder chan int
-}
-
-func (s lockingPatchStore) GetInfo(id string) (FileInfo, error) {
-	s.callOrder <- INFO
-
-	return FileInfo{
-		Offset: 0,
-		Size:   20,
-	}, nil
-}
-
-func (s lockingPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	s.callOrder <- WRITE
-
-	return 5, nil
-}
-
-func (s lockingPatchStore) LockUpload(id string) error {
-	s.callOrder <- LOCK
-	return nil
-}
-
-func (s lockingPatchStore) UnlockUpload(id string) error {
-	s.callOrder <- UNLOCK
-	return nil
-}
-
-func TestLockingPatch(t *testing.T) {
-	callOrder := make(chan int, 10)
-
-	handler, _ := NewHandler(Config{
-		DataStore: lockingPatchStore{
-			callOrder: callOrder,
-		},
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "20",
+			},
+			ReqBody: strings.NewReader(""),
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "20",
+			},
+		}).Run(handler, t)
 	})
 
-	(&httpTest{
-		Name:   "Uploading to locking store",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "0",
-		},
-		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusNoContent,
-	}).Run(handler, t)
+	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("no").Return(FileInfo{}, os.ErrNotExist)
 
-	callOrder <- END
-	close(callOrder)
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
 
-	if <-callOrder != LOCK {
-		t.Error("expected call to LockUpload")
-	}
-
-	if <-callOrder != INFO {
-		t.Error("expected call to GetInfo")
-	}
-
-	if <-callOrder != WRITE {
-		t.Error("expected call to WriteChunk")
-	}
-
-	if <-callOrder != UNLOCK {
-		t.Error("expected call to UnlockUpload")
-	}
-
-	if <-callOrder != END {
-		t.Error("expected no more calls to happen")
-	}
-}
-
-type finishedPatchStore struct {
-	zeroStore
-}
-
-func (s finishedPatchStore) GetInfo(id string) (FileInfo, error) {
-	return FileInfo{
-		Offset: 20,
-		Size:   20,
-	}, nil
-}
-
-func (s finishedPatchStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	panic("WriteChunk must not be called")
-}
-
-func TestFinishedPatch(t *testing.T) {
-
-	handler, _ := NewHandler(Config{
-		DataStore: finishedPatchStore{},
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "no",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+			},
+			Code: http.StatusNotFound,
+		}).Run(handler, t)
 	})
 
-	(&httpTest{
-		Name:   "Uploading to finished upload",
-		Method: "PATCH",
-		URL:    "yes",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-			"Content-Type":  "application/offset+octet-stream",
-			"Upload-Offset": "20",
-		},
-		ReqBody: strings.NewReader(""),
-		Code:    http.StatusNoContent,
-		ResHeader: map[string]string{
-			"Upload-Offset": "20",
-		},
-	}).Run(handler, t)
+	SubTest(t, "MissmatchingOffsetFail", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 5,
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "4",
+			},
+			Code: http.StatusConflict,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "ExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 5,
+			Size:   10,
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+			},
+			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
+			Code:    http.StatusRequestEntityTooLarge,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "OverflowWithoutLength", func(t *testing.T, store *MockFullDataStore) {
+		// In this test we attempt to upload more than 15 bytes to an upload
+		// which has only space for 15 bytes (offset of 5 and size of 20).
+		// The request does not contain the Content-Length header and the handler
+		// therefore does not know the chunk's size before. The wanted behavior
+		// is that even if the uploader supplies more than 15 bytes, we only
+		// pass 15 bytes to the data store and ignore the rest.
+
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				Offset: 5,
+				Size:   20,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		// Wrap the string.Reader in a NopCloser to hide its type. else
+		// http.NewRequest() will detect the we supply a strings.Reader as body
+		// and use this information to set the Content-Length header which we
+		// explicitly do not want (see comment above for reason).
+		body := ioutil.NopCloser(strings.NewReader("hellothisismorethan15bytes"))
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+			},
+			ReqBody: body,
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "20",
+			},
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockLocker(ctrl)
+
+		gomock.InOrder(
+			locker.EXPECT().LockUpload("yes").Return(nil),
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				Offset: 0,
+				Size:   20,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+			locker.EXPECT().UnlockUpload("yes").Return(nil),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseLocker(locker)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: strings.NewReader("hello"),
+			Code:    http.StatusNoContent,
+		}).Run(handler, t)
+	})
 }

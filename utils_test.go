@@ -11,27 +11,17 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/tus/tusd"
-	. "github.com/tus/tusd"
 )
-
-type zeroStore struct{}
-
-func (store zeroStore) NewUpload(info FileInfo) (string, error) {
-	return "", nil
-}
-func (store zeroStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	return 0, nil
-}
-
-func (store zeroStore) GetInfo(id string) (FileInfo, error) {
-	return FileInfo{}, nil
-}
 
 type FullDataStore interface {
 	tusd.DataStore
 	tusd.TerminaterDataStore
 	tusd.ConcaterDataStore
 	tusd.GetReaderDataStore
+}
+
+type Locker interface {
+	tusd.LockerDataStore
 }
 
 type httpTest struct {
@@ -79,17 +69,17 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	return w
 }
 
-type ReaderMatcher struct {
+type readerMatcher struct {
 	expect string
 }
 
 func NewReaderMatcher(expect string) gomock.Matcher {
-	return ReaderMatcher{
+	return readerMatcher{
 		expect: expect,
 	}
 }
 
-func (m ReaderMatcher) Matches(x interface{}) bool {
+func (m readerMatcher) Matches(x interface{}) bool {
 	input, ok := x.(io.Reader)
 	if !ok {
 		return false
@@ -104,6 +94,6 @@ func (m ReaderMatcher) Matches(x interface{}) bool {
 	return reflect.DeepEqual(m.expect, readStr)
 }
 
-func (m ReaderMatcher) String() string {
+func (m readerMatcher) String() string {
 	return fmt.Sprintf("reads to %s", m.expect)
 }
