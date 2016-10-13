@@ -29,9 +29,10 @@ func TestPost(t *testing.T) {
 		(&httpTest{
 			Method: "POST",
 			ReqHeader: map[string]string{
-				"Tus-Resumable":   "1.0.0",
-				"Upload-Length":   "300",
-				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "300",
+				// Invalid Base64-encoded values should be ignored
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID",
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
