@@ -2,6 +2,7 @@ package tusd_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -202,6 +203,30 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "final; /files/huge",
 				},
 				Code: http.StatusRequestEntityTooLarge,
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "UploadToFinalFail", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().GetInfo("foo").Return(FileInfo{
+				Size:    10,
+				Offset:  0,
+				IsFinal: true,
+			}, nil)
+
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+			})
+
+			(&httpTest{
+				Method: "PATCH",
+				URL:    "foo",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Content-Type":  "application/offset+octet-stream",
+					"Upload-Offset": "5",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusForbidden,
 			}).Run(handler, t)
 		})
 	})
