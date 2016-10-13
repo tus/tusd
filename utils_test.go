@@ -18,6 +18,7 @@ type FullDataStore interface {
 	tusd.TerminaterDataStore
 	tusd.ConcaterDataStore
 	tusd.GetReaderDataStore
+	tusd.FinisherDataStore
 }
 
 type Locker interface {

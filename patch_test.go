@@ -22,6 +22,7 @@ func TestPatch(t *testing.T) {
 				Size:   10,
 			}, nil),
 			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			store.EXPECT().FinishUpload("yes"),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -59,7 +60,7 @@ func TestPatch(t *testing.T) {
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
-				Size:   10,
+				Size:   20,
 			}, nil),
 			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
 		)
@@ -188,6 +189,7 @@ func TestPatch(t *testing.T) {
 				Size:   20,
 			}, nil),
 			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			store.EXPECT().FinishUpload("yes"),
 		)
 
 		handler, _ := NewHandler(Config{
