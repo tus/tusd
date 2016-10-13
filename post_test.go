@@ -171,6 +171,10 @@ func TestPost(t *testing.T) {
 
 	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			locker := NewMockLocker(ctrl)
+
 			gomock.InOrder(
 				store.EXPECT().NewUpload(FileInfo{
 					Size: 300,
@@ -179,12 +183,18 @@ func TestPost(t *testing.T) {
 						"bar": "world",
 					},
 				}).Return("foo", nil),
+				locker.EXPECT().LockUpload("foo"),
 				store.EXPECT().WriteChunk("foo", int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				locker.EXPECT().UnlockUpload("foo"),
 			)
 
+			composer := NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+
 			handler, _ := NewHandler(Config{
-				DataStore: store,
-				BasePath:  "/files/",
+				StoreComposer: composer,
+				BasePath:      "/files/",
 			})
 
 			(&httpTest{

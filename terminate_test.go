@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/tus/tusd"
 
 	"github.com/stretchr/testify/assert"
@@ -29,14 +30,27 @@ func TestTerminate(t *testing.T) {
 	})
 
 	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore) {
-		store.EXPECT().GetInfo("foo").Return(FileInfo{
-			ID:   "foo",
-			Size: 10,
-		}, nil)
-		store.EXPECT().Terminate("foo").Return(nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockLocker(ctrl)
+
+		gomock.InOrder(
+			locker.EXPECT().LockUpload("foo"),
+			store.EXPECT().GetInfo("foo").Return(FileInfo{
+				ID:   "foo",
+				Size: 10,
+			}, nil),
+			store.EXPECT().Terminate("foo").Return(nil),
+			locker.EXPECT().UnlockUpload("foo"),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseTerminater(store)
+		composer.UseLocker(locker)
 
 		handler, _ := NewHandler(Config{
-			DataStore:               store,
+			StoreComposer:           composer,
 			NotifyTerminatedUploads: true,
 		})
 

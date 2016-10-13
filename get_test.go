@@ -25,7 +25,12 @@ func TestGet(t *testing.T) {
 			Reader: strings.NewReader("hello"),
 		}
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockLocker(ctrl)
+
 		gomock.InOrder(
+			locker.EXPECT().LockUpload("yes"),
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				Offset: 5,
 				Size:   20,
@@ -34,21 +39,27 @@ func TestGet(t *testing.T) {
 				},
 			}, nil),
 			store.EXPECT().GetReader("yes").Return(reader, nil),
+			locker.EXPECT().UnlockUpload("yes"),
 		)
 
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseGetReader(store)
+		composer.UseLocker(locker)
+
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
-			Method:  "GET",
-			URL:     "yes",
-			Code:    http.StatusOK,
-			ResBody: "hello",
+			Method: "GET",
+			URL:    "yes",
 			ResHeader: map[string]string{
 				"Content-Length":      "5",
 				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
 			},
+			Code:    http.StatusOK,
+			ResBody: "hello",
 		}).Run(handler, t)
 
 		if !reader.closed {
