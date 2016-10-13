@@ -9,7 +9,7 @@ import (
 )
 
 func TestHead(t *testing.T) {
-	SubTest(t, "Successful HEAD request", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 11,
 			Size:   44,
@@ -24,7 +24,6 @@ func TestHead(t *testing.T) {
 		})
 
 		res := (&httpTest{
-			Name:   "Successful request",
 			Method: "HEAD",
 			URL:    "yes",
 			ReqHeader: map[string]string{
@@ -46,7 +45,7 @@ func TestHead(t *testing.T) {
 		}
 	})
 
-	SubTest(t, "Non-existing file", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore) {
 		store.EXPECT().GetInfo("no").Return(FileInfo{}, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{

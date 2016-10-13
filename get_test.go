@@ -24,7 +24,7 @@ var reader = &closingStringReader{
 }
 
 func TestGet(t *testing.T) {
-	SubTest(t, "Successful download", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				Offset: 5,
