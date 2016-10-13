@@ -15,9 +15,10 @@
 package limitedstore
 
 import (
-	"github.com/tus/tusd"
 	"sort"
 	"sync"
+
+	"github.com/tus/tusd"
 )
 
 type LimitedStore struct {
