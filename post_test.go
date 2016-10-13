@@ -23,7 +23,7 @@ func TestPost(t *testing.T) {
 
 		handler, _ := NewHandler(Config{
 			DataStore: store,
-			BasePath:  "/files/",
+			BasePath:  "https://buy.art/files/",
 		})
 
 		(&httpTest{
@@ -35,7 +35,7 @@ func TestPost(t *testing.T) {
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
-				"Location": "http://tus.io/files/foo",
+				"Location": "https://buy.art/files/foo",
 			},
 		}).Run(handler, t)
 	})
