@@ -2,228 +2,276 @@ package tusd_test
 
 import (
 	"bytes"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/golang/mock/gomock"
 
 	. "github.com/tus/tusd"
 )
 
-type postStore struct {
-	t *assert.Assertions
-	zeroStore
-}
-
-func (s postStore) NewUpload(info FileInfo) (string, error) {
-	s.t.Equal(int64(300), info.Size)
-
-	metaData := info.MetaData
-	s.t.Equal(2, len(metaData))
-	s.t.Equal("hello", metaData["foo"])
-	s.t.Equal("world", metaData["bar"])
-
-	return "foo", nil
-}
-
-func (s postStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	s.t.Equal(int64(0), offset)
-
-	data, err := ioutil.ReadAll(src)
-	s.t.Nil(err)
-	s.t.Equal("hello", string(data))
-
-	return 5, nil
-}
-
-func (s postStore) ConcatUploads(id string, uploads []string) error {
-	s.t.True(false, "concatenation should not be attempted")
-	return nil
-}
-
 func TestPost(t *testing.T) {
-	a := assert.New(t)
+	SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().NewUpload(FileInfo{
+			Size: 300,
+			MetaData: map[string]string{
+				"foo": "hello",
+				"bar": "world",
+			},
+		}).Return("foo", nil)
 
-	handler, _ := NewHandler(Config{
-		MaxSize:  400,
-		BasePath: "files",
-		DataStore: postStore{
-			t: a,
-		},
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+			BasePath:  "/files/",
+		})
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable":   "1.0.0",
+				"Upload-Length":   "300",
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+			},
+			Code: http.StatusCreated,
+			ResHeader: map[string]string{
+				"Location": "http://tus.io/files/foo",
+			},
+		}).Run(handler, t)
 	})
 
-	(&httpTest{
-		Name:   "Successful request",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "300",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-		},
-		Code: http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location": "http://tus.io/files/foo",
-		},
-	}).Run(handler, t)
+	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
+		handler, _ := NewHandler(Config{
+			MaxSize:   400,
+			DataStore: store,
+			BasePath:  "/files/",
+		})
 
-	(&httpTest{
-		Name:   "Exceeding MaxSize",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "500",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-		},
-		Code: http.StatusRequestEntityTooLarge,
-	}).Run(handler, t)
-
-	(&httpTest{
-		Name:   "Ignore Forwarded headers",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":     "1.0.0",
-			"Upload-Length":     "300",
-			"Upload-Metadata":   "foo aGVsbG8=, bar d29ybGQ=",
-			"X-Forwarded-Host":  "foo.com",
-			"X-Forwarded-Proto": "https",
-		},
-		Code: http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location": "http://tus.io/files/foo",
-		},
-	}).Run(handler, t)
-
-	handler, _ = NewHandler(Config{
-		MaxSize:  400,
-		BasePath: "files",
-		DataStore: postStore{
-			t: a,
-		},
-		RespectForwardedHeaders: true,
+		(&httpTest{
+			Name:   "Exceeding MaxSize",
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable":   "1.0.0",
+				"Upload-Length":   "500",
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+			},
+			Code: http.StatusRequestEntityTooLarge,
+		}).Run(handler, t)
 	})
 
-	(&httpTest{
-		Name:   "Respect X-Forwarded-* headers",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":     "1.0.0",
-			"Upload-Length":     "300",
-			"Upload-Metadata":   "foo aGVsbG8=, bar d29ybGQ=",
-			"X-Forwarded-Host":  "foo.com",
-			"X-Forwarded-Proto": "https",
-		},
-		Code: http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location": "https://foo.com/files/foo",
-		},
-	}).Run(handler, t)
+	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "IgnoreXForwarded", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
 
-	(&httpTest{
-		Name:   "Respect Forwarded headers",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":     "1.0.0",
-			"Upload-Length":     "300",
-			"Upload-Metadata":   "foo aGVsbG8=, bar d29ybGQ=",
-			"X-Forwarded-Host":  "bar.com",
-			"X-Forwarded-Proto": "http",
-			"Forwarded":         "proto=https,host=foo.com",
-		},
-		Code: http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location": "https://foo.com/files/foo",
-		},
-	}).Run(handler, t)
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+				BasePath:  "/files/",
+			})
 
-	(&httpTest{
-		Name:   "Filter forwarded protocol",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":     "1.0.0",
-			"Upload-Length":     "300",
-			"Upload-Metadata":   "foo aGVsbG8=, bar d29ybGQ=",
-			"X-Forwarded-Proto": "aaa",
-			"Forwarded":         "proto=bbb",
-		},
-		Code: http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location": "http://tus.io/files/foo",
-		},
-	}).Run(handler, t)
-}
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":     "1.0.0",
+					"Upload-Length":     "300",
+					"X-Forwarded-Host":  "foo.com",
+					"X-Forwarded-Proto": "https",
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location": "http://tus.io/files/foo",
+				},
+			}).Run(handler, t)
+		})
 
-func TestPostWithUpload(t *testing.T) {
-	a := assert.New(t)
+		SubTest(t, "RespectXForwarded", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
 
-	handler, _ := NewHandler(Config{
-		MaxSize:  400,
-		BasePath: "files",
-		DataStore: postStore{
-			t: a,
-		},
+			handler, _ := NewHandler(Config{
+				DataStore:               store,
+				BasePath:                "/files/",
+				RespectForwardedHeaders: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":     "1.0.0",
+					"Upload-Length":     "300",
+					"X-Forwarded-Host":  "foo.com",
+					"X-Forwarded-Proto": "https",
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location": "https://foo.com/files/foo",
+				},
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "RespectForwarded", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
+
+			handler, _ := NewHandler(Config{
+				DataStore:               store,
+				BasePath:                "/files/",
+				RespectForwardedHeaders: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":     "1.0.0",
+					"Upload-Length":     "300",
+					"X-Forwarded-Host":  "bar.com",
+					"X-Forwarded-Proto": "http",
+					"Forwarded":         "proto=https,host=foo.com",
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location": "https://foo.com/files/foo",
+				},
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
+
+			handler, _ := NewHandler(Config{
+				DataStore:               store,
+				BasePath:                "/files/",
+				RespectForwardedHeaders: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":     "1.0.0",
+					"Upload-Length":     "300",
+					"X-Forwarded-Proto": "aaa",
+					"Forwarded":         "proto=bbb",
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location": "http://tus.io/files/foo",
+				},
+			}).Run(handler, t)
+		})
 	})
 
-	(&httpTest{
-		Name:   "Successful request",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "300",
-			"Content-Type":    "application/offset+octet-stream",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-		},
-		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location":      "http://tus.io/files/foo",
-			"Upload-Offset": "5",
-		},
-	}).Run(handler, t)
+	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}).Return("foo", nil),
+				store.EXPECT().WriteChunk("foo", int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+			)
 
-	(&httpTest{
-		Name:   "Exceeding upload size",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "300",
-			"Content-Type":    "application/offset+octet-stream",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-		},
-		ReqBody: bytes.NewReader(make([]byte, 400)),
-		Code:    http.StatusRequestEntityTooLarge,
-	}).Run(handler, t)
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+				BasePath:  "/files/",
+			})
 
-	(&httpTest{
-		Name:   "Incorrect content type",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "300",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-			"Content-Type":    "application/false",
-		},
-		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusCreated,
-		ResHeader: map[string]string{
-			"Location":      "http://tus.io/files/foo",
-			"Upload-Offset": "",
-		},
-	}).Run(handler, t)
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":   "1.0.0",
+					"Upload-Length":   "300",
+					"Content-Type":    "application/offset+octet-stream",
+					"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location":      "http://tus.io/files/foo",
+					"Upload-Offset": "5",
+				},
+			}).Run(handler, t)
+		})
 
-	(&httpTest{
-		Name:   "Upload and final concatenation",
-		Method: "POST",
-		ReqHeader: map[string]string{
-			"Tus-Resumable":   "1.0.0",
-			"Upload-Length":   "300",
-			"Content-Type":    "application/offset+octet-stream",
-			"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
-			"Upload-Concat":   "final; http://tus.io/files/a http://tus.io/files/b",
-		},
-		ReqBody: strings.NewReader("hello"),
-		Code:    http.StatusForbidden,
-	}).Run(handler, t)
+		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
+
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+				BasePath:  "/files/",
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+					"Content-Type":  "application/offset+octet-stream",
+				},
+				ReqBody: bytes.NewReader(make([]byte, 400)),
+				Code:    http.StatusRequestEntityTooLarge,
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "IncorrectContentType", func(t *testing.T, store *MockFullDataStore) {
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     300,
+				MetaData: map[string]string{},
+			}).Return("foo", nil)
+
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+				BasePath:  "/files/",
+			})
+
+			(&httpTest{
+				Name:   "Incorrect content type",
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+					"Content-Type":  "application/false",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location":      "http://tus.io/files/foo",
+					"Upload-Offset": "",
+				},
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "UploadToFinalUpload", func(t *testing.T, store *MockFullDataStore) {
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+				BasePath:  "/files/",
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+					"Content-Type":  "application/offset+octet-stream",
+					"Upload-Concat": "final; http://tus.io/files/a http://tus.io/files/b",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusForbidden,
+			}).Run(handler, t)
+		})
+	})
 }

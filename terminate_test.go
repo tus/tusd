@@ -9,75 +9,71 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type terminateStore struct {
-	t *testing.T
-	zeroStore
-}
-
-func (s terminateStore) GetInfo(id string) (FileInfo, error) {
-	return FileInfo{
-		ID:   id,
-		Size: 10,
-	}, nil
-}
-
-func (s terminateStore) Terminate(id string) error {
-	if id != "foo" {
-		s.t.Fatal("unexpected id")
-	}
-	return nil
-}
-
 func TestTerminate(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		DataStore: terminateStore{
-			t: t,
-		},
-		NotifyTerminatedUploads: true,
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseTerminater(store)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "OPTIONS",
+			Code:   http.StatusOK,
+			ResHeader: map[string]string{
+				"Tus-Extension": "creation,creation-with-upload,termination",
+			},
+		}).Run(handler, t)
 	})
 
-	c := make(chan FileInfo, 1)
-	handler.TerminatedUploads = c
+	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("foo").Return(FileInfo{
+			ID:   "foo",
+			Size: 10,
+		}, nil)
+		store.EXPECT().Terminate("foo").Return(nil)
 
-	(&httpTest{
-		Name:   "Successful OPTIONS request",
-		Method: "OPTIONS",
-		URL:    "",
-		ResHeader: map[string]string{
-			"Tus-Extension": "creation,creation-with-upload,termination",
-		},
-		Code: http.StatusOK,
-	}).Run(handler, t)
+		handler, _ := NewHandler(Config{
+			DataStore:               store,
+			NotifyTerminatedUploads: true,
+		})
 
-	(&httpTest{
-		Name:   "Successful request",
-		Method: "DELETE",
-		URL:    "foo",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-		},
-		Code: http.StatusNoContent,
-	}).Run(handler, t)
+		c := make(chan FileInfo, 1)
+		handler.TerminatedUploads = c
 
-	info := <-c
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "foo",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusNoContent,
+		}).Run(handler, t)
 
-	a := assert.New(t)
-	a.Equal("foo", info.ID)
-	a.Equal(int64(10), info.Size)
-}
+		info := <-c
 
-func TestTerminateNotImplemented(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		DataStore: zeroStore{},
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(10), info.Size)
 	})
 
-	(&httpTest{
-		Name:   "TerminaterDataStore not implemented",
-		Method: "DELETE",
-		URL:    "foo",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-		},
-		Code: http.StatusMethodNotAllowed,
-	}).Run(handler, t)
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "foo",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusMethodNotAllowed,
+		}).Run(handler, t)
+	})
 }

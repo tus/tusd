@@ -9,7 +9,7 @@ import (
 
 func TestOptions(t *testing.T) {
 	store := NewStoreComposer()
-	store.UseCore(zeroStore{})
+	store.UseCore(NewMockFullDataStore(nil))
 	handler, _ := NewHandler(Config{
 		StoreComposer: store,
 		MaxSize:       400,

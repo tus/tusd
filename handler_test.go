@@ -1,15 +1,18 @@
 package tusd_test
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/golang/mock/gomock"
 
+	"github.com/tus/tusd"
 	. "github.com/tus/tusd"
 )
 
@@ -24,6 +27,13 @@ func (store zeroStore) WriteChunk(id string, offset int64, src io.Reader) (int64
 
 func (store zeroStore) GetInfo(id string) (FileInfo, error) {
 	return FileInfo{}, nil
+}
+
+type FullDataStore interface {
+	tusd.DataStore
+	tusd.TerminaterDataStore
+	tusd.ConcaterDataStore
+	tusd.GetReaderDataStore
 }
 
 type httpTest struct {
@@ -41,8 +51,6 @@ type httpTest struct {
 }
 
 func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
-	t.Logf("'%s' in %s", test.Name, assert.CallerInfo()[1])
-
 	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
 
 	// Add headers
@@ -73,33 +81,61 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	return w
 }
 
-type methodOverrideStore struct {
-	zeroStore
-	t      *testing.T
-	called bool
+func SubTest(t *testing.T, name string, runTest func(*testing.T, *MockFullDataStore)) {
+	t.Run(name, func(subT *testing.T) {
+		//subT.Parallel()
+
+		ctrl := gomock.NewController(subT)
+		defer ctrl.Finish()
+
+		store := NewMockFullDataStore(ctrl)
+
+		runTest(subT, store)
+	})
 }
 
-func (s methodOverrideStore) GetInfo(id string) (FileInfo, error) {
-	if id != "yes" {
-		return FileInfo{}, os.ErrNotExist
+type ReaderMatcher struct {
+	expect string
+}
+
+func NewReaderMatcher(expect string) gomock.Matcher {
+	return ReaderMatcher{
+		expect: expect,
+	}
+}
+
+func (m ReaderMatcher) Matches(x interface{}) bool {
+	input, ok := x.(io.Reader)
+	if !ok {
+		return false
 	}
 
-	return FileInfo{
-		Offset: 5,
-		Size:   20,
-	}, nil
+	bytes, err := ioutil.ReadAll(input)
+	if err != nil {
+		panic(err)
+	}
+
+	readStr := string(bytes)
+	return reflect.DeepEqual(m.expect, readStr)
 }
 
-func (s *methodOverrideStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	s.called = true
-
-	return 5, nil
+func (m ReaderMatcher) String() string {
+	return fmt.Sprintf("reads to %s", m.expect)
 }
 
 func TestMethodOverride(t *testing.T) {
-	store := &methodOverrideStore{
-		t: t,
-	}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	store := NewMockFullDataStore(mockCtrl)
+
+	store.EXPECT().GetInfo("yes").Return(FileInfo{
+		Offset: 5,
+		Size:   20,
+	}, nil)
+
+	store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil)
+
 	handler, _ := NewHandler(Config{
 		DataStore: store,
 	})
@@ -120,8 +156,4 @@ func TestMethodOverride(t *testing.T) {
 			"Upload-Offset": "10",
 		},
 	}).Run(handler, t)
-
-	if !store.called {
-		t.Fatal("WriteChunk implementation not called")
-	}
 }
