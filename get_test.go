@@ -66,4 +66,28 @@ func TestGet(t *testing.T) {
 			t.Error("expected reader to be closed")
 		}
 	})
+
+	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 0,
+			MetaData: map[string]string{
+				"filename": "file.jpg\"evil",
+			},
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ResHeader: map[string]string{
+				"Content-Length":      "0",
+				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
+			},
+			Code:    http.StatusNoContent,
+			ResBody: "",
+		}).Run(handler, t)
+	})
 }

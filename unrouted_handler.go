@@ -499,6 +499,12 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Set headers before sending responses
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
+	if filename, ok := info.MetaData["filename"]; ok {
+		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
+	}
+
 	// Do not do anything if no data is stored yet.
 	if info.Offset == 0 {
 		handler.sendResp(w, r, http.StatusNoContent)
@@ -512,11 +518,6 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if filename, ok := info.MetaData["filename"]; ok {
-		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
-	}
-
-	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 	handler.sendResp(w, r, http.StatusOK)
 	io.Copy(w, src)
 
