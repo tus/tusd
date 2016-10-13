@@ -175,6 +175,42 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "InvalidContentTypeFail", func(t *testing.T, store *MockFullDataStore) {
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/fail",
+				"Upload-Offset": "5",
+			},
+			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
+			Code:    http.StatusBadRequest,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "InvalidOffsetFail", func(t *testing.T, store *MockFullDataStore) {
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "-5",
+			},
+			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
+			Code:    http.StatusBadRequest,
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "OverflowWithoutLength", func(t *testing.T, store *MockFullDataStore) {
 		// In this test we attempt to upload more than 15 bytes to an upload
 		// which has only space for 15 bytes (offset of 5 and size of 20).

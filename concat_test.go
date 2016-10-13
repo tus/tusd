@@ -229,5 +229,21 @@ func TestConcat(t *testing.T) {
 				Code:    http.StatusForbidden,
 			}).Run(handler, t)
 		})
+
+		SubTest(t, "InvalidConcatHeaderFail", func(t *testing.T, store *MockFullDataStore) {
+			handler, _ := NewHandler(Config{
+				DataStore: store,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				URL:    "",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final; ",
+				},
+				Code: http.StatusBadRequest,
+			}).Run(handler, t)
+		})
 	})
 }

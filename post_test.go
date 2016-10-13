@@ -60,6 +60,22 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "InvalidUploadLengthFail", func(t *testing.T, store *MockFullDataStore) {
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "POST",
+			URL:    "",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "-5",
+			},
+			Code: http.StatusBadRequest,
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore) {
 		SubTest(t, "IgnoreXForwarded", func(t *testing.T, store *MockFullDataStore) {
 			store.EXPECT().NewUpload(FileInfo{
