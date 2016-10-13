@@ -24,4 +24,4 @@ fi
 go get -u github.com/aws/aws-sdk-go/...
 
 # Test all packages which are allowed on all Go versions
-go test $packages
+go test -v $packages

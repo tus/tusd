@@ -4,13 +4,20 @@ package tusd_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 )
 
+var subTestDepth = 0
+
 func SubTest(t *testing.T, name string, runTest func(*testing.T, *MockFullDataStore)) {
-	fmt.Println("\t=== RUN SubTest:", name)
+	subTestDepth++
+	defer func() { subTestDepth-- }()
+	p := strings.Repeat("\t", subTestDepth)
+
+	fmt.Println(p, "=== RUN SubTest:", name)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -20,9 +27,9 @@ func SubTest(t *testing.T, name string, runTest func(*testing.T, *MockFullDataSt
 	runTest(t, store)
 
 	if t.Failed() {
-		fmt.Println("\t--- FAIL SubTest:", name)
+		fmt.Println(p, "--- FAIL SubTest:", name)
 		t.FailNow()
 	} else {
-		fmt.Println("\t--- PASS SubTest:", name)
+		fmt.Println(p, "--- PASS SubTest:", name)
 	}
 }
