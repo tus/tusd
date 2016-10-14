@@ -186,6 +186,10 @@ deploy {
       ansistrano_group      = "ubuntu"
     }
     tasks {
+      file = "path=/srv/tusd/shared/logs state=directory owner=syslog group=ubuntu mode=ug+rwX,o= recurse=yes"
+      name = "tusd | Create and chown shared log dir"
+    }
+    tasks {
       name = "tusd | Set file attributes"
       file = "path={{{config.global.approot}}}/current/tusd_linux_amd64/tusd mode=0755 owner=www-data group=www-data"
     }

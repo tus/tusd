@@ -1,4 +1,4 @@
-FREY_VERSION := 0.3.23
+FREY_VERSION := 0.3.25
 
 .PHONY: frey
 frey:
