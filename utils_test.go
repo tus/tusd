@@ -13,6 +13,14 @@ import (
 	"github.com/tus/tusd"
 )
 
+//go:generate mockgen -package tusd_test -source utils_test.go -aux_files tusd=datastore.go -destination=handler_mock_test.go
+
+// FullDataStore is an interface combining most interfaces for data stores.
+// This is used by mockgen(1) to generate a mocked data store used for testing
+// (see https://github.com/golang/mock). The only interface excluded is
+// LockerDataStore because else we would have to explicitly expect calls for
+// locking in every single test which would result in more verbose code.
+// Therefore it has been moved into its own type definition, the Locker.
 type FullDataStore interface {
 	tusd.DataStore
 	tusd.TerminaterDataStore
@@ -74,6 +82,9 @@ type readerMatcher struct {
 	expect string
 }
 
+// NewReaderMatcher returns a gomock.Matcher which can be used in tests for
+// expecting io.Readers as arguments. It will only report an argument x as
+// matching if it's an io.Reader which, if fully read, equals the string `expect`.
 func NewReaderMatcher(expect string) gomock.Matcher {
 	return readerMatcher{
 		expect: expect,
