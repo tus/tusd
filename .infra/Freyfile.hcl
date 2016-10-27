@@ -136,7 +136,7 @@ setup {
     name  = "Setup tusd"
     roles {
       role                  = "{{{init.paths.roles_dir}}}/upstart/v1.0.0"
-      upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -store-size=10737418240 -behind-proxy"
+      upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -max-size=1000000000 -behind-proxy"
       upstart_description   = "tusd server"
       upstart_name          = "{{{config.global.appname}}}"
       upstart_pidfile_path  = "{{{config.global.approot}}}/shared/{{{config.global.appname}}}.pid"
