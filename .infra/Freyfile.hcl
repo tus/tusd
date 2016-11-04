@@ -180,6 +180,10 @@ setup {
       name           = "nginx | Add nginx PPA"
       apt_repository = "repo='ppa:nginx/stable'"
     }
+    tasks {
+      name = "nginx | Create public www directory"
+      file = "path=/mnt/nginx-www state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
+    }
   }
 }
 
