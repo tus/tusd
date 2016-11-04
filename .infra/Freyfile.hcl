@@ -172,6 +172,15 @@ setup {
       }
     }
   }
+
+  playbooks {
+    hosts = "tusd"
+    name  = "Setup nginx"
+    tasks {
+      name           = "nginx | Add nginx PPA"
+      apt_repository = "repo='ppa:nginx/stable'"
+    }
+  }
 }
 
 deploy {
@@ -194,6 +203,18 @@ deploy {
       file = "path={{{config.global.approot}}}/current/tusd_linux_amd64/tusd mode=0755 owner=www-data group=www-data"
     }
   }
+  playbooks {
+    hosts = "tusd"
+    name  = "Deploy nginx"
+    roles {
+      role         = "{{{init.paths.roles_dir}}}/apt/v1.0.0"
+      apt_packages = ["nginx-light"]
+    }
+    tasks {
+      name = "nginx | Create nginx configuration"
+      copy = "src=./files/nginx.conf dest=/etc/nginx/sites-enabled/default"
+    }
+  }
 }
 
 restart {
@@ -201,12 +222,16 @@ restart {
     hosts = "tusd"
     name  = "Restart tusd"
     tasks {
-      shell = "iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080"
-      name  = "tusd | Redirect HTTP traffic to tusd"
-    }
-    tasks {
       action = "service name=tusd state=restarted"
       name   = "tusd | Restart"
+    }
+  }
+  playbooks {
+    hosts = "nginx"
+    name  = "Restart nginx"
+    tasks {
+      action = "service name=nginx state=restarted"
+      name   = "nginx | Restart"
     }
   }
 }
