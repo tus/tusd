@@ -89,6 +89,12 @@ infra resource aws_security_group "fw-tusd-main" {
   }
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 443
+    protocol    = "tcp"
+    to_port     = 443
+  }
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
     from_port   = 22
     protocol    = "tcp"
     to_port     = 22
