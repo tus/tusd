@@ -10,6 +10,10 @@ global {
     }
     defaults {
       host_key_checking = false
+      ansible_managed = "Ansible managed"
+    }
+    ssh_connection {
+      pipelining = true
     }
   }
 }
@@ -138,9 +142,20 @@ install {
       notify = ["Common | Update timezone"]
     }
 
+    tasks {
+      name       = "Common | Disable UseDNS for SSHD"
+      lineinfile = "dest=/etc/ssh/sshd_config regexp=\"^UseDNS\" line=\"UseDNS no\" state=present"
+      notify     = ["Common | Restart sshd"]
+    }
+
     handlers {
       name    = "Common | Update timezone"
       command = "dpkg-reconfigure --frontend noninteractive tzdata"
+    }
+
+    handlers {
+      name    = "Common | Restart sshd"
+      service = "name=ssh state=restarted"
     }
   }
 }
