@@ -228,6 +228,10 @@ deploy {
       name    = "nginx | Create DH parameters"
       command = "openssl dhparam -out /etc/nginx/dhparams.pem 2048 creates=/etc/nginx/dhparams.pem"
     }
+    tasks {
+      name = "nginx | Start service"
+      service = "name=nginx state=started"
+    }
   }
 }
 
@@ -244,8 +248,8 @@ restart {
     hosts = "tusd"
     name  = "Restart nginx"
     tasks {
-      action = "service name=nginx state=restarted"
-      name   = "nginx | Restart"
+      name    = "nginx | Reload configuration"
+      command = "nginx -s reload"
     }
   }
 }
