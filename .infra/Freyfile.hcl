@@ -224,6 +224,10 @@ deploy {
       name = "nginx | Create nginx configuration"
       copy = "src=./files/nginx.conf dest=/etc/nginx/sites-enabled/default"
     }
+    tasks {
+      name    = "nginx | Create DH parameters"
+      command = "openssl dhparam -out /etc/nginx/dhparams.pem 2048 creates=/etc/nginx/dhparams.pem"
+    }
   }
 }
 
@@ -237,7 +241,7 @@ restart {
     }
   }
   playbooks {
-    hosts = "nginx"
+    hosts = "tusd"
     name  = "Restart nginx"
     tasks {
       action = "service name=nginx state=restarted"
