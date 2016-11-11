@@ -248,8 +248,8 @@ restart {
     hosts = "tusd"
     name  = "Restart nginx"
     tasks {
-      name    = "nginx | Reload configuration"
-      command = "nginx -s reload"
+      name    = "nginx | Restart"
+      service = "name=nginx state=reloaded"
     }
   }
 }
