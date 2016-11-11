@@ -198,11 +198,11 @@ deploy {
     hosts = "tusd"
     name  = "Deploy tusd"
     roles {
-      role                  = "{{{init.paths.roles_dir}}}/deploy/v1.4.0"
-      ansistrano_get_url    = "https://github.com/tus/tusd/releases/download/0.6.0/tusd_linux_amd64.tar.gz"
-      ansistrano_deploy_to  = "{{{config.global.approot}}}"
-      ansistrano_deploy_via = "download_unarchive"
-      ansistrano_group      = "ubuntu"
+      role                   = "{{{init.paths.roles_dir}}}/deploy/v1.4.0"
+      ansistrano_deploy_from = "./files/tusd_linux_amd64.tar.gz"
+      ansistrano_deploy_to   = "{{{config.global.approot}}}"
+      ansistrano_deploy_via  = "copy_unarchive"
+      ansistrano_group       = "ubuntu"
     }
     tasks {
       file = "path=/srv/tusd/shared/logs state=directory owner=syslog group=ubuntu mode=ug+rwX,o= recurse=yes"

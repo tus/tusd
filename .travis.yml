@@ -26,16 +26,19 @@ script:
 before_deploy:
 - ./.scripts/build_all.sh
 deploy:
-  provider: releases
+- provider: releases
   api_key:
     secure: dV3wr9ebEps3YrzIoqmkYc7fw0IECz7QLPRENPSxTJyd5TTYXGsnTS26cMe2LdGwYrXw0njt2GGovMyBZFTtxyYI3mMO4AZRwvZfx/yGzPWJBbVi6NjZVRg/bpyK+mQJ5BUlkPAYJmRpdc6qD+nvCGakBOxoByC5XDK+yM+bKFs=
   file_glob: true
   file: tusd_*.*
   skip_cleanup: true
   on:
-    all_branches: true
     tags: true
     go: 1.7
     repo: tus/tusd
-after_deploy:
-- make frey && frey setup --force-yes --projectDir .infra
+- provider: script
+  script: .scripts/deploy_current.sh
+  on:
+    branch: master
+    go: 1.7
+    repo: tus/tusd
