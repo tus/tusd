@@ -15,4 +15,4 @@ cp ./tusd_linux_amd64.tar.gz "${__dir}/../.infra/files/"
 which frey || npm install -g frey
 FREY="$(which frey)"
 
-$FREY --projectDir "${__dir}/../.infra" deploy
+$FREY --projectDir "${__dir}/../.infra" --force-yes deploy
