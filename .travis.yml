@@ -23,6 +23,8 @@ install:
 - rsync -r ./vendor/ $GOPATH/src
 script:
 - ./.scripts/test_all.sh
+before_deploy:
+- if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
 deploy:
 - provider: releases
   api_key:
@@ -34,7 +36,6 @@ deploy:
     tags: true
     go: 1.7
     repo: tus/tusd
-    #condition: $(./.scripts/build_all.sh)
 - provider: script
   script: .scripts/deploy_current.sh
   on:
