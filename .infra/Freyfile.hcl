@@ -249,7 +249,7 @@ restart {
     name  = "Restart nginx"
     tasks {
       name    = "nginx | Restart"
-      service = "name=nginx state=reloaded"
+      service = "name=nginx state=restarted"
     }
   }
 }
