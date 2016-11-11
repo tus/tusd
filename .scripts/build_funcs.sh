@@ -2,8 +2,8 @@
 
 set -e
 
-version="$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)"
-commit="$(git log --format="%H" -n 1)"
+version=$(git rev-parse --abbrev-ref HEAD)
+commit=$(git log --format="%H" -n 1)
 
 function compile {
   local os=$1
