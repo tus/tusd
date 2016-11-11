@@ -34,7 +34,7 @@ deploy:
     tags: true
     go: 1.7
     repo: tus/tusd
-    condition: $(./.scripts/build_all.sh)
+    #condition: $(./.scripts/build_all.sh)
 - provider: script
   script: .scripts/deploy_current.sh
   on:
