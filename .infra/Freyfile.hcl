@@ -118,7 +118,7 @@ install {
     }
 
     roles {
-      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.2.0"
+      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.0"
     }
 
     tasks {
