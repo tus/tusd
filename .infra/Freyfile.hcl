@@ -118,7 +118,7 @@ install {
     }
 
     roles {
-      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/v1.2.0"
+      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.2.0"
     }
 
     tasks {
@@ -166,7 +166,7 @@ setup {
     name  = "Setup tusd"
 
     roles {
-      role                  = "{{{init.paths.roles_dir}}}/upstart/v1.0.0"
+      role                  = "{{{init.paths.roles_dir}}}/upstart/1.0.0"
       upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -store-size=10737418240"
       upstart_description   = "tusd server"
       upstart_name          = "{{{config.global.appname}}}"
@@ -178,7 +178,7 @@ setup {
     }
 
     roles {
-      role = "{{{init.paths.roles_dir}}}/rsyslog/v3.0.2"
+      role = "{{{init.paths.roles_dir}}}/rsyslog/3.1.0"
       rsyslog_rsyslog_d_files "49-tusd" {
         directives = ["& stop"]
         rules {
@@ -189,7 +189,7 @@ setup {
     }
 
     roles {
-      role = "{{{init.paths.roles_dir}}}/fqdn/v1.0.0"
+      role = "{{{init.paths.roles_dir}}}/fqdn/1.0.0"
       fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
     }
 
@@ -215,7 +215,7 @@ deploy {
     name  = "Deploy tusd"
 
     roles {
-      role                  = "{{{init.paths.roles_dir}}}/deploy/v1.4.0"
+      role                  = "{{{init.paths.roles_dir}}}/deploy/1.4.0"
       ansistrano_get_url    = "https://github.com/tus/tusd/releases/download/0.5.2/tusd_linux_amd64.tar.gz"
       ansistrano_deploy_to  = "{{{config.global.approot}}}"
       ansistrano_deploy_via = "download_unarchive"
