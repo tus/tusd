@@ -12,7 +12,7 @@ maketar linux amd64
 
 cp ./tusd_linux_amd64.tar.gz "${__dir}/../.infra/files/"
 
-which frey || npm install -g frey
-FREY="$(which frey)"
-
-$FREY --projectDir "${__dir}/../.infra" --force-yes deploy
+pushd "${__dir}/../.infra"
+  yarn || npm install
+  ./node_modules/.bin/frey --force-yes deploy
+popd
