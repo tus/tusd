@@ -28,7 +28,7 @@ Windows in various formats of the
 
 **Requirements:**
 
-* [Go](http://golang.org/doc/install) (1.4 or newer)
+* [Go](http://golang.org/doc/install) (1.5 or newer)
 
 **Running tusd from source:**
 
