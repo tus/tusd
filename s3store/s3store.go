@@ -97,7 +97,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
 // This regular expression matches every character which is not defined in the
@@ -112,7 +111,7 @@ type S3Store struct {
 	// Service specifies an interface used to communicate with the S3 backend.
 	// Usually, this is an instance of github.com/aws/aws-sdk-go/service/s3.S3
 	// (http://docs.aws.amazon.com/sdk-for-go/api/service/s3/S3.html).
-	Service s3iface.S3API
+	Service S3API
 	// MaxPartSize specifies the maximum size of a single part uploaded to S3
 	// in bytes. This value must be bigger than MinPartSize! In order to
 	// choose the correct number, two things have to be kept in mind:
@@ -131,9 +130,21 @@ type S3Store struct {
 	MinPartSize int64
 }
 
+type S3API interface {
+	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
+	ListParts(input *s3.ListPartsInput) (*s3.ListPartsOutput, error)
+	UploadPart(input *s3.UploadPartInput) (*s3.UploadPartOutput, error)
+	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
+	CreateMultipartUpload(input *s3.CreateMultipartUploadInput) (*s3.CreateMultipartUploadOutput, error)
+	AbortMultipartUpload(input *s3.AbortMultipartUploadInput) (*s3.AbortMultipartUploadOutput, error)
+	DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error)
+	CompleteMultipartUpload(input *s3.CompleteMultipartUploadInput) (*s3.CompleteMultipartUploadOutput, error)
+	UploadPartCopy(input *s3.UploadPartCopyInput) (*s3.UploadPartCopyOutput, error)
+}
+
 // New constructs a new storage using the supplied bucket and service object.
 // The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
-func New(bucket string, service s3iface.S3API) S3Store {
+func New(bucket string, service S3API) S3Store {
 	return S3Store{
 		Bucket:      bucket,
 		Service:     service,
