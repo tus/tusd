@@ -106,11 +106,11 @@ install {
     hosts = "tusd"
     name  = "Install tusd"
     roles {
-      role         = "{{{init.paths.roles_dir}}}/apt/v1.0.0"
+      role         = "{{{init.paths.roles_dir}}}/apt/1.3.0"
       apt_packages = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/v1.2.0"
+      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.0"
     }
     tasks {
       lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
@@ -141,7 +141,7 @@ setup {
     hosts = "tusd"
     name  = "Setup tusd"
     roles {
-      role                  = "{{{init.paths.roles_dir}}}/upstart/v1.0.0"
+      role                  = "{{{init.paths.roles_dir}}}/upstart/1.0.0"
       upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -max-size=1000000000 -behind-proxy"
       upstart_description   = "tusd server"
       upstart_name          = "{{{config.global.appname}}}"
@@ -152,7 +152,7 @@ setup {
       upstart_user          = "www-data"
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/rsyslog/v3.0.1"
+      role = "{{{init.paths.roles_dir}}}/rsyslog/3.1.0"
       rsyslog_rsyslog_d_files "49-tusd" {
         directives = ["& stop"]
         rules {
@@ -162,7 +162,7 @@ setup {
       }
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/fqdn/v1.0.0"
+      role = "{{{init.paths.roles_dir}}}/fqdn/1.0.0"
       fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
     }
     tasks {
@@ -198,7 +198,7 @@ deploy {
     hosts = "tusd"
     name  = "Deploy tusd"
     roles {
-      role                   = "{{{init.paths.roles_dir}}}/deploy/v1.4.0"
+      role                   = "{{{init.paths.roles_dir}}}/deploy/1.4.0"
       ansistrano_deploy_from = "./files/tusd_linux_amd64.tar.gz"
       ansistrano_deploy_to   = "{{{config.global.approot}}}"
       ansistrano_deploy_via  = "copy_unarchive"
@@ -217,7 +217,7 @@ deploy {
     hosts = "tusd"
     name  = "Deploy nginx"
     roles {
-      role         = "{{{init.paths.roles_dir}}}/apt/v1.0.0"
+      role         = "{{{init.paths.roles_dir}}}/apt/1.3.0"
       apt_packages = ["nginx-light"]
     }
     tasks {
