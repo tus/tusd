@@ -54,6 +54,7 @@ your own Go program:
 package main
 
 import (
+	"fmt"
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 	"net/http"
@@ -66,7 +67,7 @@ func main() {
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
 	store := filestore.FileStore{
-		Path: "./uploads",
+		Path: "./uploads", // The path must exist
 	}
 
 	// A storage backend for tusd may consist of multiple different parts which
@@ -83,16 +84,16 @@ func main() {
 		StoreComposer: composer,
 	})
 	if err != nil {
-		panic("Unable to create handler: %s", err)
+		panic(fmt.Sprintf("Unable to create handler: %s", err))
 	}
 
 	// Right now, nothing has happened since we need to start the HTTP server on
 	// our own. In the end, tusd will start listening on and accept request at
 	// http://localhost:8080/files
-	http.Handle("files/", http.StripPrefix("files/", handler))
+	http.Handle("/files/", http.StripPrefix("/files/", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
-		panic("Unable to listen: %s", err)
+		panic(fmt.Sprintf("Unable to listen: %s", err))
 	}
 }
 ```
