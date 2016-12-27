@@ -1,36 +1,13 @@
 package tusd_test
 
 import (
-	"io"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/tus/tusd"
 )
-
-type getStore struct {
-	zeroStore
-}
-
-func (s getStore) GetInfo(id string) (FileInfo, error) {
-	if id != "yes" {
-		return FileInfo{}, os.ErrNotExist
-	}
-
-	return FileInfo{
-		Offset: 5,
-		Size:   20,
-		MetaData: map[string]string{
-			"filename": "file.jpg\"evil",
-		},
-	}, nil
-}
-
-func (s getStore) GetReader(id string) (io.Reader, error) {
-	return reader, nil
-}
 
 type closingStringReader struct {
 	*strings.Reader
@@ -42,28 +19,90 @@ func (reader *closingStringReader) Close() error {
 	return nil
 }
 
-var reader = &closingStringReader{
-	Reader: strings.NewReader("hello"),
-}
-
 func TestGet(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		DataStore: getStore{},
+	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore) {
+		reader := &closingStringReader{
+			Reader: strings.NewReader("hello"),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockLocker(ctrl)
+
+		gomock.InOrder(
+			locker.EXPECT().LockUpload("yes"),
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				Offset: 5,
+				Size:   20,
+				MetaData: map[string]string{
+					"filename": "file.jpg\"evil",
+				},
+			}, nil),
+			store.EXPECT().GetReader("yes").Return(reader, nil),
+			locker.EXPECT().UnlockUpload("yes"),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseGetReader(store)
+		composer.UseLocker(locker)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ResHeader: map[string]string{
+				"Content-Length":      "5",
+				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
+			},
+			Code:    http.StatusOK,
+			ResBody: "hello",
+		}).Run(handler, t)
+
+		if !reader.closed {
+			t.Error("expected reader to be closed")
+		}
 	})
 
-	(&httpTest{
-		Name:    "Successful download",
-		Method:  "GET",
-		URL:     "yes",
-		Code:    http.StatusOK,
-		ResBody: "hello",
-		ResHeader: map[string]string{
-			"Content-Length":      "5",
-			"Content-Disposition": `inline;filename="file.jpg\"evil"`,
-		},
-	}).Run(handler, t)
+	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 0,
+			MetaData: map[string]string{
+				"filename": "file.jpg\"evil",
+			},
+		}, nil)
 
-	if !reader.closed {
-		t.Error("expected reader to be closed")
-	}
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ResHeader: map[string]string{
+				"Content-Length":      "0",
+				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
+			},
+			Code:    http.StatusNoContent,
+			ResBody: "",
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+
+		handler, _ := NewUnroutedHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "foo",
+			Code:   http.StatusNotImplemented,
+		}).Run(http.HandlerFunc(handler.GetFile), t)
+	})
 }

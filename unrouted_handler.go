@@ -190,15 +190,10 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	// Check for presence of application/offset+octet-stream
-	containsChunk := false
-	if contentType := r.Header.Get("Content-Type"); contentType != "" {
-		if contentType != "application/offset+octet-stream" {
-			handler.sendError(w, r, ErrInvalidContentType)
-			return
-		}
-		containsChunk = true
-	}
+	// Check for presence of application/offset+octet-stream. If another content
+	// type is defined, it will be ignored and treated as none was set because
+	// some HTTP clients may enforce a default value for this header.
+	containsChunk := r.Header.Get("Content-Type") == "application/offset+octet-stream"
 
 	// Only use the proper Upload-Concat header if the concatenation extension
 	// is even supported by the data store.
@@ -504,6 +499,12 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Set headers before sending responses
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
+	if filename, ok := info.MetaData["filename"]; ok {
+		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
+	}
+
 	// Do not do anything if no data is stored yet.
 	if info.Offset == 0 {
 		handler.sendResp(w, r, http.StatusNoContent)
@@ -517,11 +518,6 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if filename, ok := info.MetaData["filename"]; ok {
-		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
-	}
-
-	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 	handler.sendResp(w, r, http.StatusOK)
 	io.Copy(w, src)
 

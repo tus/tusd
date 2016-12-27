@@ -15,7 +15,7 @@ import (
 	"github.com/tus/tusd/s3store"
 )
 
-//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store_test github.com/aws/aws-sdk-go/service/s3/s3iface S3API
+//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store_test github.com/tus/tusd/s3store S3API
 
 // Test interface implementations
 var _ tusd.DataStore = s3store.S3Store{}

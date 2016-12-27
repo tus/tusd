@@ -4,80 +4,90 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/tus/tusd"
 
 	"github.com/stretchr/testify/assert"
 )
 
-type terminateStore struct {
-	t *testing.T
-	zeroStore
-}
-
-func (s terminateStore) GetInfo(id string) (FileInfo, error) {
-	return FileInfo{
-		ID:   id,
-		Size: 10,
-	}, nil
-}
-
-func (s terminateStore) Terminate(id string) error {
-	if id != "foo" {
-		s.t.Fatal("unexpected id")
-	}
-	return nil
-}
-
 func TestTerminate(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		DataStore: terminateStore{
-			t: t,
-		},
-		NotifyTerminatedUploads: true,
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseTerminater(store)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "OPTIONS",
+			Code:   http.StatusOK,
+			ResHeader: map[string]string{
+				"Tus-Extension": "creation,creation-with-upload,termination",
+			},
+		}).Run(handler, t)
 	})
 
-	c := make(chan FileInfo, 1)
-	handler.TerminatedUploads = c
+	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockLocker(ctrl)
 
-	(&httpTest{
-		Name:   "Successful OPTIONS request",
-		Method: "OPTIONS",
-		URL:    "",
-		ResHeader: map[string]string{
-			"Tus-Extension": "creation,creation-with-upload,termination",
-		},
-		Code: http.StatusOK,
-	}).Run(handler, t)
+		gomock.InOrder(
+			locker.EXPECT().LockUpload("foo"),
+			store.EXPECT().GetInfo("foo").Return(FileInfo{
+				ID:   "foo",
+				Size: 10,
+			}, nil),
+			store.EXPECT().Terminate("foo").Return(nil),
+			locker.EXPECT().UnlockUpload("foo"),
+		)
 
-	(&httpTest{
-		Name:   "Successful request",
-		Method: "DELETE",
-		URL:    "foo",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-		},
-		Code: http.StatusNoContent,
-	}).Run(handler, t)
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseTerminater(store)
+		composer.UseLocker(locker)
 
-	info := <-c
+		handler, _ := NewHandler(Config{
+			StoreComposer:           composer,
+			NotifyTerminatedUploads: true,
+		})
 
-	a := assert.New(t)
-	a.Equal("foo", info.ID)
-	a.Equal(int64(10), info.Size)
-}
+		c := make(chan FileInfo, 1)
+		handler.TerminatedUploads = c
 
-func TestTerminateNotImplemented(t *testing.T) {
-	handler, _ := NewHandler(Config{
-		DataStore: zeroStore{},
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "foo",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusNoContent,
+		}).Run(handler, t)
+
+		info := <-c
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(10), info.Size)
 	})
 
-	(&httpTest{
-		Name:   "TerminaterDataStore not implemented",
-		Method: "DELETE",
-		URL:    "foo",
-		ReqHeader: map[string]string{
-			"Tus-Resumable": "1.0.0",
-		},
-		Code: http.StatusMethodNotAllowed,
-	}).Run(handler, t)
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+
+		handler, _ := NewUnroutedHandler(Config{
+			StoreComposer: composer,
+		})
+
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "foo",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusNotImplemented,
+		}).Run(http.HandlerFunc(handler.DelFile), t)
+	})
 }

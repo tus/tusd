@@ -37,9 +37,15 @@ infra variable {
 }
 
 infra output {
-  public_address { value = "${aws_instance.tusd.0.public_dns}" }
-  public_addresses { value = "${join("\n", aws_instance.tusd.*.public_dns)}" }
-  endpoint { value = "http://${aws_route53_record.www.name}:80/" }
+  public_address {
+    value = "${aws_instance.tusd.0.public_dns}"
+  }
+  public_addresses {
+    value = "${join("\n", aws_instance.tusd.*.public_dns)}"
+  }
+  endpoint {
+    value = "http://${aws_route53_record.www.name}:80/"
+  }
 }
 
 infra resource aws_key_pair "infra-tusd" {
@@ -58,9 +64,8 @@ infra resource aws_instance "tusd" {
     key_file = "{{{config.global.ssh.privatekey_file}}}"
     user     = "{{{config.global.ssh.user}}}"
   }
-
   tags {
-    Name = "${var.FREY_DOMAIN}"
+    "Name" = "${var.FREY_DOMAIN}"
   }
 }
 
@@ -76,33 +81,35 @@ infra resource aws_security_group "fw-tusd" {
   description = "Infra tusd"
   name        = "fw-tusd"
   vpc_id      = "vpc-cea030a9"
-
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
-    protocol    = "tcp"
     from_port   = 8080
+    protocol    = "tcp"
     to_port     = 8080
   }
-
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
-    protocol    = "tcp"
     from_port   = 80
+    protocol    = "tcp"
     to_port     = 80
   }
-
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 443
     protocol    = "tcp"
+    to_port     = 443
+  }
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
     from_port   = 22
+    protocol    = "tcp"
     to_port     = 22
   }
-
   // This is for outbound internet access
   egress {
     from_port   = 0
-    to_port     = 0
     protocol    = "-1"
+    to_port     = 0
     cidr_blocks = [ "0.0.0.0/0" ]
   }
 }
@@ -111,51 +118,39 @@ install {
   playbooks {
     hosts = "tusd"
     name  = "Install tusd"
-
     roles {
-      role                    = "{{{init.paths.roles_dir}}}/apt/1.3.0"
-      apt_manage_sources_list = true
-      apt_src_enable          = false
-      apt_install             = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
-      apt_install_state       = "present"
+      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      apt_install = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
     }
-
     roles {
       role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.0"
     }
-
     tasks {
       lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
       name       = "Common | Add convenience shortcut wtf"
     }
-
     tasks {
       lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"cd {{{config.global.approot}}}/current || true\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
       name       = "Common | Install login"
     }
-
     tasks {
       name = "Common | Set motd"
       copy = "content='Welcome to {{lookup('env', 'FREY_DOMAIN')}}' dest=/etc/motd owner=root group=root mode=0644 backup=yes"
     }
-
     tasks {
       name   = "Common | Set timezone variables"
       copy   = "content='Etc/UTC' dest=/etc/timezone owner=root group=root mode=0644 backup=yes"
       notify = ["Common | Update timezone"]
     }
-
     tasks {
       name       = "Common | Disable UseDNS for SSHD"
       lineinfile = "dest=/etc/ssh/sshd_config regexp=\"^UseDNS\" line=\"UseDNS no\" state=present"
       notify     = ["Common | Restart sshd"]
     }
-
     handlers {
       name    = "Common | Update timezone"
       command = "dpkg-reconfigure --frontend noninteractive tzdata"
     }
-
     handlers {
       name    = "Common | Restart sshd"
       service = "name=ssh state=restarted"
@@ -167,10 +162,9 @@ setup {
   playbooks {
     hosts = "tusd"
     name  = "Setup tusd"
-
     roles {
       role                  = "{{{init.paths.roles_dir}}}/upstart/1.0.0"
-      upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -store-size=10737418240"
+      upstart_command       = "./tusd -port=8080 -dir=/mnt/tusd-data -max-size=1000000000 -behind-proxy"
       upstart_description   = "tusd server"
       upstart_name          = "{{{config.global.appname}}}"
       upstart_pidfile_path  = "{{{config.global.approot}}}/shared/{{{config.global.appname}}}.pid"
@@ -179,7 +173,6 @@ setup {
       upstart_runtime_root  = "{{{config.global.approot}}}/current/tusd_linux_amd64"
       upstart_user          = "www-data"
     }
-
     roles {
       role = "{{{init.paths.roles_dir}}}/rsyslog/3.1.0"
       rsyslog_rsyslog_d_files "49-tusd" {
@@ -190,17 +183,14 @@ setup {
         }
       }
     }
-
     roles {
       role = "{{{init.paths.roles_dir}}}/fqdn/1.0.0"
       fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
     }
-
     tasks {
       file = "path=/mnt/tusd-data state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
       name = "tusd | Create tusd data dir"
     }
-
     tasks {
       name = "tusd | Create purger crontab (clean up >24h (1400minutes) files)"
       cron {
@@ -210,24 +200,59 @@ setup {
       }
     }
   }
+
+  playbooks {
+    hosts = "tusd"
+    name  = "Setup nginx"
+    tasks {
+      name           = "nginx | Add nginx PPA"
+      apt_repository = "repo='ppa:nginx/stable'"
+    }
+    tasks {
+      name = "nginx | Create public www directory"
+      file = "path=/mnt/nginx-www state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
+    }
+  }
 }
 
 deploy {
   playbooks {
     hosts = "tusd"
     name  = "Deploy tusd"
-
     roles {
-      role                  = "{{{init.paths.roles_dir}}}/deploy/1.4.0"
-      ansistrano_get_url    = "https://github.com/tus/tusd/releases/download/0.5.2/tusd_linux_amd64.tar.gz"
-      ansistrano_deploy_to  = "{{{config.global.approot}}}"
-      ansistrano_deploy_via = "download_unarchive"
-      ansistrano_group      = "ubuntu"
+      role                   = "{{{init.paths.roles_dir}}}/deploy/1.4.0"
+      ansistrano_deploy_from = "./files/tusd_linux_amd64.tar.gz"
+      ansistrano_deploy_to   = "{{{config.global.approot}}}"
+      ansistrano_deploy_via  = "copy_unarchive"
+      ansistrano_group       = "ubuntu"
     }
-
+    tasks {
+      file = "path=/srv/tusd/shared/logs state=directory owner=syslog group=ubuntu mode=ug+rwX,o= recurse=yes"
+      name = "tusd | Create and chown shared log dir"
+    }
     tasks {
       name = "tusd | Set file attributes"
       file = "path={{{config.global.approot}}}/current/tusd_linux_amd64/tusd mode=0755 owner=www-data group=www-data"
+    }
+  }
+  playbooks {
+    hosts = "tusd"
+    name  = "Deploy nginx"
+    roles {
+      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      apt_install = ["nginx-light"]
+    }
+    tasks {
+      name = "nginx | Create nginx configuration"
+      copy = "src=./files/nginx.conf dest=/etc/nginx/sites-enabled/default"
+    }
+    tasks {
+      name    = "nginx | Create DH parameters"
+      command = "openssl dhparam -out /etc/nginx/dhparams.pem 2048 creates=/etc/nginx/dhparams.pem"
+    }
+    tasks {
+      name = "nginx | Start service"
+      service = "name=nginx state=started"
     }
   }
 }
@@ -236,15 +261,17 @@ restart {
   playbooks {
     hosts = "tusd"
     name  = "Restart tusd"
-
-    tasks {
-      shell = "iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080"
-      name  = "tusd | Redirect HTTP traffic to tusd"
-    }
-
     tasks {
       action = "service name=tusd state=restarted"
       name   = "tusd | Restart"
+    }
+  }
+  playbooks {
+    hosts = "tusd"
+    name  = "Restart nginx"
+    tasks {
+      name    = "nginx | Restart"
+      service = "name=nginx state=restarted"
     }
   }
 }

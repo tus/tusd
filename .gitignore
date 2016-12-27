@@ -2,7 +2,7 @@ tusd/data
 cover.out
 data/
 .infra/env.sh
-.infra/env.infra.sh
+.infra/env.*.sh
 .infra/ssh/tusd.pem
 .infra/Frey-residu*
 .infra/ssh/frey-tusd.pem
