@@ -106,8 +106,8 @@ install {
     hosts = "tusd"
     name  = "Install tusd"
     roles {
-      role         = "{{{init.paths.roles_dir}}}/apt/1.3.0"
-      apt_packages = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
+      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      apt_install = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
     }
     roles {
       role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.0"
@@ -217,8 +217,8 @@ deploy {
     hosts = "tusd"
     name  = "Deploy nginx"
     roles {
-      role         = "{{{init.paths.roles_dir}}}/apt/1.3.0"
-      apt_packages = ["nginx-light"]
+      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      apt_install = ["nginx-light"]
     }
     tasks {
       name = "nginx | Create nginx configuration"
