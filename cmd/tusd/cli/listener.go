@@ -37,6 +37,11 @@ type Conn struct {
 	net.Conn
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+
+	// closeRecorded will be true if the connection has been closed and the
+	// corresponding prometheus counter has been decremented. It will be used to
+	// avoid duplicated modifications to this metric.
+	closeRecorded bool
 }
 
 func (c *Conn) Read(b []byte) (int, error) {
@@ -70,7 +75,13 @@ func (c *Conn) Write(b []byte) (int, error) {
 }
 
 func (c *Conn) Close() error {
-	go MetricsOpenConnections.Dec()
+	// Only decremented the prometheus counter if the Close function has not been
+	// invoked before to avoid duplicated modifications.
+	if !c.closeRecorded {
+		c.closeRecorded = true
+		MetricsOpenConnections.Dec()
+	}
+
 	return c.Conn.Close()
 }
 
