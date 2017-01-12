@@ -171,7 +171,7 @@ func (store FileStore) UnlockUpload(id string) error {
 
 // newLock contructs a new Lockfile instance.
 func (store FileStore) newLock(id string) (lockfile.Lockfile, error) {
-	path, err := filepath.Abs(store.Path + "/" + id + ".lock")
+	path, err := filepath.Abs(filepath.Join(store.Path, id+".lock"))
 	if err != nil {
 		return lockfile.Lockfile(""), err
 	}
@@ -184,12 +184,12 @@ func (store FileStore) newLock(id string) (lockfile.Lockfile, error) {
 
 // binPath returns the path to the .bin storing the binary data.
 func (store FileStore) binPath(id string) string {
-	return store.Path + "/" + id + ".bin"
+	return filepath.Join(store.Path, id+".bin")
 }
 
 // infoPath returns the path to the .info file storing the file's info.
 func (store FileStore) infoPath(id string) string {
-	return store.Path + "/" + id + ".info"
+	return filepath.Join(store.Path, id+".info")
 }
 
 // writeInfo updates the entire information. Everything will be overwritten.

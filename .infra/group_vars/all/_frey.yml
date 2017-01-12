@@ -1,0 +1,6 @@
+# Frey specific overrides
+---
+# apt role
+apt_manage_sources_list: true
+apt_src_enable: false
+apt_install_state: present
