@@ -10,6 +10,10 @@ global {
     }
     defaults {
       host_key_checking = false
+      ansible_managed = "Ansible managed"
+    }
+    ssh_connection {
+      pipelining = true
     }
   }
 }
