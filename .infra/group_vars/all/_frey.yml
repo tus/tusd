@@ -4,3 +4,6 @@
 apt_manage_sources_list: true
 apt_src_enable: false
 apt_install_state: present
+
+# Temporary fix for failing build: https://travis-ci.org/tus/tusd/jobs/190891590
+apt_upgrade: false
