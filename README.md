@@ -155,6 +155,12 @@ Yes, it is absolutely possible to do so. Firstly, you should execute the tusd bi
 - *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
 
 Explicit examples for the above points can be found in the [Nginx configuration](https://github.com/tus/tusd/blob/master/.infra/files/nginx.conf) which is used to power the [master.tus.io](https://master.tus.io) instace.
+
+### Can I run custom verification/authentication checks before an upload begins?
+
+Yes, this is made possible by the [hook system](/docs/hooks.md) inside the tusd binary. It enables custom routines to be executed when certain events occurs, such as a new upload being created which can be handled by the `pre-create` hook. Inside the corresponding hook file, you can run your own validations against the provided upload metadata to determine whether the action is actually allowed or should be rejected by tusd. Please have a look at the [corresponding documentation](docs/hooks.md#pre-create) for a more detailed explanation.
+
+
 ## License
 
 This project is licensed under the MIT license, see `LICENSE.txt`.

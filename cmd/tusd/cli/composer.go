@@ -32,12 +32,20 @@ func CreateComposer() {
 		store := filestore.New(dir)
 		store.UseIn(Composer)
 	} else {
-		stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+		s3Config := aws.NewConfig()
+
+		if Flags.S3Endpoint == "" {
+			stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+		} else {
+			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
+
+			s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
+		}
 
 		// Derive credentials from AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID and
 		// AWS_REGION environment variables.
-		credentials := aws.NewConfig().WithCredentials(credentials.NewEnvCredentials())
-		store := s3store.New(Flags.S3Bucket, s3.New(session.New(), credentials))
+		s3Config = s3Config.WithCredentials(credentials.NewEnvCredentials())
+		store := s3store.New(Flags.S3Bucket, s3.New(session.New(), s3Config))
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
