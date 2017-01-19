@@ -44,6 +44,8 @@ func SetupPostHooks(handler *tusd.Handler) {
 				invokeHook(HookPostFinish, info)
 			case info := <-handler.TerminatedUploads:
 				invokeHook(HookPostTerminate, info)
+			case info := <-handler.UploadProgress:
+				fmt.Println(info.Size, info.Offset)
 			}
 		}
 	}()
