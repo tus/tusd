@@ -16,7 +16,7 @@ type HookType string
 const (
 	HookPostFinish    HookType = "post-finish"
 	HookPostTerminate HookType = "post-terminate"
-	HookPostTerminate HookType = "post-terminate"
+	HookPostReceive   HookType = "post-receive"
 	HookPreCreate     HookType = "pre-create"
 )
 
