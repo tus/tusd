@@ -20,38 +20,45 @@ var (
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 )
 
-var (
-	ErrUnsupportedVersion  = errors.New("unsupported version")
-	ErrMaxSizeExceeded     = errors.New("maximum size exceeded")
-	ErrInvalidContentType  = errors.New("missing or invalid Content-Type header")
-	ErrInvalidUploadLength = errors.New("missing or invalid Upload-Length header")
-	ErrInvalidOffset       = errors.New("missing or invalid Upload-Offset header")
-	ErrNotFound            = errors.New("upload not found")
-	ErrFileLocked          = errors.New("file currently locked")
-	ErrMismatchOffset      = errors.New("mismatched offset")
-	ErrSizeExceeded        = errors.New("resource's size exceeded")
-	ErrNotImplemented      = errors.New("feature not implemented")
-	ErrUploadNotFinished   = errors.New("one of the partial uploads is not finished")
-	ErrInvalidConcat       = errors.New("invalid Upload-Concat header")
-	ErrModifyFinal         = errors.New("modifying a final upload is not allowed")
-)
-
-// HTTP status codes sent in the response when the specific error is returned.
-var ErrStatusCodes = map[error]int{
-	ErrUnsupportedVersion:  http.StatusPreconditionFailed,
-	ErrMaxSizeExceeded:     http.StatusRequestEntityTooLarge,
-	ErrInvalidContentType:  http.StatusBadRequest,
-	ErrInvalidUploadLength: http.StatusBadRequest,
-	ErrInvalidOffset:       http.StatusBadRequest,
-	ErrNotFound:            http.StatusNotFound,
-	ErrFileLocked:          423, // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset:      http.StatusConflict,
-	ErrSizeExceeded:        http.StatusRequestEntityTooLarge,
-	ErrNotImplemented:      http.StatusNotImplemented,
-	ErrUploadNotFinished:   http.StatusBadRequest,
-	ErrInvalidConcat:       http.StatusBadRequest,
-	ErrModifyFinal:         http.StatusForbidden,
+// HTTPError represents an error with an additional status code attached
+// which may be used when this error is sent in a HTTP response.
+// See the net/http package for standardized status codes.
+type HTTPError interface {
+	error
+	StatusCode() int
 }
+
+type httpError struct {
+	error
+	statusCode int
+}
+
+func (err httpError) StatusCode() int {
+	return err.statusCode
+}
+
+// NewHTTPError adds the given status code to the provided error and returns
+// the new error instance. The status code may be used in corresponding HTTP
+// responses. See the net/http package for standardized status codes.
+func NewHTTPError(err error, statusCode int) HTTPError {
+	return httpError{err, statusCode}
+}
+
+var (
+	ErrUnsupportedVersion  = NewHTTPError(errors.New("unsupported version"), http.StatusPreconditionFailed)
+	ErrMaxSizeExceeded     = NewHTTPError(errors.New("maximum size exceeded"), http.StatusRequestEntityTooLarge)
+	ErrInvalidContentType  = NewHTTPError(errors.New("missing or invalid Content-Type header"), http.StatusBadRequest)
+	ErrInvalidUploadLength = NewHTTPError(errors.New("missing or invalid Upload-Length header"), http.StatusBadRequest)
+	ErrInvalidOffset       = NewHTTPError(errors.New("missing or invalid Upload-Offset header"), http.StatusBadRequest)
+	ErrNotFound            = NewHTTPError(errors.New("upload not found"), http.StatusNotFound)
+	ErrFileLocked          = NewHTTPError(errors.New("file currently locked"), 423) // Locked (WebDAV) (RFC 4918)
+	ErrMismatchOffset      = NewHTTPError(errors.New("mismatched offset"), http.StatusConflict)
+	ErrSizeExceeded        = NewHTTPError(errors.New("resource's size exceeded"), http.StatusRequestEntityTooLarge)
+	ErrNotImplemented      = NewHTTPError(errors.New("feature not implemented"), http.StatusNotImplemented)
+	ErrUploadNotFinished   = NewHTTPError(errors.New("one of the partial uploads is not finished"), http.StatusBadRequest)
+	ErrInvalidConcat       = NewHTTPError(errors.New("invalid Upload-Concat header"), http.StatusBadRequest)
+	ErrModifyFinal         = NewHTTPError(errors.New("modifying a final upload is not allowed"), http.StatusForbidden)
+)
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
 // such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method
@@ -593,9 +600,9 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		err = ErrNotFound
 	}
 
-	status, ok := ErrStatusCodes[err]
-	if !ok {
-		status = 500
+	status := 500
+	if statusErr, ok := err.(HTTPError); ok {
+		status = statusErr.StatusCode()
 	}
 
 	reason := err.Error() + "\n"
