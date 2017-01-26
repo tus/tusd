@@ -17,6 +17,7 @@ package filestore
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -62,7 +63,10 @@ func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	// Create .bin file with no content
 	file, err := os.OpenFile(store.binPath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			err = fmt.Errorf("upload directory does not exist: %s", store.Path)
+		}
+		return "", err
 	}
 	defer file.Close()
 

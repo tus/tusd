@@ -72,6 +72,17 @@ func TestFilestore(t *testing.T) {
 	a.True(os.IsNotExist(err))
 }
 
+func TestMissingPath(t *testing.T) {
+	a := assert.New(t)
+
+	store := FileStore{"./path-that-does-not-exist"}
+
+	id, err := store.NewUpload(tusd.FileInfo{})
+	a.Error(err)
+	a.Equal(err.Error(), "upload directory does not exist: ./path-that-does-not-exist")
+	a.Equal(id, "")
+}
+
 func TestFileLocker(t *testing.T) {
 	a := assert.New(t)
 
