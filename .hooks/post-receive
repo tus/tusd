@@ -1,0 +1,8 @@
+#!/bin/bash
+
+id="$TUS_ID"
+offset="$TUS_OFFSET"
+size="$TUS_SIZE"
+progress=$((100 * $offset/$size))
+
+echo "Upload ${id} is at ${progress}% (${offset}/${size})"

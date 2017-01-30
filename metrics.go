@@ -31,11 +31,14 @@ func (m Metrics) incRequestsTotal(method string) {
 // incErrorsTotal increases the counter for this error atomically by one.
 func (m Metrics) incErrorsTotal(err error) {
 	msg := err.Error()
-	if _, ok := ErrStatusCodes[err]; !ok {
-		msg = "system error"
-	}
 
-	atomic.AddUint64(m.ErrorsTotal[msg], 1)
+	if addr, ok := m.ErrorsTotal[msg]; ok {
+		atomic.AddUint64(addr, 1)
+	} else {
+		addr := new(uint64)
+		*addr = 1
+		m.ErrorsTotal[msg] = addr
+	}
 }
 
 // incBytesReceived increases the number of received bytes atomically be the
@@ -78,13 +81,6 @@ func newMetrics() Metrics {
 }
 
 func newErrorsTotalMap() map[string]*uint64 {
-	m := make(map[string]*uint64, len(ErrStatusCodes)+1)
-
-	for err := range ErrStatusCodes {
-		m[err.Error()] = new(uint64)
-	}
-
-	m["system error"] = new(uint64)
-
+	m := make(map[string]*uint64, 20)
 	return m
 }

@@ -16,6 +16,7 @@ type HookType string
 const (
 	HookPostFinish    HookType = "post-finish"
 	HookPostTerminate HookType = "post-terminate"
+	HookPostReceive   HookType = "post-receive"
 	HookPreCreate     HookType = "pre-create"
 )
 
@@ -44,6 +45,8 @@ func SetupPostHooks(handler *tusd.Handler) {
 				invokeHook(HookPostFinish, info)
 			case info := <-handler.TerminatedUploads:
 				invokeHook(HookPostTerminate, info)
+			case info := <-handler.UploadProgress:
+				invokeHook(HookPostReceive, info)
 			}
 		}
 	}()
@@ -75,6 +78,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
+	env = append(env, "TUS_OFFSET="+strconv.FormatInt(info.Offset, 10))
 
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {

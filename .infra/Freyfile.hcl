@@ -206,7 +206,7 @@ setup {
     name  = "Setup nginx"
     tasks {
       name           = "nginx | Add nginx PPA"
-      apt_repository = "repo='ppa:nginx/stable'"
+      apt_repository = "repo='ppa:ondrej/nginx'"
     }
     tasks {
       name = "nginx | Create public www directory"

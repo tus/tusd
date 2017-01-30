@@ -31,6 +31,7 @@ type Config struct {
 	// NotifyTerminatedUploads indicates whether sending notifications about
 	// terminated uploads using the TerminatedUploads channel should be enabled.
 	NotifyTerminatedUploads bool
+	NotifyUploadProgress    bool
 	// Logger is the logger to use internally, mostly for printing requests.
 	Logger *log.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers

@@ -8,10 +8,12 @@ install:
   - git submodule update --init --recursive
 
 build_script:
+  - set PATH=%GOPATH%\bin;%PATH%
   - go env
   - go version
   - go get ./s3store
   - go get ./consullocker
+  - go get github.com/hashicorp/consul
 
 test_script:
   - go test .

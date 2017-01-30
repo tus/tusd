@@ -17,6 +17,7 @@ func Serve() {
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,
+		NotifyUploadProgress:    true,
 	})
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
