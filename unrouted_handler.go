@@ -341,8 +341,11 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	if info.IsFinal {
 		v := "final;"
 		for _, uploadID := range info.PartialUploads {
-			v += " " + handler.absFileURL(r, uploadID)
+			v += handler.absFileURL(r, uploadID) + " "
 		}
+		// Remove trailing space
+		v = v[:len(v)-1]
+
 		w.Header().Set("Upload-Concat", v)
 	}
 
@@ -782,7 +785,7 @@ func serializeMeta(meta map[string]string) string {
 
 // Parse the Upload-Concat header, e.g.
 // Upload-Concat: partial
-// Upload-Concat: final; http://tus.io/files/a /files/b/
+// Upload-Concat: final;http://tus.io/files/a /files/b/
 func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
 	if len(header) == 0 {
 		return
@@ -793,8 +796,8 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 		return
 	}
 
-	l := len("final; ")
-	if strings.HasPrefix(header, "final; ") && len(header) > l {
+	l := len("final;")
+	if strings.HasPrefix(header, "final;") && len(header) > l {
 		isFinal = true
 
 		list := strings.Split(header[l:], " ")
