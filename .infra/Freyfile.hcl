@@ -119,11 +119,11 @@ install {
     hosts = "tusd"
     name  = "Install tusd"
     roles {
-      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      role        = "{{{init.paths.roles_dir}}}/apt/1.4.0"
       apt_install = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.0"
+      role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.1"
     }
     tasks {
       lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
@@ -174,7 +174,7 @@ setup {
       upstart_user          = "www-data"
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/rsyslog/3.1.0"
+      role = "{{{init.paths.roles_dir}}}/rsyslog/3.1.1"
       rsyslog_rsyslog_d_files "49-tusd" {
         directives = ["& stop"]
         rules {
@@ -184,7 +184,7 @@ setup {
       }
     }
     roles {
-      role = "{{{init.paths.roles_dir}}}/fqdn/1.0.0"
+      role = "{{{init.paths.roles_dir}}}/fqdn/1.2.1"
       fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
     }
     tasks {
@@ -220,7 +220,7 @@ deploy {
     hosts = "tusd"
     name  = "Deploy tusd"
     roles {
-      role                   = "{{{init.paths.roles_dir}}}/deploy/1.4.0"
+      role                   = "{{{init.paths.roles_dir}}}/deploy/2.0.0"
       ansistrano_deploy_from = "./files/tusd_linux_amd64.tar.gz"
       ansistrano_deploy_to   = "{{{config.global.approot}}}"
       ansistrano_deploy_via  = "copy_unarchive"
@@ -239,7 +239,7 @@ deploy {
     hosts = "tusd"
     name  = "Deploy nginx"
     roles {
-      role        = "{{{init.paths.roles_dir}}}/apt/1.3.0"
+      role        = "{{{init.paths.roles_dir}}}/apt/1.4.0"
       apt_install = ["nginx-light"]
     }
     tasks {

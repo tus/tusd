@@ -328,9 +328,9 @@ flat@2.0.0:
   dependencies:
     is-buffer "~1.1.2"
 
-frey@0.3.27:
-  version "0.3.27"
-  resolved "https://registry.yarnpkg.com/frey/-/frey-0.3.27.tgz#2e29b8b321b3178b95d6a36d0cfc1e91a588c174"
+frey@0.3.28:
+  version "0.3.28"
+  resolved "https://registry.yarnpkg.com/frey/-/frey-0.3.28.tgz#d18c641d82faee834c18a7925388497e494d6888"
   dependencies:
     async "1.5.2"
     babel-polyfill "6.13.0"
