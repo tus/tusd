@@ -1,6 +1,7 @@
 package tusd
 
 import (
+	"sync"
 	"sync/atomic"
 )
 
@@ -13,7 +14,7 @@ type Metrics struct {
 	// RequestTotal counts the number of incoming requests per method
 	RequestsTotal map[string]*uint64
 	// ErrorsTotal counts the number of returned errors by their message
-	ErrorsTotal       map[string]*uint64
+	ErrorsTotal       ErrorsTotalMap
 	BytesReceived     *uint64
 	UploadsFinished   *uint64
 	UploadsCreated    *uint64
@@ -22,43 +23,35 @@ type Metrics struct {
 
 // incRequestsTotal increases the counter for this request method atomically by
 // one. The method must be one of GET, HEAD, POST, PATCH, DELETE.
-func (m Metrics) incRequestsTotal(method string) {
+func (m *Metrics) incRequestsTotal(method string) {
 	if ptr, ok := m.RequestsTotal[method]; ok {
 		atomic.AddUint64(ptr, 1)
 	}
 }
 
 // incErrorsTotal increases the counter for this error atomically by one.
-func (m Metrics) incErrorsTotal(err error) {
-	msg := err.Error()
-
-	if addr, ok := m.ErrorsTotal[msg]; ok {
-		atomic.AddUint64(addr, 1)
-	} else {
-		addr := new(uint64)
-		*addr = 1
-		m.ErrorsTotal[msg] = addr
-	}
+func (m *Metrics) incErrorsTotal(err HTTPError) {
+	m.ErrorsTotal.incError(err)
 }
 
 // incBytesReceived increases the number of received bytes atomically be the
 // specified number.
-func (m Metrics) incBytesReceived(delta uint64) {
+func (m *Metrics) incBytesReceived(delta uint64) {
 	atomic.AddUint64(m.BytesReceived, delta)
 }
 
 // incUploadsFinished increases the counter for finished uploads atomically by one.
-func (m Metrics) incUploadsFinished() {
+func (m *Metrics) incUploadsFinished() {
 	atomic.AddUint64(m.UploadsFinished, 1)
 }
 
 // incUploadsCreated increases the counter for completed uploads atomically by one.
-func (m Metrics) incUploadsCreated() {
+func (m *Metrics) incUploadsCreated() {
 	atomic.AddUint64(m.UploadsCreated, 1)
 }
 
 // incUploadsTerminated increases the counter for completed uploads atomically by one.
-func (m Metrics) incUploadsTerminated() {
+func (m *Metrics) incUploadsTerminated() {
 	atomic.AddUint64(m.UploadsTerminated, 1)
 }
 
@@ -80,7 +73,49 @@ func newMetrics() Metrics {
 	}
 }
 
-func newErrorsTotalMap() map[string]*uint64 {
-	m := make(map[string]*uint64, 20)
-	return m
+// ErrorsTotalMap stores the counter for the different http errors.
+type ErrorsTotalMap struct {
+	sync.RWMutex
+	m map[HTTPError]*uint64
+}
+
+func newErrorsTotalMap() ErrorsTotalMap {
+	m := make(map[HTTPError]*uint64, 20)
+	return ErrorsTotalMap{
+		m: m,
+	}
+}
+
+// incErrorsTotal increases the counter for this error atomically by one.
+func (e *ErrorsTotalMap) incError(err HTTPError) {
+	// The goal is to have a valid ptr to the number of HTTPError
+	e.RLock()
+	if ptr, ok := e.m[err]; !ok {
+		// The ptr does not seem to exist for this err
+		// Hence we create it (using a write lock)
+		e.RUnlock()
+		e.Lock()
+		// We ensure that the ptr wasn't created in the meantime
+		if ptr, ok = e.m[err]; !ok {
+			ptr = new(uint64)
+			*ptr = 0
+			e.m[err] = ptr
+		}
+		e.Unlock()
+	} else {
+		e.RUnlock()
+	}
+	// We can then increase the counter
+	atomic.AddUint64(e.m[err], 1)
+}
+
+// Load retrieves the map of the counter pointers atomically
+func (e *ErrorsTotalMap) Load() (m map[HTTPError]*uint64) {
+	m = make(map[HTTPError]*uint64, len(e.m))
+	e.RLock()
+	for err, ptr := range e.m {
+		m[err] = ptr
+	}
+	e.RUnlock()
+	return
 }

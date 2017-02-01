@@ -603,9 +603,12 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		err = ErrNotFound
 	}
 
-	status := 500
-	if statusErr, ok := err.(HTTPError); ok {
-		status = statusErr.StatusCode()
+	statusErr, ok := err.(HTTPError)
+	if !ok {
+		statusErr = httpError{
+			error:      err,
+			statusCode: 500, // default status code
+		}
 	}
 
 	reason := err.Error() + "\n"
@@ -615,12 +618,12 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
-	w.WriteHeader(status)
+	w.WriteHeader(statusErr.StatusCode())
 	w.Write([]byte(reason))
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path, "error", err.Error())
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	go handler.Metrics.incErrorsTotal(err)
+	go handler.Metrics.incErrorsTotal(statusErr)
 }
 
 // sendResp writes the header to w with the specified status code.
