@@ -105,7 +105,7 @@ func (e *ErrorsTotalMap) incError(err HTTPError) {
 		e.Unlock()
 	}
 	// We can then increase the counter
-	atomic.AddUint64(e.m[err], 1)
+	atomic.AddUint64(ptr, 1)
 }
 
 // Load retrieves the map of the counter pointers atomically
