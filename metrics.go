@@ -88,12 +88,13 @@ func newErrorsTotalMap() ErrorsTotalMap {
 
 // incErrorsTotal increases the counter for this error atomically by one.
 func (e *ErrorsTotalMap) incError(err HTTPError) {
-	// The goal is to have a valid ptr to the number of HTTPError
+	// The goal is to have a valid ptr to the counter for this err
 	e.RLock()
-	if ptr, ok := e.m[err]; !ok {
+	ptr, ok := e.m[err]
+	e.RUnlock()
+	if !ok {
 		// The ptr does not seem to exist for this err
 		// Hence we create it (using a write lock)
-		e.RUnlock()
 		e.Lock()
 		// We ensure that the ptr wasn't created in the meantime
 		if ptr, ok = e.m[err]; !ok {
@@ -102,8 +103,6 @@ func (e *ErrorsTotalMap) incError(err HTTPError) {
 			e.m[err] = ptr
 		}
 		e.Unlock()
-	} else {
-		e.RUnlock()
 	}
 	// We can then increase the counter
 	atomic.AddUint64(e.m[err], 1)
