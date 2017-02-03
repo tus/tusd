@@ -56,6 +56,9 @@ func CreateComposer() {
 
 		store := gcsstore.New(Flags.GCSBucket, service)
 		store.UseIn(Composer)
+
+		locker := memorylocker.New()
+		locker.UseIn(Composer)
 	} else {
 		dir := Flags.UploadDir
 
