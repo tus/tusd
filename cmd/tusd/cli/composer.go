@@ -8,6 +8,7 @@ import (
 	"github.com/tus/tusd/limitedstore"
 	"github.com/tus/tusd/memorylocker"
 	"github.com/tus/tusd/s3store"
+	"github.com/tus/tusd/gcsstore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -21,17 +22,7 @@ func CreateComposer() {
 	// Attempt to use S3 as a backend if the -s3-bucket option has been supplied.
 	// If not, we default to storing them locally on disk.
 	Composer = tusd.NewStoreComposer()
-	if Flags.S3Bucket == "" {
-		dir := Flags.UploadDir
-
-		stdout.Printf("Using '%s' as directory storage.\n", dir)
-		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
-			stderr.Fatalf("Unable to ensure directory exists: %s", err)
-		}
-
-		store := filestore.New(dir)
-		store.UseIn(Composer)
-	} else {
+	if Flags.S3Bucket != "" {
 		s3Config := aws.NewConfig()
 
 		if Flags.S3Endpoint == "" {
@@ -50,6 +41,31 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+	} else if Flags.GCSBucket != "" {
+		// Derivce credentials from service account file path passed in
+		// GCS_SERVICE_ACCOUNT_FILE environment variable.
+		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
+		if gcsSAF == "" {
+			stderr.Fatalf("No service account file provided for Google Cloud Storage\n")
+		}
+
+		service, err := gcsstore.NewGCSService(gcsSAF)
+		if err != nil {
+			stderr.Fatalf("Unable to create Google Cloud Storage service: %s\n", err)
+		}
+
+		store := gcsstore.New(Flags.GCSBucket, service)
+		store.UseIn(Composer)
+	} else {
+		dir := Flags.UploadDir
+
+		stdout.Printf("Using '%s' as directory storage.\n", dir)
+		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
+			stderr.Fatalf("Unable to ensure directory exists: %s", err)
+		}
+
+		store := filestore.New(dir)
+		store.UseIn(Composer)
 	}
 
 	storeSize := Flags.StoreSize
