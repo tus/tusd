@@ -294,7 +294,7 @@ func TestPost(t *testing.T) {
 					"Tus-Resumable": "1.0.0",
 					"Upload-Length": "300",
 					"Content-Type":  "application/offset+octet-stream",
-					"Upload-Concat": "final; http://tus.io/files/a http://tus.io/files/b",
+					"Upload-Concat": "final;http://tus.io/files/a http://tus.io/files/b",
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusForbidden,

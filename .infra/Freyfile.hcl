@@ -120,7 +120,22 @@ install {
     name  = "Install tusd"
     roles {
       role        = "{{{init.paths.roles_dir}}}/apt/1.4.0"
-      apt_install = ["apg", "build-essential", "curl", "git-core", "htop", "iotop", "libpcre3", "logtail", "mlocate", "mtr", "psmisc", "telnet", "vim", "wget"]
+      apt_install = [
+        "apg",
+        "build-essential",
+        "curl",
+        "git-core",
+        "htop",
+        "iotop",
+        "libpcre3",
+        "logtail",
+        "mlocate",
+        "mtr",
+        "psmisc",
+        "telnet",
+        "vim",
+        "wget"
+      ]
     }
     roles {
       role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.1"
@@ -185,7 +200,6 @@ setup {
     }
     roles {
       role = "{{{init.paths.roles_dir}}}/fqdn/1.2.1"
-      fqdn = "{{lookup('env', 'FREY_DOMAIN')}}"
     }
     tasks {
       file = "path=/mnt/tusd-data state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"
