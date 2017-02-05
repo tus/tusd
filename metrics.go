@@ -99,7 +99,6 @@ func (e *ErrorsTotalMap) incError(err HTTPError) {
 		// We ensure that the ptr wasn't created in the meantime
 		if ptr, ok = e.m[err]; !ok {
 			ptr = new(uint64)
-			*ptr = 0
 			e.m[err] = ptr
 		}
 		e.Unlock()
