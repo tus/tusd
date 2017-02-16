@@ -27,7 +27,7 @@ hostname: "{{ fqdn.split('.')[0] }}"
 
 # nodejs
 nodejs_yarn: false
-nodejs_install_npm_user: "{{ ansible_user | default(lookup('env', 'USER')) }}"
+nodejs_install_npm_user: root
 nodejs_npm_global_packages:
   - name: yarn
 
