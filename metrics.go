@@ -31,7 +31,8 @@ func (m *Metrics) incRequestsTotal(method string) {
 
 // incErrorsTotal increases the counter for this error atomically by one.
 func (m *Metrics) incErrorsTotal(err HTTPError) {
-	m.ErrorsTotal.incError(err)
+	ptr := m.ErrorsTotal.retrievePointerFor(err)
+	atomic.AddUint64(ptr, 1)
 }
 
 // incBytesReceived increases the number of received bytes atomically be the
@@ -86,25 +87,25 @@ func newErrorsTotalMap() ErrorsTotalMap {
 	}
 }
 
-// incErrorsTotal increases the counter for this error atomically by one.
-func (e *ErrorsTotalMap) incError(err HTTPError) {
-	// The goal is to have a valid ptr to the counter for this err
+// retrievePointerFor returns (after creating it if necessary) the pointer to
+// the counter for the error.
+func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
 	e.RLock()
 	ptr, ok := e.m[err]
 	e.RUnlock()
-	if !ok {
-		// The ptr does not seem to exist for this err
-		// Hence we create it (using a write lock)
-		e.Lock()
-		// We ensure that the ptr wasn't created in the meantime
-		if ptr, ok = e.m[err]; !ok {
-			ptr = new(uint64)
-			e.m[err] = ptr
-		}
-		e.Unlock()
+	if ok {
+		return ptr
 	}
-	// We can then increase the counter
-	atomic.AddUint64(ptr, 1)
+
+	// For pointer creation, a WriteLock is required
+	e.Lock()
+	// We ensure that the ptr wasn't created in the meantime
+	if ptr, ok = e.m[err]; !ok {
+		ptr = new(uint64)
+		e.m[err] = ptr
+	}
+	e.Unlock()
+	return ptr
 }
 
 // Load retrieves the map of the counter pointers atomically
