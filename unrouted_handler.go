@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -601,6 +602,14 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// Interpret os.ErrNotExist as 404 Not Found
 	if os.IsNotExist(err) {
 		err = ErrNotFound
+	}
+
+	// Errors for read timeouts contain too much information which is not
+	// necessary for us and makes grouping for the metrics harder. The error
+	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
+	// Therefore, we use a common error message for all of them.
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		err = errors.New("read tcp: i/o timeout")
 	}
 
 	status := 500
