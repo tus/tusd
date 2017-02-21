@@ -1,11 +1,13 @@
 package tusd_test
 
 import (
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -288,5 +290,69 @@ func TestPatch(t *testing.T) {
 			ReqBody: strings.NewReader("hello"),
 			Code:    http.StatusNoContent,
 		}).Run(handler, t)
+	})
+
+	SubTest(t, "NotifyUploadProgress", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   100,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(0), NewReaderMatcher("first second third")).Return(int64(18), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore:            store,
+			NotifyUploadProgress: true,
+		})
+
+		c := make(chan FileInfo, 10)
+		handler.UploadProgress = c
+
+		reader, writer := io.Pipe()
+
+		go func() {
+			writer.Write([]byte("first "))
+			<-time.After(time.Second)
+			writer.Write([]byte("second "))
+			writer.Write([]byte("third"))
+			writer.Close()
+		}()
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "18",
+			},
+		}).Run(handler, t)
+
+		// Wait a short time after the request has been handled before closing the
+		// channel because another goroutine may still write to the channel.
+		<-time.After(10 * time.Millisecond)
+		close(handler.UploadProgress)
+
+		a := assert.New(t)
+
+		info := <-c
+		a.Equal("yes", info.ID)
+		a.Equal(int64(100), info.Size)
+		a.Equal(int64(6), info.Offset)
+
+		info = <-c
+		a.Equal("yes", info.ID)
+		a.Equal(int64(100), info.Size)
+		a.Equal(int64(18), info.Offset)
+
+		_, more := <-c
+		a.False(more)
 	})
 }
