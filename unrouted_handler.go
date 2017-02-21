@@ -85,7 +85,15 @@ type UnroutedHandler struct {
 	// happen if the NotifyTerminatedUploads field is set to true in the Config
 	// structure.
 	TerminatedUploads chan FileInfo
-	UploadProgress    chan FileInfo
+	// UploadProgress is used to send notifications about the progress of the
+	// currently running uploads. For each open PATCH request, every second
+	// a FileInfo instance will be send over this channel with the Offset field
+	// being set to the number of bytes which have been transfered to the server.
+	// Please be aware that this number may be higher than the number of bytes
+	// which have been stored by the data store! Sending to this channel will only
+	// happen if the NotifyUploadProgress field is set to true in the Config
+	// structure.
+	UploadProgress chan FileInfo
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -663,6 +671,10 @@ func (w *progressWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// sendProgressMessage will send a notification over the UploadProgress channel
+// every second, indicating how much data has been transfered to the server.
+// It will stop sending these instances once the returned channel has been
+// closed. The returned reader should be used to read the request body.
 func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Reader) (io.Reader, chan<- struct{}) {
 	progress := &progressWriter{
 		Offset: info.Offset,
