@@ -307,17 +307,34 @@ func TestPatch(t *testing.T) {
 			NotifyUploadProgress: true,
 		})
 
-		c := make(chan FileInfo, 10)
+		c := make(chan FileInfo)
 		handler.UploadProgress = c
 
 		reader, writer := io.Pipe()
+		a := assert.New(t)
 
 		go func() {
 			writer.Write([]byte("first "))
-			<-time.After(time.Second)
+
+			info := <-c
+			a.Equal("yes", info.ID)
+			a.Equal(int64(100), info.Size)
+			a.Equal(int64(6), info.Offset)
+
 			writer.Write([]byte("second "))
 			writer.Write([]byte("third"))
+
+			info = <-c
+			a.Equal("yes", info.ID)
+			a.Equal(int64(100), info.Size)
+			a.Equal(int64(18), info.Offset)
+
 			writer.Close()
+
+			info = <-c
+			a.Equal("yes", info.ID)
+			a.Equal(int64(100), info.Size)
+			a.Equal(int64(18), info.Offset)
 		}()
 
 		(&httpTest{
@@ -339,18 +356,6 @@ func TestPatch(t *testing.T) {
 		// channel because another goroutine may still write to the channel.
 		<-time.After(10 * time.Millisecond)
 		close(handler.UploadProgress)
-
-		a := assert.New(t)
-
-		info := <-c
-		a.Equal("yes", info.ID)
-		a.Equal(int64(100), info.Size)
-		a.Equal(int64(6), info.Offset)
-
-		info = <-c
-		a.Equal("yes", info.ID)
-		a.Equal(int64(100), info.Size)
-		a.Equal(int64(18), info.Offset)
 
 		_, more := <-c
 		a.False(more)
