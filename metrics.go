@@ -85,7 +85,7 @@ type simpleHTTPError struct {
 	Code int
 }
 
-func serializedHTTPError(err HTTPError) simpleHTTPError {
+func simplifiedHTTPError(err HTTPError) simpleHTTPError {
 	return simpleHTTPError{
 		Msg:  err.Error(),
 		Code: err.StatusCode(),
@@ -102,7 +102,7 @@ func newErrorsTotalMap() ErrorsTotalMap {
 // retrievePointerFor returns (after creating it if necessary) the pointer to
 // the counter for the error.
 func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
-	serr := serializedHTTPError(err)
+	serr := simplifiedHTTPError(err)
 	e.RLock()
 	ptr, ok := e.m[serr]
 	e.RUnlock()
