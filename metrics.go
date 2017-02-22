@@ -77,11 +77,23 @@ func newMetrics() Metrics {
 // ErrorsTotalMap stores the counter for the different http errors.
 type ErrorsTotalMap struct {
 	sync.RWMutex
-	m map[HTTPError]*uint64
+	m map[simpleHTTPError]*uint64
+}
+
+type simpleHTTPError struct {
+	Msg  string
+	Code int
+}
+
+func serializedHTTPError(err HTTPError) simpleHTTPError {
+	return simpleHTTPError{
+		Msg:  err.Error(),
+		Code: err.StatusCode(),
+	}
 }
 
 func newErrorsTotalMap() ErrorsTotalMap {
-	m := make(map[HTTPError]*uint64, 20)
+	m := make(map[simpleHTTPError]*uint64, 20)
 	return ErrorsTotalMap{
 		m: m,
 	}
@@ -90,8 +102,9 @@ func newErrorsTotalMap() ErrorsTotalMap {
 // retrievePointerFor returns (after creating it if necessary) the pointer to
 // the counter for the error.
 func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
+	serr := serializedHTTPError(err)
 	e.RLock()
-	ptr, ok := e.m[err]
+	ptr, ok := e.m[serr]
 	e.RUnlock()
 	if ok {
 		return ptr
@@ -100,17 +113,17 @@ func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
 	// For pointer creation, a WriteLock is required
 	e.Lock()
 	// We ensure that the ptr wasn't created in the meantime
-	if ptr, ok = e.m[err]; !ok {
+	if ptr, ok = e.m[serr]; !ok {
 		ptr = new(uint64)
-		e.m[err] = ptr
+		e.m[serr] = ptr
 	}
 	e.Unlock()
 	return ptr
 }
 
 // Load retrieves the map of the counter pointers atomically
-func (e *ErrorsTotalMap) Load() (m map[HTTPError]*uint64) {
-	m = make(map[HTTPError]*uint64, len(e.m))
+func (e *ErrorsTotalMap) Load() (m map[simpleHTTPError]*uint64) {
+	m = make(map[simpleHTTPError]*uint64, len(e.m))
 	e.RLock()
 	for err, ptr := range e.m {
 		m[err] = ptr

@@ -25,8 +25,8 @@ var (
 		[]string{"method"}, nil)
 	errorsTotalDesc = prometheus.NewDesc(
 		"tusd_errors_total",
-		"Total number of errors per cause.",
-		[]string{"status", "cause"}, nil)
+		"Total number of errors per status.",
+		[]string{"status", "message"}, nil)
 	bytesReceivedDesc = prometheus.NewDesc(
 		"tusd_bytes_received",
 		"Number of bytes received for uploads.",
@@ -80,8 +80,8 @@ func (c Collector) Collect(metrics chan<- prometheus.Metric) {
 			errorsTotalDesc,
 			prometheus.GaugeValue,
 			float64(atomic.LoadUint64(valuePtr)),
-			strconv.Itoa(httpError.StatusCode()),
-			httpError.Error(),
+			strconv.Itoa(httpError.Code),
+			httpError.Msg,
 		)
 	}
 
