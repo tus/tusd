@@ -69,3 +69,7 @@ This event will be triggered after an upload is fully finished, meaning that all
 ### post-terminate
 
 This event will be triggered after an upload has been terminated, meaning that the upload has been totally stopped and all associating chunks have been fully removed from the storage. Therefore, one is not able to retrieve the upload's content anymore and one may wish to notify further applications that this upload will never be resumed nor finished.
+
+### post-receive
+
+This event will be triggered for every running upload to indicate its current progress. It will occur for each open PATCH request, every second. The offset property will be set to the number of bytes which have been transfered to the server, at the time in total. Please be aware that this number may be higher than the number of bytes which have been stored by the data store!

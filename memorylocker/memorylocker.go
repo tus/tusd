@@ -20,8 +20,8 @@ import (
 // cheap mechanism. Locks will only exist as long as this object is kept in
 // reference and will be erased if the program exits.
 type MemoryLocker struct {
-	locks map[string]bool
-	mutex *sync.Mutex
+	locks map[string]struct{}
+	mutex sync.Mutex
 }
 
 // NewMemoryLocker creates a new in-memory locker. The DataStore parameter
@@ -34,8 +34,7 @@ func NewMemoryLocker(_ tusd.DataStore) *MemoryLocker {
 // New creates a new in-memory locker.
 func New() *MemoryLocker {
 	return &MemoryLocker{
-		locks: make(map[string]bool),
-		mutex: new(sync.Mutex),
+		locks: make(map[string]struct{}),
 	}
 }
 
@@ -54,7 +53,7 @@ func (locker *MemoryLocker) LockUpload(id string) error {
 		return tusd.ErrFileLocked
 	}
 
-	locker.locks[id] = true
+	locker.locks[id] = struct{}{}
 
 	return nil
 }
@@ -62,11 +61,11 @@ func (locker *MemoryLocker) LockUpload(id string) error {
 // UnlockUpload releases a lock. If no such lock exists, no error will be returned.
 func (locker *MemoryLocker) UnlockUpload(id string) error {
 	locker.mutex.Lock()
-	defer locker.mutex.Unlock()
 
 	// Deleting a non-existing key does not end in unexpected errors or panic
 	// since this operation results in a no-op
 	delete(locker.locks, id)
 
+	locker.mutex.Unlock()
 	return nil
 }
