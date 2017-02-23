@@ -16,7 +16,7 @@ var MetricsOpenConnections = prometheus.NewGauge(prometheus.GaugeOpts{
 
 func SetupMetrics(handler *tusd.Handler) {
 	prometheus.MustRegister(MetricsOpenConnections)
-	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
+	prometheus.MustRegister(prometheuscollector.New(&handler.Metrics))
 
 	stdout.Printf("Using %s as the metrics path.\n", Flags.MetricsPath)
 	http.Handle(Flags.MetricsPath, prometheus.Handler())

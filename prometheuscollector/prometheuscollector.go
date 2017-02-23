@@ -46,11 +46,11 @@ var (
 )
 
 type Collector struct {
-	metrics tusd.Metrics
+	metrics *tusd.Metrics
 }
 
 // New creates a new collector which read froms the provided Metrics struct.
-func New(metrics tusd.Metrics) Collector {
+func New(metrics *tusd.Metrics) Collector {
 	return Collector{
 		metrics: metrics,
 	}
