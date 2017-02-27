@@ -15,7 +15,7 @@ type Metrics struct {
 	// RequestTotal counts the number of incoming requests per method
 	RequestsTotal map[string]*uint64
 	// ErrorsTotal counts the number of returned errors by their message
-	ErrorsTotal       ErrorsTotalMap
+	ErrorsTotal       *ErrorsTotalMap
 	BytesReceived     *uint64
 	UploadsFinished   *uint64
 	UploadsCreated    *uint64
@@ -24,36 +24,36 @@ type Metrics struct {
 
 // incRequestsTotal increases the counter for this request method atomically by
 // one. The method must be one of GET, HEAD, POST, PATCH, DELETE.
-func (m *Metrics) incRequestsTotal(method string) {
+func (m Metrics) incRequestsTotal(method string) {
 	if ptr, ok := m.RequestsTotal[method]; ok {
 		atomic.AddUint64(ptr, 1)
 	}
 }
 
 // incErrorsTotal increases the counter for this error atomically by one.
-func (m *Metrics) incErrorsTotal(err HTTPError) {
+func (m Metrics) incErrorsTotal(err HTTPError) {
 	ptr := m.ErrorsTotal.retrievePointerFor(err)
 	atomic.AddUint64(ptr, 1)
 }
 
 // incBytesReceived increases the number of received bytes atomically be the
 // specified number.
-func (m *Metrics) incBytesReceived(delta uint64) {
+func (m Metrics) incBytesReceived(delta uint64) {
 	atomic.AddUint64(m.BytesReceived, delta)
 }
 
 // incUploadsFinished increases the counter for finished uploads atomically by one.
-func (m *Metrics) incUploadsFinished() {
+func (m Metrics) incUploadsFinished() {
 	atomic.AddUint64(m.UploadsFinished, 1)
 }
 
 // incUploadsCreated increases the counter for completed uploads atomically by one.
-func (m *Metrics) incUploadsCreated() {
+func (m Metrics) incUploadsCreated() {
 	atomic.AddUint64(m.UploadsCreated, 1)
 }
 
 // incUploadsTerminated increases the counter for completed uploads atomically by one.
-func (m *Metrics) incUploadsTerminated() {
+func (m Metrics) incUploadsTerminated() {
 	atomic.AddUint64(m.UploadsTerminated, 1)
 }
 
@@ -103,9 +103,9 @@ func simplifiedHTTPError(err HTTPError) simpleHTTPError {
 	}
 }
 
-func newErrorsTotalMap() ErrorsTotalMap {
+func newErrorsTotalMap() *ErrorsTotalMap {
 	m := make(map[simpleHTTPError]*uint64, 20)
-	return ErrorsTotalMap{
+	return &ErrorsTotalMap{
 		m: m,
 	}
 }
