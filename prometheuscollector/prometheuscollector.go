@@ -13,6 +13,8 @@ import (
 
 	"github.com/tus/tusd"
 
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -23,8 +25,8 @@ var (
 		[]string{"method"}, nil)
 	errorsTotalDesc = prometheus.NewDesc(
 		"tusd_errors_total",
-		"Total number of erorrs per cause.",
-		[]string{"cause"}, nil)
+		"Total number of errors per status.",
+		[]string{"status", "message"}, nil)
 	bytesReceivedDesc = prometheus.NewDesc(
 		"tusd_bytes_received",
 		"Number of bytes received for uploads.",
@@ -39,7 +41,7 @@ var (
 		nil, nil)
 	uploadsTerminatedDesc = prometheus.NewDesc(
 		"tusd_uploads_terminated",
-		"Number of terminted uploads.",
+		"Number of terminated uploads.",
 		nil, nil)
 )
 
@@ -73,12 +75,13 @@ func (c Collector) Collect(metrics chan<- prometheus.Metric) {
 		)
 	}
 
-	for error, valuePtr := range c.metrics.ErrorsTotal {
+	for httpError, valuePtr := range c.metrics.ErrorsTotal.Load() {
 		metrics <- prometheus.MustNewConstMetric(
 			errorsTotalDesc,
 			prometheus.GaugeValue,
 			float64(atomic.LoadUint64(valuePtr)),
-			error,
+			strconv.Itoa(httpError.Code),
+			httpError.Msg,
 		)
 	}
 

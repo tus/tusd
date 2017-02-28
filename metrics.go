@@ -1,6 +1,8 @@
 package tusd
 
 import (
+	"net"
+	"sync"
 	"sync/atomic"
 )
 
@@ -13,7 +15,7 @@ type Metrics struct {
 	// RequestTotal counts the number of incoming requests per method
 	RequestsTotal map[string]*uint64
 	// ErrorsTotal counts the number of returned errors by their message
-	ErrorsTotal       map[string]*uint64
+	ErrorsTotal       *ErrorsTotalMap
 	BytesReceived     *uint64
 	UploadsFinished   *uint64
 	UploadsCreated    *uint64
@@ -29,16 +31,9 @@ func (m Metrics) incRequestsTotal(method string) {
 }
 
 // incErrorsTotal increases the counter for this error atomically by one.
-func (m Metrics) incErrorsTotal(err error) {
-	msg := err.Error()
-
-	if addr, ok := m.ErrorsTotal[msg]; ok {
-		atomic.AddUint64(addr, 1)
-	} else {
-		addr := new(uint64)
-		*addr = 1
-		m.ErrorsTotal[msg] = addr
-	}
+func (m Metrics) incErrorsTotal(err HTTPError) {
+	ptr := m.ErrorsTotal.retrievePointerFor(err)
+	atomic.AddUint64(ptr, 1)
 }
 
 // incBytesReceived increases the number of received bytes atomically be the
@@ -80,7 +75,70 @@ func newMetrics() Metrics {
 	}
 }
 
-func newErrorsTotalMap() map[string]*uint64 {
-	m := make(map[string]*uint64, 20)
-	return m
+// ErrorsTotalMap stores the counter for the different http errors.
+type ErrorsTotalMap struct {
+	sync.RWMutex
+	m map[simpleHTTPError]*uint64
+}
+
+type simpleHTTPError struct {
+	Msg  string
+	Code int
+}
+
+func simplifiedHTTPError(err HTTPError) simpleHTTPError {
+	var msg string
+	// Errors for read timeouts contain too much information which is not
+	// necessary for us and makes grouping for the metrics harder. The error
+	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
+	// Therefore, we use a common error message for all of them.
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		msg = "read tcp: i/o timeout"
+	} else {
+		msg = err.Error()
+	}
+	return simpleHTTPError{
+		Msg:  msg,
+		Code: err.StatusCode(),
+	}
+}
+
+func newErrorsTotalMap() *ErrorsTotalMap {
+	m := make(map[simpleHTTPError]*uint64, 20)
+	return &ErrorsTotalMap{
+		m: m,
+	}
+}
+
+// retrievePointerFor returns (after creating it if necessary) the pointer to
+// the counter for the error.
+func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
+	serr := simplifiedHTTPError(err)
+	e.RLock()
+	ptr, ok := e.m[serr]
+	e.RUnlock()
+	if ok {
+		return ptr
+	}
+
+	// For pointer creation, a WriteLock is required
+	e.Lock()
+	// We ensure that the ptr wasn't created in the meantime
+	if ptr, ok = e.m[serr]; !ok {
+		ptr = new(uint64)
+		e.m[serr] = ptr
+	}
+	e.Unlock()
+	return ptr
+}
+
+// Load retrieves the map of the counter pointers atomically
+func (e *ErrorsTotalMap) Load() (m map[simpleHTTPError]*uint64) {
+	m = make(map[simpleHTTPError]*uint64, len(e.m))
+	e.RLock()
+	for err, ptr := range e.m {
+		m[err] = ptr
+	}
+	e.RUnlock()
+	return
 }

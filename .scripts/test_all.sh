@@ -26,3 +26,5 @@ go get -u github.com/prometheus/client_golang/prometheus
 
 # Test all packages which are allowed on all Go versions
 go test $packages
+
+go vet $packages
