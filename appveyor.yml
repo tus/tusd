@@ -22,3 +22,5 @@ test_script:
   - go test ./memorylocker
   - go test ./consullocker
   - go test ./s3store
+
+  - go vet ./prometheuscollector
