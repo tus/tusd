@@ -28,7 +28,7 @@ infra variable {
   amis {
     type = "map"
     default {
-      "us-east-1" = "ami-9bce7af0"
+      "us-east-1" = "ami-8fe79998"
     }
   }
   region {
@@ -48,17 +48,18 @@ infra output {
   }
 }
 
-infra resource aws_key_pair "infra-tusd-main" {
-  key_name   = "infra-tusd-main"
+infra resource aws_key_pair "infra-tusd" {
+  key_name   = "infra-tusd"
   public_key = "${file("{{{config.global.ssh.publickey_file}}}")}"
 }
 
-infra resource aws_instance tusd {
-  ami             = "${lookup(var.amis, var.region)}"
-  instance_type   = "c3.large"
-  key_name        = "${aws_key_pair.infra-tusd-main.key_name}"
+infra resource aws_instance "tusd" {
+  ami                    = "${lookup(var.amis, var.region)}"
+  instance_type          = "t2.micro"
+  key_name               = "${aws_key_pair.infra-tusd.key_name}"
+  // vpc_security_group_ids = ["aws_security_group.fw-tusd.id"]
+  subnet_id              = "subnet-1adf3953"
 
-  security_groups = ["fw-tusd-main"]
   connection {
     key_file = "{{{config.global.ssh.privatekey_file}}}"
     user     = "{{{config.global.ssh.user}}}"
@@ -68,7 +69,7 @@ infra resource aws_instance tusd {
   }
 }
 
-infra resource "aws_route53_record" www {
+infra resource aws_route53_record "www" {
   name    = "${var.FREY_DOMAIN}"
   records = ["${aws_instance.tusd.public_dns}"]
   ttl     = "300"
@@ -76,9 +77,10 @@ infra resource "aws_route53_record" www {
   zone_id = "${var.FREY_AWS_ZONE_ID}"
 }
 
-infra resource aws_security_group "fw-tusd-main" {
+infra resource aws_security_group "fw-tusd" {
   description = "Infra tusd"
-  name        = "fw-tusd-main"
+  name        = "fw-tusd"
+  vpc_id      = "vpc-cea030a9"
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
     from_port   = 8080
@@ -102,6 +104,13 @@ infra resource aws_security_group "fw-tusd-main" {
     from_port   = 22
     protocol    = "tcp"
     to_port     = 22
+  }
+  // This is for outbound internet access
+  egress {
+    from_port   = 0
+    protocol    = "-1"
+    to_port     = 0
+    cidr_blocks = [ "0.0.0.0/0" ]
   }
 }
 
@@ -148,9 +157,18 @@ install {
       copy   = "content='Etc/UTC' dest=/etc/timezone owner=root group=root mode=0644 backup=yes"
       notify = ["Common | Update timezone"]
     }
+    tasks {
+      name       = "Common | Disable UseDNS for SSHD"
+      lineinfile = "dest=/etc/ssh/sshd_config regexp=\"^UseDNS\" line=\"UseDNS no\" state=present"
+      notify     = ["Common | Restart sshd"]
+    }
     handlers {
       name    = "Common | Update timezone"
       command = "dpkg-reconfigure --frontend noninteractive tzdata"
+    }
+    handlers {
+      name    = "Common | Restart sshd"
+      service = "name=ssh state=restarted"
     }
   }
 }
