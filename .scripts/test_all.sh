@@ -20,8 +20,9 @@ else
   go get -u github.com/hashicorp/consul/...
 fi
 
-# Install the AWS SDK which is explicitly not vendored
+# Install the AWS SDK and Prometheus client which is explicitly not vendored
 go get -u github.com/aws/aws-sdk-go/...
+go get -u github.com/prometheus/client_golang/prometheus
 
 # Test all packages which are allowed on all Go versions
 go test $packages
