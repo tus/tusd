@@ -41,7 +41,7 @@ var (
 		nil, nil)
 	uploadsTerminatedDesc = prometheus.NewDesc(
 		"tusd_uploads_terminated",
-		"Number of terminted uploads.",
+		"Number of terminated uploads.",
 		nil, nil)
 )
 
