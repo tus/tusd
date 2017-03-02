@@ -82,8 +82,10 @@ func (l Lockfile) TryLock() error {
 	if err != nil {
 		return err
 	} else {
-		defer tmplock.Close()
-		defer os.Remove(tmplock.Name())
+		defer func(){
+			tmplock.Close()
+			os.Remove(tmplock.Name())
+		}()
 	}
 
 	_, err = tmplock.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
