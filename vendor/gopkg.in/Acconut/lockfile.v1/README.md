@@ -2,13 +2,17 @@ lockfile
 =========
 Handle locking via pid files.
 
+*Attention:* This is a fork of [Ingo Oeser's amazing work](https://github.com/nightlyone/lockfile)
+whose behavior differs a bit. While the original package allows a process to
+obtain the same lock twice, this fork forbids this behavior.
+
 [![Build Status Unix][1]][2]
 [![Build status Windows][3]][4]
 
-[1]: https://secure.travis-ci.org/nightlyone/lockfile.png
-[2]: https://travis-ci.org/nightlyone/lockfile
-[3]: https://ci.appveyor.com/api/projects/status/7mojkmauj81uvp8u/branch/master?svg=true
-[4]: https://ci.appveyor.com/project/nightlyone/lockfile/branch/master
+[1]: https://secure.travis-ci.org/Acconut/lockfile.png
+[2]: https://travis-ci.org/Acconut/lockfile
+[3]: https://ci.appveyor.com/api/projects/status/bwy487h8cgue6up5?svg=true
+[4]: https://ci.appveyor.com/project/Acconut/lockfile/branch/master
 
 
 
@@ -19,7 +23,7 @@ For Windows suport, Go 1.4 or newer is required.
 
 Then run
 
-	go get github.com/nightlyone/lockfile
+	go get gopkg.in/Acconut/lockfile.v1
 
 [5]: http://golang.org
 [6]: http://golang.org/doc/install/source
@@ -31,12 +35,7 @@ BSD
 
 documentation
 -------------
-[package documentation at godoc.org](http://godoc.org/github.com/nightlyone/lockfile)
-
-install
--------------------
-	go get github.com/nightlyone/lockfile
-
+[package documentation at godoc.org](http://godoc.org/gopkg.in/Acconut/lockfile.v1)
 
 contributing
 ============
@@ -49,4 +48,3 @@ git commit hooks
 enable commit hooks via
 
         cd .git ; rm -rf hooks; ln -s ../git-hooks hooks ; cd ..
-

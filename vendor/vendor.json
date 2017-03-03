@@ -33,10 +33,10 @@
 			"revisionTime": "2016-06-15T09:26:46Z"
 		},
 		{
-			"checksumSHA1": "0zBf3a7Gzqypt1sWefwx4NkOEIc=",
+			"checksumSHA1": "BpFC/4q4mc/SfCvsXGzCF8s9fSE=",
 			"path": "gopkg.in/Acconut/lockfile.v1",
-			"revision": "941fc61ce4d67dd432b94ed0bd445ad5fb9391a9",
-			"revisionTime": "2016-05-20T15:30:20Z"
+			"revision": "ea910fd69bd541bb592c5729c94f595c696413ab",
+			"revisionTime": "2017-03-03T10:08:22Z"
 		}
 	],
 	"rootPath": "github.com/tus/tusd"
