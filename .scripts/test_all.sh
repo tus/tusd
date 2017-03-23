@@ -9,7 +9,7 @@ packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 # corresponding tests on these versions.
 goversion=$(go version)
 if [[ "$goversion" == *"go1.5"* ]] ||
-   [[ "$goversion" == *"go1.6"* ]]; then
+   [[ "$goversion" == *"go1.6"* ]] || true; then
 
   echo "Skipping tests requiring Consul which is not supported on $goversion"
 
