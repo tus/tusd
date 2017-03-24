@@ -158,12 +158,13 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			if r.Method == "OPTIONS" {
 				// Preflight request
 				header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Authorization")
 				header.Set("Access-Control-Max-Age", "86400")
+				header.Set("Access-Control-Allow-Credentials", "true")
 
 			} else {
 				// Actual request
-				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Authorization")
 			}
 		}
 
