@@ -1,3 +1,13 @@
+// Package gcsstore provides a Google cloud storage based backend.
+//
+// GCSStore is a storage backend that uses the GCSAPI interface in order to store uploads
+// on GCS. Uploads will be represented by two files in GCS; the data file will be stored
+// as an extensionless object [uid] and the JSON info file will stored as [uid].info.
+// In order to store uploads on GCS, make sure to specifiy the appropriate Google service
+// account file path in the GCS_SERVICE_ACCOUNT_FILE environment variable. Also make sure that
+// this service account file has the "https://www.googleapis.com/auth/devstorage.read_write"
+// scope enabled so you can read and write data to the storage buckets associated with the
+// service account file.
 package gcsstore
 
 import (
@@ -12,13 +22,19 @@ import (
 	"github.com/tus/tusd/uid"
 )
 
+// See the tusd.DataStore interface for documentation about the different
+// methods.
 type GCSStore struct {
+	// Specifies the GCS bucket that uploads will be stored in
 	Bucket string
+
+	// Service specifies an interface used to communicate with the Google
+	// cloud storage backend. Implementation can be seen in gcsservice file.
 	Service GCSAPI
 }
 
-// ~/go/bin/mockgen -destination ~/go/src/github.com/tus/tusd/gcsstore/gcsstore_mock_test.go -package=gcsstore_test github.com/tus/tusd/gcsstore GCSReader,GCSAPI
-
+// New constructs a new GCS storage backend using the supplied GCS bucket name
+// and service object.
 func New(bucket string, service GCSAPI) GCSStore {
 	return GCSStore {
 		Bucket: bucket,
@@ -38,7 +54,7 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 		info.ID = uid.Uid()
 	}
 
-	err = store.WriteInfo(info.ID, info)
+	err = store.writeInfo(info.ID, info)
 	if err != nil {
 		return info.ID, err
 	}
@@ -65,7 +81,7 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 		split := strings.Split(name, "_")
 		idx, err := strconv.Atoi(split[len(split)-1])
 		if err != nil {
-			return -1, err
+			return 0, err
 		}
 
 		if idx > maxIdx {
@@ -85,7 +101,7 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 	}
 
 	info.Offset = info.Offset + n
-	err = store.WriteInfo(id, info)
+	err = store.writeInfo(id, info)
 	if err != nil {
 		return 0, err
 	}
@@ -121,7 +137,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 
 }
 
-func (store GCSStore) WriteInfo(id string, info tusd.FileInfo) error {
+func (store GCSStore) writeInfo(id string, info tusd.FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -166,17 +182,9 @@ func (store GCSStore) FinishUpload(id string) error {
 		return err
 	}
 
-	var objectParams GCSObjectParams
-	for _, name := range names {
-		objectParams = GCSObjectParams {
-			Bucket: store.Bucket,
-			ID: name,
-		}
-
-		err = store.Service.DeleteObject(objectParams)
-		if err != nil {
-			return err
-		}
+	err = store.Service.DeleteObjectsWithPrefix(filterParams)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -188,22 +196,9 @@ func (store GCSStore) Terminate(id string) error {
 		Prefix: id,
 	}
 
-	names, err := store.Service.FilterObjects(filterParams)
+	err := store.Service.DeleteObjectsWithPrefix(filterParams)
 	if err != nil {
 		return err
-	}
-
-	var objectParams GCSObjectParams
-	for _, name := range names {
-		objectParams = GCSObjectParams {
-			Bucket: store.Bucket,
-			ID: name,
-		}
-
-		err = store.Service.DeleteObject(objectParams)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
