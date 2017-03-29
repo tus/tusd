@@ -63,11 +63,6 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 }
 
 func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	info, err := store.GetInfo(id)
-	if err != nil {
-		return 0, err
-	}
-
 	prefix := fmt.Sprintf("%s_", id)
 	filterParams := GCSFilterParams {
 		Bucket: store.Bucket,
@@ -75,6 +70,10 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 	}
 
 	names, err := store.Service.FilterObjects(filterParams)
+	if err != nil {
+		return 0, err
+	}
+
 	maxIdx := -1
 
 	for _, name := range names {
@@ -96,12 +95,6 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 	}
 
 	n, err := store.Service.WriteObject(objectParams, src)
-	if err != nil {
-		return 0, err
-	}
-
-	info.Offset = info.Offset + n
-	err = store.writeInfo(id, info)
 	if err != nil {
 		return 0, err
 	}
@@ -130,6 +123,38 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	}
 
 	if err := json.Unmarshal(buf, &info); err != nil {
+		return info, err
+	}
+
+	prefix := fmt.Sprintf("%s_", id)
+	filterParams := GCSFilterParams {
+		Bucket: store.Bucket,
+		Prefix: prefix,
+	}
+
+	names, err := store.Service.FilterObjects(filterParams)
+	if err != nil {
+		return info, err
+	}
+
+	var offset int64 = 0
+	for _, name := range names {
+		params = GCSObjectParams {
+			Bucket: store.Bucket,
+			ID: name,
+		}
+
+		attrs, err := store.Service.GetObjectAttrs(params)
+		if err != nil {
+			return info, err
+		}
+
+		offset += attrs.Size
+	}
+
+	info.Offset = offset
+	err = store.writeInfo(id, info)
+	if err != nil {
 		return info, err
 	}
 
@@ -182,7 +207,7 @@ func (store GCSStore) FinishUpload(id string) error {
 		return err
 	}
 
-	err = store.Service.DeleteObjectsWithPrefix(filterParams)
+	err = store.Service.DeleteObjectsWithFilter(filterParams)
 	if err != nil {
 		return err
 	}
@@ -196,7 +221,7 @@ func (store GCSStore) Terminate(id string) error {
 		Prefix: id,
 	}
 
-	err := store.Service.DeleteObjectsWithPrefix(filterParams)
+	err := store.Service.DeleteObjectsWithFilter(filterParams)
 	if err != nil {
 		return err
 	}

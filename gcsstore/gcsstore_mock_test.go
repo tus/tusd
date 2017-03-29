@@ -4,6 +4,7 @@
 package gcsstore_test
 
 import (
+	storage "cloud.google.com/go/storage"
 	gomock "github.com/golang/mock/gomock"
 	gcsstore "github.com/tus/tusd/gcsstore"
 	io "io"
@@ -122,6 +123,16 @@ func (_mr *_MockGCSAPIRecorder) DeleteObject(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObject", arg0)
 }
 
+func (_m *MockGCSAPI) DeleteObjectsWithFilter(_param0 gcsstore.GCSFilterParams) error {
+	ret := _m.ctrl.Call(_m, "DeleteObjectsWithFilter", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockGCSAPIRecorder) DeleteObjectsWithFilter(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObjectsWithFilter", arg0)
+}
+
 func (_m *MockGCSAPI) FilterObjects(_param0 gcsstore.GCSFilterParams) ([]string, error) {
 	ret := _m.ctrl.Call(_m, "FilterObjects", _param0)
 	ret0, _ := ret[0].([]string)
@@ -131,6 +142,17 @@ func (_m *MockGCSAPI) FilterObjects(_param0 gcsstore.GCSFilterParams) ([]string,
 
 func (_mr *_MockGCSAPIRecorder) FilterObjects(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilterObjects", arg0)
+}
+
+func (_m *MockGCSAPI) GetObjectAttrs(_param0 gcsstore.GCSObjectParams) (*storage.ObjectAttrs, error) {
+	ret := _m.ctrl.Call(_m, "GetObjectAttrs", _param0)
+	ret0, _ := ret[0].(*storage.ObjectAttrs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockGCSAPIRecorder) GetObjectAttrs(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObjectAttrs", arg0)
 }
 
 func (_m *MockGCSAPI) ReadObject(_param0 gcsstore.GCSObjectParams) (gcsstore.GCSReader, error) {

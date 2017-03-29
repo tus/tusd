@@ -59,8 +59,9 @@ type GCSReader interface {
 // to work with Google's cloud storage.
 type GCSAPI interface {
 	ReadObject(params GCSObjectParams) (GCSReader, error)
+	GetObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error)
 	DeleteObject(params GCSObjectParams) error
-	DeleteObjectsWithPrefix(params GCSFilterParams) error
+	DeleteObjectsWithFilter(params GCSFilterParams) error
 	WriteObject(params GCSObjectParams, r io.Reader) (int64, error)
 	ComposeObjects(params GCSComposeParams) error
 	FilterObjects(params GCSFilterParams) ([]string, error)
@@ -101,6 +102,19 @@ func (service *GCSService) ReadObject(params GCSObjectParams) (GCSReader, error)
 	return r, nil
 }
 
+// GetObjectAttrs returns the associated attributes of a GCS object.
+// https://godoc.org/cloud.google.com/go/storage#ObjectAttrs
+func (service *GCSService) GetObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error) {
+	obj := service.Client.Bucket(params.Bucket).Object(params.ID)
+
+	attrs, err := obj.Attrs(service.Ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return attrs, nil
+}
+
 // DeleteObject deletes a GCS object.
 func (service *GCSService) DeleteObject(params GCSObjectParams) error {
 	obj := service.Client.Bucket(params.Bucket).Object(params.ID)
@@ -113,7 +127,8 @@ func (service *GCSService) DeleteObject(params GCSObjectParams) error {
 	return nil
 }
 
-func (service *GCSService) DeleteObjectsWithPrefix(params GCSFilterParams) error {
+// DeleteObjectWithPrefix will delete objects who match the provided filter parameters.
+func (service *GCSService) DeleteObjectsWithFilter(params GCSFilterParams) error {
 	names, err := service.FilterObjects(params)
 	if err != nil {
 		return err
@@ -192,8 +207,6 @@ func (service *GCSService) compose(bucket string, srcs []string, dst string) err
 		if dstAttrs.CRC32C == crc {
 			return nil
 		}
-
-		fmt.Println("CRC32C mismatch")
 	}
 
 	err = service.DeleteObject(GCSObjectParams {
@@ -208,6 +221,7 @@ func (service *GCSService) compose(bucket string, srcs []string, dst string) err
 	err = errors.New("GCS compose failed: Mismatch of CRC32 checksums")
 	return err
 }
+
 // MAX_OBJECT_COMPOSITION specifies the maximum number of objects that
 // can combined in a compose operation. GCloud storage's limit is 32.
 const MAX_OBJECT_COMPOSITION = 32
@@ -219,13 +233,14 @@ func (service *GCSService) recursiveCompose(srcs []string, params GCSComposePara
 			return err
 		}
 
+		// Remove all the temporary composition objects
 		prefix := fmt.Sprintf("%s_tmp", params.Destination)
 		filterParams := GCSFilterParams {
 			Bucket: params.Bucket,
 			Prefix: prefix,
 		}
 
-		err = service.DeleteObjectsWithPrefix(filterParams)
+		err = service.DeleteObjectsWithFilter(filterParams)
 		if err != nil {
 			return err
 		}
@@ -325,4 +340,3 @@ func (service *GCSService) FilterObjects(params GCSFilterParams) ([]string, erro
 
 	return names, nil
 }
-
