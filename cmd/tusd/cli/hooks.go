@@ -67,39 +67,41 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		logEv("UploadTerminated", "id", info.ID)
 	}
 
-	if !Flags.HooksInstalled {
+	if !Flags.FileHooksInstalled && !Flags.HttpHooksInstalled {
 		return nil, nil
 	}
-
 	name := string(typ)
 	logEv("HookInvocationStart", "type", name, "id", info.ID)
+
+	output := []byte{}
+	err := error(nil)
 
 	if Flags.FileHooksInstalled {
 		output, err = invokeFileHook(typ, info, captureOutput)
 	}
 
-	if Flags.HTTPHooksInstalled {
-		output, err = invokeHTTPHook(typ, info, captureOutput)
+	if Flags.HttpHooksInstalled {
+		output, err = invokeHttpHook(typ, info, captureOutput)
 	}
 
 	return output, err
 }
 
-func invokeHTTPHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	//pass in all the json
 	//POST json to the endpoint
 	//handle retry on a timeout for a certain amount of time
 	//pass up all errors returned from the server
-	url := Flags.HTTPHooksEndpoint
-	json = json.Marshal(info)
-	req, err := http.NewRequest("POST", url, strings.NewReader(json.Encode()))
+	url := Flags.HttpHooksEndpoint
+	jsonInfo, err := json.Marshal(info)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
 	if err != nil {
-		return nil, "Error connecting to host"
+		return nil, err
 	}
-	client := &http.Client()
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	fmt.Println("response status", resp.Status)
@@ -109,10 +111,13 @@ func invokeHTTPHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	//retrying in a goroutine?
 	//launch another goroutine?
 	//how to retry routines in which we allow
+
+	return nil, err
 }
 
 func invokeFileHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	cmd := exec.Command(Flags.HooksDir + "/" + name)
+	name := string(typ)
+	cmd := exec.Command(Flags.FileHooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
@@ -127,7 +132,7 @@ func invokeFileHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	cmd.Stdin = reader
 
 	cmd.Env = env
-	cmd.Dir = Flags.HooksDir
+	cmd.Dir = Flags.FileHooksDir
 	cmd.Stderr = os.Stderr
 
 	// If `captureOutput` is true, this function will return the output (both,
