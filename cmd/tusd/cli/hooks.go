@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/tus/tusd"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
-
-	"github.com/tus/tusd"
 )
 
 type HookType string
@@ -74,6 +74,44 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	name := string(typ)
 	logEv("HookInvocationStart", "type", name, "id", info.ID)
 
+	if Flags.FileHooksInstalled {
+		output, err = invokeFileHook(typ, info, captureOutput)
+	}
+
+	if Flags.HTTPHooksInstalled {
+		output, err = invokeHTTPHook(typ, info, captureOutput)
+	}
+
+	return output, err
+}
+
+func invokeHTTPHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+	//pass in all the json
+	//POST json to the endpoint
+	//handle retry on a timeout for a certain amount of time
+	//pass up all errors returned from the server
+	url := Flags.HTTPHooksEndpoint
+	json = json.Marshal(info)
+	req, err := http.NewRequest("POST", url, strings.NewReader(json.Encode()))
+	if err != nil {
+		return nil, "Error connecting to host"
+	}
+	client := &http.Client()
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	fmt.Println("response status", resp.Status)
+
+	//retry a certain # of times here, perhaps based on a user defined value?
+	//another flag?
+	//retrying in a goroutine?
+	//launch another goroutine?
+	//how to retry routines in which we allow
+}
+
+func invokeFileHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	cmd := exec.Command(Flags.HooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
@@ -115,13 +153,4 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	}
 
 	return output, err
-}
-
-func invokeHookHTTP(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	//pass in all the json
-	//POST json to the endpoint
-	//handle retry on a timeout for a certain amount of time
-	//pass up all errors returned from the server
-	//cross compatibility with regular hooks?
-	//
 }

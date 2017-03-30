@@ -2,6 +2,10 @@
 
 When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a Hook system which will execute custom code when certain events happen, such as an upload being created or finished. While being simple, yet powerful enough, enabled uses ranging from logging over validation and authorization to processing the uploaded files.
 
+Tusd provides two types of hooks in order to accomplish this:
+1. A file based hook system similar to a the [Git](https://git-scm.com/book/it/v2/Customizing-Git-Git-Hooks)
+2. 
+
 If you have previously worked with the hook system provided by [Git](https://git-scm.com/book/it/v2/Customizing-Git-Git-Hooks), you will see a lot of parallels. If this does not apply to you, don't worry, it is not complicated. Before getting stated, it is good to have a high level overview of what a hook is actually: It is a regular file, located in a specific directory, which will be executed once a certain event occurs. This file can either be a script interpreted by a runtime, such as Bash or Python, or a compiled binary. When invoked, the process will be provided with information about the event triggering the occuring event and the associated uploaded.
 
 ## The Hook Directory

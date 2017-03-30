@@ -6,23 +6,24 @@ import (
 )
 
 var Flags struct {
-	HttpHost   string
-	HttpPort   string
-	MaxSize    int64
-	UploadDir  string
-	StoreSize  int64
-	Basepath   string
-	Timeout    int64
-	S3Bucket   string
-	S3Endpoint string
-	HooksDir   string
-	HooksHTTPEndpoint
-	ShowVersion   bool
-	ExposeMetrics bool
-	MetricsPath   string
-	BehindProxy   bool
+	HttpHost          string
+	HttpPort          string
+	MaxSize           int64
+	UploadDir         string
+	StoreSize         int64
+	Basepath          string
+	Timeout           int64
+	S3Bucket          string
+	S3Endpoint        string
+	HooksDir          string
+	HooksHTTPEndpoint string
+	ShowVersion       bool
+	ExposeMetrics     bool
+	MetricsPath       string
+	BehindProxy       bool
 
-	HooksInstalled bool
+	FileHooksInstalled bool
+	HTTPHooksInstalled bool
 }
 
 func ParseFlags() {
@@ -46,13 +47,13 @@ func ParseFlags() {
 
 	if Flags.HooksDir != "" {
 		Flags.HooksDir, _ = filepath.Abs(Flags.HooksDir)
-		Flags.HooksInstalled = true
+		Flags.FileHooksInstalled = true
 
 		stdout.Printf("Using '%s' for hooks", Flags.HooksDir)
 	}
 
 	if Flags.HooksHTTPEndpoint != "" {
-		Flags.HooksInstalled = true
+		Flags.HTTPHooksInstalled = true
 
 		stdout.Printf("Using '%s as the endpoint for hooks", Flags.HooksHTTPEndpoint)
 	}
