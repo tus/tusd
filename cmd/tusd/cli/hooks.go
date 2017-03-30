@@ -116,3 +116,12 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	return output, err
 }
+
+func invokeHookHTTP(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+	//pass in all the json
+	//POST json to the endpoint
+	//handle retry on a timeout for a certain amount of time
+	//pass up all errors returned from the server
+	//cross compatibility with regular hooks?
+	//
+}
