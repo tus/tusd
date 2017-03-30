@@ -103,7 +103,7 @@ func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	//defer resp.Body.Close()
+	defer resp.Body.Close()
 	fmt.Println("response status", resp.Status)
 
 	//retry a certain # of times here, perhaps based on a user defined value?
