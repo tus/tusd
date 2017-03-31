@@ -3,7 +3,9 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/sethgrid/pester"
 	"github.com/tus/tusd"
 	"net/http"
 	"os"
@@ -88,31 +90,34 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 }
 
 func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	//pass in all the json
-	//POST json to the endpoint
-	//handle retry on a timeout for a certain amount of time
-	//pass up all errors returned from the server
 	url := Flags.HttpHooksEndpoint
 	jsonInfo, err := json.Marshal(info)
+
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
+	req.Header.Set("Upload-State", string(typ))
 	if err != nil {
 		return nil, err
 	}
-	client := &http.Client{}
+
+	//retry 3 times at most.
+	client := pester.New()
+	client.MaxRetries = 1
+	client.KeepLog = true
+
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
-	fmt.Println("response status", resp.Status)
 
-	//retry a certain # of times here, perhaps based on a user defined value?
-	//another flag?
-	//retrying in a goroutine?
-	//launch another goroutine?
-	//how to retry routines in which we allow
+	response := []byte(resp.Status)
+	if resp.StatusCode >= 400 {
+		err := errors.New("Invalid Response Code")
+		return response, err
+	}
+	return response, err
 
-	return nil, err
 }
 
 func invokeFileHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
