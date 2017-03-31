@@ -95,6 +95,7 @@ func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
 	req.Header.Set("Upload-State", string(typ))
+	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return nil, err
 	}
