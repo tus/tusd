@@ -37,7 +37,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
-	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint that hooks will POST to. ")
+	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint that hooks will POST to.")
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
@@ -55,7 +55,7 @@ func ParseFlags() {
 	if Flags.HttpHooksEndpoint != "" {
 		Flags.HttpHooksInstalled = true
 
-		stdout.Printf("Using '%s as the endpoint for hooks", Flags.HttpHooksEndpoint)
+		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 	}
 
 	if Flags.UploadDir == "" && Flags.S3Bucket == "" {
