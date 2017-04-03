@@ -1,9 +1,9 @@
 package gcsstore_test
 
 import (
-	"fmt"
-	"encoding/json"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,7 +24,7 @@ var mockTusdInfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"MetaData":{"foo":"bar"
 var mockTusdInfo = tusd.FileInfo{
 	ID:   mockID,
 	Size: mockSize,
-	MetaData: map[string]string {
+	MetaData: map[string]string{
 		"foo": "bar",
 	},
 }
@@ -32,7 +32,7 @@ var mockTusdInfo = tusd.FileInfo{
 var mockPartial0 = fmt.Sprintf("%s_0", mockID)
 var mockPartial1 = fmt.Sprintf("%s_1", mockID)
 var mockPartial2 = fmt.Sprintf("%s_2", mockID)
-var mockPartials = []string {mockPartial0, mockPartial1, mockPartial2}
+var mockPartials = []string{mockPartial0, mockPartial1, mockPartial2}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -42,16 +42,16 @@ func TestNewUpload(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
+	assert.Equal(store.Bucket, mockBucket)
 
 	data, err := json.Marshal(mockTusdInfo)
 	assert.Nil(err)
 
 	r := bytes.NewReader(data)
 
-	params := gcsstore.GCSObjectParams {
+	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: fmt.Sprintf("%s.info", mockID),
+		ID:     fmt.Sprintf("%s.info", mockID),
 	}
 
 	service.EXPECT().WriteObject(params, r).Return(int64(r.Len()), nil)
@@ -61,7 +61,8 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal(id, mockID)
 }
 
-type MockGetInfoReader struct {}
+type MockGetInfoReader struct{}
+
 func (r MockGetInfoReader) Close() error {
 	return nil
 }
@@ -91,22 +92,59 @@ func TestGetInfo(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
+	assert.Equal(store.Bucket, mockBucket)
 
-	params := gcsstore.GCSObjectParams {
+	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: fmt.Sprintf("%s.info", mockID),
+		ID:     fmt.Sprintf("%s.info", mockID),
 	}
 
 	r := MockGetInfoReader{}
 
-	service.EXPECT().ReadObject(params).Return(r, nil)
+	filterParams := gcsstore.GCSFilterParams{
+		Bucket: store.Bucket,
+		Prefix: fmt.Sprintf("%s_", mockID),
+	}
+
+	mockObjectParams0 := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockPartial0,
+	}
+
+	mockObjectParams1 := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockPartial1,
+	}
+
+	mockObjectParams2 := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockPartial2,
+	}
+
+	var size int64 = 100
+
+	mockTusdInfo.Offset = 300
+	offsetInfoData, err := json.Marshal(mockTusdInfo)
+	assert.Nil(err)
+
+	infoR := bytes.NewReader(offsetInfoData)
+
+	gomock.InOrder(
+		service.EXPECT().ReadObject(params).Return(r, nil),
+		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams0).Return(size, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams1).Return(size, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams2).Return(size, nil),
+		service.EXPECT().WriteObject(params, infoR).Return(int64(len(offsetInfoData)), nil),
+	)
+
 	info, err := store.GetInfo(mockID)
 	assert.Nil(err)
 	assert.Equal(mockTusdInfo, info)
 }
 
-type MockGetReader struct {}
+type MockGetReader struct{}
+
 func (r MockGetReader) Close() error {
 	return nil
 }
@@ -136,14 +174,14 @@ func TestGetReader(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
+	assert.Equal(store.Bucket, mockBucket)
 
-	params := gcsstore.GCSObjectParams {
+	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: mockID,
+		ID:     mockID,
 	}
 
-	r := MockGetReader {}
+	r := MockGetReader{}
 
 	service.EXPECT().ReadObject(params).Return(r, nil)
 	reader, err := store.GetReader(mockID)
@@ -164,34 +202,14 @@ func TestTerminate(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
+	assert.Equal(store.Bucket, mockBucket)
 
-	filterParams := gcsstore.GCSFilterParams {
+	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: mockID,
 	}
 
-	mockObjectParams0 := gcsstore.GCSObjectParams {
-		Bucket: store.Bucket,
-		ID: mockPartial0,
-	}
-
-	mockObjectParams1 := gcsstore.GCSObjectParams {
-		Bucket: store.Bucket,
-		ID: mockPartial1,
-	}
-
-	mockObjectParams2 := gcsstore.GCSObjectParams {
-		Bucket: store.Bucket,
-		ID: mockPartial2,
-	}
-
-	gomock.InOrder(
-		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
-		service.EXPECT().DeleteObject(mockObjectParams0).Return(nil),
-		service.EXPECT().DeleteObject(mockObjectParams1).Return(nil),
-		service.EXPECT().DeleteObject(mockObjectParams2).Return(nil),
-	)
+	service.EXPECT().DeleteObjectsWithFilter(filterParams).Return(nil)
 
 	err := store.Terminate(mockID)
 	assert.Nil(err)
@@ -205,57 +223,87 @@ func TestFinishUpload(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
+	assert.Equal(store.Bucket, mockBucket)
 
-	filterParams := gcsstore.GCSFilterParams {
+	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: fmt.Sprintf("%s_", mockID),
 	}
 
-	composeParams := gcsstore.GCSComposeParams {
-		Bucket: store.Bucket,
+	composeParams := gcsstore.GCSComposeParams{
+		Bucket:      store.Bucket,
 		Destination: mockID,
-		Sources: mockPartials,
+		Sources:     mockPartials,
 	}
 
-	mockObjectParams0 := gcsstore.GCSObjectParams {
+	infoParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: mockPartial0,
+		ID:     fmt.Sprintf("%s.info", mockID),
 	}
 
-	mockObjectParams1 := gcsstore.GCSObjectParams {
+	r := MockGetInfoReader{}
+
+	mockObjectParams0 := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: mockPartial1,
+		ID:     mockPartial0,
 	}
 
-	mockObjectParams2 := gcsstore.GCSObjectParams {
+	mockObjectParams1 := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: mockPartial2,
+		ID:     mockPartial1,
+	}
+
+	mockObjectParams2 := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockPartial2,
+	}
+
+	var size int64 = 100
+
+	mockTusdInfo.Offset = 300
+	offsetInfoData, err := json.Marshal(mockTusdInfo)
+	assert.Nil(err)
+
+	infoR := bytes.NewReader(offsetInfoData)
+
+	objectParams := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockID,
+	}
+
+	metadata := map[string]string{
+		"foo": "bar",
 	}
 
 	gomock.InOrder(
 		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
 		service.EXPECT().ComposeObjects(composeParams).Return(nil),
-		service.EXPECT().DeleteObject(mockObjectParams0).Return(nil),
-		service.EXPECT().DeleteObject(mockObjectParams1).Return(nil),
-		service.EXPECT().DeleteObject(mockObjectParams2).Return(nil),
+		service.EXPECT().DeleteObjectsWithFilter(filterParams).Return(nil),
+		service.EXPECT().ReadObject(infoParams).Return(r, nil),
+		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams0).Return(size, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams1).Return(size, nil),
+		service.EXPECT().GetObjectSize(mockObjectParams2).Return(size, nil),
+		service.EXPECT().WriteObject(infoParams, infoR).Return(int64(len(offsetInfoData)), nil),
+		service.EXPECT().SetObjectMetadata(objectParams, metadata).Return(nil),
 	)
 
-	err := store.FinishUpload(mockID)
+	err = store.FinishUpload(mockID)
 	assert.Nil(err)
 }
 
-var mockTusdChunk0InfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"Offset":%d,"MetaData":{"foo":"bar"}}`, mockID, mockSize, mockSize / 3)
+var mockTusdChunk0InfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"Offset":%d,"MetaData":{"foo":"bar"}}`, mockID, mockSize, mockSize/3)
 var mockTusdChunk1Info = tusd.FileInfo{
-	ID:   mockID,
-	Size: mockSize,
+	ID:     mockID,
+	Size:   mockSize,
 	Offset: 455,
-	MetaData: map[string]string {
+	MetaData: map[string]string{
 		"foo": "bar",
 	},
 }
 
-type MockWriteChunkReader struct {}
+type MockWriteChunkReader struct{}
+
 func (r MockWriteChunkReader) Close() error {
 	return nil
 }
@@ -277,7 +325,6 @@ func (r MockWriteChunkReader) Size() int64 {
 	return int64(len(mockTusdChunk0InfoJson))
 }
 
-
 func TestWriteChunk(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -286,54 +333,33 @@ func TestWriteChunk(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	assert.Equal(store.Bucket, mockBucket);
-
-	// First get info
-	getInfoObjectParams := gcsstore.GCSObjectParams {
-		Bucket: store.Bucket,
-		ID: fmt.Sprintf("%s.info", mockID),
-	}
-
-	rInfo := MockWriteChunkReader{}
+	assert.Equal(store.Bucket, mockBucket)
 
 	// filter objects
-	filterParams := gcsstore.GCSFilterParams {
+	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: fmt.Sprintf("%s_", mockID),
 	}
 
-	var partials = []string {mockPartial0}
+	var partials = []string{mockPartial0}
 
 	// write object
-	writeObjectParams := gcsstore.GCSObjectParams {
+	writeObjectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: mockPartial1,
+		ID:     mockPartial1,
 	}
 
 	rGet := bytes.NewReader([]byte(mockReaderData))
 
-	// write info
-	writeInfoParams := gcsstore.GCSObjectParams {
-		Bucket: store.Bucket,
-		ID: fmt.Sprintf("%s.info", mockID),
-	}
-
-	chunk1InfoData, err := json.Marshal(mockTusdChunk1Info)
-	assert.Nil(err)
-
-	rChunk := bytes.NewReader(chunk1InfoData)
-
 	gomock.InOrder(
-		service.EXPECT().ReadObject(getInfoObjectParams).Return(rInfo, nil),
 		service.EXPECT().FilterObjects(filterParams).Return(partials, nil),
 		service.EXPECT().WriteObject(writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
-		service.EXPECT().WriteObject(writeInfoParams, rChunk).Return(int64(len(chunk1InfoData)), nil),
 	)
 
 	reader := bytes.NewReader([]byte(mockReaderData))
-	var offset int64;
+	var offset int64
 	offset = mockSize / 3
-	_, err = store.WriteChunk(mockID, offset, reader)
+	_, err := store.WriteChunk(mockID, offset, reader)
 	assert.Nil(err)
 
 }

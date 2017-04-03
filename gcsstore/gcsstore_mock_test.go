@@ -4,7 +4,6 @@
 package gcsstore_test
 
 import (
-	storage "cloud.google.com/go/storage"
 	gomock "github.com/golang/mock/gomock"
 	gcsstore "github.com/tus/tusd/gcsstore"
 	io "io"
@@ -144,15 +143,15 @@ func (_mr *_MockGCSAPIRecorder) FilterObjects(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilterObjects", arg0)
 }
 
-func (_m *MockGCSAPI) GetObjectAttrs(_param0 gcsstore.GCSObjectParams) (*storage.ObjectAttrs, error) {
-	ret := _m.ctrl.Call(_m, "GetObjectAttrs", _param0)
-	ret0, _ := ret[0].(*storage.ObjectAttrs)
+func (_m *MockGCSAPI) GetObjectSize(_param0 gcsstore.GCSObjectParams) (int64, error) {
+	ret := _m.ctrl.Call(_m, "GetObjectSize", _param0)
+	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockGCSAPIRecorder) GetObjectAttrs(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObjectAttrs", arg0)
+func (_mr *_MockGCSAPIRecorder) GetObjectSize(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObjectSize", arg0)
 }
 
 func (_m *MockGCSAPI) ReadObject(_param0 gcsstore.GCSObjectParams) (gcsstore.GCSReader, error) {
@@ -164,6 +163,16 @@ func (_m *MockGCSAPI) ReadObject(_param0 gcsstore.GCSObjectParams) (gcsstore.GCS
 
 func (_mr *_MockGCSAPIRecorder) ReadObject(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadObject", arg0)
+}
+
+func (_m *MockGCSAPI) SetObjectMetadata(_param0 gcsstore.GCSObjectParams, _param1 map[string]string) error {
+	ret := _m.ctrl.Call(_m, "SetObjectMetadata", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockGCSAPIRecorder) SetObjectMetadata(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetObjectMetadata", arg0, arg1)
 }
 
 func (_m *MockGCSAPI) WriteObject(_param0 gcsstore.GCSObjectParams, _param1 io.Reader) (int64, error) {

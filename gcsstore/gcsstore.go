@@ -11,12 +11,12 @@
 package gcsstore
 
 import (
-	"io"
 	"bytes"
-	"fmt"
-	"strings"
-	"strconv"
 	"encoding/json"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/uid"
@@ -36,8 +36,8 @@ type GCSStore struct {
 // New constructs a new GCS storage backend using the supplied GCS bucket name
 // and service object.
 func New(bucket string, service GCSAPI) GCSStore {
-	return GCSStore {
-		Bucket: bucket,
+	return GCSStore{
+		Bucket:  bucket,
 		Service: service,
 	}
 }
@@ -64,7 +64,7 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 
 func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
 	prefix := fmt.Sprintf("%s_", id)
-	filterParams := GCSFilterParams {
+	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
 	}
@@ -88,10 +88,10 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 		}
 	}
 
-	cid := fmt.Sprintf("%s_%d", id, maxIdx + 1)
-	objectParams := GCSObjectParams {
+	cid := fmt.Sprintf("%s_%d", id, maxIdx+1)
+	objectParams := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: cid,
+		ID:     cid,
 	}
 
 	n, err := store.Service.WriteObject(objectParams, src)
@@ -106,9 +106,9 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	info := tusd.FileInfo{}
 	i := fmt.Sprintf("%s.info", id)
 
-	params := GCSObjectParams {
+	params := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: i,
+		ID:     i,
 	}
 
 	r, err := store.Service.ReadObject(params)
@@ -127,7 +127,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	}
 
 	prefix := fmt.Sprintf("%s_", id)
-	filterParams := GCSFilterParams {
+	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
 	}
@@ -139,17 +139,17 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 
 	var offset int64 = 0
 	for _, name := range names {
-		params = GCSObjectParams {
+		params = GCSObjectParams{
 			Bucket: store.Bucket,
-			ID: name,
+			ID:     name,
 		}
 
-		attrs, err := store.Service.GetObjectAttrs(params)
+		size, err := store.Service.GetObjectSize(params)
 		if err != nil {
 			return info, err
 		}
 
-		offset += attrs.Size
+		offset += size
 	}
 
 	info.Offset = offset
@@ -171,9 +171,9 @@ func (store GCSStore) writeInfo(id string, info tusd.FileInfo) error {
 	r := bytes.NewReader(data)
 
 	i := fmt.Sprintf("%s.info", id)
-	params := GCSObjectParams {
+	params := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: i,
+		ID:     i,
 	}
 
 	_, err = store.Service.WriteObject(params, r)
@@ -186,7 +186,7 @@ func (store GCSStore) writeInfo(id string, info tusd.FileInfo) error {
 
 func (store GCSStore) FinishUpload(id string) error {
 	prefix := fmt.Sprintf("%s_", id)
-	filterParams := GCSFilterParams {
+	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
 	}
@@ -196,10 +196,10 @@ func (store GCSStore) FinishUpload(id string) error {
 		return err
 	}
 
-	composeParams := GCSComposeParams {
-		Bucket: store.Bucket,
+	composeParams := GCSComposeParams{
+		Bucket:      store.Bucket,
 		Destination: id,
-		Sources: names,
+		Sources:     names,
 	}
 
 	err = store.Service.ComposeObjects(composeParams)
@@ -212,11 +212,26 @@ func (store GCSStore) FinishUpload(id string) error {
 		return err
 	}
 
+	info, err := store.GetInfo(id)
+	if err != nil {
+		return err
+	}
+
+	objectParams := GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     id,
+	}
+
+	err = store.Service.SetObjectMetadata(objectParams, info.MetaData)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (store GCSStore) Terminate(id string) error {
-	filterParams := GCSFilterParams {
+	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: id,
 	}
@@ -230,9 +245,9 @@ func (store GCSStore) Terminate(id string) error {
 }
 
 func (store GCSStore) GetReader(id string) (io.Reader, error) {
-	params := GCSObjectParams {
+	params := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID: id,
+		ID:     id,
 	}
 
 	r, err := store.Service.ReadObject(params)

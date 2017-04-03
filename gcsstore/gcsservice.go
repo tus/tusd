@@ -1,20 +1,20 @@
 package gcsstore
 
 import (
-	"io"
-	"fmt"
-	"strings"
-	"strconv"
 	"errors"
+	"fmt"
+	"io"
 	"math"
+	"strconv"
+	"strings"
 
-	"golang.org/x/net/context"
 	"cloud.google.com/go/storage"
-	"google.golang.org/api/option"
+	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 
-	"hash/crc32"
 	"github.com/vimeo/go-util/crc32combine"
+	"hash/crc32"
 )
 
 type GCSObjectParams struct {
@@ -59,7 +59,8 @@ type GCSReader interface {
 // to work with Google's cloud storage.
 type GCSAPI interface {
 	ReadObject(params GCSObjectParams) (GCSReader, error)
-	GetObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error)
+	GetObjectSize(params GCSObjectParams) (int64, error)
+	SetObjectMetadata(params GCSObjectParams, metadata map[string]string) error
 	DeleteObject(params GCSObjectParams) error
 	DeleteObjectsWithFilter(params GCSFilterParams) error
 	WriteObject(params GCSObjectParams, r io.Reader) (int64, error)
@@ -71,7 +72,7 @@ type GCSAPI interface {
 // as well as its associated context.
 type GCSService struct {
 	Client *storage.Client
-	Ctx context.Context
+	Ctx    context.Context
 }
 
 // NewGCSService returns a GCSSerivce object given a GCloud service account file path.
@@ -82,9 +83,9 @@ func NewGCSService(filename string) (*GCSService, error) {
 		return nil, err
 	}
 
-	service := &GCSService {
+	service := &GCSService{
 		Client: client,
-		Ctx: ctx,
+		Ctx:    ctx,
 	}
 
 	return service, nil
@@ -102,9 +103,34 @@ func (service *GCSService) ReadObject(params GCSObjectParams) (GCSReader, error)
 	return r, nil
 }
 
-// GetObjectAttrs returns the associated attributes of a GCS object.
+// GetObjectSize returns the byte length of the specified GCS object.
+func (service *GCSService) GetObjectSize(params GCSObjectParams) (int64, error) {
+	attrs, err := service.getObjectAttrs(params)
+	if err != nil {
+		return 0, err
+	}
+
+	return attrs.Size, nil
+}
+
+// SetObjectMetadata sets the metadata attribute of the supplied GCS object to the passed metadata map.
+func (service *GCSService) SetObjectMetadata(params GCSObjectParams, metadata map[string]string) error {
+	attrs := storage.ObjectAttrsToUpdate{
+		Metadata: metadata,
+	}
+
+	obj := service.Client.Bucket(params.Bucket).Object(params.ID)
+	_, err := obj.Update(service.Ctx, attrs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getObjectAttrs returns the associated attributes of a GCS object.
 // https://godoc.org/cloud.google.com/go/storage#ObjectAttrs
-func (service *GCSService) GetObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error) {
+func (service *GCSService) getObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error) {
 	obj := service.Client.Bucket(params.Bucket).Object(params.ID)
 
 	attrs, err := obj.Attrs(service.Ctx)
@@ -136,9 +162,9 @@ func (service *GCSService) DeleteObjectsWithFilter(params GCSFilterParams) error
 
 	var objectParams GCSObjectParams
 	for _, name := range names {
-		objectParams = GCSObjectParams {
+		objectParams = GCSObjectParams{
 			Bucket: params.Bucket,
-			ID: name,
+			ID:     name,
 		}
 
 		err := service.DeleteObject(objectParams)
@@ -209,9 +235,9 @@ func (service *GCSService) compose(bucket string, srcs []string, dst string) err
 		}
 	}
 
-	err = service.DeleteObject(GCSObjectParams {
+	err = service.DeleteObject(GCSObjectParams{
 		Bucket: bucket,
-		ID: dst,
+		ID:     dst,
 	})
 
 	if err != nil {
@@ -235,7 +261,7 @@ func (service *GCSService) recursiveCompose(srcs []string, params GCSComposePara
 
 		// Remove all the temporary composition objects
 		prefix := fmt.Sprintf("%s_tmp", params.Destination)
-		filterParams := GCSFilterParams {
+		filterParams := GCSFilterParams{
 			Bucket: params.Bucket,
 			Prefix: prefix,
 		}
@@ -254,7 +280,7 @@ func (service *GCSService) recursiveCompose(srcs []string, params GCSComposePara
 	for i := 0; i < tmpSrcLen; i++ {
 		start := i * MAX_OBJECT_COMPOSITION
 		end := MAX_OBJECT_COMPOSITION * (i + 1)
-		if tmpSrcLen - i == 1 {
+		if tmpSrcLen-i == 1 {
 			end = len(srcs)
 		}
 
@@ -267,7 +293,7 @@ func (service *GCSService) recursiveCompose(srcs []string, params GCSComposePara
 		tmpSrcs[i] = tmpDst
 	}
 
-	return service.recursiveCompose(tmpSrcs, params, lvl + 1)
+	return service.recursiveCompose(tmpSrcs, params, lvl+1)
 }
 
 // ComposeObjects composes multiple GCS objects in to a single object.
@@ -292,8 +318,8 @@ func (service *GCSService) ComposeObjects(params GCSComposeParams) error {
 func (service *GCSService) FilterObjects(params GCSFilterParams) ([]string, error) {
 	bkt := service.Client.Bucket(params.Bucket)
 
-	q := storage.Query {
-		Prefix: params.Prefix,
+	q := storage.Query{
+		Prefix:   params.Prefix,
 		Versions: false,
 	}
 
