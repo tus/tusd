@@ -140,4 +140,4 @@ Body:
 
 
 ### Configuration
-Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a non-200 response, with a 1 second backoff. This can be configured with _LINK_TO_CODE_. 
+Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a non-200 response, with a 1 second backoff. This can be configured with https://github.com/vimeo/tusd/blob/httphooks/cmd/tusd/cli/hooks.go#L103-L106.  
