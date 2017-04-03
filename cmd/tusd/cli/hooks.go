@@ -102,7 +102,7 @@ func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	//retry 3 times at most.
 	client := pester.New()
-	client.MaxRetries = 1
+	client.MaxRetries = 3
 	client.KeepLog = true
 
 	resp, err := client.Do(req)
