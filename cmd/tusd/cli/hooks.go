@@ -79,22 +79,22 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	err := error(nil)
 
 	if Flags.FileHooksInstalled {
-		output, err = invokeFileHook(typ, info, captureOutput)
+		output, err = invokeFileHook(name, typ, info, captureOutput)
 	}
 
 	if Flags.HttpHooksInstalled {
-		output, err = invokeHttpHook(typ, info, captureOutput)
+		output, err = invokeHttpHook(name, typ, info, captureOutput)
 	}
 
 	return output, err
 }
 
-func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	url := Flags.HttpHooksEndpoint
 	jsonInfo, err := json.Marshal(info)
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
-	req.Header.Set("Upload-State", string(typ))
+	req.Header.Set("Upload-State", name)
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return nil, err
@@ -107,7 +107,6 @@ func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -121,8 +120,7 @@ func invokeHttpHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 }
 
-func invokeFileHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	name := string(typ)
+func invokeFileHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	cmd := exec.Command(Flags.FileHooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
