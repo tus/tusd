@@ -116,8 +116,12 @@ func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput
 		err := errors.New("Invalid Response Code")
 		return response, err
 	}
-	return response, err
 
+	if !captureOutput {
+		return response, nil
+	}
+
+	return response, err
 }
 
 func invokeFileHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
