@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 type HookType string
@@ -89,7 +90,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	return output, err
 }
 
-func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	url := Flags.HttpHooksEndpoint
 	jsonInfo, err := json.Marshal(info)
 
@@ -103,8 +104,10 @@ func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput
 	//retry 3 times at most.
 	client := pester.New()
 	client.KeepLog = true
-	client.Backoff = Flags.HttpHookBackoff * time.Second
-	client.MaxRetries = Flags.HttpHookRetry
+	client.Backoff = func(_ int) time.Duration {
+		return time.Duration(Flags.HttpHooksBackoff) * time.Second
+	}
+	client.MaxRetries = Flags.HttpHooksRetry
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -126,7 +129,7 @@ func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput
 	return nil, err
 }
 
-func invokeFileHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	cmd := exec.Command(Flags.FileHooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)

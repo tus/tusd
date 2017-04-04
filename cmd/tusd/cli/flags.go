@@ -17,8 +17,8 @@ var Flags struct {
 	S3Endpoint        string
 	FileHooksDir      string
 	HttpHooksEndpoint string
-	HttpHooksRetry    int64
-	HttpHooksBackoff  int64
+	HttpHooksRetry    int
+	HttpHooksBackoff  int
 	ShowVersion       bool
 	ExposeMetrics     bool
 	MetricsPath       string
@@ -40,8 +40,8 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint that hooks will POST to.")
-	flag.Int64Var(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a non-200 response (default is 3 times).")
-	flag.Int64Var(&Flags.HttphooksBackoff, "hooks-http-backoff", 1, "Number of seconds to wait before retrying each retry (default is 1 second).")
+	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a non-200 response (default is 3 times).")
+	flag.IntVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1, "Number of seconds to wait before retrying each retry (default is 1 second).")
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
