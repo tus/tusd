@@ -102,8 +102,9 @@ func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput
 
 	//retry 3 times at most.
 	client := pester.New()
-	client.MaxRetries = 3
 	client.KeepLog = true
+	client.Backoff = Flags.HttpHookBackoff * time.Second
+	client.MaxRetries = Flags.HttpHookRetry
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -117,11 +118,12 @@ func invokeHttpHook(string name, typ HookType, info tusd.FileInfo, captureOutput
 		return response, err
 	}
 
+	//if capture output is true, this function will return both the response and rthe err. Else it will return only the nil and err
 	if !captureOutput {
-		return response, nil
+		return response, err
 	}
 
-	return response, err
+	return nil, err
 }
 
 func invokeFileHook(string name, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
