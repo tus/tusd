@@ -80,6 +80,10 @@ The process of the hook files are provided with information about the event and 
 }
 ```
 
+Be aware that this environment does *not* contain direct data from any HTTP request, in particular not any header values or cookies. If you would like to pass information from the client to the hook, such as authentication details, you may wish to use the [metadata system](http://tus.io/protocols/resumable-upload.html#upload-metadata).
+
+## Blocking and Non-Blocking Hooks
+
 ## HTTP Hooks
 HTTP Hooks are the second type of hooks supported by tusd. Like the file hooks, it is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an http url endpoint, which the tusd binary will issue POST requests to:
 

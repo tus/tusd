@@ -68,7 +68,7 @@ func (c Collector) Collect(metrics chan<- prometheus.Metric) {
 	for method, valuePtr := range c.metrics.RequestsTotal {
 		metrics <- prometheus.MustNewConstMetric(
 			requestsTotalDesc,
-			prometheus.GaugeValue,
+			prometheus.CounterValue,
 			float64(atomic.LoadUint64(valuePtr)),
 			method,
 		)
@@ -77,7 +77,7 @@ func (c Collector) Collect(metrics chan<- prometheus.Metric) {
 	for httpError, valuePtr := range c.metrics.ErrorsTotal.Load() {
 		metrics <- prometheus.MustNewConstMetric(
 			errorsTotalDesc,
-			prometheus.GaugeValue,
+			prometheus.CounterValue,
 			float64(atomic.LoadUint64(valuePtr)),
 			strconv.Itoa(httpError.StatusCode()),
 			httpError.Error(),
