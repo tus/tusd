@@ -122,7 +122,7 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	}
 
 	//if capture output is true, this function will return both the response and rthe err. Else it will return only the nil and err
-	if !captureOutput {
+	if captureOutput {
 		return response, err
 	}
 
