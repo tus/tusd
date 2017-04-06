@@ -1,6 +1,6 @@
 # Hooks
 
-When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a system when triggers actions when certain events happen, such as an upload being created or finished. This simple-but-powerful system enables uses ranging from logging over validate and authorization to processing the uploaded files. 
+When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a system which triggers actions when certain events happen, such as an upload being created or finished. This simple-but-powerful system enables uses ranging from logging over validation and authorization to processing the uploaded files.
 
 When a specific action happens during an upload (pre-create, post-receive, post-finish, or post-terminate), the hook system enables tusd to fire off a specific event. Tusd provides two ways of doing this:
 
@@ -141,7 +141,7 @@ Body:
 
 
 ### Configuration
-Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a non-200 response, with a 1 second backoff. This can be configured with the flags `hooks-http-retry` and `hooks-http-backoff` like so:
+Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a 500 response or network error, with a 1 second backoff. This can be configured with the flags `hooks-http-retry` and `hooks-http-backoff` like so:
 
 Retrying 5 times with a 2 second backoff:
 ```
