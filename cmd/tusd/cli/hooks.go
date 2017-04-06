@@ -95,13 +95,13 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	jsonInfo, err := json.Marshal(info)
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
-	req.Header.Set("Upload-State", name)
+	req.Header.Set("Hook-Name", name)
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return nil, err
 	}
 
-	//retry 3 times at most.
+	//retry the user definied # of times.
 	client := pester.New()
 	client.KeepLog = true
 	client.Backoff = func(_ int) time.Duration {
@@ -115,9 +115,9 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	}
 	defer resp.Body.Close()
 
-	response := []byte(resp.Status)
+	response := []byte(resp.Body)
 	if resp.StatusCode >= 400 {
-		err := errors.New("Invalid Response Code")
+		err := errors.New("Error, endpoint returned: ", resp.StatusCode)
 		return response, err
 	}
 
