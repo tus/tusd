@@ -138,6 +138,15 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 // directly you will need to wrap at least the POST and PATCH endpoints in
 // this middleware.
 func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
+	return handler.MiddlewareWithOptionsCallback(h, func(w http.ResponseWriter, r *http.Request) {})
+}
+
+// MiddlewareWithOptionsCallback checks various aspects of the request and
+// ensures that it conforms with the spec. Also handles method overriding for
+// clients which cannot make PATCH AND DELETE requests. If you are using the
+// tusd handlers directly you will need to wrap at least the POST and PATCH
+// endpoints in this middleware.
+func (handler *UnroutedHandler) MiddlewareWithOptionsCallback(h http.Handler, cb http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments to not support PATCH and
@@ -182,6 +191,9 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 			header.Set("Tus-Version", "1.0.0")
 			header.Set("Tus-Extension", handler.extensions)
+
+			// Allow caller to override response headers etc.
+			cb(w, r)
 
 			// Although the 204 No Content status code is a better fit in this case,
 			// since we do not have a response body included, we cannot use it here
