@@ -321,7 +321,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
-		if isAwsError(err, "NoSuchUpload") {
+		if isAwsError(err, "NoSuchKey") {
 			info.Offset = info.Size
 			return info, nil
 		} else {
