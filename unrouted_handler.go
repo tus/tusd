@@ -132,21 +132,34 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	return handler, nil
 }
 
+func appendHeader(header http.Header, name, value string) {
+	valuesMap := make(map[string]struct{})
+
+	splitAndAddString := func(value string) {
+		for _, v := range strings.Split(value, ",") {
+			valuesMap[strings.TrimSpace(v)] = struct{}{}
+		}
+	}
+
+	splitAndAddString(header.Get(name))
+	splitAndAddString(value)
+
+	uniqValues := []string{}
+	for v, _ := range valuesMap {
+		if v != "" {
+			uniqValues = append(uniqValues, v)
+		}
+	}
+
+	header.Set(name, strings.Join(uniqValues, ", "))
+}
+
 // Middleware checks various aspects of the request and ensures that it
 // conforms with the spec. Also handles method overriding for clients which
 // cannot make PATCH AND DELETE requests. If you are using the tusd handlers
 // directly you will need to wrap at least the POST and PATCH endpoints in
 // this middleware.
 func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
-	return handler.MiddlewareWithOptionsCallback(h, func(w http.ResponseWriter, r *http.Request) {})
-}
-
-// MiddlewareWithOptionsCallback checks various aspects of the request and
-// ensures that it conforms with the spec. Also handles method overriding for
-// clients which cannot make PATCH AND DELETE requests. If you are using the
-// tusd handlers directly you will need to wrap at least the POST and PATCH
-// endpoints in this middleware.
-func (handler *UnroutedHandler) MiddlewareWithOptionsCallback(h http.Handler, cb http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments to not support PATCH and
@@ -166,13 +179,13 @@ func (handler *UnroutedHandler) MiddlewareWithOptionsCallback(h http.Handler, cb
 
 			if r.Method == "OPTIONS" {
 				// Preflight request
-				header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				appendHeader(header, "Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				appendHeader(header, "Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
-				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+				appendHeader(header, "Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
 			}
 		}
 
@@ -191,9 +204,6 @@ func (handler *UnroutedHandler) MiddlewareWithOptionsCallback(h http.Handler, cb
 
 			header.Set("Tus-Version", "1.0.0")
 			header.Set("Tus-Extension", handler.extensions)
-
-			// Allow caller to override response headers etc.
-			cb(w, r)
 
 			// Although the 204 No Content status code is a better fit in this case,
 			// since we do not have a response body included, we cannot use it here
