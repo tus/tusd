@@ -3,10 +3,10 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/sethgrid/pester"
 	"github.com/tus/tusd"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -94,7 +94,7 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	url := Flags.HttpHooksEndpoint
 	jsonInfo, err := json.Marshal(info)
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonInfo))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonInfo))
 	req.Header.Set("Hook-Name", name)
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
@@ -115,9 +115,13 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	}
 	defer resp.Body.Close()
 
-	response := []byte(resp.Body)
+	response, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode >= 400 {
-		err := errors.New("Error, endpoint returned: ", resp.StatusCode)
+		err := fmt.Errorf("Error, endpoint returned: %d", resp.StatusCode)
 		return response, err
 	}
 
