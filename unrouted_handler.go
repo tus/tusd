@@ -132,28 +132,6 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	return handler, nil
 }
 
-func appendHeader(header http.Header, name, value string) {
-	valuesMap := make(map[string]struct{})
-
-	splitAndAddString := func(value string) {
-		for _, v := range strings.Split(value, ",") {
-			valuesMap[strings.TrimSpace(v)] = struct{}{}
-		}
-	}
-
-	splitAndAddString(header.Get(name))
-	splitAndAddString(value)
-
-	uniqValues := []string{}
-	for v, _ := range valuesMap {
-		if v != "" {
-			uniqValues = append(uniqValues, v)
-		}
-	}
-
-	header.Set(name, strings.Join(uniqValues, ", "))
-}
-
 // Middleware checks various aspects of the request and ensures that it
 // conforms with the spec. Also handles method overriding for clients which
 // cannot make PATCH AND DELETE requests. If you are using the tusd handlers
@@ -179,13 +157,13 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 			if r.Method == "OPTIONS" {
 				// Preflight request
-				appendHeader(header, "Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				appendHeader(header, "Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				header.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
-				appendHeader(header, "Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
 			}
 		}
 
