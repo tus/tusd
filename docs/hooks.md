@@ -50,6 +50,8 @@ The process of the hook files are provided with information about the event and 
 }
 ```
 
+Be aware that this environment does *not* contain direct data from any HTTP request, in particular not any header values or cookies. If you would like to pass information from the client to the hook, such as authentication details, you may wish to use the [metadata system](http://tus.io/protocols/resumable-upload.html#upload-metadata).
+
 ## Blocking and Non-Blocking Hooks
 
 If not otherwise noted, all hooks are invoked in a *non-blocking* way, meaning that tusd will not wait until the hook process has finished and exited. Therefore, the hook process is not able to influence how tusd may continue handling the current request, regardless of which exit code it may set. Furthermore, the hook process' stdout and stderr will be piped to tusd's stdout and stderr correspondingly, allowing one to use these channels for additional logging.
