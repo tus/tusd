@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/sethgrid/pester"
+	"github.com/tus/tusd"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
-
-	"github.com/tus/tusd"
+	"time"
 )
 
 type HookType string
@@ -67,14 +70,71 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		logEv("UploadTerminated", "id", info.ID)
 	}
 
-	if !Flags.HooksInstalled {
+	if !Flags.FileHooksInstalled && !Flags.HttpHooksInstalled {
 		return nil, nil
 	}
-
 	name := string(typ)
 	logEv("HookInvocationStart", "type", name, "id", info.ID)
 
-	cmd := exec.Command(Flags.HooksDir + "/" + name)
+	output := []byte{}
+	err := error(nil)
+
+	if Flags.FileHooksInstalled {
+		output, err = invokeFileHook(name, typ, info, captureOutput)
+	}
+
+	if Flags.HttpHooksInstalled {
+		output, err = invokeHttpHook(name, typ, info, captureOutput)
+	}
+
+	return output, err
+}
+
+func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+	url := Flags.HttpHooksEndpoint
+	jsonInfo, err := json.Marshal(info)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonInfo))
+	req.Header.Set("Hook-Name", name)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		return nil, err
+	}
+
+	//retry the user definied # of times.
+	client := pester.New()
+	client.KeepLog = true
+	client.Backoff = func(_ int) time.Duration {
+		return time.Duration(Flags.HttpHooksBackoff) * time.Second
+	}
+	client.MaxRetries = Flags.HttpHooksRetry
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	response, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		err := fmt.Errorf("Error, endpoint returned: %d", resp.StatusCode)
+		return response, err
+	}
+
+	//if capture output is true, this function will return both the response and rthe err. Else it will return only the nil and err
+	if captureOutput {
+		return response, err
+	}
+
+	return nil, err
+}
+
+func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+	cmd := exec.Command(Flags.FileHooksDir + "/" + name)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
@@ -89,7 +149,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	cmd.Stdin = reader
 
 	cmd.Env = env
-	cmd.Dir = Flags.HooksDir
+	cmd.Dir = Flags.FileHooksDir
 	cmd.Stderr = os.Stderr
 
 	// If `captureOutput` is true, this function will return the output (both,
