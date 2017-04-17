@@ -3,6 +3,12 @@
 	"ignore": "test github.com/hashicorp/consul/ github.com/aws/aws-sdk-go/",
 	"package": [
 		{
+			"checksumSHA1": "qBDDOQVU1mGqC4sbqo9AEtj5lRc=",
+			"path": "cloud.google.com/go/storage",
+			"revision": "81b7822b1e798e8f17bf64b59512a5be4097e966",
+			"revisionTime": "2017-01-18T16:13:56Z"
+		},
+		{
 			"checksumSHA1": "spyv5/YFBjYyZLZa1U2LBfDR8PM=",
 			"path": "github.com/beorn7/perks/quantile",
 			"revision": "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",
@@ -85,6 +91,24 @@
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "d77da356e56a7428ad25149ca77381849a6a5232",
 			"revisionTime": "2016-06-15T09:26:46Z"
+		},
+		{
+			"checksumSHA1": "wkvo4hs3DsDqR1dIp3sdqM495ic=",
+			"path": "github.com/vimeo/go-util/crc32combine",
+			"revision": "574e3ce2d544b73c91ee622dca9df7d9019d3457",
+			"revisionTime": "2017-03-20T16:49:23Z"
+		},
+		{
+			"checksumSHA1": "slcGOTGSdukEPPSN81Q5WZGmhog=",
+			"path": "google.golang.org/api/iterator",
+			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
+			"revisionTime": "2017-01-17T23:12:05Z"
+		},
+		{
+			"checksumSHA1": "hZ9zds+/FPwSGEiti5lGaZL3e6w=",
+			"path": "google.golang.org/api/option",
+			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
+			"revisionTime": "2017-01-17T23:12:05Z"
 		},
 		{
 			"checksumSHA1": "0zBf3a7Gzqypt1sWefwx4NkOEIc=",
