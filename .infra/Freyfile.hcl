@@ -131,6 +131,12 @@ install {
     roles {
       role = "{{{init.paths.roles_dir}}}/unattended-upgrades/1.3.1"
     }
+    roles {
+      role = "{{{init.paths.roles_dir}}}/fqdn/1.2.1"
+    }
+    roles {
+      role = "{{{init.paths.roles_dir}}}/timezone/1.0.0"
+    }
     tasks {
       lineinfile = "dest=/home/{{{config.global.ssh.user}}}/.bashrc line=\"alias wtf='sudo tail -f /var/log/*{log,err} /var/log/{dmesg,messages,*{,/*}{log,err}}'\" owner={{{config.global.ssh.user}}} group={{{config.global.ssh.user}}} mode=0644 backup=yes"
       name       = "Common | Add convenience shortcut wtf"
@@ -142,15 +148,6 @@ install {
     tasks {
       name = "Common | Set motd"
       copy = "content='Welcome to {{lookup('env', 'FREY_DOMAIN')}}' dest=/etc/motd owner=root group=root mode=0644 backup=yes"
-    }
-    tasks {
-      name   = "Common | Set timezone variables"
-      copy   = "content='Etc/UTC' dest=/etc/timezone owner=root group=root mode=0644 backup=yes"
-      notify = ["Common | Update timezone"]
-    }
-    handlers {
-      name    = "Common | Update timezone"
-      command = "dpkg-reconfigure --frontend noninteractive tzdata"
     }
   }
 }
@@ -179,9 +176,6 @@ setup {
           logpath = "{{{config.global.approot}}}/shared/logs/{{{config.global.appname}}}.log"
         }
       }
-    }
-    roles {
-      role = "{{{init.paths.roles_dir}}}/fqdn/1.2.1"
     }
     tasks {
       file = "path=/mnt/tusd-data state=directory owner=www-data group=ubuntu mode=ug+rwX,o= recurse=yes"

@@ -9,7 +9,7 @@ packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 # corresponding tests on these versions.
 goversion=$(go version)
 if [[ "$goversion" == *"go1.5"* ]] ||
-   [[ "$goversion" == *"go1.6"* ]]; then
+   [[ "$goversion" == *"go1.6"* ]] || true; then
 
   echo "Skipping tests requiring Consul which is not supported on $goversion"
 
@@ -20,8 +20,11 @@ else
   go get -u github.com/hashicorp/consul/...
 fi
 
-# Install the AWS SDK which is explicitly not vendored
+# Install the AWS SDK and Prometheus client which is explicitly not vendored
 go get -u github.com/aws/aws-sdk-go/...
+go get -u github.com/prometheus/client_golang/prometheus
 
 # Test all packages which are allowed on all Go versions
 go test $packages
+
+go vet $packages

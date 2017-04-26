@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -84,7 +85,15 @@ type UnroutedHandler struct {
 	// happen if the NotifyTerminatedUploads field is set to true in the Config
 	// structure.
 	TerminatedUploads chan FileInfo
-	UploadProgress    chan FileInfo
+	// UploadProgress is used to send notifications about the progress of the
+	// currently running uploads. For each open PATCH request, every second
+	// a FileInfo instance will be send over this channel with the Offset field
+	// being set to the number of bytes which have been transfered to the server.
+	// Please be aware that this number may be higher than the number of bytes
+	// which have been stored by the data store! Sending to this channel will only
+	// happen if the NotifyUploadProgress field is set to true in the Config
+	// structure.
+	UploadProgress chan FileInfo
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -148,13 +157,13 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 			if r.Method == "OPTIONS" {
 				// Preflight request
-				header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				header.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
-				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
 			}
 		}
 
@@ -603,9 +612,17 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		err = ErrNotFound
 	}
 
-	status := 500
-	if statusErr, ok := err.(HTTPError); ok {
-		status = statusErr.StatusCode()
+	// Errors for read timeouts contain too much information which is not
+	// necessary for us and makes grouping for the metrics harder. The error
+	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
+	// Therefore, we use a common error message for all of them.
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		err = errors.New("read tcp: i/o timeout")
+	}
+
+	statusErr, ok := err.(HTTPError)
+	if !ok {
+		statusErr = NewHTTPError(err, http.StatusInternalServerError)
 	}
 
 	reason := err.Error() + "\n"
@@ -615,12 +632,12 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
-	w.WriteHeader(status)
+	w.WriteHeader(statusErr.StatusCode())
 	w.Write([]byte(reason))
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path, "error", err.Error())
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	go handler.Metrics.incErrorsTotal(err)
+	go handler.Metrics.incErrorsTotal(statusErr)
 }
 
 // sendResp writes the header to w with the specified status code.
@@ -654,6 +671,10 @@ func (w *progressWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// sendProgressMessage will send a notification over the UploadProgress channel
+// every second, indicating how much data has been transfered to the server.
+// It will stop sending these instances once the returned channel has been
+// closed. The returned reader should be used to read the request body.
 func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Reader) (io.Reader, chan<- struct{}) {
 	progress := &progressWriter{
 		Offset: info.Offset,

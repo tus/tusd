@@ -2,7 +2,7 @@
 
 set -e
 
-version=$(git rev-parse --abbrev-ref HEAD)
+version="$(git tag -l --points-at HEAD)"
 commit=$(git log --format="%H" -n 1)
 
 function compile {

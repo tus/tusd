@@ -248,8 +248,13 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 		limitedReader := io.LimitReader(src, store.MaxPartSize)
 		n, err := io.Copy(file, limitedReader)
-		if err != nil && err != io.EOF {
+		// io.Copy does not return io.EOF, so we not have to handle it differently.
+		if err != nil {
 			return bytesUploaded, err
+		}
+		// If io.Copy is finished reading, it will always return (0, nil).
+		if n == 0 {
+			return bytesUploaded, nil
 		}
 
 		if (size - offset) <= store.MinPartSize {
@@ -274,7 +279,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 			return bytesUploaded, err
 		}
 
-		offset += bytesUploaded
+		offset += n
 		bytesUploaded += n
 		nextPartNum += 1
 	}
