@@ -3,6 +3,18 @@
 	"ignore": "test github.com/hashicorp/consul/ github.com/aws/aws-sdk-go/",
 	"package": [
 		{
+			"checksumSHA1": "4iounbuF7SMZdx/MlKSUuhnV848=",
+			"path": "cloud.google.com/go/internal",
+			"revision": "81b7822b1e798e8f17bf64b59512a5be4097e966",
+			"revisionTime": "2017-01-18T16:13:56Z"
+		},
+		{
+			"checksumSHA1": "W2xJ0+fvugRhRi1PMi64bYofBbU=",
+			"path": "cloud.google.com/go/internal/optional",
+			"revision": "81b7822b1e798e8f17bf64b59512a5be4097e966",
+			"revisionTime": "2017-01-18T16:13:56Z"
+		},
+		{
 			"checksumSHA1": "qBDDOQVU1mGqC4sbqo9AEtj5lRc=",
 			"path": "cloud.google.com/go/storage",
 			"revision": "81b7822b1e798e8f17bf64b59512a5be4097e966",
@@ -99,6 +111,12 @@
 			"revisionTime": "2017-03-20T16:49:23Z"
 		},
 		{
+			"checksumSHA1": "GAKy8Id2Qx7BI0kZPRjGn1RjVQo=",
+			"path": "google.golang.org/api/internal",
+			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
+			"revisionTime": "2017-01-17T23:12:05Z"
+		},
+		{
 			"checksumSHA1": "slcGOTGSdukEPPSN81Q5WZGmhog=",
 			"path": "google.golang.org/api/iterator",
 			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
@@ -107,6 +125,12 @@
 		{
 			"checksumSHA1": "hZ9zds+/FPwSGEiti5lGaZL3e6w=",
 			"path": "google.golang.org/api/option",
+			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
+			"revisionTime": "2017-01-17T23:12:05Z"
+		},
+		{
+			"checksumSHA1": "zRukwFw3vpQ1QXjf0ryq7fLoSCY=",
+			"path": "google.golang.org/api/transport",
 			"revision": "b9d03e6e091e36f9a089515bc84cf14c2d199c4c",
 			"revisionTime": "2017-01-17T23:12:05Z"
 		},
