@@ -15,6 +15,9 @@ if [[ "$goversion" == *"go1.5"* ]] ||
 
   # Exclude consullocker since this may not be run on all Go versions.
   packages=$(echo "$packages" | sed '/consul/d')
+
+  echo "Skipping tests requiring GCSStore, which is not supported on $goversion"
+  packages=$(echo "$packages" | sed '/gcsstore/d')
 else
   # Install the Consul packages which are not vendored.
   go get -u github.com/hashicorp/consul/...
