@@ -23,8 +23,6 @@ RUN addgroup -g 1000 tusd \
     && apk del git
 
 WORKDIR /srv/tusd-data
-VOLUME ["/srv/tusd-data"]
-VOLUME ["/srv/tusd-hooks"]
 EXPOSE 1080
 USER tusd
 ENTRYPOINT ["/go/bin/tusd","-dir","/srv/tusd-data","--hooks-dir","/srv/tusd-hooks"]
