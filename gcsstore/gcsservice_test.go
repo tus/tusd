@@ -17,6 +17,29 @@ import (
 	. "github.com/tus/tusd/gcsstore"
 )
 
+type TestGCSReader struct {
+}
+
+func (r TestGCSReader) Close() error {
+	return nil
+}
+
+func (r TestGCSReader) ContentType() string {
+	return ""
+}
+
+func (r TestGCSReader) Read(p []byte) (int, error) {
+	return 0, nil
+}
+
+func (r TestGCSReader) Remain() int64 {
+	return 0
+}
+
+func (r TestGCSReader) Size() int64 {
+	return 0
+}
+
 func NewTestGCSService(filename string) (*GCSService, error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, option.WithServiceAccountFile((filename)))
@@ -38,7 +61,7 @@ func NewTestGCSService(filename string) (*GCSService, error) {
 			return &testAttrs, nil
 		},
 		ReadObjectFunc: func(params GCSObjectParams) (GCSReader, error) {
-			return nil, nil
+			return TestGCSReader{}, nil
 		},
 		SetObjectMetadataFunc: func(params GCSObjectParams, metadata map[string]string) error {
 			return nil
@@ -79,6 +102,46 @@ func TestGCSCompose(t *testing.T) {
 	err = service.ComposeObjects(composeParams)
 	if err != nil {
 		t.Errorf("Error: %v", err)
+	}
+
+	///test for files > 32 chunks
+
+	repeatCount := 64
+
+	tmpSrc := make([]string, repeatCount)
+	for i := 0; i < repeatCount; i++ {
+		tmpSrc[i] = "test"
+	}
+
+	composeParams = GCSComposeParams{
+		Bucket:      "test-bucket",
+		Sources:     tmpSrc,
+		Destination: "compose-test-over-32",
+	}
+
+	err = service.ComposeObjects(composeParams)
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+}
+
+func TestObjFunc(t *testing.T) {
+	service, err := NewTestGCSService("testing.json")
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+	size, err := service.GetObjectSize(GCSObjectParams{
+		Bucket: "test-bucket",
+		ID:     "test-name",
+	})
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+
+	if size != 54321 {
+		t.Errorf("Error: Did not match given size")
 	}
 
 }
