@@ -27,7 +27,7 @@ func NewTestGCSService(filename string) (*GCSService, error) {
 	service := &GCSService{
 		Client: client,
 		Ctx:    ctx,
-		GetObjectAttrs: func(params GCSObjectParams) (*storage.ObjectAttrs, error) {
+		GetObjectAttrsFunc: func(params GCSObjectParams) (*storage.ObjectAttrs, error) {
 			testAttrs := storage.ObjectAttrs{
 				Bucket:      "test-bucket",
 				ContentType: "test/test",
@@ -37,26 +37,26 @@ func NewTestGCSService(filename string) (*GCSService, error) {
 			}
 			return &testAttrs, nil
 		},
-		ReadObject: func(params GCSObjectParams) (GCSReader, error) {
+		ReadObjectFunc: func(params GCSObjectParams) (GCSReader, error) {
 			return nil, nil
 		},
-		SetObjectMetadata: func(params GCSObjectParams, metadata map[string]string) error {
+		SetObjectMetadataFunc: func(params GCSObjectParams, metadata map[string]string) error {
 			return nil
 		},
-		DeleteObject: func(params GCSObjectParams) error {
+		DeleteObjectFunc: func(params GCSObjectParams) error {
 			return nil
 		},
-		WriteObject: func(params GCSObjectParams, r io.Reader) (int64, error) {
+		WriteObjectFunc: func(params GCSObjectParams, r io.Reader) (int64, error) {
 			return 0, nil
 		},
-		ComposeFrom: func(params []*storage.ObjectHandle, dstParams GCSObjectParams, contentType string) (uint32, error) {
+		ComposeFromFunc: func(params []*storage.ObjectHandle, dstParams GCSObjectParams, contentType string) (uint32, error) {
 			var crc uint32 = 12345
 			for i := 1; i < len(params); i++ {
 				crc = crc32combine.CRC32Combine(crc32.Castagnoli, crc, 12345, 54321)
 			}
 			return crc, nil
 		},
-		FilterObjects: func(params GCSFilterParams) ([]string, error) {
+		FilterObjectsFunc: func(params GCSFilterParams) ([]string, error) {
 			return []string{"test1", "test2", "test3"}, nil
 		},
 	}
