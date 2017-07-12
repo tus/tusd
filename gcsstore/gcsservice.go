@@ -125,9 +125,11 @@ func NewGCSService(filename string) (*GCSService, error) {
 
 			return err
 		},
+		// DeleteObject deletes the object defined by GCSObjectParams
 		DeleteObjectFunc: func(params GCSObjectParams) error {
 			return client.Bucket(params.Bucket).Object(params.ID).Delete(ctx)
 		},
+		// Write object writes the file set out by the GCSObjectParams
 		WriteObjectFunc: func(params GCSObjectParams, r io.Reader) (int64, error) {
 			obj := client.Bucket(params.Bucket).Object(params.ID)
 
@@ -375,7 +377,7 @@ func (service *GCSService) ComposeObjects(params GCSComposeParams) error {
 	return nil
 }
 
-// THESE ARE WARPPER FUNCTIONS IN ORDER TO FULFILL THE INTERACE
+// These are wrapper functions to fulfill the interface
 func (service *GCSService) GetObjectAttrs(params GCSObjectParams) (*storage.ObjectAttrs, error) {
 	return service.GetObjectAttrsFunc(params)
 }
