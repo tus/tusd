@@ -167,6 +167,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	var uploadId string
 	if info.ID == "" {
 		uploadId = uid.Uid()
+		info.ID = uploadId
 	} else {
 		uploadId = info.ID
 	}
