@@ -94,6 +94,12 @@ type UnroutedHandler struct {
 	// happen if the NotifyUploadProgress field is set to true in the Config
 	// structure.
 	UploadProgress chan FileInfo
+	// UploadCreated is used to send notifications about the uploads having been
+	// created. It triggers post creation and therefore has all the FileInfo incl.
+	// the ID available already. It facilitates the post-create hook. Sending to
+	// this channel will only happen if the NotifyUploadCreated field is set to
+	// true in the Config structure.
+	UploadCreated chan FileInfo
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -124,6 +130,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		CompleteUploads:   make(chan FileInfo),
 		TerminatedUploads: make(chan FileInfo),
 		UploadProgress:    make(chan FileInfo),
+		UploadCreated:     make(chan FileInfo),
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
@@ -283,6 +290,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	go handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
+
+	if handler.config.NotifyUploadCreated {
+		info.ID = id
+		handler.UploadCreated <- info
+	}
 
 	if isFinal {
 		if err := handler.composer.Concater.ConcatUploads(id, partialUploads); err != nil {
