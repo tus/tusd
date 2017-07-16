@@ -168,23 +168,8 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	if info.ID == "" {
 		uploadId = uid.Uid()
 	} else {
+		// certain tests set info.ID in advance
 		uploadId = info.ID
-	}
-
-	infoJson, err := json.Marshal(info)
-	if err != nil {
-		return "", err
-	}
-
-	// Create object on S3 containing information about the file
-	_, err = store.Service.PutObject(&s3.PutObjectInput{
-		Bucket:        aws.String(store.Bucket),
-		Key:           aws.String(uploadId + ".info"),
-		Body:          bytes.NewReader(infoJson),
-		ContentLength: aws.Int64(int64(len(infoJson))),
-	})
-	if err != nil {
-		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
 	}
 
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
@@ -207,6 +192,23 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	}
 
 	id = uploadId + "+" + *res.UploadId
+  info.ID = id
+
+	infoJson, err := json.Marshal(info)
+	if err != nil {
+		return "", err
+	}
+
+	// Create object on S3 containing information about the file
+	_, err = store.Service.PutObject(&s3.PutObjectInput{
+		Bucket:        aws.String(store.Bucket),
+		Key:           aws.String(uploadId + ".info"),
+		Body:          bytes.NewReader(infoJson),
+		ContentLength: aws.Int64(int64(len(infoJson))),
+	})
+	if err != nil {
+		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
+	}
 
 	return
 }
