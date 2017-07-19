@@ -18,6 +18,7 @@ func Serve() {
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,
 		NotifyUploadProgress:    true,
+		NotifyCreatedUploads:    true,
 	})
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)

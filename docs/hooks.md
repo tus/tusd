@@ -19,6 +19,10 @@ On the other hand, there are a few *blocking* hooks, such as caused by the `pre-
 
 This event will be triggered before an upload is created, allowing you to run certain routines. For example, validating that specific metadata values are set, or verifying that a corresponding entity belonging to the upload (e.g. a user) exists. Because this event will result in a blocking hook, you can determine whether the upload should be created or rejected using the exit code. An exit code of `0` will allow the upload to be created and continued as usual. A non-zero exit code will reject an upload creation request, making it a good place for authentication and authorization. Please be aware, that during this stage the upload ID will be an empty string as the entity has not been created and therefore this piece of information is not yet available.
 
+### post-create
+
+This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration. 
+
 ### post-finish
 
 This event will be triggered after an upload is fully finished, meaning that all chunks have been transfered and saved in the storage. After this point, no further modifications, except possible deletion, can be made to the upload entity and it may be desirable to use the file for further processing or notify other applications of the completions of this upload.

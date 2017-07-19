@@ -1,0 +1,8 @@
+#!/bin/bash
+
+id="$TUS_ID"
+offset="$TUS_OFFSET"
+size="$TUS_SIZE"
+
+echo "Upload created with ID ${id} and size ${size}"
+cat /dev/stdin | jq .

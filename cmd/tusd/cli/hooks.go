@@ -22,6 +22,7 @@ const (
 	HookPostFinish    HookType = "post-finish"
 	HookPostTerminate HookType = "post-terminate"
 	HookPostReceive   HookType = "post-receive"
+	HookPostCreate    HookType = "post-create"
 	HookPreCreate     HookType = "pre-create"
 )
 
@@ -52,6 +53,8 @@ func SetupPostHooks(handler *tusd.Handler) {
 				invokeHook(HookPostTerminate, info)
 			case info := <-handler.UploadProgress:
 				invokeHook(HookPostReceive, info)
+			case info := <-handler.CreatedUploads:
+				invokeHook(HookPostCreate, info)
 			}
 		}
 	}()
