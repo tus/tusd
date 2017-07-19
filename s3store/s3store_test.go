@@ -32,19 +32,13 @@ func TestNewUpload(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := s3store.New("bucket", s3obj)
 
-	assert.Equal(store.Bucket, "bucket")
-	assert.Equal(store.Service, s3obj)
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
 
 	s1 := "hello"
 	s2 := "men?"
 
 	gomock.InOrder(
-		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
-			Bucket:        aws.String("bucket"),
-			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
-			ContentLength: aws.Int64(int64(136)),
-		}),
 		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
@@ -55,6 +49,12 @@ func TestNewUpload(t *testing.T) {
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
+		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(148)),
+		}),
 	)
 
 	info := tusd.FileInfo{
@@ -68,7 +68,7 @@ func TestNewUpload(t *testing.T) {
 
 	id, err := store.NewUpload(info)
 	assert.Nil(err)
-	assert.Equal(id, "uploadId+multipartId")
+	assert.Equal("uploadId+multipartId", id)
 }
 
 func TestGetInfoNotFound(t *testing.T) {
@@ -85,7 +85,7 @@ func TestGetInfoNotFound(t *testing.T) {
 	}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil))
 
 	_, err := store.GetInfo("uploadId+multipartId")
-	assert.Equal(err, tusd.ErrNotFound)
+	assert.Equal(tusd.ErrNotFound, err)
 }
 
 func TestGetInfo(t *testing.T) {
@@ -101,7 +101,7 @@ func TestGetInfo(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
-			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:   aws.String("bucket"),
@@ -173,7 +173,7 @@ func TestGetReader(t *testing.T) {
 
 	content, err := store.GetReader("uploadId+multipartId")
 	assert.Nil(err)
-	assert.Equal(content, ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))))
+	assert.Equal(ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))), content)
 }
 
 func TestGetReaderNotFound(t *testing.T) {
@@ -199,7 +199,7 @@ func TestGetReaderNotFound(t *testing.T) {
 
 	content, err := store.GetReader("uploadId+multipartId")
 	assert.Nil(content)
-	assert.Equal(err, tusd.ErrNotFound)
+	assert.Equal(tusd.ErrNotFound, err)
 }
 
 func TestGetReaderNotFinished(t *testing.T) {
@@ -227,7 +227,7 @@ func TestGetReaderNotFinished(t *testing.T) {
 
 	content, err := store.GetReader("uploadId+multipartId")
 	assert.Nil(content)
-	assert.Equal(err.Error(), "cannot stream non-finished upload")
+	assert.Equal("cannot stream non-finished upload", err.Error())
 }
 
 func TestFinishUpload(t *testing.T) {
