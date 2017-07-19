@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
 	. "github.com/tus/tusd"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPost(t *testing.T) {
@@ -22,9 +23,13 @@ func TestPost(t *testing.T) {
 		}).Return("foo", nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
-			BasePath:  "https://buy.art/files/",
+			DataStore:           store,
+			BasePath:            "https://buy.art/files/",
+			NotifyUploadCreated: true,
 		})
+
+		c := make(chan FileInfo, 1)
+		handler.UploadCreated = c
 
 		(&httpTest{
 			Method: "POST",
@@ -39,6 +44,12 @@ func TestPost(t *testing.T) {
 				"Location": "https://buy.art/files/foo",
 			},
 		}).Run(handler, t)
+
+		info := <-c
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(300), info.Size)
 	})
 
 	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {

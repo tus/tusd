@@ -22,6 +22,7 @@ const (
 	HookPostFinish    HookType = "post-finish"
 	HookPostTerminate HookType = "post-terminate"
 	HookPostReceive   HookType = "post-receive"
+	HookPostCreate    HookType = "post-create"
 	HookPreCreate     HookType = "pre-create"
 )
 
@@ -52,6 +53,8 @@ func SetupPostHooks(handler *tusd.Handler) {
 				invokeHook(HookPostTerminate, info)
 			case info := <-handler.UploadProgress:
 				invokeHook(HookPostReceive, info)
+			case info := <-handler.UploadCreated:
+				invokeHook(HookPostCreate, info)
 			}
 		}
 	}()
@@ -66,6 +69,8 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 
 func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
+	case HookPostCreate:
+		logEv("UploadCreated", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 	case HookPostFinish:
 		logEv("UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 	case HookPostTerminate:
