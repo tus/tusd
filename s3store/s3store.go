@@ -226,7 +226,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	bytesUploaded := int64(0)
 
 	// Get number of parts to generate next number
-	parts, err := store.ListParts(id)
+	parts, err := store.ListAllParts(id)
 	if err != nil {
 		return 0, err
 	}
@@ -303,7 +303,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 	}
 
 	// Get uploaded parts and their offset
-	parts, err := store.ListParts(id)
+	parts, err := store.ListAllParts(id)
 	if err != nil {
 		// Check if the error is caused by the upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
@@ -433,7 +433,7 @@ func (store S3Store) FinishUpload(id string) error {
 	uploadId, multipartId := splitIds(id)
 
 	// Get uploaded parts
-	parts, err := store.ListParts(id)
+	parts, err := store.ListAllParts(id)
 	if err != nil {
 		return err
 	}
@@ -501,7 +501,7 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 	return store.FinishUpload(dest)
 }
 
-func (store S3Store)ListParts(id string) (parts []*s3.Part, err error) {
+func (store S3Store)ListAllParts(id string) (parts []*s3.Part, err error) {
     uploadId, multipartId := splitIds(id)
 
     partMarker := int64(0)

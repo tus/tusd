@@ -174,7 +174,7 @@ func TestListParts(t *testing.T) {
 		}, nil),
 	)
 
-	parts, err := store.ListParts("uploadId+multipartId")
+	parts, err := store.ListAllParts("uploadId+multipartId")
 	assert.Nil(err)
 	assert.Equal(4, len(parts))
 }
