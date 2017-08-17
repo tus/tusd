@@ -86,6 +86,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -128,6 +129,13 @@ type S3Store struct {
 	// in bytes. This number needs to match with the underlying S3 backend or else
 	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
+	// MaxMultipartParts is the maximum number of parts an S3 multipart upload is
+	// allowed to have according to AWS S3 API specifications.
+	// See: http://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
+	MaxMultipartParts int64
+	// MaxObjectSize is the maximum size an S3 Object can have according to S3
+	// API specifications. See link above.
+	MaxObjectSize int64
 }
 
 type S3API interface {
@@ -146,10 +154,12 @@ type S3API interface {
 // The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
-		Bucket:      bucket,
-		Service:     service,
-		MaxPartSize: 6 * 1024 * 1024,
-		MinPartSize: 5 * 1024 * 1024,
+		Bucket:            bucket,
+		Service:           service,
+		MaxPartSize:       5 * 1024 * 1024 * 1024,
+		MinPartSize:       5 * 1024 * 1024,
+		MaxMultipartParts: 10000,
+		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
 	}
 }
 
@@ -224,6 +234,10 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	size := info.Size
 	bytesUploaded := int64(0)
+	optimalPartSize := store.CalcOptimalPartSize(&size)
+	if optimalPartSize == 0 {
+		return bytesUploaded, nil
+	}
 
 	// Get number of parts to generate next number
 	parts, err := store.listAllParts(id)
@@ -243,7 +257,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		defer os.Remove(file.Name())
 		defer file.Close()
 
-		limitedReader := io.LimitReader(src, store.MaxPartSize)
+		limitedReader := io.LimitReader(src, optimalPartSize)
 		n, err := io.Copy(file, limitedReader)
 		// io.Copy does not return io.EOF, so we not have to handle it differently.
 		if err != nil {
@@ -254,11 +268,11 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 			return bytesUploaded, nil
 		}
 
-		if (size - offset) <= store.MinPartSize {
+		if (size - offset) <= optimalPartSize {
 			if (size - offset) != n {
 				return bytesUploaded, nil
 			}
-		} else if n < store.MinPartSize {
+		} else if n < optimalPartSize {
 			return bytesUploaded, nil
 		}
 
@@ -546,4 +560,29 @@ func isAwsError(err error, code string) bool {
 		return true
 	}
 	return false
+}
+
+func (store S3Store) CalcOptimalPartSize(size *int64) int64 {
+	switch {
+	// We can only manage files up to MaxObjectSize, else we need to fail.
+	case *size > store.MaxObjectSize:
+		return 0
+	// When upload is smaller or equal MinPartSize, we upload in just one part.
+	case *size <= store.MinPartSize:
+		return store.MinPartSize
+	// When we need 9999 parts or less with MinPartSize.
+	case *size/store.MinPartSize < store.MaxMultipartParts:
+		return store.MinPartSize
+	// When we can divide our upload into exactly MaxMultipartParts parts with
+	// no bytes leftover, we will not need an spare last part.
+	// Also, when MaxObjectSize is equal to MaxPartSize * MaxMultipartParts
+	// (which is not the case with the current AWS S3 API specification, but
+	// might be in the future or with other S3-aware stores), we need this in
+	// order for our Multipart-Upload to reach full MaxObjectSize.
+	case int64(math.Mod(float64(*size), float64(store.MaxMultipartParts))) == 0:
+		return *size / store.MaxMultipartParts
+	// In all other cases, we need a spare last piece for the remaining bytes.
+	default:
+		return *size / (store.MaxMultipartParts - 1)
+	}
 }

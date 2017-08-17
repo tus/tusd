@@ -2,7 +2,9 @@ package s3store_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -23,6 +25,94 @@ var _ tusd.GetReaderDataStore = s3store.S3Store{}
 var _ tusd.TerminaterDataStore = s3store.S3Store{}
 var _ tusd.FinisherDataStore = s3store.S3Store{}
 var _ tusd.ConcaterDataStore = s3store.S3Store{}
+
+func TestCalcOptimalPartSize(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	var MinPartSize = store.MinPartSize
+	var MaxPartSize = store.MaxPartSize
+	var MaxMultipartParts = store.MaxMultipartParts
+	var MaxObjectSize = store.MaxObjectSize
+	// sanity check
+	if MaxObjectSize > MaxPartSize*MaxMultipartParts {
+		t.Errorf("%v parts with %v bytes each is %v bytes, which is less than MaxObjectSize=%v.\n", MaxMultipartParts, MaxPartSize, MaxMultipartParts*MaxPartSize, MaxObjectSize)
+	}
+
+	var LimitedMaxPartSize = MaxObjectSize / (MaxMultipartParts - 1)
+	// the size of the last part, when upload has MaxObjectSize and we use
+	// LimitedMaxPartSize for uploading
+	var LastPartSize int64 = int64(math.Mod(float64(MaxObjectSize), float64(MaxMultipartParts-1)))
+
+	var optimalPartSize, equalparts, lastpartsize int64
+	var err string
+
+	// some of these tests are actually duplicates, as they specify the same size
+	// in bytes - two ways to describe the same thing. That is wanted, in order
+	// to provide a full picture from any angle.
+	testcases := []int64{
+		1,
+		MinPartSize - 1,
+		MinPartSize,
+		MinPartSize + 1,
+		MinPartSize * 9999,
+		MinPartSize*10000 - 1,
+		MinPartSize * 10000,
+		MinPartSize*10000 + 1,
+		MinPartSize * 10001,
+		LimitedMaxPartSize*9999 - 1,
+		LimitedMaxPartSize * 9999,
+		LimitedMaxPartSize*9999 + 1,
+		LimitedMaxPartSize*9999 + LastPartSize - 1,
+		LimitedMaxPartSize*9999 + LastPartSize,
+		LimitedMaxPartSize*9999 + LastPartSize + 1,
+		MaxObjectSize - 1,
+		MaxObjectSize,
+		MaxObjectSize + 1,
+		MaxPartSize*9999 - 1,
+		MaxPartSize * 9999,
+		MaxPartSize*9999 + 1,
+		MaxPartSize*10000 - 1,
+		MaxPartSize * 10000,
+		MaxPartSize*10000 + 1,
+	}
+
+	for index, size := range testcases {
+		optimalPartSize = store.CalcOptimalPartSize(&size)
+		if size > MaxObjectSize && optimalPartSize != 0 {
+			err += fmt.Sprintf("Testcase #%v: size=%v exceeds MaxObjectSize=%v but optimalPartSize is not 0\n", index, size, MaxObjectSize)
+		}
+		if optimalPartSize*(MaxMultipartParts-1) > MaxObjectSize {
+			err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v,  exceeds MaxPartSize=%v\n", index, optimalPartSize, MaxPartSize)
+		}
+		if optimalPartSize > MaxPartSize {
+			err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v exceeds MaxPartSize=%v\n", index, optimalPartSize, MaxPartSize)
+		}
+		if optimalPartSize > 0 {
+			equalparts = size / optimalPartSize
+			lastpartsize = int64(math.Mod(float64(size), float64(optimalPartSize)))
+			if optimalPartSize < MinPartSize {
+				err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v is below MinPartSize=%v\n", index, optimalPartSize, MinPartSize)
+			}
+			if equalparts > 10000 {
+				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts\n", index, equalparts)
+			}
+			if equalparts == 10000 && lastpartsize > 0 {
+				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts\n", index, equalparts+1)
+			}
+		}
+		if len(err) > 0 {
+			t.Errorf(err)
+		}
+	}
+}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -324,8 +414,10 @@ func TestWriteChunk(t *testing.T) {
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := s3store.New("bucket", s3obj)
-	store.MaxPartSize = 4
-	store.MinPartSize = 2
+	store.MaxPartSize = 8
+	store.MinPartSize = 4
+	store.MaxMultipartParts = 10000
+	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -383,13 +475,15 @@ func TestWriteChunk(t *testing.T) {
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(5),
-			Body:       bytes.NewReader([]byte("90")),
+			Body:       bytes.NewReader([]byte("90AB")),
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890")))
+	// The last bytes "CD" will be ignored, as they are not the last bytes of the
+	// upload (500 bytes total) and not of full part-size.
+	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890ABCD")))
 	assert.Nil(err)
-	assert.Equal(int64(10), bytesRead)
+	assert.Equal(int64(12), bytesRead)
 }
 
 func TestWriteChunkDropTooSmall(t *testing.T) {
