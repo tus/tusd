@@ -273,6 +273,22 @@ func TestFinishUpload(t *testing.T) {
 					PartNumber: aws.Int64(2),
 				},
 			},
+			NextPartNumberMarker: aws.Int64(2),
+			IsTruncated:          aws.Bool(true),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(2),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					Size:       aws.Int64(100),
+					ETag:       aws.String("foobar"),
+					PartNumber: aws.Int64(3),
+				},
+			},
 		}, nil),
 		s3obj.EXPECT().CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
 			Bucket:   aws.String("bucket"),
@@ -287,6 +303,10 @@ func TestFinishUpload(t *testing.T) {
 					{
 						ETag:       aws.String("bar"),
 						PartNumber: aws.Int64(2),
+					},
+					{
+						ETag:       aws.String("foobar"),
+						PartNumber: aws.Int64(3),
 					},
 				},
 			},
