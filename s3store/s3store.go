@@ -226,17 +226,12 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	bytesUploaded := int64(0)
 
 	// Get number of parts to generate next number
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		return 0, err
 	}
 
-	list := *listPtr
-	numParts := len(list.Parts)
+	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
 	for {
@@ -288,7 +283,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 }
 
 func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
-	uploadId, multipartId := splitIds(id)
+	uploadId, _ := splitIds(id)
 
 	// Get file info stored in separate object
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
@@ -308,11 +303,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 	}
 
 	// Get uploaded parts and their offset
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		// Check if the error is caused by the upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
@@ -326,11 +317,9 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		}
 	}
 
-	list := *listPtr
-
 	offset := int64(0)
 
-	for _, part := range list.Parts {
+	for _, part := range parts {
 		offset += *part.Size
 	}
 
@@ -444,22 +433,17 @@ func (store S3Store) FinishUpload(id string) error {
 	uploadId, multipartId := splitIds(id)
 
 	// Get uploaded parts
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		return err
 	}
 
 	// Transform the []*s3.Part slice to a []*s3.CompletedPart slice for the next
 	// request.
-	list := *listPtr
-	parts := make([]*s3.CompletedPart, len(list.Parts))
+	completedParts := make([]*s3.CompletedPart, len(parts))
 
-	for index, part := range list.Parts {
-		parts[index] = &s3.CompletedPart{
+	for index, part := range parts {
+		completedParts[index] = &s3.CompletedPart{
 			ETag:       part.ETag,
 			PartNumber: part.PartNumber,
 		}
@@ -470,7 +454,7 @@ func (store S3Store) FinishUpload(id string) error {
 		Key:      aws.String(uploadId),
 		UploadId: aws.String(multipartId),
 		MultipartUpload: &s3.CompletedMultipartUpload{
-			Parts: parts,
+			Parts: completedParts,
 		},
 	})
 
@@ -515,6 +499,33 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 	}
 
 	return store.FinishUpload(dest)
+}
+
+func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
+	uploadId, multipartId := splitIds(id)
+
+	partMarker := int64(0)
+	for {
+		// Get uploaded parts
+		listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String(store.Bucket),
+			Key:              aws.String(uploadId),
+			UploadId:         aws.String(multipartId),
+			PartNumberMarker: aws.Int64(partMarker),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, (*listPtr).Parts...)
+
+		if listPtr.IsTruncated != nil && *listPtr.IsTruncated {
+			partMarker = *listPtr.NextPartNumberMarker
+		} else {
+			break
+		}
+	}
+	return parts, nil
 }
 
 func splitIds(id string) (uploadId, multipartId string) {
