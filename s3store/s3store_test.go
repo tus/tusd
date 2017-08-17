@@ -117,46 +117,9 @@ func TestGetInfo(t *testing.T) {
 					Size: aws.Int64(200),
 				},
 			},
-		}, nil),
-	)
-
-	info, err := store.GetInfo("uploadId+multipartId")
-	assert.Nil(err)
-	assert.Equal(int64(500), info.Size)
-	assert.Equal(int64(300), info.Offset)
-	assert.Equal("uploadId+multipartId", info.ID)
-	assert.Equal("hello", info.MetaData["foo"])
-	assert.Equal("menü", info.MetaData["bar"])
-}
-
-
-func TestListParts(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
-
-	gomock.InOrder(
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:           aws.String("bucket"),
-			Key:              aws.String("uploadId"),
-			UploadId:         aws.String("multipartId"),
-			PartNumberMarker: aws.Int64(0),
-		}).Return(&s3.ListPartsOutput{
-			Parts: []*s3.Part{
-				{
-					Size: aws.Int64(100),
-				},
-				{
-					Size: aws.Int64(200),
-				},
-			},
 			NextPartNumberMarker: aws.Int64(2),
-			IsTruncated: aws.Bool(true),
+			IsTruncated:          aws.Bool(true),
 		}, nil),
-
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
@@ -165,18 +128,19 @@ func TestListParts(t *testing.T) {
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
-					Size: aws.Int64(300),
-				},
-				{
-					Size: aws.Int64(400),
+					Size: aws.Int64(100),
 				},
 			},
 		}, nil),
 	)
 
-	parts, err := store.ListAllParts("uploadId+multipartId")
+	info, err := store.GetInfo("uploadId+multipartId")
 	assert.Nil(err)
-	assert.Equal(4, len(parts))
+	assert.Equal(int64(500), info.Size)
+	assert.Equal(int64(400), info.Offset)
+	assert.Equal("uploadId+multipartId", info.ID)
+	assert.Equal("hello", info.MetaData["foo"])
+	assert.Equal("menü", info.MetaData["bar"])
 }
 
 func TestGetInfoFinished(t *testing.T) {
@@ -195,9 +159,9 @@ func TestGetInfoFinished(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
@@ -296,7 +260,6 @@ func TestFinishUpload(t *testing.T) {
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
-
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
