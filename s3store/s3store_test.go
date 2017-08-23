@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -49,9 +48,9 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	var LimitedMaxPartSize = MaxObjectSize / (MaxMultipartParts - 1)
 	// the size of the last part, when upload has MaxObjectSize and we use
 	// LimitedMaxPartSize for uploading
-	var LastPartSize int64 = int64(math.Mod(float64(MaxObjectSize), float64(MaxMultipartParts-1)))
+	var LastPartSize int64 = MaxObjectSize % (MaxMultipartParts - 1)
 
-	var optimalPartSize, equalparts, lastpartsize int64
+	var equalparts, lastpartsize int64
 	var err string
 
 	// some of these tests are actually duplicates, as they specify the same size
@@ -85,9 +84,9 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	}
 
 	for index, size := range testcases {
-		optimalPartSize = store.CalcOptimalPartSize(&size)
-		if size > MaxObjectSize && optimalPartSize != 0 {
-			err += fmt.Sprintf("Testcase #%v: size=%v exceeds MaxObjectSize=%v but optimalPartSize is not 0\n", index, size, MaxObjectSize)
+		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
+		if size > MaxObjectSize && calcError == nil {
+			err += fmt.Sprintf("Testcase #%v: size=%v exceeds MaxObjectSize=%v but CalcOptimalPartSize did not throw an error\n", index, size, MaxObjectSize)
 		}
 		if optimalPartSize*(MaxMultipartParts-1) > MaxObjectSize {
 			err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v,  exceeds MaxPartSize=%v\n", index, optimalPartSize, MaxPartSize)
@@ -95,17 +94,23 @@ func TestCalcOptimalPartSize(t *testing.T) {
 		if optimalPartSize > MaxPartSize {
 			err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v exceeds MaxPartSize=%v\n", index, optimalPartSize, MaxPartSize)
 		}
-		if optimalPartSize > 0 {
+		if calcError == nil {
 			equalparts = size / optimalPartSize
-			lastpartsize = int64(math.Mod(float64(size), float64(optimalPartSize)))
+			lastpartsize = size % optimalPartSize
 			if optimalPartSize < MinPartSize {
 				err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v is below MinPartSize=%v\n", index, optimalPartSize, MinPartSize)
 			}
+			if optimalPartSize > MaxPartSize {
+				err += fmt.Sprintf("Testcase #%v: optimalPartSize=%v is larger than MaxPartSize=%v\n", index, optimalPartSize, MaxPartSize)
+			}
+			if lastpartsize > MaxPartSize {
+				err += fmt.Sprintf("Testcase #%v: size of last part %v is exceeding MaxPartSize limit of %v\n", index, lastpartsize, MaxPartSize)
+			}
 			if equalparts > 10000 {
-				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts\n", index, equalparts)
+				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts. %v equal parts of size %v, size of last part %v\n", index, equalparts, equalparts, optimalPartSize, lastpartsize)
 			}
 			if equalparts == 10000 && lastpartsize > 0 {
-				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts\n", index, equalparts+1)
+				err += fmt.Sprintf("Testcase #%v: max-parts=%v exceeds limit of 10.000 parts. %v equal parts of size %v, size of last part %v\n", index, equalparts+1, equalparts, optimalPartSize, lastpartsize)
 			}
 		}
 		if len(err) > 0 {

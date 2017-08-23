@@ -86,7 +86,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -234,8 +233,8 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	size := info.Size
 	bytesUploaded := int64(0)
-	optimalPartSize := store.CalcOptimalPartSize(&size)
-	if optimalPartSize == 0 {
+	optimalPartSize, err := store.CalcOptimalPartSize(size)
+	if err != nil {
 		return bytesUploaded, nil
 	}
 
@@ -562,27 +561,31 @@ func isAwsError(err error, code string) bool {
 	return false
 }
 
-func (store S3Store) CalcOptimalPartSize(size *int64) int64 {
+func (store S3Store) CalcOptimalPartSize(size int64) (int64, error) {
 	switch {
 	// We can only manage files up to MaxObjectSize, else we need to fail.
-	case *size > store.MaxObjectSize:
-		return 0
+	case size > store.MaxObjectSize:
+		return 0, fmt.Errorf("CalcOptimalPartSize: size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize)
 	// When upload is smaller or equal MinPartSize, we upload in just one part.
-	case *size <= store.MinPartSize:
-		return store.MinPartSize
+	case size <= store.MinPartSize:
+		return store.MinPartSize, nil
 	// When we need 9999 parts or less with MinPartSize.
-	case *size/store.MinPartSize < store.MaxMultipartParts:
-		return store.MinPartSize
+	case size/store.MinPartSize < store.MaxMultipartParts:
+		return store.MinPartSize, nil
 	// When we can divide our upload into exactly MaxMultipartParts parts with
 	// no bytes leftover, we will not need an spare last part.
 	// Also, when MaxObjectSize is equal to MaxPartSize * MaxMultipartParts
 	// (which is not the case with the current AWS S3 API specification, but
 	// might be in the future or with other S3-aware stores), we need this in
 	// order for our Multipart-Upload to reach full MaxObjectSize.
-	case int64(math.Mod(float64(*size), float64(store.MaxMultipartParts))) == 0:
-		return *size / store.MaxMultipartParts
+	case size%store.MaxMultipartParts == 0:
+		return size / store.MaxMultipartParts, nil
+	// If the last part would be larger than MaxPartSize, which is only the case
+	// when we are close to MaxObjectSize, we have to go with MaxPartSize.
+	case size%(store.MaxMultipartParts-1) > store.MaxPartSize:
+		return store.MaxPartSize, nil
 	// In all other cases, we need a spare last piece for the remaining bytes.
 	default:
-		return *size / (store.MaxMultipartParts - 1)
+		return size / (store.MaxMultipartParts - 1), nil
 	}
 }
