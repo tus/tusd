@@ -235,7 +235,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	bytesUploaded := int64(0)
 	optimalPartSize, err := store.CalcOptimalPartSize(size)
 	if err != nil {
-		return bytesUploaded, nil
+		return bytesUploaded, err
 	}
 
 	// Get number of parts to generate next number
@@ -561,20 +561,16 @@ func isAwsError(err error, code string) bool {
 	return false
 }
 
-func (store S3Store) CalcOptimalPartSize(size int64) (int64, error) {
+func (store S3Store) CalcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
+	var errorstrings []string
+
 	switch {
-	// We can only manage files up to MaxObjectSize, else we need to fail.
-	case size > store.MaxObjectSize:
-		fmt.Print("0 ")
-		return 0, fmt.Errorf("CalcOptimalPartSize: size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize)
 	// When upload is smaller or equal MinPartSize, we upload in just one part.
 	case size <= store.MinPartSize:
-		fmt.Print("A ")
-		return store.MinPartSize, nil
+		optimalPartSize = store.MinPartSize
 	// When we need 9999 parts or less with MinPartSize.
 	case size/store.MinPartSize < store.MaxMultipartParts:
-		fmt.Print("B ")
-		return store.MinPartSize, nil
+		optimalPartSize = store.MinPartSize
 	// If our upload divides up exactly into MaxMultipartParts parts with
 	// no bytes leftover, we will not need an spare last part. So we can go with
 	// a straight division. Otherwise we would exceed MaxPartSize in a scenario,
@@ -582,16 +578,22 @@ func (store S3Store) CalcOptimalPartSize(size int64) (int64, error) {
 	// (which is not the case with the current AWS S3 API specification, but
 	// might be in the future or with other S3-aware stores).
 	case size%store.MaxMultipartParts == 0:
-		fmt.Print("C ")
-		return size / store.MaxMultipartParts, nil
-	// In all other cases, we need to round up to the next integer, as long as we
-	// stay below MaxPartSize.
-	case size/store.MaxMultipartParts < store.MaxPartSize:
-		fmt.Print("D ")
-		return size/store.MaxMultipartParts + 1, nil
-	// If non of the above matches, we have exceeded the MaxPartSize limit above.
+		optimalPartSize = size / store.MaxMultipartParts
+	// In all other cases, we need to round up to the next integer.
 	default:
-		fmt.Print("X ")
-		return size/store.MaxMultipartParts + 1, fmt.Errorf("CalcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, (size/store.MaxMultipartParts + 1), store.MaxPartSize)
+		optimalPartSize = size/store.MaxMultipartParts + 1
 	}
+
+	// an upload larger than MaxObjectSize must throw an error
+	if size > store.MaxObjectSize {
+		errorstrings = append(errorstrings, fmt.Sprintf("CalcOptimalPartSize: upload size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize))
+	}
+	// optimalPartSize must never exceed MaxPartSize
+	if optimalPartSize > store.MaxPartSize {
+		errorstrings = append(errorstrings, fmt.Sprintf("CalcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, optimalPartSize, store.MaxPartSize))
+	}
+	if len(errorstrings) > 0 {
+		err = fmt.Errorf(strings.Join(errorstrings, "\n"))
+	}
+	return optimalPartSize, err
 }
