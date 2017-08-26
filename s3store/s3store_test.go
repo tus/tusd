@@ -43,6 +43,10 @@ func TestCalcOptimalPartSize(t *testing.T) {
 		store.MaxObjectSize = 200
 	*/
 
+	debug := false
+	// If you want the results of all tests printed
+	// debug = true
+
 	var MinPartSize = store.MinPartSize
 	var MaxPartSize = store.MaxPartSize
 	var MaxMultipartParts = store.MaxMultipartParts
@@ -114,9 +118,12 @@ func TestCalcOptimalPartSize(t *testing.T) {
 		err = ""
 		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
 		if size > MaxObjectSize && calcError == nil {
-			err += fmt.Sprintf("Testcase #%v size %v: size exceeds MaxObjectSize=%v but no error returned\n", index, size, MaxObjectSize)
+			err += fmt.Sprintf("Testcase #%v size %v: size exceeds MaxObjectSize %v but no error returned\n", index, size, MaxObjectSize)
 		}
-		if calcError == nil {
+		if debug && optimalPartSize == 0 {
+			fmt.Printf("Testcase #%v size %v: size exceeds MaxObjectSize %v\n", index, size, MaxObjectSize)
+		}
+		if optimalPartSize > 0 {
 			equalparts = size / optimalPartSize
 			lastpartsize = size % optimalPartSize
 			if optimalPartSize < MinPartSize {
@@ -137,8 +144,10 @@ func TestCalcOptimalPartSize(t *testing.T) {
 			if lastpartsize > optimalPartSize {
 				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
 			}
+			if debug {
+				fmt.Printf("Testcase #%v size %v, %v parts of size %v, lastpart %v\n", index, size, equalparts, optimalPartSize, lastpartsize)
+			}
 		}
-		// fmt.Printf("Testcase #%v size %v, %v parts of size %v, lastpart %v\n", index, size, equalparts, optimalPartSize, lastpartsize)
 		if len(err) > 0 {
 			t.Errorf(err)
 		}
