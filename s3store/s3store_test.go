@@ -113,28 +113,30 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	for index, size := range testcases {
 		err = ""
 		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
-		equalparts = size / optimalPartSize
-		lastpartsize = size % optimalPartSize
 		if size > MaxObjectSize && calcError == nil {
 			err += fmt.Sprintf("Testcase #%v size %v: size exceeds MaxObjectSize=%v but no error returned\n", index, size, MaxObjectSize)
 		}
-		if optimalPartSize < MinPartSize {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MinPartSize)
-		}
-		if optimalPartSize > MaxPartSize && calcError == nil {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
-		}
-		if size%optimalPartSize == 0 && equalparts > MaxMultipartParts {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
-		}
-		if size%optimalPartSize > 0 && equalparts > MaxMultipartParts-1 {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
-		}
-		if lastpartsize > MaxPartSize {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
-		}
-		if lastpartsize > optimalPartSize {
-			err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
+		if calcError == nil {
+			equalparts = size / optimalPartSize
+			lastpartsize = size % optimalPartSize
+			if optimalPartSize < MinPartSize {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MinPartSize)
+			}
+			if optimalPartSize > MaxPartSize && calcError == nil {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
+			}
+			if size%optimalPartSize == 0 && equalparts > MaxMultipartParts {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
+			}
+			if size%optimalPartSize > 0 && equalparts > MaxMultipartParts-1 {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
+			}
+			if lastpartsize > MaxPartSize {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
+			}
+			if lastpartsize > optimalPartSize {
+				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
+			}
 		}
 		// fmt.Printf("Testcase #%v size %v, %v parts of size %v, lastpart %v\n", index, size, equalparts, optimalPartSize, lastpartsize)
 		if len(err) > 0 {
