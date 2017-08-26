@@ -19,5 +19,11 @@ func Uid() string {
 		// for random bits.
 		panic(err)
 	}
+	// UUID version 4
+	id[6] = (id[6] & 0x0f) | (4<<4)
+
+	// SetVariant sets variant bits as described in RFC 4122.
+	id[8] = (id[8] & 0xbf | 0x80)
+	
 	return hex.EncodeToString(id)
 }
