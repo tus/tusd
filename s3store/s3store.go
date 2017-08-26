@@ -562,6 +562,11 @@ func isAwsError(err error, code string) bool {
 }
 
 func (store S3Store) CalcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
+	// an upload larger than MaxObjectSize must throw an error
+	if size > store.MaxObjectSize {
+		return 0, fmt.Errorf("CalcOptimalPartSize: upload size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize)
+	}
+
 	switch {
 	// When upload is smaller or equal MinPartSize, we upload in just one part.
 	case size <= store.MinPartSize:
@@ -598,10 +603,6 @@ func (store S3Store) CalcOptimalPartSize(size int64) (optimalPartSize int64, err
 		optimalPartSize = size/store.MaxMultipartParts + 1
 	}
 
-	// an upload larger than MaxObjectSize must throw an error
-	if size > store.MaxObjectSize {
-		return optimalPartSize, fmt.Errorf("CalcOptimalPartSize: upload size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize)
-	}
 	// optimalPartSize must never exceed MaxPartSize
 	if optimalPartSize > store.MaxPartSize {
 		return optimalPartSize, fmt.Errorf("CalcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, optimalPartSize, store.MaxPartSize)
