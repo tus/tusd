@@ -44,7 +44,7 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	*/
 
 	// If you want the results of all tests printed
-	var debug = true
+	var debug = false
 	var equalparts, lastpartsize int64
 
 	// sanity check
