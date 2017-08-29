@@ -43,117 +43,127 @@ func TestCalcOptimalPartSize(t *testing.T) {
 		store.MaxObjectSize = 200
 	*/
 
-	debug := false
 	// If you want the results of all tests printed
-	// debug = true
-
-	var MinPartSize = store.MinPartSize
-	var MaxPartSize = store.MaxPartSize
-	var MaxMultipartParts = store.MaxMultipartParts
-	var MaxObjectSize = store.MaxObjectSize
+	var debug = true
 	var equalparts, lastpartsize int64
-	var err string
 
 	// sanity check
-	if MaxObjectSize > MaxPartSize*MaxMultipartParts {
-		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", MaxObjectSize, MaxMultipartParts, MaxPartSize, MaxMultipartParts*MaxPartSize)
+	if store.MaxObjectSize > store.MaxPartSize*store.MaxMultipartParts {
+		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", store.MaxObjectSize, store.MaxMultipartParts, store.MaxPartSize, store.MaxMultipartParts*store.MaxPartSize)
 	}
-	var HighestApplicablePartSize int64 = MaxObjectSize / MaxMultipartParts
-	if MaxObjectSize%MaxMultipartParts > 0 {
+
+	var HighestApplicablePartSize int64 = store.MaxObjectSize / store.MaxMultipartParts
+	if store.MaxObjectSize%store.MaxMultipartParts > 0 {
 		HighestApplicablePartSize++
 	}
-	var RemainderWithHighestApplicablePartSize int64 = MaxObjectSize % HighestApplicablePartSize
+	var RemainderWithHighestApplicablePartSize int64 = store.MaxObjectSize % HighestApplicablePartSize
 
 	// some of these tests are actually duplicates, as they specify the same size
 	// in bytes - two ways to describe the same thing. That is wanted, in order
 	// to provide a full picture from any angle.
 	testcases := []int64{
 		1,
-		MinPartSize - 1,
-		MinPartSize,
-		MinPartSize + 1,
+		store.MinPartSize - 1,
+		store.MinPartSize,
+		store.MinPartSize + 1,
 
-		MinPartSize*(MaxMultipartParts-1) - 1,
-		MinPartSize * (MaxMultipartParts - 1),
-		MinPartSize*(MaxMultipartParts-1) + 1,
+		store.MinPartSize*(store.MaxMultipartParts-1) - 1,
+		store.MinPartSize * (store.MaxMultipartParts - 1),
+		store.MinPartSize*(store.MaxMultipartParts-1) + 1,
 
-		MinPartSize*MaxMultipartParts - 1,
-		MinPartSize * MaxMultipartParts,
-		MinPartSize*MaxMultipartParts + 1,
+		store.MinPartSize*store.MaxMultipartParts - 1,
+		store.MinPartSize * store.MaxMultipartParts,
+		store.MinPartSize*store.MaxMultipartParts + 1,
 
-		MinPartSize*(MaxMultipartParts+1) - 1,
-		MinPartSize * (MaxMultipartParts + 1),
-		MinPartSize*(MaxMultipartParts+1) + 1,
+		store.MinPartSize*(store.MaxMultipartParts+1) - 1,
+		store.MinPartSize * (store.MaxMultipartParts + 1),
+		store.MinPartSize*(store.MaxMultipartParts+1) + 1,
 
-		(HighestApplicablePartSize-1)*MaxMultipartParts - 1,
-		(HighestApplicablePartSize - 1) * MaxMultipartParts,
-		(HighestApplicablePartSize-1)*MaxMultipartParts + 1,
+		(HighestApplicablePartSize-1)*store.MaxMultipartParts - 1,
+		(HighestApplicablePartSize - 1) * store.MaxMultipartParts,
+		(HighestApplicablePartSize-1)*store.MaxMultipartParts + 1,
 
-		HighestApplicablePartSize*(MaxMultipartParts-1) - 1,
-		HighestApplicablePartSize * (MaxMultipartParts - 1),
-		HighestApplicablePartSize*(MaxMultipartParts-1) + 1,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) - 1,
+		HighestApplicablePartSize * (store.MaxMultipartParts - 1),
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + 1,
 
-		HighestApplicablePartSize*(MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize - 1,
-		HighestApplicablePartSize*(MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize,
-		HighestApplicablePartSize*(MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize + 1,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize - 1,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize + 1,
 
-		MaxObjectSize - 1,
-		MaxObjectSize,
-		MaxObjectSize + 1,
+		store.MaxObjectSize - 1,
+		store.MaxObjectSize,
+		store.MaxObjectSize + 1,
 
-		(MaxObjectSize/MaxMultipartParts)*(MaxMultipartParts-1) - 1,
-		(MaxObjectSize / MaxMultipartParts) * (MaxMultipartParts - 1),
-		(MaxObjectSize/MaxMultipartParts)*(MaxMultipartParts-1) + 1,
+		(store.MaxObjectSize/store.MaxMultipartParts)*(store.MaxMultipartParts-1) - 1,
+		(store.MaxObjectSize / store.MaxMultipartParts) * (store.MaxMultipartParts - 1),
+		(store.MaxObjectSize/store.MaxMultipartParts)*(store.MaxMultipartParts-1) + 1,
 
-		MaxPartSize*(MaxMultipartParts-1) - 1,
-		MaxPartSize * (MaxMultipartParts - 1),
-		MaxPartSize*(MaxMultipartParts-1) + 1,
+		store.MaxPartSize*(store.MaxMultipartParts-1) - 1,
+		store.MaxPartSize * (store.MaxMultipartParts - 1),
+		store.MaxPartSize*(store.MaxMultipartParts-1) + 1,
 
-		MaxPartSize*MaxMultipartParts - 1,
-		MaxPartSize * MaxMultipartParts,
-		MaxPartSize*MaxMultipartParts + 1,
+		store.MaxPartSize*store.MaxMultipartParts - 1,
+		store.MaxPartSize * store.MaxMultipartParts,
+		store.MaxPartSize*store.MaxMultipartParts + 1,
 	}
 
-	for index, size := range testcases {
-		err = ""
+	for _, size := range testcases {
 		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
-		if size > MaxObjectSize && calcError == nil {
-			err += fmt.Sprintf("Testcase #%v size %v: size exceeds MaxObjectSize %v but no error returned\n", index, size, MaxObjectSize)
-		}
-		if debug && optimalPartSize == 0 {
-			fmt.Printf("Testcase #%v size %v: size exceeds MaxObjectSize %v\n", index, size, MaxObjectSize)
-		}
-		if optimalPartSize > 0 {
-			equalparts = size / optimalPartSize
-			lastpartsize = size % optimalPartSize
-			if optimalPartSize < MinPartSize {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MinPartSize)
-			}
-			if optimalPartSize > MaxPartSize && calcError == nil {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
-			}
-			if size%optimalPartSize == 0 && equalparts > MaxMultipartParts {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
-			}
-			if size%optimalPartSize > 0 && equalparts > MaxMultipartParts-1 {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxMultipartParts)
-			}
-			if lastpartsize > MaxPartSize {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, MaxPartSize)
-			}
-			if lastpartsize > optimalPartSize {
-				err += fmt.Sprintf("Testcase #%v size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v\n", index, size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
-			}
-			if debug {
-				fmt.Printf("Testcase #%v size %v, %v parts of size %v, lastpart %v\n", index, size, equalparts, optimalPartSize, lastpartsize)
-			}
-		}
-		if len(err) > 0 {
-			t.Errorf(err)
+		equalparts = size / optimalPartSize
+		lastpartsize = size % optimalPartSize
+		assert.False(optimalPartSize < store.MinPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize))
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
+		assert.False(lastpartsize > store.MaxPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
+		assert.False(lastpartsize > optimalPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize))
+		if debug {
+			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
 		}
 	}
 	// fmt.Println("HighestApplicablePartSize", HighestApplicablePartSize)
 	// fmt.Println("RemainderWithHighestApplicablePartSize", RemainderWithHighestApplicablePartSize)
+}
+
+func TestAllPartSizes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	store.MinPartSize = 5
+	store.MaxPartSize = 5 * 1024
+	store.MaxMultipartParts = 1000
+	store.MaxObjectSize = store.MaxPartSize * store.MaxMultipartParts
+
+	var debug = false
+	var equalparts, lastpartsize int64
+
+	// sanity check
+	if store.MaxObjectSize > store.MaxPartSize*store.MaxMultipartParts {
+		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", store.MaxObjectSize, store.MaxMultipartParts, store.MaxPartSize, store.MaxMultipartParts*store.MaxPartSize)
+	}
+
+	for size := int64(1); size <= store.MaxObjectSize; size++ {
+		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
+		equalparts = size / optimalPartSize
+		lastpartsize = size % optimalPartSize
+		assert.False(optimalPartSize < store.MinPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize))
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
+		assert.False(lastpartsize > store.MaxPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
+		assert.False(lastpartsize > optimalPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize))
+		if debug {
+			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
+		}
+	}
 }
 
 func TestNewUpload(t *testing.T) {
@@ -202,6 +212,55 @@ func TestNewUpload(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("uploadId+multipartId", id)
 }
+
+/*
+func TestNewUploadLargerMaxObjectSize(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	s1 := "hello"
+	s2 := "men?"
+
+	gomock.InOrder(
+		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId"),
+			Metadata: map[string]*string{
+				"foo": &s1,
+				"bar": &s2,
+			},
+		}).Return(&s3.CreateMultipartUploadOutput{
+			UploadId: aws.String("multipartId"),
+		}, nil),
+		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(148)),
+		}),
+	)
+
+	info := tusd.FileInfo{
+		ID:   "uploadId",
+		Size: 500,
+		MetaData: map[string]string{
+			"foo": "hello",
+			"bar": "menü",
+		},
+	}
+
+	id, err := store.NewUpload(info)
+	assert.Nil(err)
+	assert.Equal("uploadId+multipartId", id)
+}
+*/
 
 func TestGetInfoNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

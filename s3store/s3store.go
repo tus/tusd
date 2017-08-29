@@ -173,6 +173,11 @@ func (store S3Store) UseIn(composer *tusd.StoreComposer) {
 }
 
 func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
+	// an upload larger than MaxObjectSize must throw an error
+	if info.Size > store.MaxObjectSize {
+		return "", fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
+	}
+
 	var uploadId string
 	if info.ID == "" {
 		uploadId = uid.Uid()
@@ -562,11 +567,6 @@ func isAwsError(err error, code string) bool {
 }
 
 func (store S3Store) CalcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
-	// an upload larger than MaxObjectSize must throw an error
-	if size > store.MaxObjectSize {
-		return 0, fmt.Errorf("CalcOptimalPartSize: upload size of %v bytes exceeds MaxObjectSize of %v bytes", size, store.MaxObjectSize)
-	}
-
 	switch {
 	// When upload is smaller or equal MinPartSize, we upload in just one part.
 	case size <= store.MinPartSize:
@@ -607,6 +607,5 @@ func (store S3Store) CalcOptimalPartSize(size int64) (optimalPartSize int64, err
 	if optimalPartSize > store.MaxPartSize {
 		return optimalPartSize, fmt.Errorf("CalcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, optimalPartSize, store.MaxPartSize)
 	}
-
 	return optimalPartSize, nil
 }
