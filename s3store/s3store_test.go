@@ -62,6 +62,7 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	// in bytes - two ways to describe the same thing. That is wanted, in order
 	// to provide a full picture from any angle.
 	testcases := []int64{
+		0,
 		1,
 		store.MinPartSize - 1,
 		store.MinPartSize,
@@ -112,12 +113,12 @@ func TestCalcOptimalPartSize(t *testing.T) {
 		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
 		equalparts = size / optimalPartSize
 		lastpartsize = size % optimalPartSize
-		assert.False(optimalPartSize < store.MinPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize))
-		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
-		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
-		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
-		assert.False(lastpartsize > store.MaxPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
-		assert.False(lastpartsize > optimalPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize))
+		assert.False(optimalPartSize < store.MinPartSize, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize)
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(lastpartsize > store.MaxPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(lastpartsize > optimalPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
 		if debug {
 			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
 		}
@@ -150,16 +151,16 @@ func TestAllPartSizes(t *testing.T) {
 		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", store.MaxObjectSize, store.MaxMultipartParts, store.MaxPartSize, store.MaxMultipartParts*store.MaxPartSize)
 	}
 
-	for size := int64(1); size <= store.MaxObjectSize; size++ {
+	for size := int64(0); size <= store.MaxObjectSize+1; size++ {
 		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
 		equalparts = size / optimalPartSize
 		lastpartsize = size % optimalPartSize
-		assert.False(optimalPartSize < store.MinPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize))
-		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
-		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
-		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts))
-		assert.False(lastpartsize > store.MaxPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize))
-		assert.False(lastpartsize > optimalPartSize, fmt.Sprintf("Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize))
+		assert.False(optimalPartSize < store.MinPartSize, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize)
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(lastpartsize > store.MaxPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(lastpartsize > optimalPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
 		if debug {
 			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
 		}
