@@ -2,11 +2,11 @@ package s3store_test
 
 import (
 	"bytes"
-	"io/ioutil"
-	"testing"
-
+	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -23,6 +23,149 @@ var _ tusd.GetReaderDataStore = s3store.S3Store{}
 var _ tusd.TerminaterDataStore = s3store.S3Store{}
 var _ tusd.FinisherDataStore = s3store.S3Store{}
 var _ tusd.ConcaterDataStore = s3store.S3Store{}
+
+func TestCalcOptimalPartSize(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	// If you quickly want to override the default values in this test
+	/*
+		store.MinPartSize = 2
+		store.MaxPartSize = 10
+		store.MaxMultipartParts = 20
+		store.MaxObjectSize = 200
+	*/
+
+	// If you want the results of all tests printed
+	var debug = false
+	var equalparts, lastpartsize int64
+
+	// sanity check
+	if store.MaxObjectSize > store.MaxPartSize*store.MaxMultipartParts {
+		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", store.MaxObjectSize, store.MaxMultipartParts, store.MaxPartSize, store.MaxMultipartParts*store.MaxPartSize)
+	}
+
+	var HighestApplicablePartSize int64 = store.MaxObjectSize / store.MaxMultipartParts
+	if store.MaxObjectSize%store.MaxMultipartParts > 0 {
+		HighestApplicablePartSize++
+	}
+	var RemainderWithHighestApplicablePartSize int64 = store.MaxObjectSize % HighestApplicablePartSize
+
+	// some of these tests are actually duplicates, as they specify the same size
+	// in bytes - two ways to describe the same thing. That is wanted, in order
+	// to provide a full picture from any angle.
+	testcases := []int64{
+		0,
+		1,
+		store.MinPartSize - 1,
+		store.MinPartSize,
+		store.MinPartSize + 1,
+
+		store.MinPartSize*(store.MaxMultipartParts-1) - 1,
+		store.MinPartSize * (store.MaxMultipartParts - 1),
+		store.MinPartSize*(store.MaxMultipartParts-1) + 1,
+
+		store.MinPartSize*store.MaxMultipartParts - 1,
+		store.MinPartSize * store.MaxMultipartParts,
+		store.MinPartSize*store.MaxMultipartParts + 1,
+
+		store.MinPartSize*(store.MaxMultipartParts+1) - 1,
+		store.MinPartSize * (store.MaxMultipartParts + 1),
+		store.MinPartSize*(store.MaxMultipartParts+1) + 1,
+
+		(HighestApplicablePartSize-1)*store.MaxMultipartParts - 1,
+		(HighestApplicablePartSize - 1) * store.MaxMultipartParts,
+		(HighestApplicablePartSize-1)*store.MaxMultipartParts + 1,
+
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) - 1,
+		HighestApplicablePartSize * (store.MaxMultipartParts - 1),
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + 1,
+
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize - 1,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize,
+		HighestApplicablePartSize*(store.MaxMultipartParts-1) + RemainderWithHighestApplicablePartSize + 1,
+
+		store.MaxObjectSize - 1,
+		store.MaxObjectSize,
+		store.MaxObjectSize + 1,
+
+		(store.MaxObjectSize/store.MaxMultipartParts)*(store.MaxMultipartParts-1) - 1,
+		(store.MaxObjectSize / store.MaxMultipartParts) * (store.MaxMultipartParts - 1),
+		(store.MaxObjectSize/store.MaxMultipartParts)*(store.MaxMultipartParts-1) + 1,
+
+		store.MaxPartSize*(store.MaxMultipartParts-1) - 1,
+		store.MaxPartSize * (store.MaxMultipartParts - 1),
+		store.MaxPartSize*(store.MaxMultipartParts-1) + 1,
+
+		store.MaxPartSize*store.MaxMultipartParts - 1,
+		store.MaxPartSize * store.MaxMultipartParts,
+		store.MaxPartSize*store.MaxMultipartParts + 1,
+	}
+
+	for _, size := range testcases {
+		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
+		equalparts = size / optimalPartSize
+		lastpartsize = size % optimalPartSize
+		assert.False(optimalPartSize < store.MinPartSize, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize)
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(lastpartsize > store.MaxPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(lastpartsize > optimalPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
+		if debug {
+			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
+		}
+	}
+	// fmt.Println("HighestApplicablePartSize", HighestApplicablePartSize)
+	// fmt.Println("RemainderWithHighestApplicablePartSize", RemainderWithHighestApplicablePartSize)
+}
+
+func TestAllPartSizes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	store.MinPartSize = 5
+	store.MaxPartSize = 5 * 1024
+	store.MaxMultipartParts = 1000
+	store.MaxObjectSize = store.MaxPartSize * store.MaxMultipartParts
+
+	var debug = false
+	var equalparts, lastpartsize int64
+
+	// sanity check
+	if store.MaxObjectSize > store.MaxPartSize*store.MaxMultipartParts {
+		t.Errorf("MaxObjectSize %v can never be achieved, as MaxMultipartParts %v and MaxPartSize %v only allow for an upload of %v bytes total.\n", store.MaxObjectSize, store.MaxMultipartParts, store.MaxPartSize, store.MaxMultipartParts*store.MaxPartSize)
+	}
+
+	for size := int64(0); size <= store.MaxObjectSize+1; size++ {
+		optimalPartSize, calcError := store.CalcOptimalPartSize(size)
+		equalparts = size / optimalPartSize
+		lastpartsize = size % optimalPartSize
+		assert.False(optimalPartSize < store.MinPartSize, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize < MinPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MinPartSize)
+		assert.False(optimalPartSize > store.MaxPartSize && calcError == nil, "Size %v, %v parts of size %v, lastpart %v: optimalPartSize > MaxPartSize %v, but no error was returned.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(size%optimalPartSize == 0 && equalparts > store.MaxMultipartParts, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(size%optimalPartSize > 0 && equalparts > store.MaxMultipartParts-1, "Size %v, %v parts of size %v, lastpart %v: more parts than MaxMultipartParts %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxMultipartParts)
+		assert.False(lastpartsize > store.MaxPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > MaxPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, store.MaxPartSize)
+		assert.False(lastpartsize > optimalPartSize, "Size %v, %v parts of size %v, lastpart %v: lastpart > optimalPartSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, optimalPartSize)
+		if debug {
+			fmt.Printf("Size %v, %v parts of size %v, lastpart %v, does exceed MaxObjectSize %v.\n", size, equalparts, optimalPartSize, lastpartsize, size > store.MaxObjectSize)
+		}
+	}
+}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -69,6 +212,28 @@ func TestNewUpload(t *testing.T) {
 	id, err := store.NewUpload(info)
 	assert.Nil(err)
 	assert.Equal("uploadId+multipartId", id)
+}
+
+func TestNewUploadLargerMaxObjectSize(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := s3store.New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	info := tusd.FileInfo{
+		ID:   "uploadId",
+		Size: store.MaxObjectSize + 1,
+	}
+
+	id, err := store.NewUpload(info)
+	assert.NotNil(err)
+	assert.EqualError(err, fmt.Sprintf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize))
+	assert.Equal("", id)
 }
 
 func TestGetInfoNotFound(t *testing.T) {
@@ -324,8 +489,10 @@ func TestWriteChunk(t *testing.T) {
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := s3store.New("bucket", s3obj)
-	store.MaxPartSize = 4
-	store.MinPartSize = 2
+	store.MaxPartSize = 8
+	store.MinPartSize = 4
+	store.MaxMultipartParts = 10000
+	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -383,13 +550,15 @@ func TestWriteChunk(t *testing.T) {
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(5),
-			Body:       bytes.NewReader([]byte("90")),
+			Body:       bytes.NewReader([]byte("90AB")),
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890")))
+	// The last bytes "CD" will be ignored, as they are not the last bytes of the
+	// upload (500 bytes total) and not of full part-size.
+	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890ABCD")))
 	assert.Nil(err)
-	assert.Equal(int64(10), bytesRead)
+	assert.Equal(int64(12), bytesRead)
 }
 
 func TestWriteChunkDropTooSmall(t *testing.T) {
