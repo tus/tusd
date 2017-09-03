@@ -1,4 +1,4 @@
-package s3store_test
+package s3store
 
 import (
 	"fmt"

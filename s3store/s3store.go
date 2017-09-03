@@ -128,6 +128,13 @@ type S3Store struct {
 	// in bytes. This number needs to match with the underlying S3 backend or else
 	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
+	// MaxMultipartParts is the maximum number of parts an S3 multipart upload is
+	// allowed to have according to AWS S3 API specifications.
+	// See: http://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
+	MaxMultipartParts int64
+	// MaxObjectSize is the maximum size an S3 Object can have according to S3
+	// API specifications. See link above.
+	MaxObjectSize int64
 }
 
 type S3API interface {
@@ -146,10 +153,12 @@ type S3API interface {
 // The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
-		Bucket:      bucket,
-		Service:     service,
-		MaxPartSize: 6 * 1024 * 1024,
-		MinPartSize: 5 * 1024 * 1024,
+		Bucket:            bucket,
+		Service:           service,
+		MaxPartSize:       5 * 1024 * 1024 * 1024,
+		MinPartSize:       5 * 1024 * 1024,
+		MaxMultipartParts: 10000,
+		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
 	}
 }
 
@@ -164,6 +173,11 @@ func (store S3Store) UseIn(composer *tusd.StoreComposer) {
 }
 
 func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
+	// an upload larger than MaxObjectSize must throw an error
+	if info.Size > store.MaxObjectSize {
+		return "", fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
+	}
+
 	var uploadId string
 	if info.ID == "" {
 		uploadId = uid.Uid()
@@ -224,19 +238,18 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	size := info.Size
 	bytesUploaded := int64(0)
+	optimalPartSize, err := store.calcOptimalPartSize(size)
+	if err != nil {
+		return bytesUploaded, err
+	}
 
 	// Get number of parts to generate next number
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		return 0, err
 	}
 
-	list := *listPtr
-	numParts := len(list.Parts)
+	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
 	for {
@@ -248,7 +261,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		defer os.Remove(file.Name())
 		defer file.Close()
 
-		limitedReader := io.LimitReader(src, store.MaxPartSize)
+		limitedReader := io.LimitReader(src, optimalPartSize)
 		n, err := io.Copy(file, limitedReader)
 		// io.Copy does not return io.EOF, so we not have to handle it differently.
 		if err != nil {
@@ -259,11 +272,11 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 			return bytesUploaded, nil
 		}
 
-		if (size - offset) <= store.MinPartSize {
+		if (size - offset) <= optimalPartSize {
 			if (size - offset) != n {
 				return bytesUploaded, nil
 			}
-		} else if n < store.MinPartSize {
+		} else if n < optimalPartSize {
 			return bytesUploaded, nil
 		}
 
@@ -288,7 +301,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 }
 
 func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
-	uploadId, multipartId := splitIds(id)
+	uploadId, _ := splitIds(id)
 
 	// Get file info stored in separate object
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
@@ -308,11 +321,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 	}
 
 	// Get uploaded parts and their offset
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		// Check if the error is caused by the upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
@@ -326,11 +335,9 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		}
 	}
 
-	list := *listPtr
-
 	offset := int64(0)
 
-	for _, part := range list.Parts {
+	for _, part := range parts {
 		offset += *part.Size
 	}
 
@@ -444,22 +451,17 @@ func (store S3Store) FinishUpload(id string) error {
 	uploadId, multipartId := splitIds(id)
 
 	// Get uploaded parts
-	listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
-		UploadId: aws.String(multipartId),
-	})
+	parts, err := store.listAllParts(id)
 	if err != nil {
 		return err
 	}
 
 	// Transform the []*s3.Part slice to a []*s3.CompletedPart slice for the next
 	// request.
-	list := *listPtr
-	parts := make([]*s3.CompletedPart, len(list.Parts))
+	completedParts := make([]*s3.CompletedPart, len(parts))
 
-	for index, part := range list.Parts {
-		parts[index] = &s3.CompletedPart{
+	for index, part := range parts {
+		completedParts[index] = &s3.CompletedPart{
 			ETag:       part.ETag,
 			PartNumber: part.PartNumber,
 		}
@@ -470,7 +472,7 @@ func (store S3Store) FinishUpload(id string) error {
 		Key:      aws.String(uploadId),
 		UploadId: aws.String(multipartId),
 		MultipartUpload: &s3.CompletedMultipartUpload{
-			Parts: parts,
+			Parts: completedParts,
 		},
 	})
 
@@ -517,6 +519,33 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 	return store.FinishUpload(dest)
 }
 
+func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
+	uploadId, multipartId := splitIds(id)
+
+	partMarker := int64(0)
+	for {
+		// Get uploaded parts
+		listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String(store.Bucket),
+			Key:              aws.String(uploadId),
+			UploadId:         aws.String(multipartId),
+			PartNumberMarker: aws.Int64(partMarker),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, (*listPtr).Parts...)
+
+		if listPtr.IsTruncated != nil && *listPtr.IsTruncated {
+			partMarker = *listPtr.NextPartNumberMarker
+		} else {
+			break
+		}
+	}
+	return parts, nil
+}
+
 func splitIds(id string) (uploadId, multipartId string) {
 	index := strings.Index(id, "+")
 	if index == -1 {
@@ -535,4 +564,48 @@ func isAwsError(err error, code string) bool {
 		return true
 	}
 	return false
+}
+
+func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
+	switch {
+	// When upload is smaller or equal MinPartSize, we upload in just one part.
+	case size <= store.MinPartSize:
+		optimalPartSize = store.MinPartSize
+	// Does the upload fit in MaxMultipartParts parts or less with MinPartSize.
+	case size <= store.MinPartSize*store.MaxMultipartParts:
+		optimalPartSize = store.MinPartSize
+	// Prerequisite: Be aware, that the result of an integer division (x/y) is
+	// ALWAYS rounded DOWN, as there are no digits behind the comma.
+	// In order to find out, whether we have an exact result or a rounded down
+	// one, we can check, whether the remainder of that division is 0 (x%y == 0).
+	//
+	// So if the result of (size/MaxMultipartParts) is not a rounded down value,
+	// then we can use it as our optimalPartSize. But if this division produces a
+	// remainder, we have to round up the result by adding +1. Otherwise our
+	// upload would not fit into MaxMultipartParts number of parts with that
+	// size. We would need an additional part in order to upload everything.
+	// While in almost all cases, we could skip the check for the remainder and
+	// just add +1 to every result, but there is one case, where doing that would
+	// doom our upload. When (MaxObjectSize == MaxPartSize * MaxMultipartParts),
+	// by adding +1, we would end up with an optimalPartSize > MaxPartSize.
+	// With the current S3 API specifications, we will not run into this problem,
+	// but these specs are subject to change, and there are other stores as well,
+	// which are implementing the S3 API (e.g. RIAK, Ceph RadosGW), but might
+	// have different settings.
+	case size%store.MaxMultipartParts == 0:
+		optimalPartSize = size / store.MaxMultipartParts
+	// Having a remainder larger than 0 means, the float result would have
+	// digits after the comma (e.g. be something like 10.9). As a result, we can
+	// only squeeze our upload into MaxMultipartParts parts, if we rounded UP
+	// this division's result. That is what is happending here. We round up by
+	// adding +1, if the prior test for (remainder == 0) did not succeed.
+	default:
+		optimalPartSize = size/store.MaxMultipartParts + 1
+	}
+
+	// optimalPartSize must never exceed MaxPartSize
+	if optimalPartSize > store.MaxPartSize {
+		return optimalPartSize, fmt.Errorf("calcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, optimalPartSize, store.MaxPartSize)
+	}
+	return optimalPartSize, nil
 }

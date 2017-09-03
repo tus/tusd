@@ -1,7 +1,8 @@
-package s3store_test
+package s3store
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -12,17 +13,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/tus/tusd"
-	"github.com/tus/tusd/s3store"
 )
 
-//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store_test github.com/tus/tusd/s3store S3API
+//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store github.com/tus/tusd/s3store S3API
 
 // Test interface implementations
-var _ tusd.DataStore = s3store.S3Store{}
-var _ tusd.GetReaderDataStore = s3store.S3Store{}
-var _ tusd.TerminaterDataStore = s3store.S3Store{}
-var _ tusd.FinisherDataStore = s3store.S3Store{}
-var _ tusd.ConcaterDataStore = s3store.S3Store{}
+var _ tusd.DataStore = S3Store{}
+var _ tusd.GetReaderDataStore = S3Store{}
+var _ tusd.TerminaterDataStore = S3Store{}
+var _ tusd.FinisherDataStore = S3Store{}
+var _ tusd.ConcaterDataStore = S3Store{}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -30,7 +30,7 @@ func TestNewUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	assert.Equal("bucket", store.Bucket)
 	assert.Equal(s3obj, store.Service)
@@ -71,13 +71,35 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal("uploadId+multipartId", id)
 }
 
+func TestNewUploadLargerMaxObjectSize(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	info := tusd.FileInfo{
+		ID:   "uploadId",
+		Size: store.MaxObjectSize + 1,
+	}
+
+	id, err := store.NewUpload(info)
+	assert.NotNil(err)
+	assert.EqualError(err, fmt.Sprintf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize))
+	assert.Equal("", id)
+}
+
 func TestGetInfoNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
@@ -94,7 +116,7 @@ func TestGetInfo(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -104,9 +126,10 @@ func TestGetInfo(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -116,13 +139,27 @@ func TestGetInfo(t *testing.T) {
 					Size: aws.Int64(200),
 				},
 			},
+			NextPartNumberMarker: aws.Int64(2),
+			IsTruncated:          aws.Bool(true),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(2),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					Size: aws.Int64(100),
+				},
+			},
 		}, nil),
 	)
 
 	info, err := store.GetInfo("uploadId+multipartId")
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
-	assert.Equal(int64(300), info.Offset)
+	assert.Equal(int64(400), info.Offset)
 	assert.Equal("uploadId+multipartId", info.ID)
 	assert.Equal("hello", info.MetaData["foo"])
 	assert.Equal("menü", info.MetaData["bar"])
@@ -134,7 +171,7 @@ func TestGetInfoFinished(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -144,9 +181,10 @@ func TestGetInfoFinished(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
 
@@ -162,7 +200,7 @@ func TestGetReader(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
@@ -182,7 +220,7 @@ func TestGetReaderNotFound(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -208,7 +246,7 @@ func TestGetReaderNotFinished(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -236,13 +274,14 @@ func TestFinishUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -254,6 +293,22 @@ func TestFinishUpload(t *testing.T) {
 					Size:       aws.Int64(200),
 					ETag:       aws.String("bar"),
 					PartNumber: aws.Int64(2),
+				},
+			},
+			NextPartNumberMarker: aws.Int64(2),
+			IsTruncated:          aws.Bool(true),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(2),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					Size:       aws.Int64(100),
+					ETag:       aws.String("foobar"),
+					PartNumber: aws.Int64(3),
 				},
 			},
 		}, nil),
@@ -271,6 +326,10 @@ func TestFinishUpload(t *testing.T) {
 						ETag:       aws.String("bar"),
 						PartNumber: aws.Int64(2),
 					},
+					{
+						ETag:       aws.String("foobar"),
+						PartNumber: aws.Int64(3),
+					},
 				},
 			},
 		}).Return(nil, nil),
@@ -286,9 +345,11 @@ func TestWriteChunk(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
-	store.MaxPartSize = 4
-	store.MinPartSize = 2
+	store := New("bucket", s3obj)
+	store.MaxPartSize = 8
+	store.MinPartSize = 4
+	store.MaxMultipartParts = 10000
+	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -298,9 +359,10 @@ func TestWriteChunk(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -312,9 +374,10 @@ func TestWriteChunk(t *testing.T) {
 			},
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -344,13 +407,15 @@ func TestWriteChunk(t *testing.T) {
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(5),
-			Body:       bytes.NewReader([]byte("90")),
+			Body:       bytes.NewReader([]byte("90AB")),
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890")))
+	// The last bytes "CD" will be ignored, as they are not the last bytes of the
+	// upload (500 bytes total) and not of full part-size.
+	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890ABCD")))
 	assert.Nil(err)
-	assert.Equal(int64(10), bytesRead)
+	assert.Equal(int64(12), bytesRead)
 }
 
 func TestWriteChunkDropTooSmall(t *testing.T) {
@@ -359,7 +424,7 @@ func TestWriteChunkDropTooSmall(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	gomock.InOrder(
 		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
@@ -369,9 +434,10 @@ func TestWriteChunkDropTooSmall(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -383,9 +449,10 @@ func TestWriteChunkDropTooSmall(t *testing.T) {
 			},
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -409,7 +476,7 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 	store.MinPartSize = 20
 
 	gomock.InOrder(
@@ -420,9 +487,10 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -434,9 +502,10 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 			},
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
@@ -470,7 +539,7 @@ func TestTerminate(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	// Order is not important in this situation.
 	s3obj.EXPECT().AbortMultipartUpload(&s3.AbortMultipartUploadInput{
@@ -504,7 +573,7 @@ func TestTerminateWithErrors(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	// Order is not important in this situation.
 	// NoSuchUpload errors should be ignored
@@ -547,7 +616,7 @@ func TestConcatUploads(t *testing.T) {
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
-	store := s3store.New("bucket", s3obj)
+	store := New("bucket", s3obj)
 
 	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
 		Bucket:     aws.String("bucket"),
@@ -576,9 +645,10 @@ func TestConcatUploads(t *testing.T) {
 	// Output from s3Store.FinishUpload
 	gomock.InOrder(
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
-			Bucket:   aws.String("bucket"),
-			Key:      aws.String("uploadId"),
-			UploadId: aws.String("multipartId"),
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{
 				{
