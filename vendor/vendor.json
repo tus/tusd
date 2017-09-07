@@ -45,6 +45,12 @@
 			"revisionTime": "2016-01-21T18:51:14Z"
 		},
 		{
+			"checksumSHA1": "A0DxiyxXV4u8PmwUwlVkQ2CKyiQ=",
+			"path": "github.com/golang/protobuf/proto/testdata",
+			"revision": "7a211bcf3bce0e3f1d74f9894916e6f116ae83b4",
+			"revisionTime": "2017-05-23T06:57:51Z"
+		},
+		{
 			"checksumSHA1": "V/53BpqgOkSDZCX6snQCAkdO2fM=",
 			"path": "github.com/googleapis/gax-go",
 			"revision": "da06d194a00e19ce00d9011a13931c3f6f6887c7",
@@ -163,6 +169,12 @@
 			"path": "gopkg.in/Acconut/lockfile.v1",
 			"revision": "ea910fd69bd541bb592c5729c94f595c696413ab",
 			"revisionTime": "2017-03-03T10:08:22Z"
+		},
+		{
+			"checksumSHA1": "5wJsOcV7u6ijG48Y97GJBoG2BKc=",
+			"path": "gopkg.in/h2non/gock.v1",
+			"revision": "84d599244901620fb3eb96473eb9e50619f69b47",
+			"revisionTime": "2017-07-27T12:10:12Z"
 		}
 	],
 	"rootPath": "github.com/tus/tusd"
