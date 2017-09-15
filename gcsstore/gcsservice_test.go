@@ -12,6 +12,14 @@ import (
 	"google.golang.org/api/option"
 )
 
+type googleObjectResponse struct {
+	Name string `json:"name"`
+}
+
+type googleBucketResponse struct {
+	Items []googleObjectResponse `json:"items"`
+}
+
 func TestGetObjectSize(t *testing.T) {
 	defer gock.Off()
 
@@ -458,6 +466,10 @@ func TestComposeFrom(t *testing.T) {
 func TestFilterObject(t *testing.T) {
 	defer gock.Off()
 
+	resp := googleBucketResponse{[]googleObjectResponse{
+		googleObjectResponse{Name: "test-prefix_1"},
+	}}
+
 	gock.New("https://www.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
@@ -465,7 +477,7 @@ func TestFilterObject(t *testing.T) {
 		MatchParam("prefix", "test-prefix").
 		MatchParam("projection", "full").
 		Reply(200).
-		JSON(map[string]string{"object": "thing"})
+		JSON(resp)
 
 	gock.New("https://accounts.google.com/").
 		Post("/o/oauth2/token").Reply(200).JSON(map[string]string{
@@ -499,7 +511,7 @@ func TestFilterObject(t *testing.T) {
 		return
 	}
 
-	if len(objects) != 1 {
-		t.Errorf("Didn't get appropriate amount of objects back: %v", objects)
+	if len(objects) != 2 {
+		t.Errorf("Didn't get appropriate amount of objects back: got %v from %v", len(objects), objects)
 	}
 }
