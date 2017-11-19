@@ -81,7 +81,7 @@ func FindDefaultCredentials(ctx context.Context, scope ...string) (*DefaultCrede
 	}
 
 	// Third, if we're on Google App Engine use those credentials.
-	if appengineTokenFunc != nil && !appengineFlex {
+	if appengineTokenFunc != nil && !appengineVM {
 		return &DefaultCredentials{
 			ProjectID:   appengineAppIDFunc(ctx),
 			TokenSource: AppEngineTokenSource(ctx, scope...),
