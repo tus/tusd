@@ -15,7 +15,6 @@
 package internal
 
 import (
-	"fmt"
 	"time"
 
 	gax "github.com/googleapis/gax-go"
@@ -27,7 +26,8 @@ import (
 // backoff parameters. It returns when one of the following occurs:
 // When f's first return value is true, Retry immediately returns with f's second
 // return value.
-// When the provided context is done, Retry returns with ctx.Err().
+// When the provided context is done, Retry returns with an error that
+// includes both ctx.Error() and the last error returned by f.
 func Retry(ctx context.Context, bo gax.Backoff, f func() (stop bool, err error)) error {
 	return retry(ctx, bo, f, gax.Sleep)
 }
@@ -47,7 +47,7 @@ func retry(ctx context.Context, bo gax.Backoff, f func() (stop bool, err error),
 		p := bo.Pause()
 		if cerr := sleep(ctx, p); cerr != nil {
 			if lastErr != nil {
-				return fmt.Errorf("%v; last function err: %v", cerr, lastErr)
+				return Annotatef(lastErr, "retry failed with %v; last error", cerr)
 			}
 			return cerr
 		}

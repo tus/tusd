@@ -36,6 +36,13 @@ To start working with this package, create a client:
         // TODO: Handle error.
     }
 
+The client will use your default application credentials.
+
+If you only wish to access public data, you can create
+an unauthenticated client with
+
+    client, err := storage.NewClient(ctx, option.WithoutAuthentication())
+
 Buckets
 
 A Google Cloud Storage bucket is a collection of objects. To work with a
@@ -152,5 +159,10 @@ SignedURL for details.
         // TODO: Handle error.
     }
     fmt.Println(url)
+
+Authentication
+
+See examples of authorization and authentication at
+https://godoc.org/cloud.google.com/go#pkg-examples.
 */
 package storage // import "cloud.google.com/go/storage"
