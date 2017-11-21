@@ -54,6 +54,7 @@ func (store FileStore) UseIn(composer *tusd.StoreComposer) {
 	composer.UseGetReader(store)
 	composer.UseTerminater(store)
 	composer.UseLocker(store)
+	composer.UseConcater(store)
 }
 
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
