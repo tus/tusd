@@ -45,11 +45,9 @@ func TestGetObjectSize(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	size, err := service.GetObjectSize(GCSObjectParams{
@@ -94,11 +92,9 @@ func TestDeleteObjectWithFilter(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	err = service.DeleteObjectsWithFilter(GCSFilterParams{
@@ -182,11 +178,9 @@ func TestComposeObjects(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	err = service.ComposeObjects(GCSComposeParams{
@@ -226,11 +220,9 @@ func TestGetObjectAttrs(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	attrs, err := service.GetObjectAttrs(GCSObjectParams{
@@ -272,11 +264,9 @@ func TestReadObject(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	reader, err := service.ReadObject(GCSObjectParams{
@@ -312,11 +302,9 @@ func TestSetObjectMetadata(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	err = service.SetObjectMetadata(GCSObjectParams{
@@ -353,11 +341,9 @@ func TestDeleteObject(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	err = service.DeleteObject(GCSObjectParams{
@@ -388,11 +374,9 @@ func TestWriteObject(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	reader := bytes.NewReader([]byte{1})
@@ -442,11 +426,9 @@ func TestComposeFrom(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	crc, err := service.ComposeFrom([]*storage.ObjectHandle{client.Bucket("test-bucket").Object("my-object")}, GCSObjectParams{
@@ -494,11 +476,9 @@ func TestFilterObject(t *testing.T) {
 		return
 	}
 
-	service, err := NewGCSService("")
-	service.Client = client
-	if err != nil {
-		t.Errorf("Error: %v", err)
-		return
+	service := GCSService{
+		Client: client,
+		Ctx:    ctx,
 	}
 
 	objects, err := service.FilterObjects(GCSFilterParams{
