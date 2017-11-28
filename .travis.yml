@@ -11,6 +11,7 @@ cache:
   directories:
   - $HOME/.gimme
   - $HOME/.frey
+  - "$HOME/google-cloud-sdk/"
 env:
   global:
   - GO15VENDOREXPERIMENT=1
@@ -25,6 +26,12 @@ script:
 - ./.scripts/test_all.sh
 before_deploy:
 - if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
+- if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; curl https://sdk.cloud.google.com | bash; fi
+- source /home/travis/google-cloud-sdk/path.bash.inc
+- gcloud --quiet version
+- gcloud --quiet components update
+- gcloud --quiet components update kubectl
+- curl https://raw.githubusercontent.com/kubernetes/helm/8478fb4fc723885b155c924d1c8c410b7a9444e6/scripts/get | bash
 deploy:
 - provider: releases
   api_key:
