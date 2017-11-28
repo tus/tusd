@@ -24,19 +24,18 @@ gcloud --quiet container clusters get-credentials $CLUSTER_NAME
 
 kubectl config current-context
 
-ls -ahl "${__root}"
-#helm init --service-account tiller --upgrade
+helm init --service-account tiller --upgrade
 
-#kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
-#kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
-#kubectl apply -f "${__root}/.infra/kube/service.yaml"
-#kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
+kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
+kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
+kubectl apply -f "${__root}/.infra/kube/service.yaml"
+kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
 
-#kubectl set image deployment/tusd --namespace=tus tusd=docker.io/kiloreux/tusd:$TRAVIS_COMMIT
+kubectl set image deployment/tusd --namespace=tus tusd=docker.io/kiloreux/tusd:$TRAVIS_COMMIT
 
-#kubectl get pods --namespace=tus
-#kubectl get service --namespace=tus
-#kubectl get deployment --namespace=tus
+kubectl get pods --namespace=tus
+kubectl get service --namespace=tus
+kubectl get deployment --namespace=tus
 
 
 function cleanup {
