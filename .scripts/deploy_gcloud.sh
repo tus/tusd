@@ -24,7 +24,7 @@ gcloud --quiet container clusters get-credentials $CLUSTER_NAME
 
 kubectl config current-context
 
-ls -ahl "${_root}"
+ls -ahl "${__root}"
 #helm init --service-account tiller --upgrade
 
 #kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
