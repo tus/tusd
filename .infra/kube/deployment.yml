@@ -11,7 +11,7 @@ spec:
         app: tusd
     spec:
       containers:
-      - image: docker.io/tusproject/tusd:latest
+      - image: docker.io/kiloreux/tusd:latest
         imagePullPolicy: Always
         args: ["-port=8080"]
         name: tusd
