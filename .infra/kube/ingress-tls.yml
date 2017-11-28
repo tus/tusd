@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: tusd
+  namespace: tus
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - dzybha.com
+    secretName: tusd-tls
+  rules:
+  - host: dzybha.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: tusd
+          servicePort: 80
+

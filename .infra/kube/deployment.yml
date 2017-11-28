@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tusd
+  namespace: tus
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tusd
+    spec:
+      containers:
+      - image: docker.io/tusproject/tusd:latest
+        imagePullPolicy: Always
+        args: ["-port=8080"]
+        name: tusd
+        ports:
+        - containerPort: 8080
