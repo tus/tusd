@@ -103,7 +103,7 @@ func TestGetInfo(t *testing.T) {
 
 	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: fmt.Sprintf("%s_", mockID),
+		Prefix: fmt.Sprintf("%s", mockID),
 	}
 
 	mockObjectParams0 := gcsstore.GCSObjectParams{
@@ -230,6 +230,11 @@ func TestFinishUpload(t *testing.T) {
 		Prefix: fmt.Sprintf("%s_", mockID),
 	}
 
+	filterParams2 := gcsstore.GCSFilterParams{
+		Bucket: store.Bucket,
+		Prefix: fmt.Sprintf("%s", mockID),
+	}
+
 	composeParams := gcsstore.GCSComposeParams{
 		Bucket:      store.Bucket,
 		Destination: mockID,
@@ -268,7 +273,7 @@ func TestFinishUpload(t *testing.T) {
 
 	objectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     mockID,
+		ID:     fmt.Sprintf("%s", mockID),
 	}
 
 	metadata := map[string]string{
@@ -280,7 +285,7 @@ func TestFinishUpload(t *testing.T) {
 		service.EXPECT().ComposeObjects(composeParams).Return(nil),
 		service.EXPECT().DeleteObjectsWithFilter(filterParams).Return(nil),
 		service.EXPECT().ReadObject(infoParams).Return(r, nil),
-		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
+		service.EXPECT().FilterObjects(filterParams2).Return(mockPartials, nil),
 		service.EXPECT().GetObjectSize(mockObjectParams0).Return(size, nil),
 		service.EXPECT().GetObjectSize(mockObjectParams1).Return(size, nil),
 		service.EXPECT().GetObjectSize(mockObjectParams2).Return(size, nil),

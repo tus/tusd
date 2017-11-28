@@ -333,6 +333,7 @@ func (service *GCSService) FilterObjects(params GCSFilterParams) ([]string, erro
 
 	it := bkt.Objects(service.Ctx, &q)
 	names := make([]string, 0)
+loop:
 	for {
 		objAttrs, err := it.Next()
 		if err == iterator.Done {
@@ -342,19 +343,27 @@ func (service *GCSService) FilterObjects(params GCSFilterParams) ([]string, erro
 			return nil, err
 		}
 
+		if strings.HasSuffix(objAttrs.Name, "info") {
+			continue
+		}
 		split := strings.Split(objAttrs.Name, "_")
 
+		// If the object name does not split on "_", we have a composed object.
 		// If the object name splits on "_" in to four pieces we
 		// know the object name we are working with is in the format
 		// [uid]_tmp_[recursion_lvl]_[chunk_idx]. The only time we filter
 		// these temporary objects is on a delete operation so we can just
 		// append and continue without worrying about index order
-		if len(split) == 4 {
+
+		switch len(split) {
+		case 1:
+			names = []string{objAttrs.Name}
+			break loop
+		case 2:
+		case 4:
 			names = append(names, objAttrs.Name)
 			continue
-		}
-
-		if len(split) != 2 {
+		default:
 			err := errors.New("Invalid filter format for object name")
 			return nil, err
 		}
@@ -370,7 +379,6 @@ func (service *GCSService) FilterObjects(params GCSFilterParams) ([]string, erro
 
 		names[idx] = objAttrs.Name
 	}
-
 	return names, nil
 
 }
