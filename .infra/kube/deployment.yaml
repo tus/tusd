@@ -13,7 +13,7 @@ spec:
       containers:
       - image: docker.io/kiloreux/tusd:latest
         imagePullPolicy: Always
-        args: ["-port=8080"]
+        args: ["-port=8080","-behind-proxy","-max-size=1000000000"]
         name: tusd
         ports:
         - containerPort: 8080
