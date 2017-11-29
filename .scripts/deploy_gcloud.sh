@@ -9,10 +9,10 @@ __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __root="$(cd "$(dirname "${__dir}")" && pwd)"
 
 # Store the new image in docker hub
-docker build --quiet -t kiloreux/tusd:latest -t kiloreux/tusd:$TRAVIS_COMMIT ${__root};
+docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
 docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-docker push kiloreux/tusd:$TRAVIS_COMMIT;
-docker push kiloreux/tusd:latest;
+docker push tusproject/tusd:$TRAVIS_COMMIT;
+docker push tusproject/tusd:latest;
 
 echo $GCLOUD_KEY | base64 --decode -i > ${HOME}/gcloud-service-key.json
 gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
@@ -31,7 +31,7 @@ kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
 kubectl apply -f "${__root}/.infra/kube/service.yaml"
 kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
 
-kubectl set image deployment/tusd --namespace=tus tusd=docker.io/kiloreux/tusd:$TRAVIS_COMMIT
+kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
 
 kubectl get pods --namespace=tus
 kubectl get service --namespace=tus
