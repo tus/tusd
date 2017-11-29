@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -93,6 +94,12 @@ type UnroutedHandler struct {
 	// happen if the NotifyUploadProgress field is set to true in the Config
 	// structure.
 	UploadProgress chan FileInfo
+	// CreatedUploads is used to send notifications about the uploads having been
+	// created. It triggers post creation and therefore has all the FileInfo incl.
+	// the ID available already. It facilitates the post-create hook. Sending to
+	// this channel will only happen if the NotifyCreatedUploads field is set to
+	// true in the Config structure.
+	CreatedUploads chan FileInfo
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -123,6 +130,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		CompleteUploads:   make(chan FileInfo),
 		TerminatedUploads: make(chan FileInfo),
 		UploadProgress:    make(chan FileInfo),
+		CreatedUploads:    make(chan FileInfo),
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
@@ -156,13 +164,13 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 			if r.Method == "OPTIONS" {
 				// Preflight request
-				header.Set("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
+				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				header.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
-				header.Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
+				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata")
 			}
 		}
 
@@ -282,6 +290,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	go handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
+
+	if handler.config.NotifyCreatedUploads {
+		info.ID = id
+		handler.CreatedUploads <- info
+	}
 
 	if isFinal {
 		if err := handler.composer.Concater.ConcatUploads(id, partialUploads); err != nil {
@@ -609,6 +622,14 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// Interpret os.ErrNotExist as 404 Not Found
 	if os.IsNotExist(err) {
 		err = ErrNotFound
+	}
+
+	// Errors for read timeouts contain too much information which is not
+	// necessary for us and makes grouping for the metrics harder. The error
+	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
+	// Therefore, we use a common error message for all of them.
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		err = errors.New("read tcp: i/o timeout")
 	}
 
 	statusErr, ok := err.(HTTPError)

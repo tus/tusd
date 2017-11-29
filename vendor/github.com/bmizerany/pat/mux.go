@@ -110,7 +110,7 @@ func New() *PatternServeMux {
 // described above.
 func (p *PatternServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, ph := range p.handlers[r.Method] {
-		if params, ok := ph.try(r.URL.Path); ok {
+		if params, ok := ph.try(r.URL.EscapedPath()); ok {
 			if len(params) > 0 && !ph.redirect {
 				r.URL.RawQuery = url.Values(params).Encode() + "&" + r.URL.RawQuery
 			}
@@ -131,7 +131,7 @@ func (p *PatternServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, ph := range handlers {
-			if _, ok := ph.try(r.URL.Path); ok {
+			if _, ok := ph.try(r.URL.EscapedPath()); ok {
 				allowed = append(allowed, meth)
 			}
 		}
@@ -266,7 +266,11 @@ func (ph *patHandler) try(path string) (url.Values, bool) {
 			var nextc byte
 			name, nextc, j = match(ph.pat, isAlnum, j+1)
 			val, _, i = match(path, matchPart(nextc), i)
-			p.Add(":"+name, val)
+			escval, err := url.QueryUnescape(val)
+			if err != nil {
+				return nil, false
+			}
+			p.Add(":"+name, escval)
 		case path[i] == ph.pat[j]:
 			i++
 			j++

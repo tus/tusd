@@ -2,6 +2,7 @@ package tusd_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	. "github.com/tus/tusd"
@@ -45,5 +46,32 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Allow-Origin":   "tus.io",
 			},
 		}).Run(handler, t)
+	})
+
+	SubTest(t, "AppendHeaders", func(t *testing.T, store *MockFullDataStore) {
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		req, _ := http.NewRequest("OPTIONS", "", nil)
+		req.Header.Set("Tus-Resumable", "1.0.0")
+		req.Header.Set("Origin", "tus.io")
+		req.Host = "tus.io"
+
+		res := httptest.NewRecorder()
+		res.HeaderMap.Set("Access-Control-Allow-Headers", "HEADER")
+		res.HeaderMap.Set("Access-Control-Allow-Methods", "METHOD")
+		handler.ServeHTTP(res, req)
+
+		headers := res.HeaderMap["Access-Control-Allow-Headers"]
+		methods := res.HeaderMap["Access-Control-Allow-Methods"]
+
+		if headers[0] != "HEADER" {
+			t.Errorf("expected header to contain HEADER but got: %#v", headers)
+		}
+
+		if methods[0] != "METHOD" {
+			t.Errorf("expected header to contain HEADER but got: %#v", methods)
+		}
 	})
 }

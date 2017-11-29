@@ -125,6 +125,7 @@ useful tools:
 
 * [**s3store**](https://godoc.org/github.com/tus/tusd/s3store): A storage backend using AWS S3
 * [**filestore**](https://godoc.org/github.com/tus/tusd/filestore): A storage backend using the local file system
+* [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
 * [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
 * [**consullocker**](https://godoc.org/github.com/tus/tusd/consullocker): A locker using the distributed Consul service
 * [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
@@ -142,7 +143,7 @@ go test -v ./...
 
 ### How can I access tusd using HTTPS?
 
-The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and *does not accept* HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077).
+The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and *does not accept* HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077) and in the [Apache example configuration](.infra/files/apache2.conf).
 
 ### Can I run tusd behind a reverse proxy?
 

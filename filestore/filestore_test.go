@@ -95,7 +95,6 @@ func TestFileLocker(t *testing.T) {
 	a.NoError(locker.LockUpload("one"))
 	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
 	a.NoError(locker.UnlockUpload("one"))
-	a.NoError(locker.UnlockUpload("one"))
 }
 
 func TestConcatUploads(t *testing.T) {

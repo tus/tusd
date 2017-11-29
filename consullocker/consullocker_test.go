@@ -14,12 +14,15 @@ import (
 func TestConsulLocker(t *testing.T) {
 	a := assert.New(t)
 
-	server := consultestutil.NewTestServer(t)
+	server, err := consultestutil.NewTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer server.Stop()
 
-	client, err := consul.NewClient(&consul.Config{
-		Address: server.HTTPAddr,
-	})
+	conf := consul.DefaultConfig()
+	conf.Address = server.HTTPAddr
+	client, err := consul.NewClient(conf)
 	a.NoError(err)
 
 	locker := New(client)
@@ -38,7 +41,10 @@ func TestLockLost(t *testing.T) {
 
 	a := assert.New(t)
 
-	server := consultestutil.NewTestServer(t)
+	server, err := consultestutil.NewTestServer()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	client, err := consul.NewClient(&consul.Config{
 		Address: server.HTTPAddr,

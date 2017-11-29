@@ -2,7 +2,6 @@ package tusd
 
 import (
 	"errors"
-	"net"
 	"sync"
 	"sync/atomic"
 )
@@ -88,18 +87,8 @@ type simpleHTTPError struct {
 }
 
 func simplifyHTTPError(err HTTPError) simpleHTTPError {
-	var msg string
-	// Errors for read timeouts contain too much information which is not
-	// necessary for us and makes grouping for the metrics harder. The error
-	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
-	// Therefore, we use a common error message for all of them.
-	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-		msg = "read tcp: i/o timeout"
-	} else {
-		msg = err.Error()
-	}
 	return simpleHTTPError{
-		Message:    msg,
+		Message:    err.Error(),
 		StatusCode: err.StatusCode(),
 	}
 }

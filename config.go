@@ -34,6 +34,9 @@ type Config struct {
 	// NotifyUploadProgress indicates whether sending notifications about
 	// the upload progress using the UploadProgress channel should be enabled.
 	NotifyUploadProgress bool
+	// NotifyCreatedUploads indicates whether sending notifications about
+	// the upload having been created using the CreatedUploads channel should be enabled.
+	NotifyCreatedUploads bool
 	// Logger is the logger to use internally, mostly for printing requests.
 	Logger *log.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers

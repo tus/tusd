@@ -21,7 +21,6 @@ test_script:
   - go test ./filestore
   - go test ./limitedstore
   - go test ./memorylocker
-  - go test ./consullocker
   - go test ./s3store
-
   - go vet ./prometheuscollector
+  - go test ./gcsstore
