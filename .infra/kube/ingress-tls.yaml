@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - dzybha.com
+    - thesocialcactus.com
     secretName: tusd-tls
   rules:
-  - host: dzybha.com
+  - host: thesocialcactus.com
     http:
       paths:
       - path: /
