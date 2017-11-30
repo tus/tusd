@@ -17,3 +17,10 @@ spec:
         name: tusd
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - name: tusd-disk
+          mountPath: /srv/tusd-data
+      volumes:
+      - name: tusd-disk
+        persistentVolumeClaim:
+          claimName: tusd

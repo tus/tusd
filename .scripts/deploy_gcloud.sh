@@ -27,6 +27,7 @@ kubectl config current-context
 helm init --service-account tiller --upgrade
 
 kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
+kubectl apply -f "${__root}/.infra/kube/pvc.yaml"
 kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
 kubectl apply -f "${__root}/.infra/kube/service.yaml"
 kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
