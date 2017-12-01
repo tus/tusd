@@ -126,7 +126,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 		return info, err
 	}
 
-	prefix := fmt.Sprintf("%s_", id)
+	prefix := fmt.Sprintf("%s", id)
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
