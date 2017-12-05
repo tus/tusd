@@ -1,0 +1,14 @@
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tusd
+  namespace: tus
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: tusd
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 90

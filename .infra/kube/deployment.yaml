@@ -15,6 +15,13 @@ spec:
         imagePullPolicy: Always
         args: ["-port=8080","-behind-proxy","-max-size=1000000000"]
         name: tusd
+        resources:
+          limits:
+            cpu: 0.7
+            memory: 200Mi
+          requests:
+            cpu: 0.5
+            memory: 100Mi        
         ports:
         - containerPort: 8080
         volumeMounts:
