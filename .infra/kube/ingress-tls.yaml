@@ -11,10 +11,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - thesocialcactus.com
+    - tusd.kiloreux.me
     secretName: tusd-tls
   rules:
-  - host: thesocialcactus.com
+  - host: tusd.kiloreux.me
     http:
       paths:
       - path: /
