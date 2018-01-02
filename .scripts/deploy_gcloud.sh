@@ -14,7 +14,7 @@ docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
 docker push tusproject/tusd:$TRAVIS_COMMIT;
 docker push tusproject/tusd:latest;
 
-echo $CA_CRT | base64 -d> ${HOME}/ca.crt
+echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
 gcloud config set container/use_client_certificate True
 export CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True

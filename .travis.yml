@@ -6,6 +6,8 @@ go:
 - 1.8
 - 1.9
 sudo: required
+dist: trusty
+group: deprecated-2017Q4
 cache:
   apt: true
   directories:
