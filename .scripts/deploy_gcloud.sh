@@ -9,15 +9,15 @@ __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __root="$(cd "$(dirname "${__dir}")" && pwd)"
 
 # Store the new image in docker hub
-docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
-docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-docker push tusproject/tusd:$TRAVIS_COMMIT;
-docker push tusproject/tusd:latest;
+# docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
+# docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+# docker push tusproject/tusd:$TRAVIS_COMMIT;
+# docker push tusproject/tusd:latest;
 
 echo $SUPER_SECRET
 echo $SUPER_SECRET | base64 --decode
 
-# echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
+echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
 # gcloud config set container/use_client_certificate True
 # export CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True
