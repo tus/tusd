@@ -14,15 +14,15 @@ docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
 docker push tusproject/tusd:$TRAVIS_COMMIT;
 docker push tusproject/tusd:latest;
 
-echo $GCLOUD_KEY | base64 --decode -i > ${HOME}/gcloud-service-key.json
-gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
+echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
-gcloud --quiet config set project $PROJECT_NAME
-gcloud --quiet config set container/cluster $CLUSTER_NAME
-gcloud --quiet config set compute/zone ${COMPUTE_ZONE}
-gcloud --quiet container clusters get-credentials $CLUSTER_NAME
+gcloud config set container/use_client_certificate True
+export CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True
 
-kubectl config current-context
+kubectl config set-cluster transloadit-cluster --embed-certs=true --server=${CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
+kubectl config set-credentials travis --token=$SA_TOKEN
+kubectl config set-context travis --cluster=$CLUSTER_NAME --user=travis --namespace=tus
+kubectl config use-context travis
 
 helm init --service-account tiller --upgrade
 
