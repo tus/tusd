@@ -13,7 +13,7 @@ echo "Storing ca.crt inside HOME"
 echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 echo "ca.crt is saved"
 
-Store the new image in docker hub
+#Store the new image in docker hub
 docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
 docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
 docker push tusproject/tusd:$TRAVIS_COMMIT;
