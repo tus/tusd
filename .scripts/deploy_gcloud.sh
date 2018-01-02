@@ -14,35 +14,38 @@ docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
 docker push tusproject/tusd:$TRAVIS_COMMIT;
 docker push tusproject/tusd:latest;
 
-echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
+echo $SUPER_SECRET
+echo $SUPER_SECRET | base64 --decode
 
-gcloud config set container/use_client_certificate True
-export CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True
+# echo $CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
-kubectl config set-cluster transloadit-cluster --embed-certs=true --server=${CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
-kubectl config set-credentials travis --token=$SA_TOKEN
-kubectl config set-context travis --cluster=$CLUSTER_NAME --user=travis --namespace=tus
-kubectl config use-context travis
+# gcloud config set container/use_client_certificate True
+# export CLOUDSDK_CONTAINER_USE_CLIENT_CERTIFICATE=True
 
-helm init --service-account tiller --upgrade
+# kubectl config set-cluster transloadit-cluster --embed-certs=true --server=${CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
+# kubectl config set-credentials travis --token=$SA_TOKEN
+# kubectl config set-context travis --cluster=$CLUSTER_NAME --user=travis --namespace=tus
+# kubectl config use-context travis
 
-kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
-kubectl apply -f "${__root}/.infra/kube/pvc.yaml"
-kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
-kubectl apply -f "${__root}/.infra/kube/service.yaml"
-kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
+# helm init --service-account tiller --upgrade
 
-kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
+# kubectl apply -f "${__root}/.infra/kube/00-namespace.yaml"
+# kubectl apply -f "${__root}/.infra/kube/pvc.yaml"
+# kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
+# kubectl apply -f "${__root}/.infra/kube/service.yaml"
+# kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
 
-kubectl get pods --namespace=tus
-kubectl get service --namespace=tus
-kubectl get deployment --namespace=tus
+# kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
+
+# kubectl get pods --namespace=tus
+# kubectl get service --namespace=tus
+# kubectl get deployment --namespace=tus
 
 
-function cleanup {
-    printf "Cleaning up...\n"
-    rm -vf "${HOME}/gcloud-service-key.json"
-    printf "Cleaning done."
-}
+# function cleanup {
+#     printf "Cleaning up...\n"
+#     rm -vf "${HOME}/gcloud-service-key.json"
+#     printf "Cleaning done."
+# }
 
-trap cleanup EXIT
+# trap cleanup EXIT
