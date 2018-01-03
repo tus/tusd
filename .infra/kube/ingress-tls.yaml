@@ -16,8 +16,18 @@ spec:
   - hosts:
     - tusd.tus.io
     secretName: tusd-tls
+  - hosts:
+    - master.tus.io
+    secretName: master-tls    
   rules:
   - host: tusd.tus.io
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: tusd
+          servicePort: 80
+  - host: master.tus.io
     http:
       paths:
       - path: /
