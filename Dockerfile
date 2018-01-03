@@ -16,9 +16,7 @@ RUN addgroup -g 1000 tusd \
     && GOOS=linux GOARCH=amd64 go build \
         -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o "/go/bin/tusd" ./cmd/tusd/main.go \
-    && mkdir -p /srv/tusd-data \
     && mkdir -p /srv/tusd-hooks \
-    && chown tusd:tusd /srv/tusd-data \
     && rm -r /go/src/* \
     && apk del git
 
