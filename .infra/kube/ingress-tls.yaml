@@ -14,10 +14,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - tusd.kiloreux.me
+    - tusd.tus.io
     secretName: tusd-tls
   rules:
-  - host: tusd.kiloreux.me
+  - host: tusd.tus.io
     http:
       paths:
       - path: /
