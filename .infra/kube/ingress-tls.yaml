@@ -11,6 +11,8 @@ metadata:
     ingress.kubernetes.io/proxy-connect-timeout: "300"
     ingress.kubernetes.io/proxy-send-timeout: "300"
     ingress.kubernetes.io/proxy-read-timeout: "300"
+    ingress.kubernetes.io/enable-cors: "true"
+    ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
 spec:
   tls:
   - hosts:
