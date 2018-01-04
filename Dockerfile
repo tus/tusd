@@ -23,5 +23,4 @@ RUN addgroup -g 1000 tusd \
 COPY entrypoint.sh /srv/entrypoint.sh
 WORKDIR /srv/tusd-data
 EXPOSE 1080
-USER tusd
 ENTRYPOINT ["/srv/entrypoint.sh"]
