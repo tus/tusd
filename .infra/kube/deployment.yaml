@@ -26,6 +26,7 @@ spec:
         - containerPort: 8080
         securityContext:
           runAsUser: 1000
+          fsGroup: 1000
         volumeMounts:
         - name: tusd-disk
           mountPath: /srv/tusd-data

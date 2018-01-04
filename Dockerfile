@@ -5,7 +5,9 @@ COPY . /go/src/github.com/tus/tusd/
 
 # Create app directory
 
-RUN cd /go/src/github.com/tus/tusd \
+RUN addgroup -g 1000 tusd \
+    && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
+    && cd /go/src/github.com/tus/tusd \
     && apk add --no-cache \
         git \
     && go get -d -v ./... \
@@ -15,10 +17,11 @@ RUN cd /go/src/github.com/tus/tusd \
         -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o "/go/bin/tusd" ./cmd/tusd/main.go \
     && mkdir -p /srv/tusd-hooks \
+    && mkdir -p /srv/tusd-data \
+    && chown tusd:tusd /srv/tusd-data \
     && rm -r /go/src/* \
     && apk del git
 
-COPY entrypoint.sh /srv/entrypoint.sh
 WORKDIR /srv/tusd-data
 EXPOSE 1080
-ENTRYPOINT ["/srv/entrypoint.sh"]
+ENTRYPOINT ["/go/bin/tusd","-dir","/srv/tusd-data","--hooks-dir","/srv/tusd-hooks"]
