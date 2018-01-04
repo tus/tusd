@@ -5,9 +5,7 @@ COPY . /go/src/github.com/tus/tusd/
 
 # Create app directory
 
-RUN addgroup -g 1000 tusd \
-    && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
-    && cd /go/src/github.com/tus/tusd \
+RUN cd /go/src/github.com/tus/tusd \
     && apk add --no-cache \
         git \
     && go get -d -v ./... \
