@@ -20,7 +20,8 @@ RUN addgroup -g 1000 tusd \
     && rm -r /go/src/* \
     && apk del git
 
+COPY entrypoint.sh /srv/entrypoint.sh
 WORKDIR /srv/tusd-data
 EXPOSE 1080
 USER tusd
-ENTRYPOINT ["/go/bin/tusd","-dir","/srv/tusd-data","--hooks-dir","/srv/tusd-hooks"]
+ENTRYPOINT ["/srv/entrypoint.sh"]
