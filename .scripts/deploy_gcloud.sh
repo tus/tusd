@@ -32,7 +32,7 @@ kubectl config use-context travis
 
 
 kubectl apply -f "${__root}/.infra/kube/pvc.yaml"
-kubectl apply -f "${__root}/.infra/kube/deployment.yaml"
+kubectl apply --validate=false -f "${__root}/.infra/kube/deployment.yaml"
 kubectl apply -f "${__root}/.infra/kube/service.yaml"
 kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
 
