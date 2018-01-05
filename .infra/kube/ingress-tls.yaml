@@ -6,13 +6,11 @@ metadata:
   annotations:
     kubernetes.io/tls-acme: "true"
     kubernetes.io/ingress.class: "nginx"
-    ingress.kubernetes.io/proxy-request-buffering: 'off'
-    ingress.kubernetes.io/proxy-body-size: '400m'
-    ingress.kubernetes.io/proxy-connect-timeout: "300"
-    ingress.kubernetes.io/proxy-send-timeout: "300"
-    ingress.kubernetes.io/proxy-read-timeout: "300"
-    ingress.kubernetes.io/enable-cors: "true"
-    ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/proxy-body-size: 400m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   tls:
   - hosts:
