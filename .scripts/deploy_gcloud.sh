@@ -31,10 +31,8 @@ kubectl config set-context travis --cluster=$CLUSTER_NAME --user=travis --namesp
 kubectl config use-context travis
 
 
-kubectl apply -f "${__root}/.infra/kube/pvc.yaml"
-kubectl apply --validate=false -f "${__root}/.infra/kube/deployment.yaml"
-kubectl apply -f "${__root}/.infra/kube/service.yaml"
-kubectl apply -f "${__root}/.infra/kube/ingress-tls.yaml"
+kubectl apply --validate=false -f "${__root}/.infra/kube/tusd-kube.yaml"
+
 
 kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
 
@@ -45,6 +43,7 @@ kubectl get deployment --namespace=tus
 
 function cleanup {
     printf "Cleaning up...\n"
+    rm -f ${HOME}/ca.crt
     printf "Cleaning done."
 }
 
