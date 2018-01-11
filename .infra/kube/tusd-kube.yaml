@@ -1,15 +1,30 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: PersistentVolume
 metadata:
-  name: tusd
-  namespace: tus
+  name: nfs-tusd
+  namespace: tusd
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: NFS_SERVER_IP
+    path: "/tusd"
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-tusd
+  namespace: tusd
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteMany
+  storageClassName: ""
   resources:
     requests:
       storage: 50Gi
-  storageClassName: standard
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -22,7 +37,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1
+      maxSurge: 2
       maxUnavailable: 0  
   template:
     metadata:
@@ -52,7 +67,7 @@ spec:
       volumes:
       - name: tusd-disk
         persistentVolumeClaim:
-          claimName: tusd
+          claimName: nfs-tusd
 ---
 apiVersion: v1
 kind: Service
