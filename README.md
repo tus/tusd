@@ -14,6 +14,11 @@ specifies a flexible method to upload files to remote servers using HTTP.
 The special feature is the ability to pause and resume uploads at any
 moment allowing to continue seamlessly after e.g. network interruptions.
 
+It is capable of accepting uploads with arbitrary sizes and storing them locally
+on disk, on Google Cloud Storage or on AWS S3 (or any other S3-compatible
+storage system). Due to its modularization and extensibility, support for
+nearly any other cloud provider could easily be added to tusd.
+
 **Protocol version:** 1.0.0
 
 ## Getting started
@@ -26,23 +31,102 @@ Windows in various formats of the
 
 ### Compile from source
 
-**Requirements:**
-
-* [Go](http://golang.org/doc/install) (1.5 or newer)
-
-**Running tusd from source:**
-
-Clone the git repository and `cd` into it.
+The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.5 or newer.
+If you meet this criteria, you can clone the git repository and build the binary:
 
 ```bash
 git clone git@github.com:tus/tusd.git
 cd tusd
+go build -o tusd cmd/tusd/main
 ```
 
-Now you can run tusd:
+## Running tusd
 
-```bash
-go run cmd/tusd/main.go
+Start the tusd upload server is as simple as invoking a single command. For example, following
+snippet demostrates how to start a tusd process which accepts tus uploads at
+`http://localhost:1080/files/` and stores them locally in the `./data` directory:
+
+```
+$ tusd -dir ./data
+[tusd] Using './data' as directory storage.
+[tusd] Using 0.00MB as maximum size.
+[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using /files/ as the base path.
+[tusd] Using /metrics as the metrics path.
+```
+
+Alternatively, if you want to store the uploads on an AWS S3 bucket, you only have to specify
+the bucket and provide the corresponding access credentials and region information using
+environment variables (if you want to use a S3-compatible store, use can use the `-s3-endpoint`
+option):
+
+```
+$ export AWS_ACCESS_KEY_ID=xxxxx
+$ export AWS_SECRET_ACCESS_KEY=xxxxx
+$ export AWS_REGION=eu-west-1
+$ tusd -s3-bucket my-test-bucket.com
+[tusd] Using 's3://my-test-bucket.com' as S3 bucket for storage.
+[tusd] Using 0.00MB as maximum size.
+[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using /files/ as the base path.
+[tusd] Using /metrics as the metrics path.
+```
+
+Furthermore, tusd also has support for storing uploads on Google Cloud Storage. In order to
+enable this feature, supply the path to your account file containing the necessary credentials:
+
+```
+$ export GCS_SERVICE_ACCOUNT_FILE=./account.json
+$ tusd -gcs-bucket my-test-bucket.com
+[tusd] Using 'gcs://my-test-bucket.com' as GCS bucket for storage.
+[tusd] Using 0.00MB as maximum size.
+[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using /files/ as the base path.
+[tusd] Using /metrics as the metrics path.
+```
+
+Besides these simple examples, tusd can be easily configured using a variety of command line
+options:
+
+```
+$ tusd -help
+Usage of tusd:
+  -base-path string
+    	Basepath of the HTTP server (default "/files/")
+  -behind-proxy
+    	Respect X-Forwarded-* and similar headers which may be set by proxies
+  -dir string
+    	Directory to store uploads in (default "./data")
+  -expose-metrics
+    	Expose metrics about tusd usage (default true)
+  -gcs-bucket string
+    	Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
+  -hooks-dir string
+    	Directory to search for available hooks scripts
+  -hooks-http string
+    	An HTTP endpoint to which hook events will be sent to
+  -hooks-http-backoff int
+    	Number of seconds to wait before retrying each retry (default 1)
+  -hooks-http-retry int
+    	Number of times to retry on a 500 or network timeout (default 3)
+  -host string
+    	Host to bind HTTP server to (default "0.0.0.0")
+  -max-size int
+    	Maximum size of a single upload in bytes
+  -metrics-path string
+    	Path under which the metrics endpoint will be accessible (default "/metrics")
+  -port string
+    	Port to bind HTTP server to (default "1080")
+  -s3-bucket string
+    	Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
+  -s3-endpoint string
+    	Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)
+  -store-size int
+    	Size of space allowed for storage
+  -timeout int
+    	Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 30000)
+  -version
+    	Print tusd version information
 ```
 
 ## Using tusd manually
