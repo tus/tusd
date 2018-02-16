@@ -1,15 +1,15 @@
-apiVersion: v1
 kind: PersistentVolumeClaim
+apiVersion: v1
 metadata:
-  name: tusd
+  name: nfs-tusd
   namespace: tus
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteMany
+  storageClassName: ""
   resources:
     requests:
-      storage: 50Gi
-  storageClassName: standard
+      storage: 20Gi
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -22,7 +22,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1
+      maxSurge: 2
       maxUnavailable: 0  
   template:
     metadata:
@@ -36,23 +36,22 @@ spec:
         name: tusd
         resources:
           limits:
-            cpu: 0.7
             memory: "2Gi"
           requests:
-            cpu: 0.5
             memory: "1Gi"
         ports:
-        - containerPort: 8080
+        - name: tusd-web
+          containerPort: 8080
         securityContext:
-          runAsUser: 1000
-          fsGroup: 1000
+          runAsUser: 0
+          fsGroup: 0
         volumeMounts:
         - name: tusd-disk
           mountPath: /srv/tusd-data
       volumes:
       - name: tusd-disk
         persistentVolumeClaim:
-          claimName: tusd
+          claimName: nfs-tusd
 ---
 apiVersion: v1
 kind: Service
@@ -61,7 +60,8 @@ metadata:
   namespace: tus
 spec:
   ports:
-  - port: 80
+  - name: tusd-web
+    port: 80
     targetPort: 8080
     protocol: TCP
   selector:
@@ -75,6 +75,14 @@ metadata:
   annotations:
     kubernetes.io/tls-acme: "true"
     kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Security: Don't allow people to upload html and then have browsers parse it
+                  if ($uri ~ \.(?!(jpe?g|gif|png|webp|webm|mp4|mpg|avi|3gp|wav|mp3))$) {
+                      add_header Content-Type application/octet-stream;
+                      add_header Content-Disposition "attachment; filename=$basename";
+                      add_header X-Download-Options noopen;
+                      add_header X-Content-Type-Options nosniff;
+                  }
     nginx.ingress.kubernetes.io/proxy-body-size: 0m
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
