@@ -542,17 +542,26 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 	// Set headers before sending responses
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	// Force browsers to download the file instead of displaying it inline.
+	// Otherwise someone could upload malicious HTML which would then be
+	// executed if a victim visits this URL.
+	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
+	// TODO: Consider lifting this limitation and allow e.g. images to be shown
+	// TODO: Consider pulling Content-Type from meta data
 	if filename, ok := info.MetaData["filename"]; ok {
-		w.Header().Set("Content-Disposition", "inline;filename="+strconv.Quote(filename))
+		w.Header().Set("Content-Disposition", "attachment;filename="+strconv.Quote(filename))
+	} else {
+		w.Header().Set("Content-Disposition", "attachment")
 	}
 
-	// Do not do anything if no data is stored yet.
+	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
 		handler.sendResp(w, r, http.StatusNoContent)
 		return
 	}
 
-	// Get reader
 	src, err := handler.composer.GetReader.GetReader(id)
 	if err != nil {
 		handler.sendError(w, r, err)

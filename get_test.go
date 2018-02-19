@@ -56,7 +56,8 @@ func TestGet(t *testing.T) {
 			URL:    "yes",
 			ResHeader: map[string]string{
 				"Content-Length":      "5",
-				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
+				"Content-Type":        "application/octet-stream",
+				"Content-Disposition": `attachment;filename="file.jpg\"evil"`,
 			},
 			Code:    http.StatusOK,
 			ResBody: "hello",
@@ -70,9 +71,6 @@ func TestGet(t *testing.T) {
 	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 0,
-			MetaData: map[string]string{
-				"filename": "file.jpg\"evil",
-			},
 		}, nil)
 
 		handler, _ := NewHandler(Config{
@@ -84,7 +82,7 @@ func TestGet(t *testing.T) {
 			URL:    "yes",
 			ResHeader: map[string]string{
 				"Content-Length":      "0",
-				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
+				"Content-Disposition": `attachment`,
 			},
 			Code:    http.StatusNoContent,
 			ResBody: "",
