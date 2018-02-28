@@ -37,7 +37,7 @@ If you meet this criteria, you can clone the git repository and build the binary
 ```bash
 git clone git@github.com:tus/tusd.git
 cd tusd
-go build -o tusd cmd/tusd/main
+go build -o tusd cmd/tusd/main.go
 ```
 
 ## Running tusd

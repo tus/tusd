@@ -75,14 +75,6 @@ metadata:
   annotations:
     kubernetes.io/tls-acme: "true"
     kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      # Security: Don't allow people to upload html and then have browsers parse it
-                  if ($uri ~ \.(?!(jpe?g|gif|png|webp|webm|mp4|mpg|avi|3gp|wav|mp3))$) {
-                      add_header Content-Type application/octet-stream;
-                      add_header Content-Disposition "attachment; filename=$basename";
-                      add_header X-Download-Options noopen;
-                      add_header X-Content-Type-Options nosniff;
-                  }
     nginx.ingress.kubernetes.io/proxy-body-size: 0m
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
