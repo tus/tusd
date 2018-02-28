@@ -19,6 +19,7 @@ var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
 	reForwardedHost  = regexp.MustCompile(`host=([^,]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
+	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z\-]+$`)
 )
 
 // HTTPError represents an error with an additional status code attached
@@ -542,19 +543,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 	// Set headers before sending responses
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
-	w.Header().Set("Content-Type", "application/octet-stream")
 
-	// Force browsers to download the file instead of displaying it inline.
-	// Otherwise someone could upload malicious HTML which would then be
-	// executed if a victim visits this URL.
-	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
-	// TODO: Consider lifting this limitation and allow e.g. images to be shown
-	// TODO: Consider pulling Content-Type from meta data
-	if filename, ok := info.MetaData["filename"]; ok {
-		w.Header().Set("Content-Disposition", "attachment;filename="+strconv.Quote(filename))
-	} else {
-		w.Header().Set("Content-Disposition", "attachment")
-	}
+	contentType, contentDisposition := filterContentType(info)
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", contentDisposition)
 
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
@@ -575,6 +567,67 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	if closer, ok := src.(io.Closer); ok {
 		closer.Close()
 	}
+}
+
+// mimeInlineBrowserWhitelist is a map containing MIME types which should be
+// allowed to be rendered by browser inline, instead of being forced to be
+// downloadd. For example, HTML or SVG files are not allowed, since they may
+// contain malicious JavaScript. In a similiar fashion PDF is not on this list
+// as their parsers commonly contain vulnerabilities which can be exploited.
+// The values of this map does not convei any meaning and are therefore just
+// empty structs.
+var mimeInlineBrowserWhitelist = map[string]struct{}{
+	"text/plain": struct{}{},
+
+	"image/png":  struct{}{},
+	"image/jpeg": struct{}{},
+	"image/gif":  struct{}{},
+	"image/bmp":  struct{}{},
+	"image/webp": struct{}{},
+
+	"audio/wave":      struct{}{},
+	"audio/wav":       struct{}{},
+	"audio/x-wav":     struct{}{},
+	"audio/x-pn-wav":  struct{}{},
+	"audio/webm":      struct{}{},
+	"video/webm":      struct{}{},
+	"audio/ogg":       struct{}{},
+	"video/ogg ":      struct{}{},
+	"application/ogg": struct{}{},
+}
+
+// filterContentType returns the values for the Content-Type and
+// Content-Disposition headers for a given upload. These values should be used
+// in responses for GET requests to ensure that only non-malicious file types
+// are shown directly in the browser. It will extract the file name and type
+// from the "fileame" and "filetype".
+// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
+func filterContentType(info FileInfo) (contentType string, contentDisposition string) {
+	filetype := info.MetaData["filetype"]
+
+	if reMimeType.MatchString(filetype) {
+		// If the filetype from metadata is well formed, we forward use this
+		// for the Content-Type header. However, only whitelisted mime types
+		// will be allowed to be shown inline in the browser
+		contentType = filetype
+		if _, isWhitelisted := mimeInlineBrowserWhitelist[filetype]; isWhitelisted {
+			contentDisposition = "inline"
+		} else {
+			contentDisposition = "attachment"
+		}
+	} else {
+		// If the filetype from the metadata is not well formed, we use a
+		// default type and force the browser to download the content.
+		contentType = "application/octet-stream"
+		contentDisposition = "attachment"
+	}
+
+	// Add a filename to Content-Disposition if one is available in the metadata
+	if filename, ok := info.MetaData["filename"]; ok {
+		contentDisposition += ";filename=" + strconv.Quote(filename)
+	}
+
+	return contentType, contentDisposition
 }
 
 // DelFile terminates an upload permanently.

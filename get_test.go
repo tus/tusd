@@ -36,6 +36,7 @@ func TestGet(t *testing.T) {
 				Size:   20,
 				MetaData: map[string]string{
 					"filename": "file.jpg\"evil",
+					"filetype": "image/jpeg",
 				},
 			}, nil),
 			store.EXPECT().GetReader("yes").Return(reader, nil),
@@ -56,8 +57,8 @@ func TestGet(t *testing.T) {
 			URL:    "yes",
 			ResHeader: map[string]string{
 				"Content-Length":      "5",
-				"Content-Type":        "application/octet-stream",
-				"Content-Disposition": `attachment;filename="file.jpg\"evil"`,
+				"Content-Type":        "image/jpeg",
+				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
 			},
 			Code:    http.StatusOK,
 			ResBody: "hello",
@@ -102,5 +103,56 @@ func TestGet(t *testing.T) {
 			URL:    "foo",
 			Code:   http.StatusNotImplemented,
 		}).Run(http.HandlerFunc(handler.GetFile), t)
+	})
+
+	SubTest(t, "InvalidFileType", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 0,
+			MetaData: map[string]string{
+				"filetype": "non-a-valid-mime-type",
+			},
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ResHeader: map[string]string{
+				"Content-Length":      "0",
+				"Content-Type":        "application/octet-stream",
+				"Content-Disposition": `attachment`,
+			},
+			Code:    http.StatusNoContent,
+			ResBody: "",
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "NotWhitelistedFileType", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			Offset: 0,
+			MetaData: map[string]string{
+				"filetype": "text/html",
+				"filename": "invoice.html",
+			},
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ResHeader: map[string]string{
+				"Content-Length":      "0",
+				"Content-Type":        "text/html",
+				"Content-Disposition": `attachment;filename="invoice.html"`,
+			},
+			Code:    http.StatusNoContent,
+			ResBody: "",
+		}).Run(handler, t)
 	})
 }
