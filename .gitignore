@@ -1,9 +1,5 @@
 tusd/data
 cover.out
 data/
-.infra/env.*
-.infra/ssh/tusd.pem
-.infra/Frey-residu*
-.infra/ssh/frey-tusd.pem
 node_modules/
 .DS_Store

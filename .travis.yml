@@ -12,7 +12,6 @@ cache:
   apt: true
   directories:
   - $HOME/.gimme
-  - $HOME/.frey
   - "$HOME/google-cloud-sdk/"
 env:
   global:
