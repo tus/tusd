@@ -32,7 +32,7 @@ spec:
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
-        args: ["-port=8080","-behind-proxy","-max-size=1000000000"]
+        args: ["-port=8080","-behind-proxy","-max-size=20000000000"]
         name: tusd
         resources:
           limits:

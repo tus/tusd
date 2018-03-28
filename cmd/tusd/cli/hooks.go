@@ -70,16 +70,16 @@ func invokeHook(typ HookType, info tusd.FileInfo) {
 func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
 	case HookPostFinish:
-		logEv("UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
+		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 	case HookPostTerminate:
-		logEv("UploadTerminated", "id", info.ID)
+		logEv(stdout, "UploadTerminated", "id", info.ID)
 	}
 
 	if !Flags.FileHooksInstalled && !Flags.HttpHooksInstalled {
 		return nil, nil
 	}
 	name := string(typ)
-	logEv("HookInvocationStart", "type", name, "id", info.ID)
+	logEv(stdout, "HookInvocationStart", "type", name, "id", info.ID)
 
 	output := []byte{}
 	err := error(nil)
@@ -93,9 +93,9 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 	}
 
 	if err != nil {
-		logEv("HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
+		logEv(stderr, "HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
 	} else {
-		logEv("HookInvocationFinish", "type", string(typ), "id", info.ID)
+		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", info.ID)
 	}
 
 	return output, err

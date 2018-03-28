@@ -10,6 +10,6 @@ import (
 var stdout = log.New(os.Stdout, "[tusd] ", 0)
 var stderr = log.New(os.Stderr, "[tusd] ", 0)
 
-func logEv(eventName string, details ...string) {
-	tusd.LogEvent(stderr, eventName, details...)
+func logEv(logOutput *log.Logger, eventName string, details ...string) {
+	tusd.LogEvent(logOutput, eventName, details...)
 }
