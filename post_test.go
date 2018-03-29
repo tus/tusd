@@ -52,6 +52,42 @@ func TestPost(t *testing.T) {
 		a.Equal(int64(300), info.Size)
 	})
 
+	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().NewUpload(FileInfo{
+			Size:     0,
+			MetaData: map[string]string{},
+		}).Return("foo", nil)
+
+		store.EXPECT().FinishUpload("foo").Return(nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore:             store,
+			BasePath:              "https://buy.art/files/",
+			NotifyCompleteUploads: true,
+		})
+
+		handler.CompleteUploads = make(chan FileInfo, 1)
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "0",
+			},
+			Code: http.StatusCreated,
+			ResHeader: map[string]string{
+				"Location": "https://buy.art/files/foo",
+			},
+		}).Run(handler, t)
+
+		info := <-handler.CompleteUploads
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(0), info.Size)
+		a.Equal(int64(0), info.Offset)
+	})
+
 	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
 		handler, _ := NewHandler(Config{
 			MaxSize:   400,

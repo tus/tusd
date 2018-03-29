@@ -284,6 +284,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	info.ID = id
+
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
 	url := handler.absFileURL(r, id)
@@ -293,7 +295,6 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		info.ID = id
 		handler.CreatedUploads <- info
 	}
 
@@ -305,7 +306,6 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			info.ID = id
 			handler.CompleteUploads <- info
 		}
 	}
@@ -325,6 +325,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(w, r, err)
 			return
 		}
+	} else if size == 0 {
+		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
+		// This statement is in an else-if block to avoid causing duplicate calls
+		// to finishUploadIfComplete if an upload is empty and contains a chunk.
+		handler.finishUploadIfComplete(info)
 	}
 
 	handler.sendResp(w, r, http.StatusCreated)
@@ -381,7 +386,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	handler.sendResp(w, r, http.StatusOK)
 }
 
-// PatchFile adds a chunk to an upload. Only allowed enough space is left.
+// PatchFile adds a chunk to an upload. This operation is only allowed
+// if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
 
 	// Check for presence of application/offset+octet-stream
@@ -445,7 +451,9 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	handler.sendResp(w, r, http.StatusNoContent)
 }
 
-// PatchFile adds a chunk to an upload. Only allowed enough space is left.
+// writeChunk reads the body from the requests r and appends it to the upload
+// with the corresponding id. Afterwards, it will set the necessary response
+// headers but will not send the response.
 func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.ResponseWriter, r *http.Request) error {
 	// Get Content-Length if possible
 	length := r.ContentLength
@@ -489,19 +497,26 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	newOffset := offset + bytesWritten
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
 	go handler.Metrics.incBytesReceived(uint64(bytesWritten))
+	info.Offset = newOffset
 
+	return handler.finishUploadIfComplete(info)
+}
+
+// finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
+// matches upload size) and if so, it will call the data store's FinishUpload
+// function and send the necessary message on the CompleteUpload channel.
+func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 	// If the upload is completed, ...
-	if newOffset == info.Size {
+	if info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
 		if handler.composer.UsesFinisher {
-			if err := handler.composer.Finisher.FinishUpload(id); err != nil {
+			if err := handler.composer.Finisher.FinishUpload(info.ID); err != nil {
 				return err
 			}
 		}
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			info.Offset = newOffset
 			handler.CompleteUploads <- info
 		}
 

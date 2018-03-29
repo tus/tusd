@@ -223,6 +223,7 @@ func TestPatch(t *testing.T) {
 
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:     "yes",
 				Offset: 5,
 				Size:   20,
 			}, nil),
