@@ -62,7 +62,7 @@ func SetupPostHooks(handler *tusd.Handler) {
 
 func invokeHook(typ HookType, info tusd.FileInfo) {
 	go func() {
-		// Error handling is token care of by the function.
+		// Error handling is taken care by the function.
 		_, _ = invokeHookSync(typ, info, false)
 	}()
 }
