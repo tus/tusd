@@ -333,7 +333,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(w, r, err)
 			return
 		}
-	} else if size == 0 {
+	} else if !sizeIsDeferred && size == 0 {
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
@@ -450,7 +450,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	// Do not proxy the call to the data store if the upload is already completed
-	if info.Offset == info.Size {
+	if !info.SizeIsDeferred && info.Offset == info.Size {
 		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
 		handler.sendResp(w, r, http.StatusNoContent)
 		return
@@ -484,7 +484,7 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	offset := info.Offset
 
 	// Test if this upload fits into the file's size
-	if offset+length > info.Size {
+	if !info.SizeIsDeferred && offset+length > info.Size {
 		return ErrSizeExceeded
 	}
 
@@ -531,7 +531,7 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 // function and send the necessary message on the CompleteUpload channel.
 func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 	// If the upload is completed, ...
-	if info.Offset == info.Size {
+	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
 		if handler.composer.UsesFinisher {
 			if err := handler.composer.Finisher.FinishUpload(info.ID); err != nil {
