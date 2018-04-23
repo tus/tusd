@@ -119,7 +119,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	}
 
 	// Only promote extesions using the Tus-Extension header which are implemented
-	extensions := "creation,creation-with-upload"
+	extensions := "creation,creation-with-upload,creation-defer-length"
 	if config.StoreComposer.UsesTerminater {
 		extensions += ",termination"
 	}
