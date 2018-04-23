@@ -10,6 +10,8 @@ type FileInfo struct {
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
+	// Indicates whether the total file size is deferred until later
+	SizeIsDeferred bool
 	// Offset in bytes (zero-based)
 	Offset   int64
 	MetaData MetaData
