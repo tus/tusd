@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const UploadLengthDeferred = "1"
+
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
 	reForwardedHost  = regexp.MustCompile(`host=([^,]+)`)
@@ -243,6 +245,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// uploads the size is sum of all sizes of these files (no need for
 	// Upload-Length header)
 	var size int64
+	var sizeIsDeferred bool
 	if isFinal {
 		// A final upload must not contain a chunk within the creation request
 		if containsChunk {
@@ -256,9 +259,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	} else {
-		size, err = strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
-		if err != nil || size < 0 {
-			handler.sendError(w, r, ErrInvalidUploadLength)
+		uploadLengthHeader := r.Header.Get("Upload-Length")
+		uploadDeferLengthHeader := r.Header.Get("Upload-Defer-Length")
+		size, sizeIsDeferred, err = validateNewUploadLengthHeaders(uploadLengthHeader, uploadDeferLengthHeader)
+		if err != nil {
+			handler.sendError(w, r, err)
 			return
 		}
 	}
@@ -274,6 +279,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	info := FileInfo{
 		Size:           size,
+		SizeIsDeferred: sizeIsDeferred,
 		MetaData:       meta,
 		IsPartial:      isPartial,
 		IsFinal:        isFinal,
@@ -382,8 +388,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
 	}
 
+	if info.SizeIsDeferred {
+		w.Header().Set("Upload-Defer-Length", UploadLengthDeferred)
+	} else {
+		w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
+	}
+
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
 	handler.sendResp(w, r, http.StatusOK)
 }
@@ -844,6 +855,29 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 		}
 
 		size += info.Size
+	}
+
+	return
+}
+
+// Verify that the Upload-Length and Upload-Defer-Length headers are acceptable for creating a
+// new upload
+func validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
+	haveBothLengthHeaders := uploadLengthHeader != "" && uploadDeferLengthHeader != ""
+	haveInvalidDeferHeader := uploadDeferLengthHeader != "" && uploadDeferLengthHeader != UploadLengthDeferred
+	lengthIsDeferred := uploadDeferLengthHeader == UploadLengthDeferred
+
+	if haveBothLengthHeaders {
+		err = ErrUploadLengthAndUploadDeferLength
+	} else if haveInvalidDeferHeader {
+		err = ErrInvalidUploadDeferLength
+	} else if lengthIsDeferred {
+		uploadLengthDeferred = true
+	} else {
+		uploadLength, err = strconv.ParseInt(uploadLengthHeader, 10, 64)
+		if err != nil || uploadLength < 0 {
+			err = ErrInvalidUploadLength
+		}
 	}
 
 	return
