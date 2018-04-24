@@ -150,7 +150,6 @@ type S3API interface {
 }
 
 // New constructs a new storage using the supplied bucket and service object.
-// The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
 		Bucket:            bucket,
