@@ -30,8 +30,6 @@ kubectl config set-credentials travis --token=$SA_TOKEN
 kubectl config set-context travis --cluster=$CLUSTER_NAME --user=travis --namespace=tus
 kubectl config use-context travis
 
-sed -i "s#NFS_SERVER_IP#${NFS_SERVER_IP}#" ./.infra/kube/nfs.yaml
-kubectl apply -f "${__root}/.infra/kube/nfs.yaml"
 sleep 10s # This cost me some precious debugging time.
 kubectl apply --validate=false -f "${__root}/.infra/kube/tusd-kube.yaml"
 
