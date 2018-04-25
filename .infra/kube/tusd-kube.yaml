@@ -1,12 +1,12 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: nfs-tusd
+  name: ssd-tusd
   namespace: tus
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: ""
+    - ReadWriteOnce
+  storageClassName: "ssd"
   resources:
     requests:
       storage: 20Gi
@@ -18,12 +18,8 @@ metadata:
   namespace: tus
 spec:
   replicas: 1
-  minReadySeconds: 10
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 2
-      maxUnavailable: 0  
+    type: Recreate
   template:
     metadata:
       labels:
@@ -51,7 +47,7 @@ spec:
       volumes:
       - name: tusd-disk
         persistentVolumeClaim:
-          claimName: nfs-tusd
+          claimName: ssd-tusd
 ---
 apiVersion: v1
 kind: Service
