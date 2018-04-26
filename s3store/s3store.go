@@ -39,7 +39,7 @@
 // Therefore, HEAD responses will always contain the unchanged metadata, Base64-
 // encoded, even if it contains non-ASCII characters.
 //
-// Once the upload is finish, the multipart upload is completed, resulting in
+// Once the upload is finished, the multipart upload is completed, resulting in
 // the entire file being stored in the bucket. The info object, containing
 // meta data is not deleted. It is recommended to copy the finished upload to
 // another bucket to avoid it being deleted by the Termination extension.
@@ -58,7 +58,7 @@
 // be 5MB or bigger. This introduces a problem, since in tus' perspective
 // it's totally fine to upload just a few kilobytes in a single request.
 //
-// Therefore, a few special condition have been implemented:
+// Therefore, a few special conditions have been implemented:
 //
 // Each PATCH request must contain a body of, at least, 5MB. If the size
 // is smaller than this limit, the entire request will be dropped and not
@@ -150,7 +150,6 @@ type S3API interface {
 }
 
 // New constructs a new storage using the supplied bucket and service object.
-// The MaxPartSize and MinPartSize properties are set to 6 and 5MB.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
 		Bucket:            bucket,
