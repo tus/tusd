@@ -1,12 +1,12 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: ssd-tusd
+  name: standard-tusd
   namespace: tus
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: "ssd"
+  storageClassName: "standard"
   resources:
     requests:
       storage: 20Gi
@@ -47,7 +47,7 @@ spec:
       volumes:
       - name: tusd-disk
         persistentVolumeClaim:
-          claimName: ssd-tusd
+          claimName: standard-tusd
 ---
 apiVersion: v1
 kind: Service
