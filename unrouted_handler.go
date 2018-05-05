@@ -261,7 +261,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	} else {
 		uploadLengthHeader := r.Header.Get("Upload-Length")
 		uploadDeferLengthHeader := r.Header.Get("Upload-Defer-Length")
-		size, sizeIsDeferred, err = validateNewUploadLengthHeaders(uploadLengthHeader, uploadDeferLengthHeader)
+		size, sizeIsDeferred, err = handler.validateNewUploadLengthHeaders(uploadLengthHeader, uploadDeferLengthHeader)
 		if err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -873,12 +873,14 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 
 // Verify that the Upload-Length and Upload-Defer-Length headers are acceptable for creating a
 // new upload
-func validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
+func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
 	haveBothLengthHeaders := uploadLengthHeader != "" && uploadDeferLengthHeader != ""
 	haveInvalidDeferHeader := uploadDeferLengthHeader != "" && uploadDeferLengthHeader != UploadLengthDeferred
 	lengthIsDeferred := uploadDeferLengthHeader == UploadLengthDeferred
 
-	if haveBothLengthHeaders {
+	if lengthIsDeferred && !handler.composer.UsesLengthDeferrer {
+		err = ErrNotImplemented
+	} else if haveBothLengthHeaders {
 		err = ErrUploadLengthAndUploadDeferLength
 	} else if haveInvalidDeferHeader {
 		err = ErrInvalidUploadDeferLength
