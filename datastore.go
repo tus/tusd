@@ -2,6 +2,7 @@ package tusd
 
 import (
 	"io"
+	"net/http"
 )
 
 type MetaData map[string]string
@@ -23,6 +24,10 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
+
+	//Http headers that were submmited to the service.
+	//One can use this field to pass the headers around
+	HTTPRequestHeaders http.Header
 }
 
 type DataStore interface {

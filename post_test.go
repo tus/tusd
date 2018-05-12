@@ -38,6 +38,7 @@ func TestPost(t *testing.T) {
 				"Upload-Length": "300",
 				// Invalid Base64-encoded values should be ignored
 				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID",
+				"Random-Header":   "Random Value",
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
@@ -50,6 +51,7 @@ func TestPost(t *testing.T) {
 		a := assert.New(t)
 		a.Equal("foo", info.ID)
 		a.Equal(int64(300), info.Size)
+		a.Equal(info.HTTPRequestHeaders.Get("Random-Header"), "Random Value")
 	})
 
 	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore) {
@@ -73,6 +75,7 @@ func TestPost(t *testing.T) {
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
 				"Upload-Length": "0",
+				"Random-Header": "Random Value",
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
@@ -86,6 +89,7 @@ func TestPost(t *testing.T) {
 		a.Equal("foo", info.ID)
 		a.Equal(int64(0), info.Size)
 		a.Equal(int64(0), info.Offset)
+		a.Equal(info.HTTPRequestHeaders.Get("Random-Header"), "Random Value")
 	})
 
 	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {

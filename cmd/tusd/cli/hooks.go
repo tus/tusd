@@ -112,6 +112,7 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 		return nil, err
 	}
 
+	req.Header = info.HTTPRequestHeaders
 	req.Header.Set("Hook-Name", name)
 	req.Header.Set("Content-Type", "application/json")
 
