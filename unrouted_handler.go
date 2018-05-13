@@ -456,7 +456,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if info.SizeIsDeferred && r.Header.Get("Upload-Length") != "" {
+	if handler.composer.UsesLengthDeferrer && info.SizeIsDeferred && r.Header.Get("Upload-Length") != "" {
 		uploadLength, err := strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
 		if err != nil || uploadLength < 0 {
 			handler.sendError(w, r, ErrInvalidOffset)
@@ -465,6 +465,10 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
+		if err := handler.composer.LengthDeferrer.DeclareLength(id, info.Size); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
 	}
 
 	if err := handler.writeChunk(id, info, w, r); err != nil {
