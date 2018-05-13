@@ -285,6 +285,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	info.ID = id
+	info.HTTPRequestHeaders = r.Header
 
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
@@ -670,6 +671,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var info FileInfo
+	info.HTTPRequestHeaders = r.Header
 	if handler.config.NotifyTerminatedUploads {
 		info, err = handler.composer.Core.GetInfo(id)
 		if err != nil {
