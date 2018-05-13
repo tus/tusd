@@ -32,11 +32,16 @@ Windows in various formats of the
 ### Compile from source
 
 The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.5 or newer.
-If you meet this criteria, you can clone the git repository and build the binary:
+If you meet this criteria, you can clone the git repository, install the remaining
+depedencies and build the binary:
 
 ```bash
 git clone git@github.com:tus/tusd.git
 cd tusd
+
+go get -u github.com/aws/aws-sdk-go/...
+go get -u github.com/prometheus/client_golang/prometheus
+
 go build -o tusd cmd/tusd/main.go
 ```
 
