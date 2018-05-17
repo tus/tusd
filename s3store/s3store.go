@@ -347,6 +347,21 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		offset += *part.Size
 	}
 
+	headResult, err := store.Service.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    aws.String(uploadId + ".part"),
+	})
+	if err != nil {
+		if !isAwsError(err, "NotFound") {
+			return info, err
+		}
+
+		err = nil
+	}
+	if headResult != nil && headResult.ContentLength != nil {
+		offset += *headResult.ContentLength
+	}
+
 	info.Offset = offset
 
 	return
