@@ -145,6 +145,7 @@ type S3API interface {
 	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
 	ListParts(input *s3.ListPartsInput) (*s3.ListPartsOutput, error)
 	UploadPart(input *s3.UploadPartInput) (*s3.UploadPartOutput, error)
+	HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error)
 	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
 	CreateMultipartUpload(input *s3.CreateMultipartUploadInput) (*s3.CreateMultipartUploadOutput, error)
 	AbortMultipartUpload(input *s3.AbortMultipartUploadInput) (*s3.AbortMultipartUploadOutput, error)
