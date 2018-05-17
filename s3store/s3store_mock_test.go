@@ -84,6 +84,17 @@ func (_mr *_MockS3APIRecorder) GetObject(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObject", arg0)
 }
 
+func (_m *MockS3API) HeadObject(_param0 *s3.HeadObjectInput) (*s3.HeadObjectOutput, error) {
+	ret := _m.ctrl.Call(_m, "HeadObject", _param0)
+	ret0, _ := ret[0].(*s3.HeadObjectOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) HeadObject(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HeadObject", arg0)
+}
+
 func (_m *MockS3API) ListParts(_param0 *s3.ListPartsInput) (*s3.ListPartsOutput, error) {
 	ret := _m.ctrl.Call(_m, "ListParts", _param0)
 	ret0, _ := ret[0].(*s3.ListPartsOutput)
