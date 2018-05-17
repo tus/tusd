@@ -244,7 +244,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	bytesUploaded := int64(0)
 	optimalPartSize, err := store.calcOptimalPartSize(size)
 	if err != nil {
-		return bytesUploaded, err
+		return 0, err
 	}
 
 	// Get number of parts to generate next number
@@ -255,6 +255,21 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
+
+	incompletePartFile, incompletePartSize, err := store.downloadIncompletePartForUpload(uploadId)
+	if err != nil {
+		return 0, err
+	}
+	if incompletePartFile != nil {
+		defer incompletePartFile.Close()
+		defer os.Remove(incompletePartFile.Name())
+
+		if err := store.deleteIncompletePartForUpload(uploadId); err != nil {
+			return 0, err
+		}
+
+		src = io.MultiReader(incompletePartFile, src)
+	}
 
 	for {
 		// Create a temporary file to store the part in it
@@ -273,31 +288,32 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		}
 		// If io.Copy is finished reading, it will always return (0, nil).
 		if n == 0 {
-			return bytesUploaded, nil
-		}
-
-		if !info.SizeIsDeferred {
-			if (size - offset) <= optimalPartSize {
-				if (size - offset) != n {
-					return bytesUploaded, nil
-				}
-			} else if n < optimalPartSize {
-				return bytesUploaded, nil
-			}
+			return (bytesUploaded - incompletePartSize), nil
 		}
 
 		// Seek to the beginning of the file
 		file.Seek(0, 0)
 
-		_, err = store.Service.UploadPart(&s3.UploadPartInput{
-			Bucket:     aws.String(store.Bucket),
-			Key:        store.keyWithPrefix(uploadId),
-			UploadId:   aws.String(multipartId),
-			PartNumber: aws.Int64(nextPartNum),
-			Body:       file,
-		})
-		if err != nil {
-			return bytesUploaded, err
+		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
+		if n >= store.MinPartSize || isFinalChunk {
+			_, err = store.Service.UploadPart(&s3.UploadPartInput{
+				Bucket:     aws.String(store.Bucket),
+				Key:        store.keyWithPrefix(uploadId),
+				UploadId:   aws.String(multipartId),
+				PartNumber: aws.Int64(nextPartNum),
+				Body:       file,
+			})
+			if err != nil {
+				return bytesUploaded, err
+			}
+		} else {
+			if err := store.putIncompletePartForUpload(uploadId, file); err != nil {
+				return bytesUploaded, err
+			}
+
+			bytesUploaded += n
+
+			return (bytesUploaded - incompletePartSize), nil
 		}
 
 		offset += n
@@ -349,7 +365,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 
 	headResult, err := store.Service.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    aws.String(uploadId + ".part"),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	if err != nil {
 		if !isAwsError(err, "NotFound") {
