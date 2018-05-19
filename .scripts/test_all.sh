@@ -5,7 +5,7 @@ set -e
 # Find all packages containing Go source code inside the current directory
 packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 
-# The consul package only supports Go1.8+ and therefore we will only run the
+# The consul package only supports Go1.10+ and therefore we will only run the
 # corresponding tests on these versions.
 goversion=$(go version)
 if [[ "$goversion" == *"go1.5"* ]] ||
@@ -24,6 +24,10 @@ if [[ "$goversion" == *"go1.5"* ]] ||
 else
   # Install the Consul packages which are not vendored.
   go get -u github.com/hashicorp/consul/...
+
+  # Install the etcd packages which are not vendored.
+  go get -u github.com/coreos/etcd
+  go get -u github.com/mwitkow/go-etcd-harness
 fi
 
 # Install the AWS SDK and Prometheus client which is explicitly not vendored
