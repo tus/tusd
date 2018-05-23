@@ -268,7 +268,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse metadata
-	meta := parseMeta(r.Header.Get("Upload-Metadata"))
+	meta := ParseMetadataHeader(r.Header.Get("Upload-Metadata"))
 
 	info := FileInfo{
 		Size:           size,
@@ -377,7 +377,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if len(info.MetaData) != 0 {
-		w.Header().Set("Upload-Metadata", serializeMeta(info.MetaData))
+		w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
@@ -847,9 +847,10 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 	return
 }
 
-// Parse the Upload-Metadata header as defined in the File Creation extension.
+// ParseMetadataHeader parses the Upload-Metadata header as defined in the
+// File Creation extension.
 // e.g. Upload-Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
-func parseMeta(header string) map[string]string {
+func ParseMetadataHeader(header string) map[string]string {
 	meta := make(map[string]string)
 
 	for _, element := range strings.Split(header, ",") {
@@ -875,10 +876,10 @@ func parseMeta(header string) map[string]string {
 	return meta
 }
 
-// Serialize a map of strings into the Upload-Metadata header format used in the
-// response for HEAD requests.
+// SerializeMetadataHeader serializes a map of strings into the Upload-Metadata
+// header format used in the response for HEAD requests.
 // e.g. Upload-Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
-func serializeMeta(meta map[string]string) string {
+func SerializeMetadataHeader(meta map[string]string) string {
 	header := ""
 	for key, value := range meta {
 		valueBase64 := base64.StdEncoding.EncodeToString([]byte(value))
