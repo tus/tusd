@@ -13,8 +13,9 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
-	"github.com/vimeo/go-util/crc32combine"
 	"hash/crc32"
+
+	"github.com/vimeo/go-util/crc32combine"
 )
 
 type GCSObjectParams struct {
@@ -260,7 +261,7 @@ func (service *GCSService) GetObjectAttrs(params GCSObjectParams) (*storage.Obje
 
 }
 
-// ReadObject reaads a GCSObjectParams, returning a GCSReader object if successful, and an error otherwise
+// ReadObject reads a GCSObjectParams, returning a GCSReader object if successful, and an error otherwise
 func (service *GCSService) ReadObject(params GCSObjectParams) (GCSReader, error) {
 	r, err := service.Client.Bucket(params.Bucket).Object(params.ID).NewReader(service.Ctx)
 	if err != nil {
