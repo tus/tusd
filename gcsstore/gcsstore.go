@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/uid"
 )
@@ -113,6 +114,9 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 
 	r, err := store.Service.ReadObject(params)
 	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return info, tusd.ErrNotFound
+		}
 		return info, err
 	}
 

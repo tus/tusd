@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"cloud.google.com/go/storage"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -141,6 +142,27 @@ func TestGetInfo(t *testing.T) {
 	info, err := store.GetInfo(mockID)
 	assert.Nil(err)
 	assert.Equal(mockTusdInfo, info)
+}
+
+func TestGetInfoNotFound(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	params := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     fmt.Sprintf("%s.info", mockID),
+	}
+
+	gomock.InOrder(
+		service.EXPECT().ReadObject(params).Return(nil, storage.ErrObjectNotExist),
+	)
+
+	_, err := store.GetInfo(mockID)
+	assert.Equal(tusd.ErrNotFound, err)
 }
 
 type MockGetReader struct{}
