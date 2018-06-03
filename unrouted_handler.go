@@ -888,7 +888,7 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 			return size, err
 		}
 
-		if info.Offset != info.Size {
+		if info.SizeIsDeferred || info.Offset != info.Size {
 			err = ErrUploadNotFinished
 			return size, err
 		}
