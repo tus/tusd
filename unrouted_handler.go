@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -504,6 +505,18 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	}
 
 	maxSize := info.Size - offset
+	// If the upload's length is deferred and the PATCH request does not contain the Content-Length
+	// header (which is allowed if 'Transfer-Encoding: chunked' is used), we still need to set limits for
+	// the body size.
+	if info.SizeIsDeferred {
+		if handler.config.MaxSize > 0 {
+			// Ensure that the upload does not exceed the maximum upload size
+			maxSize = handler.config.MaxSize - offset
+		} else {
+			// If no upload limit is given, we allow arbitrary sizes
+			maxSize = math.MaxInt64
+		}
+	}
 	if length > 0 {
 		maxSize = length
 	}
