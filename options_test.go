@@ -20,7 +20,7 @@ func TestOptions(t *testing.T) {
 		(&httpTest{
 			Method: "OPTIONS",
 			ResHeader: map[string]string{
-				"Tus-Extension": "creation,creation-with-upload,creation-defer-length",
+				"Tus-Extension": "creation,creation-with-upload",
 				"Tus-Version":   "1.0.0",
 				"Tus-Resumable": "1.0.0",
 				"Tus-Max-Size":  "400",

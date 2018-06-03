@@ -25,7 +25,7 @@ func TestConcat(t *testing.T) {
 			Method: "OPTIONS",
 			Code:   http.StatusOK,
 			ResHeader: map[string]string{
-				"Tus-Extension": "creation,creation-with-upload,creation-defer-length,concatenation",
+				"Tus-Extension": "creation,creation-with-upload,concatenation",
 			},
 		}).Run(handler, t)
 	})
