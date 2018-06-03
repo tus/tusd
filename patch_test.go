@@ -272,6 +272,7 @@ func TestPatch(t *testing.T) {
 
 		handler, _ := NewHandler(Config{
 			DataStore: store,
+			MaxSize:   20,
 		})
 
 		body := strings.NewReader("hellothisismore")
@@ -307,6 +308,7 @@ func TestPatch(t *testing.T) {
 
 		handler, _ := NewHandler(Config{
 			DataStore: store,
+			MaxSize:   20,
 		})
 
 		(&httpTest{
@@ -346,6 +348,7 @@ func TestPatch(t *testing.T) {
 
 		handler, _ := NewHandler(Config{
 			DataStore: store,
+			MaxSize:   20,
 		})
 
 		(&httpTest{
