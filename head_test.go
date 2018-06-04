@@ -81,4 +81,52 @@ func TestHead(t *testing.T) {
 			t.Errorf("Expected empty body for failed HEAD request")
 		}
 	})
+
+	SubTest(t, "DeferLengthHeader", func(t *testing.T, store *MockFullDataStore) {
+		store.EXPECT().GetInfo("yes").Return(FileInfo{
+			SizeIsDeferred: true,
+			Size: 0,
+		}, nil)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "HEAD",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusOK,
+			ResHeader: map[string]string{
+				"Upload-Defer-Length": "1",
+			},
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "NoDeferLengthHeader", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				SizeIsDeferred: false,
+				Size: 10,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+		})
+
+		(&httpTest{
+			Method: "HEAD",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: http.StatusOK,
+			ResHeader: map[string]string{
+				"Upload-Defer-Length": "",
+			},
+		}).Run(handler, t)
+	})
 }

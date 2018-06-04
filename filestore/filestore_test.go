@@ -18,6 +18,7 @@ var _ tusd.GetReaderDataStore = FileStore{}
 var _ tusd.TerminaterDataStore = FileStore{}
 var _ tusd.LockerDataStore = FileStore{}
 var _ tusd.ConcaterDataStore = FileStore{}
+var _ tusd.LengthDeferrerDataStore = FileStore{}
 
 func TestFilestore(t *testing.T) {
 	a := assert.New(t)
@@ -145,4 +146,29 @@ func TestConcatUploads(t *testing.T) {
 	a.NoError(err)
 	a.Equal("abcdefghi", string(content))
 	reader.(io.Closer).Close()
+}
+
+func TestDeclareLength(t *testing.T) {
+	a := assert.New(t)
+
+	tmp, err := ioutil.TempDir("", "tusd-filestore-declare-length-")
+	a.NoError(err)
+
+	store := FileStore{tmp}
+
+	originalInfo := tusd.FileInfo{Size: 0, SizeIsDeferred: true}
+	id, err := store.NewUpload(originalInfo)
+	a.NoError(err)
+
+	info, err := store.GetInfo(id)
+	a.Equal(info.Size, originalInfo.Size)
+	a.Equal(info.SizeIsDeferred, originalInfo.SizeIsDeferred)
+
+	size := int64(100)
+	err = store.DeclareLength(id, size)
+	a.NoError(err)
+
+	updatedInfo, err := store.GetInfo(id)
+	a.Equal(updatedInfo.Size, size)
+	a.False(updatedInfo.SizeIsDeferred)
 }

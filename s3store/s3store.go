@@ -271,12 +271,14 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 			return bytesUploaded, nil
 		}
 
-		if (size - offset) <= optimalPartSize {
-			if (size - offset) != n {
+		if !info.SizeIsDeferred {
+			if (size - offset) <= optimalPartSize {
+				if (size - offset) != n {
+					return bytesUploaded, nil
+				}
+			} else if n < optimalPartSize {
 				return bytesUploaded, nil
 			}
-		} else if n < optimalPartSize {
-			return bytesUploaded, nil
 		}
 
 		// Seek to the beginning of the file

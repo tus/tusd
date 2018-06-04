@@ -27,6 +27,7 @@ type FullDataStore interface {
 	tusd.ConcaterDataStore
 	tusd.GetReaderDataStore
 	tusd.FinisherDataStore
+	tusd.LengthDeferrerDataStore
 }
 
 type Locker interface {

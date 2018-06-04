@@ -6,16 +6,18 @@ package tusd
 type StoreComposer struct {
 	Core DataStore
 
-	UsesTerminater bool
-	Terminater     TerminaterDataStore
-	UsesFinisher   bool
-	Finisher       FinisherDataStore
-	UsesLocker     bool
-	Locker         LockerDataStore
-	UsesGetReader  bool
-	GetReader      GetReaderDataStore
-	UsesConcater   bool
-	Concater       ConcaterDataStore
+	UsesTerminater     bool
+	Terminater         TerminaterDataStore
+	UsesFinisher       bool
+	Finisher           FinisherDataStore
+	UsesLocker         bool
+	Locker             LockerDataStore
+	UsesGetReader      bool
+	GetReader          GetReaderDataStore
+	UsesConcater       bool
+	Concater           ConcaterDataStore
+	UsesLengthDeferrer bool
+	LengthDeferrer     LengthDeferrerDataStore
 }
 
 // NewStoreComposer creates a new and empty store composer.
@@ -44,6 +46,9 @@ func newStoreComposerFromDataStore(store DataStore) *StoreComposer {
 	}
 	if mod, ok := store.(ConcaterDataStore); ok {
 		composer.UseConcater(mod)
+	}
+	if mod, ok := store.(LengthDeferrerDataStore); ok {
+		composer.UseLengthDeferrer(mod)
 	}
 
 	return composer
@@ -90,6 +95,12 @@ func (store *StoreComposer) Capabilities() string {
 	} else {
 		str += "✗"
 	}
+	str += ` LengthDeferrer: `
+	if store.UsesLengthDeferrer {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
 
 	return str
 }
@@ -119,4 +130,9 @@ func (store *StoreComposer) UseGetReader(ext GetReaderDataStore) {
 func (store *StoreComposer) UseConcater(ext ConcaterDataStore) {
 	store.UsesConcater = ext != nil
 	store.Concater = ext
+}
+
+func (store *StoreComposer) UseLengthDeferrer(ext LengthDeferrerDataStore) {
+	store.UsesLengthDeferrer = ext != nil
+	store.LengthDeferrer = ext
 }

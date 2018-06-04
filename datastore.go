@@ -10,6 +10,8 @@ type FileInfo struct {
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
+	// Indicates whether the total file size is deferred until later
+	SizeIsDeferred bool
 	// Offset in bytes (zero-based)
 	Offset   int64
 	MetaData MetaData
@@ -111,4 +113,12 @@ type ConcaterDataStore interface {
 	// partial uploads. The order, in which the partial uploads are supplied,
 	// must be respected during concatenation.
 	ConcatUploads(destination string, partialUploads []string) error
+}
+
+// LengthDeferrerDataStore is the interface that must be implemented if the
+// creation-defer-length extension should be enabled. The extension enables a
+// client to upload files when their total size is not yet known. Instead, the
+// client must send the total size as soon as it becomes known.
+type LengthDeferrerDataStore interface {
+	DeclareLength(id string, length int64) error
 }

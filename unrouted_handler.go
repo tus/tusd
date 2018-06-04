@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+const UploadLengthDeferred = "1"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
@@ -47,19 +50,21 @@ func NewHTTPError(err error, statusCode int) HTTPError {
 }
 
 var (
-	ErrUnsupportedVersion  = NewHTTPError(errors.New("unsupported version"), http.StatusPreconditionFailed)
-	ErrMaxSizeExceeded     = NewHTTPError(errors.New("maximum size exceeded"), http.StatusRequestEntityTooLarge)
-	ErrInvalidContentType  = NewHTTPError(errors.New("missing or invalid Content-Type header"), http.StatusBadRequest)
-	ErrInvalidUploadLength = NewHTTPError(errors.New("missing or invalid Upload-Length header"), http.StatusBadRequest)
-	ErrInvalidOffset       = NewHTTPError(errors.New("missing or invalid Upload-Offset header"), http.StatusBadRequest)
-	ErrNotFound            = NewHTTPError(errors.New("upload not found"), http.StatusNotFound)
-	ErrFileLocked          = NewHTTPError(errors.New("file currently locked"), 423) // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset      = NewHTTPError(errors.New("mismatched offset"), http.StatusConflict)
-	ErrSizeExceeded        = NewHTTPError(errors.New("resource's size exceeded"), http.StatusRequestEntityTooLarge)
-	ErrNotImplemented      = NewHTTPError(errors.New("feature not implemented"), http.StatusNotImplemented)
-	ErrUploadNotFinished   = NewHTTPError(errors.New("one of the partial uploads is not finished"), http.StatusBadRequest)
-	ErrInvalidConcat       = NewHTTPError(errors.New("invalid Upload-Concat header"), http.StatusBadRequest)
-	ErrModifyFinal         = NewHTTPError(errors.New("modifying a final upload is not allowed"), http.StatusForbidden)
+	ErrUnsupportedVersion               = NewHTTPError(errors.New("unsupported version"), http.StatusPreconditionFailed)
+	ErrMaxSizeExceeded                  = NewHTTPError(errors.New("maximum size exceeded"), http.StatusRequestEntityTooLarge)
+	ErrInvalidContentType               = NewHTTPError(errors.New("missing or invalid Content-Type header"), http.StatusBadRequest)
+	ErrInvalidUploadLength              = NewHTTPError(errors.New("missing or invalid Upload-Length header"), http.StatusBadRequest)
+	ErrInvalidOffset                    = NewHTTPError(errors.New("missing or invalid Upload-Offset header"), http.StatusBadRequest)
+	ErrNotFound                         = NewHTTPError(errors.New("upload not found"), http.StatusNotFound)
+	ErrFileLocked                       = NewHTTPError(errors.New("file currently locked"), 423) // Locked (WebDAV) (RFC 4918)
+	ErrMismatchOffset                   = NewHTTPError(errors.New("mismatched offset"), http.StatusConflict)
+	ErrSizeExceeded                     = NewHTTPError(errors.New("resource's size exceeded"), http.StatusRequestEntityTooLarge)
+	ErrNotImplemented                   = NewHTTPError(errors.New("feature not implemented"), http.StatusNotImplemented)
+	ErrUploadNotFinished                = NewHTTPError(errors.New("one of the partial uploads is not finished"), http.StatusBadRequest)
+	ErrInvalidConcat                    = NewHTTPError(errors.New("invalid Upload-Concat header"), http.StatusBadRequest)
+	ErrModifyFinal                      = NewHTTPError(errors.New("modifying a final upload is not allowed"), http.StatusForbidden)
+	ErrUploadLengthAndUploadDeferLength = NewHTTPError(errors.New("provided both Upload-Length and Upload-Defer-Length"), http.StatusBadRequest)
+	ErrInvalidUploadDeferLength         = NewHTTPError(errors.New("invalid Upload-Defer-Length header"), http.StatusBadRequest)
 )
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -121,6 +126,9 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	}
 	if config.StoreComposer.UsesConcater {
 		extensions += ",concatenation"
+	}
+	if config.StoreComposer.UsesLengthDeferrer {
+		extensions += ",creation-defer-length"
 	}
 
 	handler := &UnroutedHandler{
@@ -241,6 +249,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// uploads the size is sum of all sizes of these files (no need for
 	// Upload-Length header)
 	var size int64
+	var sizeIsDeferred bool
 	if isFinal {
 		// A final upload must not contain a chunk within the creation request
 		if containsChunk {
@@ -254,9 +263,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	} else {
-		size, err = strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
-		if err != nil || size < 0 {
-			handler.sendError(w, r, ErrInvalidUploadLength)
+		uploadLengthHeader := r.Header.Get("Upload-Length")
+		uploadDeferLengthHeader := r.Header.Get("Upload-Defer-Length")
+		size, sizeIsDeferred, err = handler.validateNewUploadLengthHeaders(uploadLengthHeader, uploadDeferLengthHeader)
+		if err != nil {
+			handler.sendError(w, r, err)
 			return
 		}
 	}
@@ -272,6 +283,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	info := FileInfo{
 		Size:           size,
+		SizeIsDeferred: sizeIsDeferred,
 		MetaData:       meta,
 		IsPartial:      isPartial,
 		IsFinal:        isFinal,
@@ -325,7 +337,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(w, r, err)
 			return
 		}
-	} else if size == 0 {
+	} else if !sizeIsDeferred && size == 0 {
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
@@ -380,8 +392,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
 	}
 
+	if info.SizeIsDeferred {
+		w.Header().Set("Upload-Defer-Length", UploadLengthDeferred)
+	} else {
+		w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
+	}
+
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
 	handler.sendResp(w, r, http.StatusOK)
 }
@@ -437,10 +454,33 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	// Do not proxy the call to the data store if the upload is already completed
-	if info.Offset == info.Size {
+	if !info.SizeIsDeferred && info.Offset == info.Size {
 		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
 		handler.sendResp(w, r, http.StatusNoContent)
 		return
+	}
+
+	if r.Header.Get("Upload-Length") != "" {
+		if handler.composer.UsesLengthDeferrer {
+			if info.SizeIsDeferred {
+				uploadLength, err := strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
+				if err != nil || uploadLength < 0 || uploadLength < info.Offset || uploadLength > handler.config.MaxSize {
+					handler.sendError(w, r, ErrInvalidUploadLength)
+					return
+				}
+
+				info.Size = uploadLength
+				info.SizeIsDeferred = false
+				if err := handler.composer.LengthDeferrer.DeclareLength(id, info.Size); err != nil {
+					handler.sendError(w, r, err)
+					return
+				}
+			} else {
+				handler.sendError(w, r, ErrInvalidUploadLength)
+			}
+		} else {
+			handler.sendError(w, r, ErrNotImplemented)
+		}
 	}
 
 	if err := handler.writeChunk(id, info, w, r); err != nil {
@@ -460,11 +500,23 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	offset := info.Offset
 
 	// Test if this upload fits into the file's size
-	if offset+length > info.Size {
+	if !info.SizeIsDeferred && offset+length > info.Size {
 		return ErrSizeExceeded
 	}
 
 	maxSize := info.Size - offset
+	// If the upload's length is deferred and the PATCH request does not contain the Content-Length
+	// header (which is allowed if 'Transfer-Encoding: chunked' is used), we still need to set limits for
+	// the body size.
+	if info.SizeIsDeferred {
+		if handler.config.MaxSize > 0 {
+			// Ensure that the upload does not exceed the maximum upload size
+			maxSize = handler.config.MaxSize - offset
+		} else {
+			// If no upload limit is given, we allow arbitrary sizes
+			maxSize = math.MaxInt64
+		}
+	}
 	if length > 0 {
 		maxSize = length
 	}
@@ -507,7 +559,7 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 // function and send the necessary message on the CompleteUpload channel.
 func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 	// If the upload is completed, ...
-	if info.Offset == info.Size {
+	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
 		if handler.composer.UsesFinisher {
 			if err := handler.composer.Finisher.FinishUpload(info.ID); err != nil {
@@ -836,12 +888,37 @@ func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err err
 			return size, err
 		}
 
-		if info.Offset != info.Size {
+		if info.SizeIsDeferred || info.Offset != info.Size {
 			err = ErrUploadNotFinished
 			return size, err
 		}
 
 		size += info.Size
+	}
+
+	return
+}
+
+// Verify that the Upload-Length and Upload-Defer-Length headers are acceptable for creating a
+// new upload
+func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
+	haveBothLengthHeaders := uploadLengthHeader != "" && uploadDeferLengthHeader != ""
+	haveInvalidDeferHeader := uploadDeferLengthHeader != "" && uploadDeferLengthHeader != UploadLengthDeferred
+	lengthIsDeferred := uploadDeferLengthHeader == UploadLengthDeferred
+
+	if lengthIsDeferred && !handler.composer.UsesLengthDeferrer {
+		err = ErrNotImplemented
+	} else if haveBothLengthHeaders {
+		err = ErrUploadLengthAndUploadDeferLength
+	} else if haveInvalidDeferHeader {
+		err = ErrInvalidUploadDeferLength
+	} else if lengthIsDeferred {
+		uploadLengthDeferred = true
+	} else {
+		uploadLength, err = strconv.ParseInt(uploadLengthHeader, 10, 64)
+		if err != nil || uploadLength < 0 {
+			err = ErrInvalidUploadLength
+		}
 	}
 
 	return

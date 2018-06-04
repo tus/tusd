@@ -31,6 +31,7 @@ type StoreComposer struct {
   USE_FIELD(Locker)
   USE_FIELD(GetReader)
   USE_FIELD(Concater)
+  USE_FIELD(LengthDeferrer)
 }
 
 // NewStoreComposer creates a new and empty store composer.
@@ -50,6 +51,7 @@ func newStoreComposerFromDataStore(store DataStore) *StoreComposer {
   USE_FROM(Locker)
   USE_FROM(GetReader)
   USE_FROM(Concater)
+  USE_FROM(LengthDeferrer)
 
   return composer
 }
@@ -70,6 +72,7 @@ func (store *StoreComposer) Capabilities() string {
   USE_CAP(Locker)
   USE_CAP(GetReader)
   USE_CAP(Concater)
+  USE_CAP(LengthDeferrer)
 
   return str
 }
@@ -85,3 +88,4 @@ USE_FUNC(Finisher)
 USE_FUNC(Locker)
 USE_FUNC(GetReader)
 USE_FUNC(Concater)
+USE_FUNC(LengthDeferrer)

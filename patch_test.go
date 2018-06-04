@@ -257,6 +257,132 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "DeclareLengthOnFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:             "yes",
+				Offset:         5,
+				Size:           0,
+				SizeIsDeferred: true,
+			}, nil),
+			store.EXPECT().DeclareLength("yes", int64(20)),
+			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			store.EXPECT().FinishUpload("yes"),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+			MaxSize:   20,
+		})
+
+		body := strings.NewReader("hellothisismore")
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+				"Upload-Length": "20",
+			},
+			ReqBody: body,
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "20",
+			},
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "DeclareLengthAfterFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:             "yes",
+				Offset:         20,
+				Size:           0,
+				SizeIsDeferred: true,
+			}, nil),
+			store.EXPECT().DeclareLength("yes", int64(20)),
+			store.EXPECT().FinishUpload("yes"),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+			MaxSize:   20,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "20",
+				"Upload-Length": "20",
+			},
+			ReqBody:   nil,
+			Code:      http.StatusNoContent,
+			ResHeader: map[string]string{},
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "DeclareLengthOnNonFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+		gomock.InOrder(
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:             "yes",
+				Offset:         5,
+				Size:           0,
+				SizeIsDeferred: true,
+			}, nil),
+			store.EXPECT().DeclareLength("yes", int64(20)),
+			store.EXPECT().WriteChunk("yes", int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			store.EXPECT().GetInfo("yes").Return(FileInfo{
+				ID:             "yes",
+				Offset:         10,
+				Size:           20,
+				SizeIsDeferred: false,
+			}, nil),
+			store.EXPECT().WriteChunk("yes", int64(10), NewReaderMatcher("thisismore")).Return(int64(10), nil),
+			store.EXPECT().FinishUpload("yes"),
+		)
+
+		handler, _ := NewHandler(Config{
+			DataStore: store,
+			MaxSize:   20,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+				"Upload-Length": "20",
+			},
+			ReqBody: strings.NewReader("hello"),
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "10",
+			},
+		}).Run(handler, t)
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "10",
+			},
+			ReqBody: strings.NewReader("thisismore"),
+			Code:    http.StatusNoContent,
+			ResHeader: map[string]string{
+				"Upload-Offset": "20",
+			},
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

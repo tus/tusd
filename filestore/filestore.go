@@ -55,6 +55,7 @@ func (store FileStore) UseIn(composer *tusd.StoreComposer) {
 	composer.UseTerminater(store)
 	composer.UseLocker(store)
 	composer.UseConcater(store)
+	composer.UseLengthDeferrer(store)
 }
 
 func (store FileStore) NewUpload(info tusd.FileInfo) (id string, err error) {
@@ -140,6 +141,16 @@ func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) 
 	}
 
 	return
+}
+
+func (store FileStore) DeclareLength(id string, length int64) error {
+	info, err := store.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	info.Size = length
+	info.SizeIsDeferred = false
+	return store.writeInfo(id, info)
 }
 
 func (store FileStore) LockUpload(id string) error {
