@@ -129,5 +129,5 @@ spec:
           - name: jobspod
             image: gcr.io/transloadit-kubes/jobspod
             command: ["/bin/bash", "-c"]
-            args: [ "kubectl exec --namespace tus $(kubectl get pods --namespace tus -l app=tusd -o go-template --template '{{range .items}}{{.metadata.name}}{{\"\\n\"}}{{end}}') -- /bin/sh -c \"rm -rf *\""]
+            args: [ "kubectl exec --namespace tus $(kubectl get pods --namespace tus -l app=tusd -o go-template --template '{{range .items}}{{.metadata.name}}{{\"\\n\"}}{{end}}') -- /bin/sh -c \"find . -type f -mmin +1440 -print0 | xargs -n 200 -r -0 rm || true\""]
           restartPolicy: OnFailure
