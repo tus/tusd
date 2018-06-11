@@ -461,26 +461,26 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	if r.Header.Get("Upload-Length") != "" {
-		if handler.composer.UsesLengthDeferrer {
-			if info.SizeIsDeferred {
-				uploadLength, err := strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
-				if err != nil || uploadLength < 0 || uploadLength < info.Offset || uploadLength > handler.config.MaxSize {
-					handler.sendError(w, r, ErrInvalidUploadLength)
-					return
-				}
-
-				info.Size = uploadLength
-				info.SizeIsDeferred = false
-				if err := handler.composer.LengthDeferrer.DeclareLength(id, info.Size); err != nil {
-					handler.sendError(w, r, err)
-					return
-				}
-			} else {
-				handler.sendError(w, r, ErrInvalidUploadLength)
-			}
-		} else {
+		if !handler.composer.UsesLengthDeferrer {
 			handler.sendError(w, r, ErrNotImplemented)
+			return
 		}
+		if !info.SizeIsDeferred {
+			handler.sendError(w, r, ErrInvalidUploadLength)
+			return
+		}
+		uploadLength, err := strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
+		if err != nil || uploadLength < 0 || uploadLength < info.Offset || uploadLength > handler.config.MaxSize {
+			handler.sendError(w, r, ErrInvalidUploadLength)
+			return
+		}
+		if err := handler.composer.LengthDeferrer.DeclareLength(id, uploadLength); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		info.Size = uploadLength
+		info.SizeIsDeferred = false
 	}
 
 	if err := handler.writeChunk(id, info, w, r); err != nil {
