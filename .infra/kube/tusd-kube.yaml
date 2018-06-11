@@ -113,3 +113,21 @@ spec:
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 90
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: cleaning-job
+  namespace: tus
+spec:
+  schedule: "* * */1 * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: jobspod
+            image: gcr.io/transloadit-kubes/jobspod
+            command: ["/bin/bash", "-c"]
+            args: [ "kubectl exec --namespace tus $(kubectl get pods --namespace tus -l app=tusd -o go-template --template '{{range .items}}{{.metadata.name}}{{\"\\n\"}}{{end}}') -- /bin/sh -c \"rm -rf *\""]
+          restartPolicy: OnFailure
