@@ -11,7 +11,6 @@ import (
 	"github.com/tus/tusd/gcsstore"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
@@ -33,10 +32,9 @@ func CreateComposer() {
 			s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
 		}
 
-		// Derive credentials from AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID and
-		// AWS_REGION environment variables.
-		s3Config = s3Config.WithCredentials(credentials.NewEnvCredentials())
-		store := s3store.New(Flags.S3Bucket, s3.New(session.New(), s3Config))
+		// Derive credentials from default credential chain (env, shared, ec2 instance role)
+		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
+		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
