@@ -21,7 +21,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata",
+				"Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length",
 				"Access-Control-Allow-Methods": "POST, GET, HEAD, PATCH, DELETE, OPTIONS",
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
@@ -42,7 +42,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusMethodNotAllowed,
 			ResHeader: map[string]string{
-				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata",
+				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length",
 				"Access-Control-Allow-Origin":   "tus.io",
 			},
 		}).Run(handler, t)
