@@ -77,6 +77,8 @@ $ tusd -s3-bucket my-test-bucket.com
 [tusd] Using /metrics as the metrics path.
 ```
 
+tusd is also able to read the credentials automatically from a shared credentials file (~/.aws/credentials) as described in https://github.com/aws/aws-sdk-go#configuring-credentials.
+
 Furthermore, tusd also has support for storing uploads on Google Cloud Storage. In order to
 enable this feature, supply the path to your account file containing the necessary credentials:
 
