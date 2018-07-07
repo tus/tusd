@@ -69,6 +69,8 @@ metadata:
   name: tusd
   namespace: tus
   annotations:
+    certmanager.k8s.io/cluster-issuer: "letsencrypt-prod"
+    certmanager.k8s.io/acme-challenge-type: "http01"
     kubernetes.io/tls-acme: "true"
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/proxy-body-size: 0m
