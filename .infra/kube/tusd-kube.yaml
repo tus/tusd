@@ -112,7 +112,15 @@ spec:
     name: tusd
   minReplicas: 1
   maxReplicas: 5
-  targetCPUUtilizationPercentage: 90
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageValue: 1800Mi
 ---
 apiVersion: batch/v1beta1
 kind: CronJob
