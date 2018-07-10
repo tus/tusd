@@ -24,4 +24,4 @@ RUN addgroup -g 1000 tusd \
 
 WORKDIR /srv/tusd-data
 EXPOSE 1080
-ENTRYPOINT ["/go/bin/tusd","-dir","/srv/tusd-data","--hooks-dir","/srv/tusd-hooks"]
+ENTRYPOINT ["/go/bin/tusd","--hooks-dir","/srv/tusd-hooks"]

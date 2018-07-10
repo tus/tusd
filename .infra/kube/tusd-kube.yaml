@@ -1,16 +1,3 @@
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: standard-tusd
-  namespace: tus
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: "standard"
-  resources:
-    requests:
-      storage: 20Gi
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -18,8 +5,6 @@ metadata:
   namespace: tus
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   template:
     metadata:
       labels:
@@ -28,7 +13,7 @@ spec:
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
-        args: ["-port=8080","-behind-proxy","-max-size=20000000000"]
+        args: ["-gcs-bucket","tusd-public-demo","-port=8080","-behind-proxy","-max-size=20000000000"]
         name: tusd
         resources:
           limits:
@@ -38,16 +23,19 @@ spec:
         ports:
         - name: tusd-web
           containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: tusd-env
         securityContext:
           runAsUser: 0
           fsGroup: 0
         volumeMounts:
-        - name: tusd-disk
-          mountPath: /srv/tusd-data
+        - name: tusd-account
+          mountPath: /gcs
       volumes:
-      - name: tusd-disk
-        persistentVolumeClaim:
-          claimName: standard-tusd
+      - name: tusd-account
+        secret:
+          secretName: gcs-account
 ---
 apiVersion: v1
 kind: Service
