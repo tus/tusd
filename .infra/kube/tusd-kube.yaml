@@ -1,15 +1,32 @@
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
   name: tusd
   namespace: tus
 spec:
-  replicas: 1
+  replicas: 2
+  serviceName: "tusd"
   template:
     metadata:
       labels:
         app: tusd
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: cloud.google.com/gke-preemptible
+                  operator: Exists
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - tusd
+            topologyKey: kubernetes.io/hostname
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
