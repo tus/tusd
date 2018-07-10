@@ -1,11 +1,10 @@
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: tusd
   namespace: tus
 spec:
   replicas: 2
-  serviceName: "tusd"
   template:
     metadata:
       labels:
@@ -26,7 +25,7 @@ spec:
                 operator: In
                 values:
                 - tusd
-            topologyKey: kubernetes.io/hostname
+            topologyKey: kubernetes.io/hostname    
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
