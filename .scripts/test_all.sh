@@ -11,7 +11,7 @@ goversion=$(go version)
 if [[ "$goversion" == *"go1.5"* ]] ||
    [[ "$goversion" == *"go1.6"* ]] ||
    [[ "$goversion" == *"go1.7"* ]] ||
-   [[ "$goversion" == *"go1.8"* ]]
+   [[ "$goversion" == *"go1.8"* ]] ||
    [[ "$goversion" == *"go1.9"* ]]; then
 
   echo "Skipping tests requiring Consul which is not supported on $goversion"
