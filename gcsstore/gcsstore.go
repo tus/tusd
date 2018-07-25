@@ -14,9 +14,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/context"
 	"io"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"cloud.google.com/go/storage"
 	"github.com/tus/tusd"
@@ -55,7 +58,8 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 		info.ID = uid.Uid()
 	}
 
-	err = store.writeInfo(info.ID, info)
+	ctx := context.Background()
+	err = store.writeInfo(ctx, info.ID, info)
 	if err != nil {
 		return info.ID, err
 	}
@@ -70,7 +74,8 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 		Prefix: prefix,
 	}
 
-	names, err := store.Service.FilterObjects(filterParams)
+	ctx := context.Background()
+	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return 0, err
 	}
@@ -95,13 +100,15 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 		ID:     cid,
 	}
 
-	n, err := store.Service.WriteObject(objectParams, src)
+	n, err := store.Service.WriteObject(ctx, objectParams, src)
 	if err != nil {
 		return 0, err
 	}
 
 	return n, err
 }
+
+const CONCURRENT_SIZE_REQUESTS = 32
 
 func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	info := tusd.FileInfo{}
@@ -112,7 +119,10 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 		ID:     i,
 	}
 
-	r, err := store.Service.ReadObject(params)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
 			return info, tusd.ErrNotFound
@@ -136,37 +146,69 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 		Prefix: prefix,
 	}
 
-	names, err := store.Service.FilterObjects(filterParams)
+	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return info, err
 	}
 
 	var offset int64 = 0
+	var firstError error = nil
+	var wg sync.WaitGroup
+
+	sem := make(chan struct{}, CONCURRENT_SIZE_REQUESTS)
+	errChan := make(chan error)
+
+	go func() {
+		for err := range errChan {
+			if err != context.Canceled && firstError == nil {
+				firstError = err
+				cancel()
+			}
+		}
+	}()
+
 	for _, name := range names {
+		sem <- struct{}{}
+		wg.Add(1)
 		params = GCSObjectParams{
 			Bucket: store.Bucket,
 			ID:     name,
 		}
 
-		size, err := store.Service.GetObjectSize(params)
-		if err != nil {
-			return info, err
-		}
+		go func() {
+			defer func() {
+				<-sem
+				wg.Done()
+			}()
 
-		offset += size
+			size, err := store.Service.GetObjectSize(ctx, params)
+
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			atomic.AddInt64(&offset, size)
+		}()
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	if firstError != nil {
+		return info, firstError
 	}
 
 	info.Offset = offset
-	err = store.writeInfo(id, info)
+	err = store.writeInfo(ctx, id, info)
 	if err != nil {
 		return info, err
 	}
 
 	return info, nil
-
 }
 
-func (store GCSStore) writeInfo(id string, info tusd.FileInfo) error {
+func (store GCSStore) writeInfo(ctx context.Context, id string, info tusd.FileInfo) error {
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -180,7 +222,7 @@ func (store GCSStore) writeInfo(id string, info tusd.FileInfo) error {
 		ID:     i,
 	}
 
-	_, err = store.Service.WriteObject(params, r)
+	_, err = store.Service.WriteObject(ctx, params, r)
 	if err != nil {
 		return err
 	}
@@ -195,7 +237,8 @@ func (store GCSStore) FinishUpload(id string) error {
 		Prefix: prefix,
 	}
 
-	names, err := store.Service.FilterObjects(filterParams)
+	ctx := context.Background()
+	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return err
 	}
@@ -206,12 +249,12 @@ func (store GCSStore) FinishUpload(id string) error {
 		Sources:     names,
 	}
 
-	err = store.Service.ComposeObjects(composeParams)
+	err = store.Service.ComposeObjects(ctx, composeParams)
 	if err != nil {
 		return err
 	}
 
-	err = store.Service.DeleteObjectsWithFilter(filterParams)
+	err = store.Service.DeleteObjectsWithFilter(ctx, filterParams)
 	if err != nil {
 		return err
 	}
@@ -226,7 +269,7 @@ func (store GCSStore) FinishUpload(id string) error {
 		ID:     id,
 	}
 
-	err = store.Service.SetObjectMetadata(objectParams, info.MetaData)
+	err = store.Service.SetObjectMetadata(ctx, objectParams, info.MetaData)
 	if err != nil {
 		return err
 	}
@@ -240,7 +283,8 @@ func (store GCSStore) Terminate(id string) error {
 		Prefix: id,
 	}
 
-	err := store.Service.DeleteObjectsWithFilter(filterParams)
+	ctx := context.Background()
+	err := store.Service.DeleteObjectsWithFilter(ctx, filterParams)
 	if err != nil {
 		return err
 	}
@@ -254,7 +298,8 @@ func (store GCSStore) GetReader(id string) (io.Reader, error) {
 		ID:     id,
 	}
 
-	r, err := store.Service.ReadObject(params)
+	ctx := context.Background()
+	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
 		return nil, err
 	}
