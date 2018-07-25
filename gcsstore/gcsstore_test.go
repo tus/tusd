@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/context"
 	"testing"
 
 	"cloud.google.com/go/storage"
@@ -55,7 +56,8 @@ func TestNewUpload(t *testing.T) {
 		ID:     fmt.Sprintf("%s.info", mockID),
 	}
 
-	service.EXPECT().WriteObject(params, r).Return(int64(r.Len()), nil)
+	ctx := context.Background()
+	service.EXPECT().WriteObject(ctx, params, r).Return(int64(r.Len()), nil)
 
 	id, err := store.NewUpload(mockTusdInfo)
 	assert.Nil(err)
@@ -130,14 +132,18 @@ func TestGetInfo(t *testing.T) {
 
 	infoR := bytes.NewReader(offsetInfoData)
 
+	ctx := context.Background()
 	gomock.InOrder(
-		service.EXPECT().ReadObject(params).Return(r, nil),
-		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams0).Return(size, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams1).Return(size, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams2).Return(size, nil),
-		service.EXPECT().WriteObject(params, infoR).Return(int64(len(offsetInfoData)), nil),
+		service.EXPECT().ReadObject(ctx, params).Return(r, nil),
+		service.EXPECT().FilterObjects(ctx, filterParams).Return(mockPartials, nil),
 	)
+
+	ctxCancel, _ := context.WithCancel(ctx)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
+	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
+
+	service.EXPECT().WriteObject(ctx, params, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
 
 	info, err := store.GetInfo(mockID)
 	assert.Nil(err)
@@ -157,8 +163,9 @@ func TestGetInfoNotFound(t *testing.T) {
 		ID:     fmt.Sprintf("%s.info", mockID),
 	}
 
+	ctx := context.Background()
 	gomock.InOrder(
-		service.EXPECT().ReadObject(params).Return(nil, storage.ErrObjectNotExist),
+		service.EXPECT().ReadObject(ctx, params).Return(nil, storage.ErrObjectNotExist),
 	)
 
 	_, err := store.GetInfo(mockID)
@@ -205,7 +212,8 @@ func TestGetReader(t *testing.T) {
 
 	r := MockGetReader{}
 
-	service.EXPECT().ReadObject(params).Return(r, nil)
+	ctx := context.Background()
+	service.EXPECT().ReadObject(ctx, params).Return(r, nil)
 	reader, err := store.GetReader(mockID)
 	assert.Nil(err)
 
@@ -231,7 +239,8 @@ func TestTerminate(t *testing.T) {
 		Prefix: mockID,
 	}
 
-	service.EXPECT().DeleteObjectsWithFilter(filterParams).Return(nil)
+	ctx := context.Background()
+	service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil)
 
 	err := store.Terminate(mockID)
 	assert.Nil(err)
@@ -302,18 +311,22 @@ func TestFinishUpload(t *testing.T) {
 		"foo": "bar",
 	}
 
+	ctx := context.Background()
 	gomock.InOrder(
-		service.EXPECT().FilterObjects(filterParams).Return(mockPartials, nil),
-		service.EXPECT().ComposeObjects(composeParams).Return(nil),
-		service.EXPECT().DeleteObjectsWithFilter(filterParams).Return(nil),
-		service.EXPECT().ReadObject(infoParams).Return(r, nil),
-		service.EXPECT().FilterObjects(filterParams2).Return(mockPartials, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams0).Return(size, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams1).Return(size, nil),
-		service.EXPECT().GetObjectSize(mockObjectParams2).Return(size, nil),
-		service.EXPECT().WriteObject(infoParams, infoR).Return(int64(len(offsetInfoData)), nil),
-		service.EXPECT().SetObjectMetadata(objectParams, metadata).Return(nil),
+		service.EXPECT().FilterObjects(ctx, filterParams).Return(mockPartials, nil),
+		service.EXPECT().ComposeObjects(ctx, composeParams).Return(nil),
+		service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil),
+		service.EXPECT().ReadObject(ctx, infoParams).Return(r, nil),
+		service.EXPECT().FilterObjects(ctx, filterParams2).Return(mockPartials, nil),
 	)
+
+	ctxCancel, _ := context.WithCancel(ctx)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
+	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
+
+	writeObject := service.EXPECT().WriteObject(ctx, infoParams, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
+	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(writeObject)
 
 	err = store.FinishUpload(mockID)
 	assert.Nil(err)
@@ -378,9 +391,10 @@ func TestWriteChunk(t *testing.T) {
 
 	rGet := bytes.NewReader([]byte(mockReaderData))
 
+	ctx := context.Background()
 	gomock.InOrder(
-		service.EXPECT().FilterObjects(filterParams).Return(partials, nil),
-		service.EXPECT().WriteObject(writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
+		service.EXPECT().FilterObjects(ctx, filterParams).Return(partials, nil),
+		service.EXPECT().WriteObject(ctx, writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
 	)
 
 	reader := bytes.NewReader([]byte(mockReaderData))

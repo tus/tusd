@@ -2,7 +2,7 @@ package gcsstore_test
 
 import (
 	"bytes"
-	"context"
+	"golang.org/x/net/context"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"
@@ -47,10 +47,9 @@ func TestGetObjectSize(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	size, err := service.GetObjectSize(GCSObjectParams{
+	size, err := service.GetObjectSize(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	})
@@ -94,10 +93,9 @@ func TestDeleteObjectWithFilter(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	err = service.DeleteObjectsWithFilter(GCSFilterParams{
+	err = service.DeleteObjectsWithFilter(ctx, GCSFilterParams{
 		Bucket: "test-bucket",
 		Prefix: "test-prefix",
 	})
@@ -180,10 +178,9 @@ func TestComposeObjects(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	err = service.ComposeObjects(GCSComposeParams{
+	err = service.ComposeObjects(ctx, GCSComposeParams{
 		Bucket:      "test-bucket",
 		Sources:     []string{"test1", "test2", "test3"},
 		Destination: "test_all",
@@ -222,10 +219,9 @@ func TestGetObjectAttrs(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	attrs, err := service.GetObjectAttrs(GCSObjectParams{
+	attrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	})
@@ -266,10 +262,9 @@ func TestReadObject(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	reader, err := service.ReadObject(GCSObjectParams{
+	reader, err := service.ReadObject(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	})
@@ -304,10 +299,9 @@ func TestSetObjectMetadata(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	err = service.SetObjectMetadata(GCSObjectParams{
+	err = service.SetObjectMetadata(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	}, map[string]string{"test": "metadata", "fake": "test"})
@@ -343,10 +337,9 @@ func TestDeleteObject(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	err = service.DeleteObject(GCSObjectParams{
+	err = service.DeleteObject(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	})
@@ -376,12 +369,11 @@ func TestWriteObject(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
 	reader := bytes.NewReader([]byte{1})
 
-	size, err := service.WriteObject(GCSObjectParams{
+	size, err := service.WriteObject(ctx, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	}, reader)
@@ -428,10 +420,9 @@ func TestComposeFrom(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	crc, err := service.ComposeFrom([]*storage.ObjectHandle{client.Bucket("test-bucket").Object("my-object")}, GCSObjectParams{
+	crc, err := service.ComposeFrom(ctx, []*storage.ObjectHandle{client.Bucket("test-bucket").Object("my-object")}, GCSObjectParams{
 		Bucket: "test-bucket",
 		ID:     "my-object",
 	}, "text")
@@ -478,10 +469,9 @@ func TestFilterObject(t *testing.T) {
 
 	service := GCSService{
 		Client: client,
-		Ctx:    ctx,
 	}
 
-	objects, err := service.FilterObjects(GCSFilterParams{
+	objects, err := service.FilterObjects(ctx, GCSFilterParams{
 		Bucket: "test-bucket",
 		Prefix: "test-prefix",
 	})

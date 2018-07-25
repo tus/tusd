@@ -4,6 +4,7 @@
 package gcsstore_test
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	gcsstore "github.com/tus/tusd/gcsstore"
 	io "io"
@@ -102,86 +103,86 @@ func (_m *MockGCSAPI) EXPECT() *_MockGCSAPIRecorder {
 	return _m.recorder
 }
 
-func (_m *MockGCSAPI) ComposeObjects(_param0 gcsstore.GCSComposeParams) error {
-	ret := _m.ctrl.Call(_m, "ComposeObjects", _param0)
+func (_m *MockGCSAPI) ComposeObjects(_param0 context.Context, _param1 gcsstore.GCSComposeParams) error {
+	ret := _m.ctrl.Call(_m, "ComposeObjects", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockGCSAPIRecorder) ComposeObjects(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ComposeObjects", arg0)
+func (_mr *_MockGCSAPIRecorder) ComposeObjects(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ComposeObjects", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) DeleteObject(_param0 gcsstore.GCSObjectParams) error {
-	ret := _m.ctrl.Call(_m, "DeleteObject", _param0)
+func (_m *MockGCSAPI) DeleteObject(_param0 context.Context, _param1 gcsstore.GCSObjectParams) error {
+	ret := _m.ctrl.Call(_m, "DeleteObject", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockGCSAPIRecorder) DeleteObject(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObject", arg0)
+func (_mr *_MockGCSAPIRecorder) DeleteObject(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObject", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) DeleteObjectsWithFilter(_param0 gcsstore.GCSFilterParams) error {
-	ret := _m.ctrl.Call(_m, "DeleteObjectsWithFilter", _param0)
+func (_m *MockGCSAPI) DeleteObjectsWithFilter(_param0 context.Context, _param1 gcsstore.GCSFilterParams) error {
+	ret := _m.ctrl.Call(_m, "DeleteObjectsWithFilter", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockGCSAPIRecorder) DeleteObjectsWithFilter(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObjectsWithFilter", arg0)
+func (_mr *_MockGCSAPIRecorder) DeleteObjectsWithFilter(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObjectsWithFilter", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) FilterObjects(_param0 gcsstore.GCSFilterParams) ([]string, error) {
-	ret := _m.ctrl.Call(_m, "FilterObjects", _param0)
+func (_m *MockGCSAPI) FilterObjects(_param0 context.Context, _param1 gcsstore.GCSFilterParams) ([]string, error) {
+	ret := _m.ctrl.Call(_m, "FilterObjects", _param0, _param1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockGCSAPIRecorder) FilterObjects(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilterObjects", arg0)
+func (_mr *_MockGCSAPIRecorder) FilterObjects(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilterObjects", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) GetObjectSize(_param0 gcsstore.GCSObjectParams) (int64, error) {
-	ret := _m.ctrl.Call(_m, "GetObjectSize", _param0)
+func (_m *MockGCSAPI) GetObjectSize(_param0 context.Context, _param1 gcsstore.GCSObjectParams) (int64, error) {
+	ret := _m.ctrl.Call(_m, "GetObjectSize", _param0, _param1)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockGCSAPIRecorder) GetObjectSize(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObjectSize", arg0)
+func (_mr *_MockGCSAPIRecorder) GetObjectSize(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetObjectSize", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) ReadObject(_param0 gcsstore.GCSObjectParams) (gcsstore.GCSReader, error) {
-	ret := _m.ctrl.Call(_m, "ReadObject", _param0)
+func (_m *MockGCSAPI) ReadObject(_param0 context.Context, _param1 gcsstore.GCSObjectParams) (gcsstore.GCSReader, error) {
+	ret := _m.ctrl.Call(_m, "ReadObject", _param0, _param1)
 	ret0, _ := ret[0].(gcsstore.GCSReader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockGCSAPIRecorder) ReadObject(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadObject", arg0)
+func (_mr *_MockGCSAPIRecorder) ReadObject(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadObject", arg0, arg1)
 }
 
-func (_m *MockGCSAPI) SetObjectMetadata(_param0 gcsstore.GCSObjectParams, _param1 map[string]string) error {
-	ret := _m.ctrl.Call(_m, "SetObjectMetadata", _param0, _param1)
+func (_m *MockGCSAPI) SetObjectMetadata(_param0 context.Context, _param1 gcsstore.GCSObjectParams, _param2 map[string]string) error {
+	ret := _m.ctrl.Call(_m, "SetObjectMetadata", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockGCSAPIRecorder) SetObjectMetadata(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetObjectMetadata", arg0, arg1)
+func (_mr *_MockGCSAPIRecorder) SetObjectMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetObjectMetadata", arg0, arg1, arg2)
 }
 
-func (_m *MockGCSAPI) WriteObject(_param0 gcsstore.GCSObjectParams, _param1 io.Reader) (int64, error) {
-	ret := _m.ctrl.Call(_m, "WriteObject", _param0, _param1)
+func (_m *MockGCSAPI) WriteObject(_param0 context.Context, _param1 gcsstore.GCSObjectParams, _param2 io.Reader) (int64, error) {
+	ret := _m.ctrl.Call(_m, "WriteObject", _param0, _param1, _param2)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockGCSAPIRecorder) WriteObject(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "WriteObject", arg0, arg1)
+func (_mr *_MockGCSAPIRecorder) WriteObject(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "WriteObject", arg0, arg1, arg2)
 }
