@@ -119,9 +119,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 		ID:     i,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	ctx := context.Background()
 	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
@@ -157,6 +155,8 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 
 	sem := make(chan struct{}, CONCURRENT_SIZE_REQUESTS)
 	errChan := make(chan error)
+	ctxCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	go func() {
 		for err := range errChan {
@@ -175,13 +175,13 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 			ID:     name,
 		}
 
-		go func() {
+		go func(params GCSObjectParams) {
 			defer func() {
 				<-sem
 				wg.Done()
 			}()
 
-			size, err := store.Service.GetObjectSize(ctx, params)
+			size, err := store.Service.GetObjectSize(ctxCancel, params)
 
 			if err != nil {
 				errChan <- err
@@ -189,7 +189,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 			}
 
 			atomic.AddInt64(&offset, size)
-		}()
+		}(params)
 	}
 
 	wg.Wait()
