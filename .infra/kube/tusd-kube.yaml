@@ -48,6 +48,48 @@ spec:
         volumeMounts:
         - name: tusd-account
           mountPath: /gcs
+      - name: muescheli
+        image: "monostream/muescheli:18.11.1"
+        imagePullPolicy: Always
+        env:
+        - name: CLAMD_HOST
+          value: localhost
+        - name: CLAMD_PORT
+          value: '3310'
+        ports:
+          - containerPort: 8091
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: 8091
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 8091
+          initialDelaySeconds: 30
+      - name: clamd
+        image: "monostream/clamav:0.99.3-r1"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3310
+          name: api
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - readiness.sh
+          initialDelaySeconds: 30
+          timeoutSeconds: 10
+          periodSeconds: 60
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - liveness.sh
+          initialDelaySeconds: 30
+          timeoutSeconds: 15
+          periodSeconds: 60
+          failureThreshold: 5
       volumes:
       - name: tusd-account
         secret:
