@@ -252,6 +252,13 @@ Explicit examples for the above points can be found in the [Nginx configuration]
 
 Yes, this is made possible by the [hook system](/docs/hooks.md) inside the tusd binary. It enables custom routines to be executed when certain events occurs, such as a new upload being created which can be handled by the `pre-create` hook. Inside the corresponding hook file, you can run your own validations against the provided upload metadata to determine whether the action is actually allowed or should be rejected by tusd. Please have a look at the [corresponding documentation](docs/hooks.md#pre-create) for a more detailed explanation.
 
+### Can I run tusd inside a VM/Vagrant/VirtualBox?
+
+Yes, you can absolutely do so without any modifications. However, there is one known problem: If you are using tusd inside VirtualBox (the default provider for Vagrant) and are storing the files inside a shared/synced folder, you might get TemporaryErrors (Lockfile created, but doesn't exist) when trying to upload. This happens because shared folders do not support symbolic links which are necessary for tusd. Please use another non-shared folder for storing files (see https://github.com/tus/tusd/issues/201).
+
+### I am getting TemporaryErrors (Lockfile created, but doesn't exist)! What can I do?
+
+This error should only occur when you are using tusd inside VirtualBox. Please see the answer above for more details on when this can happen and how to avoid it.
 
 ## License
 
