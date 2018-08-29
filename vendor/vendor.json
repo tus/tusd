@@ -1,6 +1,6 @@
 {
 	"comment": "",
-	"ignore": "test github.com/hashicorp/consul/ github.com/aws/aws-sdk-go/ github.com/prometheus/client_golang/prometheus/",
+	"ignore": "test github.com/hashicorp/consul/ github.com/aws/aws-sdk-go/ github.com/prometheus/client_golang/prometheus/ github.com/coreos/etcd github.com/mwitkow/go-etcd-harness",
 	"package": [
 		{
 			"path": "appengine",
