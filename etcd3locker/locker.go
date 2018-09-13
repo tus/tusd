@@ -4,7 +4,6 @@ package etcd3locker
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 	"sync"
 
@@ -97,13 +96,13 @@ func (locker *etcd3Locker) UnlockUpload(id string) error {
 func (locker *etcd3Locker) createSession() (*concurrency.Session, error) {
 	lease, err := locker.Client.Grant(context.Background(), DefaultTtl)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	// Keep lease alive until this process dies
 	ch, keepAliveErr := locker.Client.KeepAlive(context.Background(), lease.ID)
 	if keepAliveErr != nil {
-		log.Fatal(keepAliveErr)
+		return nil, keepAliveErr
 	}
 
 	go func() {
