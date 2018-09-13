@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	etcd3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -15,6 +16,7 @@ import (
 var (
 	ErrLockNotHeld = errors.New("Lock not held")
 	DefaultTtl     = int64(60)
+	GrantTimeout   = 1500 * time.Millisecond
 )
 
 type etcd3Locker struct {
@@ -94,7 +96,10 @@ func (locker *etcd3Locker) UnlockUpload(id string) error {
 }
 
 func (locker *etcd3Locker) createSession() (*concurrency.Session, error) {
-	lease, err := locker.Client.Grant(context.Background(), DefaultTtl)
+	ctx, cancel := context.WithTimeout(context.Background(), GrantTimeout)
+	defer cancel()
+
+	lease, err := locker.Client.Grant(ctx, DefaultTtl)
 	if err != nil {
 		return nil, err
 	}
