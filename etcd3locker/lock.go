@@ -9,20 +9,20 @@ import (
 	"github.com/tus/tusd"
 )
 
-type Etcd3Lock struct {
+type etcd3Lock struct {
 	Id      string
 	Mutex   *concurrency.Mutex
 	Session *concurrency.Session
 }
 
-func NewEtcd3Lock(session *concurrency.Session, id string) *Etcd3Lock {
-	return &Etcd3Lock{
+func newEtcd3Lock(session *concurrency.Session, id string) *etcd3Lock {
+	return &etcd3Lock{
 		Mutex:   concurrency.NewMutex(session, id),
 		Session: session,
 	}
 }
 
-func (lock *Etcd3Lock) Acquire() error {
+func (lock *etcd3Lock) Acquire() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -38,10 +38,10 @@ func (lock *Etcd3Lock) Acquire() error {
 	return nil
 }
 
-func (lock *Etcd3Lock) Release() error {
+func (lock *etcd3Lock) Release() error {
 	return lock.Mutex.Unlock(context.Background())
 }
 
-func (lock *Etcd3Lock) CloseSession() error {
+func (lock *etcd3Lock) CloseSession() error {
 	return lock.Session.Close()
 }
