@@ -42,7 +42,7 @@ func NewWithPrefix(client *etcd3.Client, prefix string) (*etcd3Locker, error) {
 }
 
 // This method may be used if we want control over both prefix/session TTLs. This is used for testing in particular.
-func NewWithLockerOptions(client *etcd3.Client, opts *LockerOptions) (*etcd3Locker, error) {
+func NewWithLockerOptions(client *etcd3.Client, opts LockerOptions) (*etcd3Locker, error) {
 	locksMap := map[string]*etcd3Lock{}
 	return &etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTimeout: opts.Timeout(), locks: locksMap, mutex: sync.Mutex{}}, nil
 }

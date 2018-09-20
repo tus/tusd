@@ -43,6 +43,8 @@ func TestEtcd3Locker(t *testing.T) {
 	a.NoError(locker.LockUpload("one"))
 	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
 	time.Sleep(5 * time.Second)
+	// test that we can't take over the upload via a different etcd3 session
+	// while an upload is already taking place; testing etcd3 session KeepAlive
 	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
 	a.NoError(locker.UnlockUpload("one"))
 	a.Equal(ErrLockNotHeld, locker.UnlockUpload("one"))

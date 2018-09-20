@@ -14,15 +14,15 @@ type LockerOptions struct {
 	prefix         string
 }
 
-func DefaultLockerOptions() *LockerOptions {
-	return &LockerOptions{
+func DefaultLockerOptions() LockerOptions {
+	return LockerOptions{
 		timeoutSeconds: 60,
 		prefix:         "/tusd",
 	}
 }
 
-func NewLockerOptions(timeout int, prefix string) *LockerOptions {
-	return &LockerOptions{
+func NewLockerOptions(timeout int, prefix string) LockerOptions {
+	return LockerOptions{
 		timeoutSeconds: timeout,
 		prefix:         prefix,
 	}
