@@ -16,7 +16,7 @@ var (
 	GrantTimeout   = 1500 * time.Millisecond
 )
 
-type etcd3Locker struct {
+type Etcd3Locker struct {
 	// etcd3 client session
 	Client *etcd3.Client
 
@@ -30,30 +30,30 @@ type etcd3Locker struct {
 }
 
 // New constructs a new locker using the provided client.
-func New(client *etcd3.Client) (*etcd3Locker, error) {
+func New(client *etcd3.Client) (*Etcd3Locker, error) {
 	return NewWithLockerOptions(client, DefaultLockerOptions())
 }
 
 // This method may be used if a different prefix is required for multi-tenant etcd clusters
-func NewWithPrefix(client *etcd3.Client, prefix string) (*etcd3Locker, error) {
+func NewWithPrefix(client *etcd3.Client, prefix string) (*Etcd3Locker, error) {
 	lockerOptions := DefaultLockerOptions()
 	lockerOptions.SetPrefix(prefix)
 	return NewWithLockerOptions(client, lockerOptions)
 }
 
 // This method may be used if we want control over both prefix/session TTLs. This is used for testing in particular.
-func NewWithLockerOptions(client *etcd3.Client, opts LockerOptions) (*etcd3Locker, error) {
+func NewWithLockerOptions(client *etcd3.Client, opts LockerOptions) (*Etcd3Locker, error) {
 	locksMap := map[string]*etcd3Lock{}
-	return &etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTimeout: opts.Timeout(), locks: locksMap, mutex: sync.Mutex{}}, nil
+	return &Etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTimeout: opts.Timeout(), locks: locksMap, mutex: sync.Mutex{}}, nil
 }
 
 // UseIn adds this locker to the passed composer.
-func (locker *etcd3Locker) UseIn(composer *tusd.StoreComposer) {
+func (locker *Etcd3Locker) UseIn(composer *tusd.StoreComposer) {
 	composer.UseLocker(locker)
 }
 
 // LockUpload tries to obtain the exclusive lock.
-func (locker *etcd3Locker) LockUpload(id string) error {
+func (locker *Etcd3Locker) LockUpload(id string) error {
 	session, err := locker.createSession()
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func (locker *etcd3Locker) LockUpload(id string) error {
 }
 
 // UnlockUpload releases a lock. If no such lock exists, no error will be returned.
-func (locker *etcd3Locker) UnlockUpload(id string) error {
+func (locker *Etcd3Locker) UnlockUpload(id string) error {
 	locker.mutex.Lock()
 	defer locker.mutex.Unlock()
 
@@ -95,10 +95,10 @@ func (locker *etcd3Locker) UnlockUpload(id string) error {
 	return lock.CloseSession()
 }
 
-func (locker *etcd3Locker) createSession() (*concurrency.Session, error) {
+func (locker *Etcd3Locker) createSession() (*concurrency.Session, error) {
 	return concurrency.NewSession(locker.Client, concurrency.WithTTL(locker.sessionTimeout))
 }
 
-func (locker *etcd3Locker) getId(id string) string {
+func (locker *Etcd3Locker) getId(id string) string {
 	return locker.prefix + id
 }
