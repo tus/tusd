@@ -2,9 +2,7 @@
 package etcd3locker
 
 import (
-	"context"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 
 var (
 	ErrLockNotHeld = errors.New("Lock not held")
-	DefaultTtl     = int64(60)
 	GrantTimeout   = 1500 * time.Millisecond
 )
 
@@ -26,25 +23,28 @@ type etcd3Locker struct {
 	// locks is used for storing Etcd3Locks before they are
 	// unlocked. If you want to release a lock, you need the same locker
 	// instance and therefore we need to save them temporarily.
-	locks  map[string]*etcd3Lock
-	mutex  sync.Mutex
-	prefix string
+	locks          map[string]*etcd3Lock
+	mutex          sync.Mutex
+	prefix         string
+	sessionTimeout int
 }
 
 // New constructs a new locker using the provided client.
 func New(client *etcd3.Client) (*etcd3Locker, error) {
-	return NewWithPrefix(client, "/tusd")
+	return NewWithLockerOptions(client, DefaultLockerOptions())
 }
 
 // This method may be used if a different prefix is required for multi-tenant etcd clusters
 func NewWithPrefix(client *etcd3.Client, prefix string) (*etcd3Locker, error) {
+	lockerOptions := DefaultLockerOptions()
+	lockerOptions.SetPrefix(prefix)
+	return NewWithLockerOptions(client, lockerOptions)
+}
+
+// This method may be used if we want control over both prefix/session TTLs. This is used for testing in particular.
+func NewWithLockerOptions(client *etcd3.Client, opts *LockerOptions) (*etcd3Locker, error) {
 	locksMap := map[string]*etcd3Lock{}
-
-	if !strings.HasPrefix(prefix, "/") {
-		prefix = "/" + prefix
-	}
-
-	return &etcd3Locker{Client: client, prefix: prefix, locks: locksMap, mutex: sync.Mutex{}}, nil
+	return &etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTimeout: opts.Timeout(), locks: locksMap, mutex: sync.Mutex{}}, nil
 }
 
 // UseIn adds this locker to the passed composer.
@@ -96,27 +96,7 @@ func (locker *etcd3Locker) UnlockUpload(id string) error {
 }
 
 func (locker *etcd3Locker) createSession() (*concurrency.Session, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), GrantTimeout)
-	defer cancel()
-
-	lease, err := locker.Client.Grant(ctx, DefaultTtl)
-	if err != nil {
-		return nil, err
-	}
-
-	// Keep lease alive until this process dies
-	ch, keepAliveErr := locker.Client.KeepAlive(context.Background(), lease.ID)
-	if keepAliveErr != nil {
-		return nil, keepAliveErr
-	}
-
-	go func() {
-		for _ = range ch {
-			// do nothing
-		}
-	}()
-
-	return concurrency.NewSession(locker.Client, concurrency.WithLease(lease.ID))
+	return concurrency.NewSession(locker.Client, concurrency.WithTTL(locker.sessionTimeout))
 }
 
 func (locker *etcd3Locker) getId(id string) string {

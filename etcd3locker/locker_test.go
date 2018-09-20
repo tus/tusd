@@ -34,10 +34,25 @@ func TestEtcd3Locker(t *testing.T) {
 	}
 	defer client.Close()
 
-	locker, err := New(client)
+	shortTTL := 3
+	testPrefix := "/test-tusd"
+
+	lockerOptions := NewLockerOptions(shortTTL, testPrefix)
+	locker, err := NewWithLockerOptions(client, lockerOptions)
 	a.NoError(err)
 	a.NoError(locker.LockUpload("one"))
 	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
+	time.Sleep(5 * time.Second)
+	a.Equal(tusd.ErrFileLocked, locker.LockUpload("one"))
 	a.NoError(locker.UnlockUpload("one"))
 	a.Equal(ErrLockNotHeld, locker.UnlockUpload("one"))
+
+	testPrefix = "/test-tusd2"
+	locker2, err := NewWithPrefix(client, testPrefix)
+	a.NoError(err)
+	a.NoError(locker2.LockUpload("one"))
+	a.Equal(tusd.ErrFileLocked, locker2.LockUpload("one"))
+	a.Equal(tusd.ErrFileLocked, locker2.LockUpload("one"))
+	a.NoError(locker2.UnlockUpload("one"))
+	a.Equal(ErrLockNotHeld, locker2.UnlockUpload("one"))
 }
