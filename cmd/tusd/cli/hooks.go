@@ -146,7 +146,8 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 }
 
 func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	cmd := exec.Command(Flags.FileHooksDir + "/" + name)
+	hookPath := Flags.FileHooksDir + string(os.PathSeparator) + name
+	cmd := exec.Command(hookPath)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+info.ID)
 	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
