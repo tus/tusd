@@ -28,6 +28,7 @@ fi
 
 install_etcd_pkgs() {
   go get -u github.com/coreos/etcd
+  go get -u github.com/gogo/protobuf/gogoproto
   go get -u google.golang.org/grpc
   go get -u github.com/coreos/go-semver
   go get -u github.com/ugorji/go/codec
