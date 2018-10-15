@@ -2,7 +2,7 @@ package gcsstore_test
 
 import (
 	"bytes"
-	"golang.org/x/net/context"
+	"context"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"

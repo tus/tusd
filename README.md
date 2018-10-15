@@ -31,7 +31,7 @@ Windows in various formats of the
 
 ### Compile from source
 
-The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.5 or newer.
+The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.7 or newer.
 If you meet this criteria, you can clone the git repository, install the remaining
 depedencies and build the binary:
 

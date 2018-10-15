@@ -2,9 +2,9 @@ package gcsstore_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"testing"
 
 	"cloud.google.com/go/storage"

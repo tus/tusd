@@ -14,7 +14,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
+	"context"
 	"io"
 	"strconv"
 	"strings"
