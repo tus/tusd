@@ -1,14 +1,13 @@
 package etcd3locker
 
 import (
-	"github.com/coreos/etcd/clientv3"
-	etcd_harness "github.com/mwitkow/go-etcd-harness"
+	"go.etcd.io/etcd/clientv3"
+	etcd_harness "github.com/chen-anders/go-etcd-harness"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
 	"github.com/tus/tusd"
 )
 
