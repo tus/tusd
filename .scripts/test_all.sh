@@ -28,7 +28,7 @@ fi
 
 install_etcd_pkgs() {
   go get -u go.etcd.io/etcd/clientv3
-  go get -u github.com/mwitkow/go-etcd-harness
+  go get -u github.com/chen-anders/go-etcd-harness
 }
 
 # The etcd 3.3.x package only supports Go1.9+ and therefore
