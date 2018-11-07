@@ -42,8 +42,6 @@ if [[ "$goversion" == *"go1.5"* ]] ||
 else
   # Install the etcd packages which are not vendored.
   install_etcd_pkgs
-  # use release 3.3 as master branches are not stable for etcd
-  (cd ../../coreos/etcd && git fetch origin && git checkout release-3.3)
 fi
 
 # Install the AWS SDK and Prometheus client which is explicitly not vendored
