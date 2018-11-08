@@ -27,8 +27,12 @@ else
 fi
 
 install_etcd_pkgs() {
+  ETCD_VERSION="3.3.10"
   go get -u go.etcd.io/etcd/clientv3
   go get -u github.com/chen-anders/go-etcd-harness
+  wget -q -O /tmp/etcd.tar.gz "https://github.com/etcd-io/etcd/releases/download/v$ETCD_VERSION/etcd-v$ETCD_VERSION-linux-amd64.tar.gz"
+  tar xvzf /tmp/etcd.tar.gz -C /tmp
+  export PATH="$PATH:/tmp/etcd-v$ETCD_VERSION-linux-amd64"
 }
 
 # The etcd 3.3.x package only supports Go1.9+ and therefore
