@@ -1,4 +1,5 @@
-// Tested on etcd 3.1+
+// Package etcd3locker provides a locking mechanism using an etcd3 cluster.
+// Tested on etcd 3.1/3.2./3.3
 package etcd3locker
 
 import (
@@ -22,6 +23,7 @@ func newEtcd3Lock(session *concurrency.Session, id string) *etcd3Lock {
 	}
 }
 
+// Acquires a lock from etcd3
 func (lock *etcd3Lock) Acquire() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -38,10 +40,12 @@ func (lock *etcd3Lock) Acquire() error {
 	return nil
 }
 
+// Releases a lock from etcd3
 func (lock *etcd3Lock) Release() error {
 	return lock.Mutex.Unlock(context.Background())
 }
 
+// Closes etcd3 session
 func (lock *etcd3Lock) CloseSession() error {
 	return lock.Session.Close()
 }
