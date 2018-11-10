@@ -10,32 +10,38 @@ var (
 )
 
 type LockerOptions struct {
-	timeoutSeconds int
-	prefix         string
+	ttl    int
+	prefix string
 }
 
+// DefaultLockerOptions() instantiates an instance of LockerOptions
+// with default 60 second time to live and an etcd3 prefix of "/tusd"
 func DefaultLockerOptions() LockerOptions {
 	return LockerOptions{
-		timeoutSeconds: 60,
-		prefix:         "/tusd",
+		ttl:    60,
+		prefix: "/tusd",
 	}
 }
 
-func NewLockerOptions(timeout int, prefix string) LockerOptions {
+// NewLockerOptions instantiates an instance of LockerOptions with a
+// provided TTL (time to live) and string prefix for keys to be stored in etcd3
+func NewLockerOptions(ttl int, prefix string) LockerOptions {
 	return LockerOptions{
-		timeoutSeconds: timeout,
-		prefix:         prefix,
+		ttl:    ttl,
+		prefix: prefix,
 	}
 }
 
-func (l *LockerOptions) Timeout() int {
-	if l.timeoutSeconds == 0 {
+// Returns the TTL (time to live) of sessions in etcd3
+func (l *LockerOptions) Ttl() int {
+	if l.ttl == 0 {
 		return DefaultTtl
 	} else {
-		return l.timeoutSeconds
+		return l.ttl
 	}
 }
 
+// Returns the string prefix used to store keys in etcd3
 func (l *LockerOptions) Prefix() string {
 	prefix := l.prefix
 	if !strings.HasPrefix(prefix, "/") {
@@ -49,10 +55,12 @@ func (l *LockerOptions) Prefix() string {
 	}
 }
 
-func (l *LockerOptions) SetTimeout(timeout int) {
-	l.timeoutSeconds = timeout
+// Set etcd3 session TTL (time to live)
+func (l *LockerOptions) SetTtl(ttl int) {
+	l.ttl = ttl
 }
 
+// Set string prefix to be used in keys stored into etcd3 by the locker
 func (l *LockerOptions) SetPrefix(prefix string) {
 	l.prefix = prefix
 }
