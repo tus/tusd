@@ -35,6 +35,7 @@ func CreateComposer() {
 		// Derive credentials from default credential chain (env, shared, ec2 instance role)
 		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
 		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
+		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()

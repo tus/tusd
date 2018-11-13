@@ -108,6 +108,10 @@ var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F])`)
 type S3Store struct {
 	// Bucket used to store the data in, e.g. "tusdstore.example.com"
 	Bucket string
+	// ObjectPrefix is prepended to the name of each S3 object that is created.
+	// It can be used to create a pseudo-directory structure in the bucket,
+	// e.g. "path/to/my/uploads".
+	ObjectPrefix string
 	// Service specifies an interface used to communicate with the S3 backend.
 	// Usually, this is an instance of github.com/aws/aws-sdk-go/service/s3.S3
 	// (http://docs.aws.amazon.com/sdk-for-go/api/service/s3/S3.html).
@@ -197,7 +201,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	// Create the actual multipart upload
 	res, err := store.Service.CreateMultipartUpload(&s3.CreateMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
+		Key:      store.keyWithPrefix(uploadId),
 		Metadata: metadata,
 	})
 	if err != nil {
@@ -215,7 +219,7 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	// Create object on S3 containing information about the file
 	_, err = store.Service.PutObject(&s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
-		Key:           aws.String(uploadId + ".info"),
+		Key:           store.keyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
@@ -286,7 +290,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 		_, err = store.Service.UploadPart(&s3.UploadPartInput{
 			Bucket:     aws.String(store.Bucket),
-			Key:        aws.String(uploadId),
+			Key:        store.keyWithPrefix(uploadId),
 			UploadId:   aws.String(multipartId),
 			PartNumber: aws.Int64(nextPartNum),
 			Body:       file,
@@ -307,7 +311,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 	// Get file info stored in separate object
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    aws.String(uploadId + ".info"),
+		Key:    store.keyWithPrefix(uploadId + ".info"),
 	})
 	if err != nil {
 		if isAwsError(err, "NoSuchKey") {
@@ -353,7 +357,7 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 	// Attempt to get upload content
 	res, err := store.Service.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    aws.String(uploadId),
+		Key:    store.keyWithPrefix(uploadId),
 	})
 	if err == nil {
 		// No error occurred, and we are able to stream the object
@@ -371,7 +375,7 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 	// never existsted or just has not been finished yet
 	_, err = store.Service.ListParts(&s3.ListPartsInput{
 		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
+		Key:      store.keyWithPrefix(uploadId),
 		UploadId: aws.String(multipartId),
 		MaxParts: aws.Int64(0),
 	})
@@ -400,7 +404,7 @@ func (store S3Store) Terminate(id string) error {
 		// Abort the multipart upload
 		_, err := store.Service.AbortMultipartUpload(&s3.AbortMultipartUploadInput{
 			Bucket:   aws.String(store.Bucket),
-			Key:      aws.String(uploadId),
+			Key:      store.keyWithPrefix(uploadId),
 			UploadId: aws.String(multipartId),
 		})
 		if err != nil && !isAwsError(err, "NoSuchUpload") {
@@ -417,10 +421,10 @@ func (store S3Store) Terminate(id string) error {
 			Delete: &s3.Delete{
 				Objects: []*s3.ObjectIdentifier{
 					{
-						Key: aws.String(uploadId),
+						Key: store.keyWithPrefix(uploadId),
 					},
 					{
-						Key: aws.String(uploadId + ".info"),
+						Key: store.keyWithPrefix(uploadId + ".info"),
 					},
 				},
 				Quiet: aws.Bool(true),
@@ -470,7 +474,7 @@ func (store S3Store) FinishUpload(id string) error {
 
 	_, err = store.Service.CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
-		Key:      aws.String(uploadId),
+		Key:      store.keyWithPrefix(uploadId),
 		UploadId: aws.String(multipartId),
 		MultipartUpload: &s3.CompletedMultipartUpload{
 			Parts: completedParts,
@@ -497,7 +501,7 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 
 			_, err := store.Service.UploadPartCopy(&s3.UploadPartCopyInput{
 				Bucket:   aws.String(store.Bucket),
-				Key:      aws.String(uploadId),
+				Key:      store.keyWithPrefix(uploadId),
 				UploadId: aws.String(multipartId),
 				// Part numbers must be in the range of 1 to 10000, inclusive. Since
 				// slice indexes start at 0, we add 1 to ensure that i >= 1.
@@ -528,7 +532,7 @@ func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
 		// Get uploaded parts
 		listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String(store.Bucket),
-			Key:              aws.String(uploadId),
+			Key:              store.keyWithPrefix(uploadId),
 			UploadId:         aws.String(multipartId),
 			PartNumberMarker: aws.Int64(partMarker),
 		})
@@ -609,4 +613,13 @@ func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err
 		return optimalPartSize, fmt.Errorf("calcOptimalPartSize: to upload %v bytes optimalPartSize %v must exceed MaxPartSize %v", size, optimalPartSize, store.MaxPartSize)
 	}
 	return optimalPartSize, nil
+}
+
+func (store S3Store) keyWithPrefix(key string) *string {
+	prefix := store.ObjectPrefix
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	return aws.String(prefix + key)
 }
