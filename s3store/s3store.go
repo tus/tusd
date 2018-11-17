@@ -567,6 +567,74 @@ func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
 	return parts, nil
 }
 
+func (store S3Store) downloadIncompletePartForUpload(uploadId string) (*os.File, int64, error) {
+	incompleteUploadObject, err := store.getIncompletePartForUpload(uploadId)
+	if err != nil {
+		return nil, 0, err
+	}
+	if incompleteUploadObject == nil {
+		// We did not find an incomplete upload
+		return nil, 0, nil
+	}
+	defer incompleteUploadObject.Body.Close()
+
+	partFile, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	n, err := io.Copy(partFile, incompleteUploadObject.Body)
+	if err != nil {
+		return nil, 0, err
+	}
+	if n < *incompleteUploadObject.ContentLength {
+		return nil, 0, errors.New("short read of incomplete upload")
+	}
+
+	_, err = partFile.Seek(0, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return partFile, n, nil
+}
+
+func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectOutput, error) {
+	obj, err := store.Service.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
+	})
+
+	if err != nil && isAwsError(err, s3.ErrCodeNoSuchKey) {
+		return nil, nil
+	}
+
+	return obj, err
+}
+
+func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker) error {
+	_, err := store.Service.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Body:   r,
+	})
+	return err
+}
+
+func (store S3Store) deleteIncompletePartForUpload(uploadId string) error {
+	_, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+		Bucket: aws.String(store.Bucket),
+		Delete: &s3.Delete{
+			Objects: []*s3.ObjectIdentifier{
+				{
+					Key: store.keyWithPrefix(uploadId + ".part"),
+				},
+			},
+		},
+	})
+	return err
+}
+
 func splitIds(id string) (uploadId, multipartId string) {
 	index := strings.Index(id, "+")
 	if index == -1 {
