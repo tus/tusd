@@ -316,6 +316,47 @@ func TestGetReaderNotFinished(t *testing.T) {
 	assert.Equal("cannot stream non-finished upload", err.Error())
 }
 
+func TestDeclareLength(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	gomock.InOrder(
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.info"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{},
+		}, nil),
+		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.part"),
+		}).Return(&s3.HeadObjectOutput{
+			ContentLength: aws.Int64(0),
+		}, nil),
+		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(144)),
+		}),
+	)
+
+	err := store.DeclareLength("uploadId+multipartId", 500)
+	assert.Nil(err)
+}
+
 func TestFinishUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
