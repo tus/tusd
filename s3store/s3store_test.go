@@ -217,6 +217,41 @@ func TestGetInfo(t *testing.T) {
 	assert.Equal("menü", info.MetaData["bar"])
 }
 
+func TestGetInfoWithIncompletePart(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	gomock.InOrder(
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.info"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
+		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
+		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.part"),
+		}).Return(&s3.HeadObjectOutput{
+			ContentLength: aws.Int64(10),
+		}, nil),
+	)
+
+	info, err := store.GetInfo("uploadId+multipartId")
+	assert.Nil(err)
+	assert.Equal(int64(10), info.Offset)
+	assert.Equal("uploadId+multipartId", info.ID)
+}
+
 func TestGetInfoFinished(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
