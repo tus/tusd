@@ -431,13 +431,16 @@ func (store S3Store) Terminate(id string) error {
 	go func() {
 		defer wg.Done()
 
-		// Delete the info and content file
+		// Delete the info and content files
 		res, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
 			Bucket: aws.String(store.Bucket),
 			Delete: &s3.Delete{
 				Objects: []*s3.ObjectIdentifier{
 					{
 						Key: store.keyWithPrefix(uploadId),
+					},
+					{
+						Key: store.keyWithPrefix(uploadId + ".part"),
 					},
 					{
 						Key: store.keyWithPrefix(uploadId + ".info"),

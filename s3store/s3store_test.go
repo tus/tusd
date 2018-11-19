@@ -604,6 +604,9 @@ func TestTerminate(t *testing.T) {
 					Key: aws.String("uploadId"),
 				},
 				{
+					Key: aws.String("uploadId.part"),
+				},
+				{
 					Key: aws.String("uploadId.info"),
 				},
 			},
@@ -637,6 +640,9 @@ func TestTerminateWithErrors(t *testing.T) {
 			Objects: []*s3.ObjectIdentifier{
 				{
 					Key: aws.String("uploadId"),
+				},
+				{
+					Key: aws.String("uploadId.part"),
 				},
 				{
 					Key: aws.String("uploadId.info"),
