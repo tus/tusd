@@ -364,7 +364,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	if err != nil {
-		if !isAwsError(err, "NotFound") {
+		if !isAwsError(err, s3.ErrCodeNoSuchKey) {
 			return info, err
 		}
 
