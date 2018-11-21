@@ -33,7 +33,7 @@ Windows in various formats of the
 
 The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.5 or newer.
 If you meet this criteria, you can clone the git repository, install the remaining
-depedencies and build the binary:
+dependencies and build the binary:
 
 ```bash
 git clone git@github.com:tus/tusd.git
@@ -48,7 +48,7 @@ go build -o tusd cmd/tusd/main.go
 ## Running tusd
 
 Start the tusd upload server is as simple as invoking a single command. For example, following
-snippet demostrates how to start a tusd process which accepts tus uploads at
+snippet demonstrates how to start a tusd process which accepts tus uploads at
 `http://localhost:1080/files/` and stores them locally in the `./data` directory:
 
 ```
@@ -171,7 +171,7 @@ func main() {
 
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a
-	// place where all those seperated pieces are joined together. In this example
+	// place where all those separated pieces are joined together. In this example
 	// we only use the file store but you may plug in multiple.
 	composer := tusd.NewStoreComposer()
 	store.UseIn(composer)
@@ -245,7 +245,7 @@ The tusd binary, once executed, listens on the provided port for only non-encryp
 
 ### Can I run tusd behind a reverse proxy?
 
-Yes, it is absolutely possible to do so. Firstly, you should execute the tusd binary using the `-behind-proxy` flag indicating it to pay attention to special headers which are only relevent when used in conjunction with a proxy. Furthermore, there are addtional details which should be kept in mind, depending on the used software:
+Yes, it is absolutely possible to do so. Firstly, you should execute the tusd binary using the `-behind-proxy` flag indicating it to pay attention to special headers which are only relevant when used in conjunction with a proxy. Furthermore, there are additional details which should be kept in mind, depending on the used software:
 
 - *Disable request buffering.* Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed while it's being transfered. Therefore, such as feature should be disabled.
 
