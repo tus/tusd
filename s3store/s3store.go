@@ -364,7 +364,7 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	if err != nil {
-		if !isAwsError(err, s3.ErrCodeNoSuchKey) {
+		if !isAwsError(err, s3.ErrCodeNoSuchKey) && !isAwsError(err, "AccessDenied") {
 			return info, err
 		}
 
@@ -632,7 +632,7 @@ func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectO
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 
-	if err != nil && isAwsError(err, s3.ErrCodeNoSuchKey) {
+	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "AccessDenied")) {
 		return nil, nil
 	}
 

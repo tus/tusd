@@ -804,7 +804,7 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
+		}).Return(&s3.HeadObjectOutput{}, awserr.New("AccessDenied", "Access Denied.", nil)),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
