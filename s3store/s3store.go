@@ -53,21 +53,10 @@
 //
 // In order to support tus' principle of resumable upload, S3's Multipart-Uploads
 // are internally used.
-// For each incoming PATCH request (a call to WriteChunk), a new part is uploaded
-// to S3. However, each part of a multipart upload, except the last one, must
-// be 5MB or bigger. This introduces a problem, since in tus' perspective
-// it's totally fine to upload just a few kilobytes in a single request.
-//
-// Therefore, a few special conditions have been implemented:
-//
-// Each PATCH request must contain a body of, at least, 5MB. If the size
-// is smaller than this limit, the entire request will be dropped and not
-// even passed to the storage server. If your server supports a different
-// limit, you can adjust this value using S3Store.MinPartSize.
 //
 // When receiving a PATCH request, its body will be temporarily stored on disk.
 // This requirement has been made to ensure the minimum size of a single part
-// and to allow the calculating of a checksum. Once the part has been uploaded
+// and to allow the AWS SDK to calculate a checksum. Once the part has been uploaded
 // to S3, the temporary file will be removed immediately. Therefore, please
 // ensure that the server running this storage backend has enough disk space
 // available to hold these caches.
@@ -145,6 +134,7 @@ type S3API interface {
 	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
 	ListParts(input *s3.ListPartsInput) (*s3.ListPartsOutput, error)
 	UploadPart(input *s3.UploadPartInput) (*s3.UploadPartOutput, error)
+	HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error)
 	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
 	CreateMultipartUpload(input *s3.CreateMultipartUploadInput) (*s3.CreateMultipartUploadOutput, error)
 	AbortMultipartUpload(input *s3.AbortMultipartUploadInput) (*s3.AbortMultipartUploadOutput, error)
@@ -173,6 +163,7 @@ func (store S3Store) UseIn(composer *tusd.StoreComposer) {
 	composer.UseFinisher(store)
 	composer.UseGetReader(store)
 	composer.UseConcater(store)
+	composer.UseLengthDeferrer(store)
 }
 
 func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
@@ -211,9 +202,18 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 	id = uploadId + "+" + *res.UploadId
 	info.ID = id
 
+	err = store.writeInfo(uploadId, info)
+	if err != nil {
+		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
+	}
+
+	return id, nil
+}
+
+func (store S3Store) writeInfo(uploadId string, info tusd.FileInfo) error {
 	infoJson, err := json.Marshal(info)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// Create object on S3 containing information about the file
@@ -223,11 +223,8 @@ func (store S3Store) NewUpload(info tusd.FileInfo) (id string, err error) {
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
-	if err != nil {
-		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
-	}
 
-	return id, nil
+	return err
 }
 
 func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
@@ -243,7 +240,7 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	bytesUploaded := int64(0)
 	optimalPartSize, err := store.calcOptimalPartSize(size)
 	if err != nil {
-		return bytesUploaded, err
+		return 0, err
 	}
 
 	// Get number of parts to generate next number
@@ -254,6 +251,21 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
+
+	incompletePartFile, incompletePartSize, err := store.downloadIncompletePartForUpload(uploadId)
+	if err != nil {
+		return 0, err
+	}
+	if incompletePartFile != nil {
+		defer incompletePartFile.Close()
+		defer os.Remove(incompletePartFile.Name())
+
+		if err := store.deleteIncompletePartForUpload(uploadId); err != nil {
+			return 0, err
+		}
+
+		src = io.MultiReader(incompletePartFile, src)
+	}
 
 	for {
 		// Create a temporary file to store the part in it
@@ -272,31 +284,32 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		}
 		// If io.Copy is finished reading, it will always return (0, nil).
 		if n == 0 {
-			return bytesUploaded, nil
-		}
-
-		if !info.SizeIsDeferred {
-			if (size - offset) <= optimalPartSize {
-				if (size - offset) != n {
-					return bytesUploaded, nil
-				}
-			} else if n < optimalPartSize {
-				return bytesUploaded, nil
-			}
+			return (bytesUploaded - incompletePartSize), nil
 		}
 
 		// Seek to the beginning of the file
 		file.Seek(0, 0)
 
-		_, err = store.Service.UploadPart(&s3.UploadPartInput{
-			Bucket:     aws.String(store.Bucket),
-			Key:        store.keyWithPrefix(uploadId),
-			UploadId:   aws.String(multipartId),
-			PartNumber: aws.Int64(nextPartNum),
-			Body:       file,
-		})
-		if err != nil {
-			return bytesUploaded, err
+		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
+		if n >= store.MinPartSize || isFinalChunk {
+			_, err = store.Service.UploadPart(&s3.UploadPartInput{
+				Bucket:     aws.String(store.Bucket),
+				Key:        store.keyWithPrefix(uploadId),
+				UploadId:   aws.String(multipartId),
+				PartNumber: aws.Int64(nextPartNum),
+				Body:       file,
+			})
+			if err != nil {
+				return bytesUploaded, err
+			}
+		} else {
+			if err := store.putIncompletePartForUpload(uploadId, file); err != nil {
+				return bytesUploaded, err
+			}
+
+			bytesUploaded += n
+
+			return (bytesUploaded - incompletePartSize), nil
 		}
 
 		offset += n
@@ -344,6 +357,21 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 
 	for _, part := range parts {
 		offset += *part.Size
+	}
+
+	headResult, err := store.Service.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
+	})
+	if err != nil {
+		if !isAwsError(err, s3.ErrCodeNoSuchKey) && !isAwsError(err, "AccessDenied") {
+			return info, err
+		}
+
+		err = nil
+	}
+	if headResult != nil && headResult.ContentLength != nil {
+		offset += *headResult.ContentLength
 	}
 
 	info.Offset = offset
@@ -415,13 +443,16 @@ func (store S3Store) Terminate(id string) error {
 	go func() {
 		defer wg.Done()
 
-		// Delete the info and content file
+		// Delete the info and content files
 		res, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
 			Bucket: aws.String(store.Bucket),
 			Delete: &s3.Delete{
 				Objects: []*s3.ObjectIdentifier{
 					{
 						Key: store.keyWithPrefix(uploadId),
+					},
+					{
+						Key: store.keyWithPrefix(uploadId + ".part"),
 					},
 					{
 						Key: store.keyWithPrefix(uploadId + ".info"),
@@ -524,6 +555,18 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 	return store.FinishUpload(dest)
 }
 
+func (store S3Store) DeclareLength(id string, length int64) error {
+	uploadId, _ := splitIds(id)
+	info, err := store.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	info.Size = length
+	info.SizeIsDeferred = false
+
+	return store.writeInfo(uploadId, info)
+}
+
 func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
 	uploadId, multipartId := splitIds(id)
 
@@ -549,6 +592,74 @@ func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
 		}
 	}
 	return parts, nil
+}
+
+func (store S3Store) downloadIncompletePartForUpload(uploadId string) (*os.File, int64, error) {
+	incompleteUploadObject, err := store.getIncompletePartForUpload(uploadId)
+	if err != nil {
+		return nil, 0, err
+	}
+	if incompleteUploadObject == nil {
+		// We did not find an incomplete upload
+		return nil, 0, nil
+	}
+	defer incompleteUploadObject.Body.Close()
+
+	partFile, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	n, err := io.Copy(partFile, incompleteUploadObject.Body)
+	if err != nil {
+		return nil, 0, err
+	}
+	if n < *incompleteUploadObject.ContentLength {
+		return nil, 0, errors.New("short read of incomplete upload")
+	}
+
+	_, err = partFile.Seek(0, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return partFile, n, nil
+}
+
+func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectOutput, error) {
+	obj, err := store.Service.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
+	})
+
+	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "AccessDenied")) {
+		return nil, nil
+	}
+
+	return obj, err
+}
+
+func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker) error {
+	_, err := store.Service.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Body:   r,
+	})
+	return err
+}
+
+func (store S3Store) deleteIncompletePartForUpload(uploadId string) error {
+	_, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+		Bucket: aws.String(store.Bucket),
+		Delete: &s3.Delete{
+			Objects: []*s3.ObjectIdentifier{
+				{
+					Key: store.keyWithPrefix(uploadId + ".part"),
+				},
+			},
+		},
+	})
+	return err
 }
 
 func splitIds(id string) (uploadId, multipartId string) {
