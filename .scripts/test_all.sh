@@ -21,9 +21,13 @@ if [[ "$goversion" == *"go1.5"* ]] ||
 
   echo "Skipping tests requiring GCSStore, which is not supported on $goversion"
   packages=$(echo "$packages" | sed '/gcsstore/d')
+
+  echo "Skipping tests requiring Prometheus, which is not supported on $goversion"
+  packages=$(echo "$packages" | sed '/prometheuscollector/d')
 else
-  # Install the Consul packages which are not vendored.
+  # Install the Consul and Prometheus client packages which are not vendored.
   go get -u github.com/hashicorp/consul/...
+  go get -u github.com/prometheus/client_golang/prometheus
 fi
 
 install_etcd_pkgs() {
@@ -48,9 +52,8 @@ else
   install_etcd_pkgs
 fi
 
-# Install the AWS SDK and Prometheus client which is explicitly not vendored
+# Install the AWS SDK  which is explicitly not vendored
 go get -u github.com/aws/aws-sdk-go/...
-go get -u github.com/prometheus/client_golang/prometheus
 
 # Test all packages which are allowed on all Go versions
 go test $packages
