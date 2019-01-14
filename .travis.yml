@@ -6,9 +6,8 @@ go:
 - 1.8
 - 1.9
 - "1.10"
+- 1.11
 sudo: required
-dist: trusty
-group: deprecated-2017Q4
 addons:
   apt:
     packages:
@@ -21,11 +20,6 @@ cache:
 env:
   global:
   - GO15VENDOREXPERIMENT=1
-  - secure: Ls76vWCzitRPJ4gyIAj7SdAUkbp2hhYd0zsDjHXriZA+KmlrZLsr4L3QcOaX+MMjMyEURZMS43VVaygP6Y8oF5yv4wYBHKgYh0ZW96pWrIS++0B5lo+2U+JZtTKAfLnOLHUQfLL5h4fg9+oa4mlcuH+3FvaCwO0TJjLU1b0q3Fc=
-  - secure: aAfgsISNfOC/8FDZSctCJr/JnxxnPkd1o0Zcqc+mTw6NXUa4T3o+aqbaY/VK5lk7Pru9exs5j+HdaeGhQrLMZJca803Sg1r0m68+h/2bS58p9zjyPk7aULCSAF7EUlqT041QQ5UBJV7gpIxFW1nyD6vL0ZBW1wA1k1PpxTjznPA=
-matrix:
-  allow_failures:
-  - go: tip
 install:
 - true
 script:
