@@ -9,6 +9,10 @@ go:
 sudo: required
 dist: trusty
 group: deprecated-2017Q4
+addons:
+  apt:
+    packages:
+      - docker-ce
 cache:
   apt: true
   directories:
