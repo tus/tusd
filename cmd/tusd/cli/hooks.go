@@ -37,6 +37,14 @@ func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) 
 	return store.DataStore.NewUpload(info)
 }
 
+func SetupHookMetrics() {
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+}
+
 func SetupPreHooks(composer *tusd.StoreComposer) {
 	composer.UseCore(hookDataStore{
 		DataStore: composer.Core,
@@ -94,6 +102,7 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
+		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
 	} else {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", info.ID)
 	}

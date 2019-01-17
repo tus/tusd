@@ -34,6 +34,7 @@ func Serve() {
 
 	if Flags.ExposeMetrics {
 		SetupMetrics(handler)
+		SetupHookMetrics()
 	}
 
 	stdout.Printf(Composer.Capabilities())
