@@ -203,10 +203,10 @@ func TestGetInfo(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
+		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
 	)
 
 	info, err := store.GetInfo("uploadId+multipartId")
@@ -239,11 +239,12 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{
-			ContentLength: aws.Int64(10),
+		}).Return(&s3.GetObjectOutput{
+			ContentLength: 	aws.Int64(10),
+			Body: 			ioutil.NopCloser(bytes.NewReader([]byte("0123456789"))),
 		}, nil),
 	)
 
@@ -379,10 +380,10 @@ func TestDeclareLength(t *testing.T) {
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{},
 		}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("NotFound", "Not Found", nil)),
+		}).Return(nil, awserr.New("NotFound", "Not Found", nil)),
 		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
@@ -500,10 +501,10 @@ func TestWriteChunk(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
+		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
@@ -665,10 +666,10 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist", nil)),
+		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist", nil)),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
@@ -725,11 +726,12 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{
-			ContentLength: aws.Int64(3),
+		}).Return(&s3.GetObjectOutput{
+			ContentLength: 	aws.Int64(3),
+			Body:			ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
@@ -741,8 +743,8 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
-			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 			ContentLength: aws.Int64(3),
+			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
 		s3obj.EXPECT().DeleteObjects(&s3.DeleteObjectsInput{
 			Bucket: aws.String(store.Bucket),
@@ -800,11 +802,12 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{
+		}).Return(&s3.GetObjectOutput{
 			ContentLength: aws.Int64(3),
+			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
@@ -879,10 +882,10 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
-		}).Return(&s3.HeadObjectOutput{}, awserr.New("AccessDenied", "Access Denied.", nil)),
+		}).Return(&s3.GetObjectOutput{}, awserr.New("AccessDenied", "Access Denied.", nil)),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),

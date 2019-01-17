@@ -369,19 +369,13 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		offset += *part.Size
 	}
 
-	headResult, err := store.Service.HeadObject(&s3.HeadObjectInput{
-		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
-	})
+	incompletePartObject, err := store.getIncompletePartForUpload(uploadId)
 	if err != nil {
-		if !isAwsError(err, s3.ErrCodeNoSuchKey) && !isAwsError(err, "NotFound") && !isAwsError(err, "AccessDenied") {
-			return info, err
-		}
-
-		err = nil
+		return info, err
 	}
-	if headResult != nil && headResult.ContentLength != nil {
-		offset += *headResult.ContentLength
+	if incompletePartObject != nil {
+		defer incompletePartObject.Body.Close()
+		offset += *incompletePartObject.ContentLength
 	}
 
 	info.Offset = offset
@@ -642,7 +636,7 @@ func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectO
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 
-	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "AccessDenied")) {
+	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "NotFound") || isAwsError(err, "AccessDenied")) {
 		return nil, nil
 	}
 
