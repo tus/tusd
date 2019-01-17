@@ -42,6 +42,8 @@ spec:
         envFrom:
         - configMapRef:
             name: tusd-env
+	- secretRef:
+            name: tusd-s3
         securityContext:
           runAsUser: 0
           fsGroup: 0
