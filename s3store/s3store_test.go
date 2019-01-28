@@ -3,6 +3,7 @@ package s3store
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"testing"
 
@@ -551,6 +552,85 @@ func TestWriteChunk(t *testing.T) {
 	)
 
 	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890ABCD")))
+	assert.Nil(err)
+	assert.Equal(int64(14), bytesRead)
+}
+
+// TestWriteChunkWithUnexpectedEOF ensures that WriteChunk does not error out
+// if the io.Reader returns an io.ErrUnexpectedEOF. This happens when a HTTP
+// PATCH request gets interrupted.
+func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.MaxPartSize = 500
+	store.MinPartSize = 100
+	store.MaxMultipartParts = 10000
+	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
+
+	gomock.InOrder(
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.info"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null}`))),
+		}, nil),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					Size: aws.Int64(100),
+				},
+				{
+					Size: aws.Int64(200),
+				},
+			},
+		}, nil),
+		s3obj.EXPECT().HeadObject(&s3.HeadObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.part"),
+		}).Return(&s3.HeadObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
+		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{
+				{
+					Size: aws.Int64(100),
+				},
+				{
+					Size: aws.Int64(200),
+				},
+			},
+		}, nil),
+		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.part"),
+		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
+		s3obj.EXPECT().PutObject(NewPutObjectInputMatcher(&s3.PutObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId.part"),
+			Body:   bytes.NewReader([]byte("1234567890ABCD")),
+		})).Return(nil, nil),
+	)
+
+	reader, writer := io.Pipe()
+
+	go func() {
+		writer.Write([]byte("1234567890ABCD"))
+		writer.CloseWithError(io.ErrUnexpectedEOF)
+	}()
+
+	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, reader)
 	assert.Nil(err)
 	assert.Equal(int64(14), bytesRead)
 }

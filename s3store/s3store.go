@@ -278,6 +278,16 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 
 		limitedReader := io.LimitReader(src, optimalPartSize)
 		n, err := io.Copy(file, limitedReader)
+
+		// If the HTTP PATCH request gets interrupted in the middle (e.g. because
+		// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
+		// However, for S3Store it's not important whether the stream has ended
+		// on purpose or accidentally. Therefore, we ignore this error to not
+		// prevent the remaining chunk to be stored on S3.
+		if err == io.ErrUnexpectedEOF {
+			err = nil
+		}
+
 		// io.Copy does not return io.EOF, so we not have to handle it differently.
 		if err != nil {
 			return bytesUploaded, err
