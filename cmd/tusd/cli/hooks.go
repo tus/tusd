@@ -32,7 +32,11 @@ type hookDataStore struct {
 
 func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	if output, err := invokeHookSync(HookPreCreate, info, true); err != nil {
-		return "", fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
+		hookErr := fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
+		if statusErr, ok := err.(tusd.HTTPError); ok {
+			return "", tusd.NewHTTPError(hookErr, statusErr.StatusCode())
+		}
+		return "", hookErr
 	}
 	return store.DataStore.NewUpload(info)
 }
@@ -144,7 +148,7 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return body, fmt.Errorf("endpoint returned: %s\n%s", resp.Status, body)
+		return body, tusd.NewHTTPError(fmt.Errorf("endpoint returned: %s\n%s", resp.Status, body), resp.StatusCode)
 	}
 
 	if captureOutput {
