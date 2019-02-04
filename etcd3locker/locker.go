@@ -115,7 +115,7 @@ func (locker *Etcd3Locker) LockUpload(id string) error {
 	return nil
 }
 
-// UnlockUpload releases a lock. If no such lock exists, no error will be returned.
+// UnlockUpload releases a lock.
 func (locker *Etcd3Locker) UnlockUpload(id string) error {
 	locker.mutex.Lock()
 	defer locker.mutex.Unlock()

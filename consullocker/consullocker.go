@@ -104,7 +104,7 @@ func (locker *ConsulLocker) LockUpload(id string) error {
 	return nil
 }
 
-// UnlockUpload releases a lock. If no such lock exists, no error will be returned.
+// UnlockUpload releases a lock.
 func (locker *ConsulLocker) UnlockUpload(id string) error {
 	locker.mutex.Lock()
 	defer locker.mutex.Unlock()
