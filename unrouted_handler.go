@@ -31,6 +31,7 @@ var (
 type HTTPError interface {
 	error
 	StatusCode() int
+	Body() []byte
 }
 
 type httpError struct {
@@ -40,6 +41,10 @@ type httpError struct {
 
 func (err httpError) StatusCode() int {
 	return err.statusCode
+}
+
+func (err httpError) Body() []byte {
+	return []byte(err.Error())
 }
 
 // NewHTTPError adds the given status code to the provided error and returns
@@ -766,15 +771,15 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		statusErr = NewHTTPError(err, http.StatusInternalServerError)
 	}
 
-	reason := err.Error() + "\n"
+	reason := append(statusErr.Body(), '\n')
 	if r.Method == "HEAD" {
-		reason = ""
+		reason = nil
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(statusErr.StatusCode())
-	w.Write([]byte(reason))
+	w.Write(reason)
 
 	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
