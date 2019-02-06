@@ -81,6 +81,10 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 	case HookPostTerminate:
 		logEv(stdout, "UploadTerminated", "id", info.ID)
+	case HookPostReceive:
+		if !Flags.HooksPostReceiveEnabled {
+			return nil, nil
+		}
 	}
 
 	if !Flags.FileHooksInstalled && !Flags.HttpHooksInstalled {
