@@ -2,7 +2,7 @@
 
 <img alt="Tus logo" src="https://github.com/tus/tus.io/blob/master/assets/img/tus1.png?raw=true" width="30%" align="right" />
 
-> **tus** is a protocol based on HTTP for *resumable file uploads*. Resumable
+> **tus** is a protocol based on HTTP for _resumable file uploads_. Resumable
 > means that an upload can be interrupted at any moment and can be resumed without
 > re-uploading the previous data again. An interruption may happen willingly, if
 > the user wants to pause, or by accident in case of an network issue or server
@@ -124,6 +124,8 @@ Usage of tusd:
     	Path under which the metrics endpoint will be accessible (default "/metrics")
   -port string
     	Port to bind HTTP server to (default "1080")
+	-post-receive-enabled bool
+		Set to false to disable the post-receive hook when hooks are enabled. Useful to reduce server load for your webhook endpoint when this hook is not required. (default true)
   -s3-bucket string
     	Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
   -s3-endpoint string
@@ -220,13 +222,13 @@ required methods.
 This repository does not only contain the HTTP server's code but also other
 useful tools:
 
-* [**s3store**](https://godoc.org/github.com/tus/tusd/s3store): A storage backend using AWS S3
-* [**filestore**](https://godoc.org/github.com/tus/tusd/filestore): A storage backend using the local file system
-* [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
-* [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
-* [**consullocker**](https://godoc.org/github.com/tus/tusd/consullocker): A locker using the distributed Consul service
-* [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
-* [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
+- [**s3store**](https://godoc.org/github.com/tus/tusd/s3store): A storage backend using AWS S3
+- [**filestore**](https://godoc.org/github.com/tus/tusd/filestore): A storage backend using the local file system
+- [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
+- [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
+- [**consullocker**](https://godoc.org/github.com/tus/tusd/consullocker): A locker using the distributed Consul service
+- [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
+- [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
 
 ## Running the testsuite
 
@@ -241,17 +243,17 @@ go test -v ./...
 
 ### How can I access tusd using HTTPS?
 
-The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and *does not accept* HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077) and in the [Apache example configuration](/docs/apache2.conf).
+The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and _does not accept_ HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077) and in the [Apache example configuration](/docs/apache2.conf).
 
 ### Can I run tusd behind a reverse proxy?
 
 Yes, it is absolutely possible to do so. Firstly, you should execute the tusd binary using the `-behind-proxy` flag indicating it to pay attention to special headers which are only relevant when used in conjunction with a proxy. Furthermore, there are additional details which should be kept in mind, depending on the used software:
 
-- *Disable request buffering.* Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed while it's being transfered. Therefore, such as feature should be disabled.
+- _Disable request buffering._ Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed while it's being transfered. Therefore, such as feature should be disabled.
 
-- *Adjust maximum request size.* Some proxies have default values for how big a request may be in order to protect your services. Be sure to check these settings to match the requirements of your application.
+- _Adjust maximum request size._ Some proxies have default values for how big a request may be in order to protect your services. Be sure to check these settings to match the requirements of your application.
 
-- *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
+- _Forward hostname and scheme._ If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
 
 Explicit examples for the above points can be found in the [Nginx configuration](/docs/nginx.conf) which is used to power the [master.tus.io](https://master.tus.io) instace.
 
