@@ -71,7 +71,7 @@ type GCSAPI interface {
 
 // GCSService holds the cloud.google.com/go/storage client
 // as well as its associated context.
-// Closures are used as minimal wrappers aroudn the Google Cloud Storage API, since the Storage API cannot be mocked.
+// Closures are used as minimal wrappers around the Google Cloud Storage API, since the Storage API cannot be mocked.
 // The usage of these closures allow them to be redefined in the testing package, allowing test to be run against this file.
 type GCSService struct {
 	Client *storage.Client
