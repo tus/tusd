@@ -7,11 +7,21 @@ When a specific action happens during an upload (pre-create, post-receive, post-
 1. Execute an arbitrary file, mirroring the Git hook system, called File Hooks.
 2. Fire off an HTTP POST request to a custom endpoint, called HTTP Hooks.
 
-## Blocking and Non-Blocking Hooks
+## Non-Blocking Hooks
 
 If not otherwise noted, all hooks are invoked in a *non-blocking* way, meaning that tusd will not wait until the hook process has finished and exited. Therefore, the hook process is not able to influence how tusd may continue handling the current request, regardless of which exit code it may set. Furthermore, the hook process' stdout and stderr will be piped to tusd's stdout and stderr correspondingly, allowing one to use these channels for additional logging.
 
-On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` event. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks. An exit code of `0` indicates that tusd should continue handling the request as normal. On the other hand, a non-zero exit code tells tusd to reject the request with a `500 Internal Server Error` response containing the process' output from stderr. For the sake of logging, the process' output from stdout will always be piped to tusd's stdout.
+## Blocking Hooks
+
+On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` event. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks. 
+
+### Blocking File Hooks
+
+An exit code of `0` indicates that tusd should continue handling the request as normal. On the other hand, a non-zero exit code tells tusd to reject the request with a `500 Internal Server Error` response containing the process' output from stderr. For the sake of logging, the process' output from stdout will always be piped to tusd's stdout.
+
+### Blocking HTTP Hooks
+
+A successful HTTP response code (i.e. smaller than `400`) indicates that tusd should continue handling the request as normal. On the other hand, an HTTP response code greater than `400` will be forwarded to the client performing the upload, along with the body of the hook response. Only the response code will be logged by tusd.
 
 ## List of Available Hooks
 
