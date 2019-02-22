@@ -653,15 +653,9 @@ func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker
 }
 
 func (store S3Store) deleteIncompletePartForUpload(uploadId string) error {
-	_, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+	_, err := store.Service.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Delete: &s3.Delete{
-			Objects: []*s3.ObjectIdentifier{
-				{
-					Key: store.keyWithPrefix(uploadId + ".part"),
-				},
-			},
-		},
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	return err
 }
