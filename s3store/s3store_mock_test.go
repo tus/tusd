@@ -62,6 +62,17 @@ func (_mr *_MockS3APIRecorder) CreateMultipartUpload(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMultipartUpload", arg0)
 }
 
+func (_m *MockS3API) DeleteObject(_param0 *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
+	ret := _m.ctrl.Call(_m, "DeleteObject", _param0)
+	ret0, _ := ret[0].(*s3.DeleteObjectOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockS3APIRecorder) DeleteObject(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteObject", arg0)
+}
+
 func (_m *MockS3API) DeleteObjects(_param0 *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error) {
 	ret := _m.ctrl.Call(_m, "DeleteObjects", _param0)
 	ret0, _ := ret[0].(*s3.DeleteObjectsOutput)
