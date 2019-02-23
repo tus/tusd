@@ -134,10 +134,10 @@ type S3API interface {
 	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
 	ListParts(input *s3.ListPartsInput) (*s3.ListPartsOutput, error)
 	UploadPart(input *s3.UploadPartInput) (*s3.UploadPartOutput, error)
-	HeadObject(input *s3.HeadObjectInput) (*s3.HeadObjectOutput, error)
 	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
 	CreateMultipartUpload(input *s3.CreateMultipartUploadInput) (*s3.CreateMultipartUploadOutput, error)
 	AbortMultipartUpload(input *s3.AbortMultipartUploadInput) (*s3.AbortMultipartUploadOutput, error)
+	DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error)
 	DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error)
 	CompleteMultipartUpload(input *s3.CompleteMultipartUploadInput) (*s3.CompleteMultipartUploadOutput, error)
 	UploadPartCopy(input *s3.UploadPartCopyInput) (*s3.UploadPartCopyOutput, error)
@@ -369,19 +369,13 @@ func (store S3Store) GetInfo(id string) (info tusd.FileInfo, err error) {
 		offset += *part.Size
 	}
 
-	headResult, err := store.Service.HeadObject(&s3.HeadObjectInput{
-		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
-	})
+	incompletePartObject, err := store.getIncompletePartForUpload(uploadId)
 	if err != nil {
-		if !isAwsError(err, s3.ErrCodeNoSuchKey) && !isAwsError(err, "NotFound") && !isAwsError(err, "AccessDenied") {
-			return info, err
-		}
-
-		err = nil
+		return info, err
 	}
-	if headResult != nil && headResult.ContentLength != nil {
-		offset += *headResult.ContentLength
+	if incompletePartObject != nil {
+		defer incompletePartObject.Body.Close()
+		offset += *incompletePartObject.ContentLength
 	}
 
 	info.Offset = offset
@@ -642,7 +636,7 @@ func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectO
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 
-	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "AccessDenied")) {
+	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "NotFound") || isAwsError(err, "AccessDenied")) {
 		return nil, nil
 	}
 
@@ -659,15 +653,9 @@ func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker
 }
 
 func (store S3Store) deleteIncompletePartForUpload(uploadId string) error {
-	_, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+	_, err := store.Service.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Delete: &s3.Delete{
-			Objects: []*s3.ObjectIdentifier{
-				{
-					Key: store.keyWithPrefix(uploadId + ".part"),
-				},
-			},
-		},
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	return err
 }
