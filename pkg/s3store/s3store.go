@@ -273,6 +273,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 		Key:           store.keyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
+		Tagging:       aws.String(store.TransientObjectTags),
 	})
 
 	return err
@@ -723,9 +724,10 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 
 func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
-		Body:   r,
+		Bucket:  aws.String(store.Bucket),
+		Key:     store.keyWithPrefix(uploadId + ".part"),
+		Tagging: aws.String(store.TransientObjectTags),
+		Body:    r,
 	})
 	return err
 }
