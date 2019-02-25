@@ -132,6 +132,15 @@ type S3Store struct {
 	// MaxObjectSize is the maximum size an S3 Object can have according to S3
 	// API specifications. See link above.
 	MaxObjectSize int64
+	// TransientObjectTags is a comma-separated list of tags that is applied to tus
+	// metadata objects that can be safely deleted after an upload is complete, such
+	// as .info and .part objects. Each tag is a key-value pair, e.g. "mykey=myvalue".
+	// This mechanism can be used to create an S3 object lifecycle policy that
+	// removes such objects after a period of time.
+	// See:
+	//   - https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html
+	//   - https://docs.aws.amazon.com/AmazonS3/latest/dev/object-tagging.html
+	TransientObjectTags string
 }
 
 type S3API interface {
