@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
@@ -290,10 +291,16 @@ func (service *GCSService) WriteObject(ctx context.Context, params GCSObjectPara
 
 	w := obj.NewWriter(ctx)
 
-	defer w.Close()
-
 	n, err := io.Copy(w, r)
 	if err != nil {
+		return 0, err
+	}
+
+	err = w.Close()
+	if err != nil {
+		if gErr, ok := err.(*googleapi.Error); ok && gErr.Code == 404 {
+			return 0, fmt.Errorf("gcsstore: the bucket %s could not be found while trying to write an object", params.Bucket)
+		}
 		return 0, err
 	}
 

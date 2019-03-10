@@ -360,6 +360,13 @@ func TestWriteObject(t *testing.T) {
 		"expiry_date":   "1425333671141",
 	})
 
+	gock.New("https://googleapis.com").
+		Post("/upload/storage/v1/b/test-bucket/o").
+		MatchParam("alt", "json").
+		MatchParam("key", "foo").
+		Reply(200).
+		JSON(map[string]string{})
+
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
 	if err != nil {
@@ -379,7 +386,7 @@ func TestWriteObject(t *testing.T) {
 	}, reader)
 
 	if err != nil {
-		t.Errorf("Error deleting object: %+v", err)
+		t.Errorf("Error writing object: %+v", err)
 	}
 
 	if size != 1 {
