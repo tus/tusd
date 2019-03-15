@@ -15,7 +15,6 @@
 package limitedstore
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"sync"
