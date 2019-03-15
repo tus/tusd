@@ -15,6 +15,8 @@
 package limitedstore
 
 import (
+	"fmt"
+	"os"
 	"sort"
 	"sync"
 
@@ -91,7 +93,10 @@ func (store *LimitedStore) Terminate(id string) error {
 
 func (store *LimitedStore) terminate(id string) error {
 	err := store.terminater.Terminate(id)
-	if err != nil {
+	// Ignore the error if the upload could not be found. In this case, the upload
+	// has likely already been removed by another service (e.g. a cron job) and we
+	// just remove the upload from our internal list and claim the used space back.
+	if err != nil && err != tusd.ErrNotFound && !os.IsNotExist(err) {
 		return err
 	}
 
