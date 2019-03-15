@@ -267,6 +267,10 @@ Yes, you can absolutely do so without any modifications. However, there is one k
 
 This error should only occur when you are using tusd inside VirtualBox. Please see the answer above for more details on when this can happen and how to avoid it.
 
+### How can I prevent users from downloading the uploaded files?
+
+tusd allows any user to retrieve a previously uploaded file by issuing a HTTP GET request to the corresponding upload URL. This is possible as long as the uploaded files on the datastore have not been deleted or moved to another location. While it is a handy feature for debugging and testing your setup, we know that there are situations where you don't want to allow downloads or where you want more control about who downloads what. In these scenarios we recommend to place a proxy in front of tusd which takes on the task of access control or even preventing HTTP GET requests entirely. tusd has no feature built in for controling or disabling downloads on its own because the main focus is on accepting uploads, not serving files.
+
 ## License
 
 This project is licensed under the MIT license, see `LICENSE.txt`.
