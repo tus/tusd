@@ -169,7 +169,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path)
 
-		go handler.Metrics.incRequestsTotal(r.Method)
+		handler.Metrics.incRequestsTotal(r.Method)
 
 		header := w.Header()
 
@@ -308,11 +308,14 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	url := handler.absFileURL(r, id)
 	w.Header().Set("Location", url)
 
-	go handler.Metrics.incUploadsCreated()
+	handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- info
+		select {
+		case handler.CreatedUploads <- info:
+		default:
+		}
 	}
 
 	if isFinal {
@@ -323,7 +326,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			select {
+			case handler.CompleteUploads <- info:
+			default:
+			}
 		}
 	}
 
@@ -553,7 +559,7 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	// Send new offset to client
 	newOffset := offset + bytesWritten
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
-	go handler.Metrics.incBytesReceived(uint64(bytesWritten))
+	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
 	return handler.finishUploadIfComplete(info)
@@ -574,10 +580,13 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			select {
+			case handler.CompleteUploads <- info:
+			default:
+			}
 		}
 
-		go handler.Metrics.incUploadsFinished()
+		handler.Metrics.incUploadsFinished()
 	}
 
 	return nil
@@ -744,10 +753,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(w, r, http.StatusNoContent)
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- info
+		select {
+		case handler.TerminatedUploads <- info:
+		default:
+		}
 	}
 
-	go handler.Metrics.incUploadsTerminated()
+	handler.Metrics.incUploadsTerminated()
 }
 
 // Send the error in the response body. The status code will be looked up in
@@ -783,7 +795,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 
 	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	go handler.Metrics.incErrorsTotal(statusErr)
+	handler.Metrics.incErrorsTotal(statusErr)
 }
 
 // sendResp writes the header to w with the specified status code.
@@ -833,11 +845,17 @@ func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Re
 			select {
 			case <-stop:
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				handler.UploadProgress <- info
+				select {
+				case handler.UploadProgress <- info:
+				default:
+				}
 				return
 			case <-time.After(1 * time.Second):
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				handler.UploadProgress <- info
+				select {
+				case handler.UploadProgress <- info:
+				default:
+				}
 			}
 		}
 	}()
