@@ -312,7 +312,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- info
+		select {
+		case handler.CreatedUploads <- info:
+		default:
+		}
 	}
 
 	if isFinal {
@@ -323,7 +326,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			select {
+			case handler.CompleteUploads <- info:
+			default:
+			}
 		}
 	}
 
@@ -574,7 +580,10 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			select {
+			case handler.CompleteUploads <- info:
+			default:
+			}
 		}
 
 		handler.Metrics.incUploadsFinished()
@@ -744,7 +753,10 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(w, r, http.StatusNoContent)
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- info
+		select {
+		case handler.TerminatedUploads <- info:
+		default:
+		}
 	}
 
 	handler.Metrics.incUploadsTerminated()
