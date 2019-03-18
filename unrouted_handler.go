@@ -753,10 +753,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(w, r, http.StatusNoContent)
 
 	if handler.config.NotifyTerminatedUploads {
-		select {
-		case handler.TerminatedUploads <- info:
-		default:
-		}
+		handler.TerminatedUploads <- info
 	}
 
 	handler.Metrics.incUploadsTerminated()
