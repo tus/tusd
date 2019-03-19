@@ -312,10 +312,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		select {
-		case handler.CreatedUploads <- info:
-		default:
-		}
+		handler.CreatedUploads <- info
 	}
 
 	if isFinal {
@@ -326,10 +323,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			select {
-			case handler.CompleteUploads <- info:
-			default:
-			}
+			handler.CompleteUploads <- info
 		}
 	}
 
@@ -580,10 +574,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			select {
-			case handler.CompleteUploads <- info:
-			default:
-			}
+			handler.CompleteUploads <- info
 		}
 
 		handler.Metrics.incUploadsFinished()
@@ -753,10 +744,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(w, r, http.StatusNoContent)
 
 	if handler.config.NotifyTerminatedUploads {
-		select {
-		case handler.TerminatedUploads <- info:
-		default:
-		}
+		handler.TerminatedUploads <- info
 	}
 
 	handler.Metrics.incUploadsTerminated()
@@ -845,17 +833,11 @@ func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Re
 			select {
 			case <-stop:
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				select {
-				case handler.UploadProgress <- info:
-				default:
-				}
+				handler.UploadProgress <- info
 				return
 			case <-time.After(1 * time.Second):
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				select {
-				case handler.UploadProgress <- info:
-				default:
-				}
+				handler.UploadProgress <- info
 			}
 		}
 	}()
