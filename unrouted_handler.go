@@ -169,7 +169,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path)
 
-		go handler.Metrics.incRequestsTotal(r.Method)
+		handler.Metrics.incRequestsTotal(r.Method)
 
 		header := w.Header()
 
@@ -308,7 +308,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	url := handler.absFileURL(r, id)
 	w.Header().Set("Location", url)
 
-	go handler.Metrics.incUploadsCreated()
+	handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
@@ -553,7 +553,7 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	// Send new offset to client
 	newOffset := offset + bytesWritten
 	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
-	go handler.Metrics.incBytesReceived(uint64(bytesWritten))
+	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
 	return handler.finishUploadIfComplete(info)
@@ -577,7 +577,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 			handler.CompleteUploads <- info
 		}
 
-		go handler.Metrics.incUploadsFinished()
+		handler.Metrics.incUploadsFinished()
 	}
 
 	return nil
@@ -747,7 +747,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		handler.TerminatedUploads <- info
 	}
 
-	go handler.Metrics.incUploadsTerminated()
+	handler.Metrics.incUploadsTerminated()
 }
 
 // Send the error in the response body. The status code will be looked up in
@@ -783,7 +783,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 
 	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
 
-	go handler.Metrics.incErrorsTotal(statusErr)
+	handler.Metrics.incErrorsTotal(statusErr)
 }
 
 // sendResp writes the header to w with the specified status code.
