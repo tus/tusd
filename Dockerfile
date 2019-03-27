@@ -22,7 +22,7 @@ FROM alpine:3.8
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
-RUN apk add --no-cache ca-certificates \
+RUN apk add --no-cache ca-certificates jq \
     && addgroup -g 1000 tusd \
     && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
     && mkdir -p /srv/tusd-hooks \
