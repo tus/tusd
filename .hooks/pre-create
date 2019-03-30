@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 filename=$(cat /dev/stdin | jq .MetaData.filename)
 if [ -z "$filename" ]; then
