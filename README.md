@@ -49,7 +49,7 @@ go build -o tusd cmd/tusd/main.go
 
 Start the tusd upload server is as simple as invoking a single command. For example, following
 snippet demonstrates how to start a tusd process which accepts tus uploads at
-`http://localhost:1080/files/` and stores them locally in the `./data` directory:
+`http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
 $ tusd -dir ./data
