@@ -228,6 +228,12 @@ useful tools:
 * [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
 * [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
 
+### 3rd-Party tusd Packages
+
+The following packages are supported by 3rd-party maintainers outside of this repository. Please file issues respective to the packages in their respective repositories.
+
+* [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
+
 ## Running the testsuite
 
 [![Build Status](https://travis-ci.org/tus/tusd.svg?branch=master)](https://travis-ci.org/tus/tusd)
