@@ -5,7 +5,7 @@ import (
 	"time"
 
 	consul "github.com/hashicorp/consul/api"
-	consultestutil "github.com/hashicorp/consul/testutil"
+	consultestutil "github.com/hashicorp/consul/sdk/testutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tus/tusd"
