@@ -31,7 +31,7 @@ before_deploy:
 - gcloud --quiet version
 - gcloud --quiet components update
 - gcloud --quiet components update kubectl
-- curl https://raw.githubusercontent.com/kubernetes/helm/9476fcc10aaaf4bbcbeb6b7b9e62e9f03d312697/scripts/get | bash
+- curl https://raw.githubusercontent.com/kubernetes/helm/d87ce93e1e287ece84d940dbfe09b0de493d9953/scripts/get | bash
 deploy:
 - provider: releases
   api_key:
