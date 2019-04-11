@@ -29,7 +29,7 @@ spec:
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
-        args: ["-s3-bucket","tusdtest.transloadit.com","-port=8080","-behind-proxy","-max-size=20000000000"]
+        args: ["-s3-bucket","tusdtest.transloadit.com","-port=8080","-behind-proxy","-max-size=20000000000","-timeout=6000"]
         name: tusd
         resources:
           limits:
