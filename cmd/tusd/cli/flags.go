@@ -8,6 +8,7 @@ import (
 var Flags struct {
 	HttpHost          string
 	HttpPort          string
+	HttpSock          string
 	MaxSize           int64
 	UploadDir         string
 	StoreSize         int64
@@ -16,7 +17,7 @@ var Flags struct {
 	S3Bucket          string
 	S3ObjectPrefix    string
 	S3Endpoint        string
-	GCSBucket     	  string
+	GCSBucket         string
 	FileHooksDir      string
 	HttpHooksEndpoint string
 	HttpHooksRetry    int
@@ -33,6 +34,7 @@ var Flags struct {
 func ParseFlags() {
 	flag.StringVar(&Flags.HttpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
 	flag.StringVar(&Flags.HttpPort, "port", "1080", "Port to bind HTTP server to")
+	flag.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
 	flag.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	flag.StringVar(&Flags.UploadDir, "dir", "./data", "Directory to store uploads in")
 	flag.Int64Var(&Flags.StoreSize, "store-size", 0, "Size of space allowed for storage")
