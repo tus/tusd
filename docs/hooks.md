@@ -58,7 +58,7 @@ $ tusd --hooks-dir ./path/to/hooks/
 ...
 ```
 
-If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that the hook file *must not* have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. A detailed list of all events can be found at the end of this document.
+If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that in UNIX environments the hook file *must not* have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. On Windows, however, the hook file *must* have an extension, such as `.bat` or `.exe`. A detailed list of all events can be found at the end of this document.
 
 ### The Hook's Environment
 
