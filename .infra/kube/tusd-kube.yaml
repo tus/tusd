@@ -10,22 +10,13 @@ spec:
       labels:
         app: tusd
     spec:
-      # affinity:
-      #   nodeAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #         nodeSelectorTerms:
-      #         - matchExpressions:
-      #           - key: cloud.google.com/gke-preemptible
-      #             operator: Exists
-      #   podAntiAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #     - labelSelector:
-      #         matchExpressions:
-      #         - key: app
-      #           operator: In
-      #           values:
-      #           - tusd
-      #       topologyKey: kubernetes.io/hostname    
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: cloud.google.com/gke-preemptible
+                  operator: DoesNotExist   
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
