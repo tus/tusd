@@ -10,22 +10,22 @@ spec:
       labels:
         app: tusd
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: cloud.google.com/gke-preemptible
-                  operator: Exists
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - tusd
-            topologyKey: kubernetes.io/hostname    
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #         nodeSelectorTerms:
+      #         - matchExpressions:
+      #           - key: cloud.google.com/gke-preemptible
+      #             operator: Exists
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #     - labelSelector:
+      #         matchExpressions:
+      #         - key: app
+      #           operator: In
+      #           values:
+      #           - tusd
+      #       topologyKey: kubernetes.io/hostname    
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
@@ -34,8 +34,8 @@ spec:
         resources:
           limits:
             memory: "2Gi"
-          requests:
-            memory: "1Gi"
+          # requests:
+          #   memory: "1Gi"
         ports:
         - name: tusd-web
           containerPort: 8080
