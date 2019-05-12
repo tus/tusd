@@ -1,12 +1,19 @@
 package cli
 
 import (
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/tus/tusd"
 )
 
+// Setups the different components, starts a Listener and give it to
+// http.Serve().
+//
+// By default it will bind to the specified host/port, unless a UNIX socket is
+// specified, in which case a different socket creation and binding mechanism
+// is put in place.
 func Serve() {
 	SetupPreHooks(Composer)
 
@@ -24,10 +31,17 @@ func Serve() {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
 
-	address := Flags.HttpHost + ":" + Flags.HttpPort
 	basepath := Flags.Basepath
+	address := ""
 
-	stdout.Printf("Using %s as address to listen.\n", address)
+	if Flags.HttpSock != "" {
+		address = Flags.HttpSock
+		stdout.Printf("Using %s as socket to listen.\n", address)
+	} else {
+		address = Flags.HttpHost + ":" + Flags.HttpPort
+		stdout.Printf("Using %s as address to listen.\n", address)
+	}
+
 	stdout.Printf("Using %s as the base path.\n", basepath)
 
 	SetupPostHooks(handler)
@@ -47,8 +61,15 @@ func Serve() {
 
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
 
+	var listener net.Listener
 	timeoutDuration := time.Duration(Flags.Timeout) * time.Millisecond
-	listener, err := NewListener(address, timeoutDuration, timeoutDuration)
+
+	if Flags.HttpSock != "" {
+		listener, err = NewUnixListener(address, timeoutDuration, timeoutDuration)
+	} else {
+		listener, err = NewListener(address, timeoutDuration, timeoutDuration)
+	}
+
 	if err != nil {
 		stderr.Fatalf("Unable to create listener: %s", err)
 	}
