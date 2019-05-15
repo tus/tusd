@@ -149,7 +149,7 @@ func TestPost(t *testing.T) {
 			Method: "POST",
 			URL:    "",
 			ReqHeader: map[string]string{
-				"Tus-Resumable":       "1.0.0",
+				"Tus-Resumable": "1.0.0",
 			},
 			Code: http.StatusBadRequest,
 		}).Run(handler, t)

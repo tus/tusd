@@ -85,7 +85,7 @@ func TestHead(t *testing.T) {
 	SubTest(t, "DeferLengthHeader", func(t *testing.T, store *MockFullDataStore) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			SizeIsDeferred: true,
-			Size: 0,
+			Size:           0,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
@@ -109,7 +109,7 @@ func TestHead(t *testing.T) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				SizeIsDeferred: false,
-				Size: 10,
+				Size:           10,
 			}, nil),
 		)
 

@@ -458,10 +458,8 @@ func TestPatch(t *testing.T) {
 
 			writer.Close()
 
-			info = <-c
-			a.Equal("yes", info.ID)
-			a.Equal(int64(100), info.Size)
-			a.Equal(int64(18), info.Offset)
+			// No progress event is sent after the writer is closed
+			// because an event for 18 bytes was already emitted.
 		}()
 
 		(&httpTest{
