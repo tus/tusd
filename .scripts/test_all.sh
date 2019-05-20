@@ -55,7 +55,8 @@ else
 fi
 
 # Install the AWS SDK  which is explicitly not vendored
-go get -u github.com/aws/aws-sdk-go/...
+go get -u github.com/aws/aws-sdk-go/service/s3
+go get -u github.com/aws/aws-sdk-go/aws/...
 
 # Test all packages which are allowed on all Go versions
 go test $packages
