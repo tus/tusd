@@ -14,12 +14,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/tus/tusd"
@@ -31,6 +32,11 @@ import (
 type GCSStore struct {
 	// Specifies the GCS bucket that uploads will be stored in
 	Bucket string
+
+	// ObjectPrefix is prepended to the name of each GCS object that is created.
+	// It can be used to create a pseudo-directory structure in the bucket,
+	// e.g. "path/to/my/uploads".
+	ObjectPrefix string
 
 	// Service specifies an interface used to communicate with the Google
 	// cloud storage backend. Implementation can be seen in gcsservice file.
