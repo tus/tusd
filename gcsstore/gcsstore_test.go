@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/golang/mock/gomock"
@@ -19,6 +20,7 @@ import (
 
 const mockID = "123456789abcdefghijklmnopqrstuvwxyz"
 const mockBucket = "bucket"
+const mockObjPrefix = ""
 const mockSize = 1337
 const mockReaderData = "helloworld"
 
@@ -42,7 +44,7 @@ func TestNewUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -93,7 +95,7 @@ func TestGetInfo(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -156,7 +158,7 @@ func TestGetInfoNotFound(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
@@ -201,7 +203,7 @@ func TestGetReader(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -230,7 +232,7 @@ func TestTerminate(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -252,7 +254,7 @@ func TestFinishUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -371,7 +373,7 @@ func TestWriteChunk(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, service)
+	store := gcsstore.New(mockBucket, mockObjPrefix, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
