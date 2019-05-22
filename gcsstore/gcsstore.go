@@ -45,10 +45,11 @@ type GCSStore struct {
 
 // New constructs a new GCS storage backend using the supplied GCS bucket name
 // and service object.
-func New(bucket string, service GCSAPI) GCSStore {
+func New(bucket string, objPrefix string, service GCSAPI) GCSStore {
 	return GCSStore{
-		Bucket:  bucket,
-		Service: service,
+		Bucket:       bucket,
+		ObjectPrefix: objPrefix,
+		Service:      service,
 	}
 }
 
