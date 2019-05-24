@@ -822,6 +822,7 @@ func (w *progressWriter) Write(b []byte) (int, error) {
 // It will stop sending these instances once the returned channel has been
 // closed. The returned reader should be used to read the request body.
 func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Reader) (io.Reader, chan<- struct{}) {
+	previousOffset := int64(0)
 	progress := &progressWriter{
 		Offset: info.Offset,
 	}
@@ -833,11 +834,17 @@ func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Re
 			select {
 			case <-stop:
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				handler.UploadProgress <- info
+				if info.Offset != previousOffset {
+					handler.UploadProgress <- info
+					previousOffset = info.Offset
+				}
 				return
 			case <-time.After(1 * time.Second):
 				info.Offset = atomic.LoadInt64(&progress.Offset)
-				handler.UploadProgress <- info
+				if info.Offset != previousOffset {
+					handler.UploadProgress <- info
+					previousOffset = info.Offset
+				}
 			}
 		}
 	}()

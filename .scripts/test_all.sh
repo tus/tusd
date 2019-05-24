@@ -39,12 +39,14 @@ install_etcd_pkgs() {
   export PATH="$PATH:/tmp/etcd-v$ETCD_VERSION-linux-amd64"
 }
 
-# The etcd 3.3.x package only supports Go1.9+ and therefore
+# The etcd 3.3.x package only supports Go1.11+ and therefore
 # we will only run the corresponding tests on these versions.
 if [[ "$goversion" == *"go1.5"* ]] ||
    [[ "$goversion" == *"go1.6"* ]] ||
    [[ "$goversion" == *"go1.7"* ]] ||
-   [[ "$goversion" == *"go1.8"* ]]; then
+   [[ "$goversion" == *"go1.8"* ]] ||
+   [[ "$goversion" == *"go1.9"* ]] ||
+   [[ "$goversion" == *"go1.10"* ]]; then
   echo "Skipping tests requiring etcd3locker, which is not supported on $goversion"
   packages=$(echo "$packages" | sed '/etcd3locker/d')
 else
@@ -53,7 +55,8 @@ else
 fi
 
 # Install the AWS SDK  which is explicitly not vendored
-go get -u github.com/aws/aws-sdk-go/...
+go get -u github.com/aws/aws-sdk-go/service/s3
+go get -u github.com/aws/aws-sdk-go/aws/...
 
 # Test all packages which are allowed on all Go versions
 go test $packages
