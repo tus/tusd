@@ -99,6 +99,11 @@ func (m readerMatcher) Matches(x interface{}) bool {
 	}
 
 	bytes, err := ioutil.ReadAll(input)
+	// Handle closed pipes similar to how EOF are handled by ioutil.ReadAll,
+	// we handle this error as if the stream ended normally.
+	if err == io.ErrClosedPipe {
+		err = nil
+	}
 	if err != nil {
 		panic(err)
 	}

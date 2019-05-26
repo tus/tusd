@@ -5,10 +5,10 @@ import (
 
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
+	"github.com/tus/tusd/gcsstore"
 	"github.com/tus/tusd/limitedstore"
 	"github.com/tus/tusd/memorylocker"
 	"github.com/tus/tusd/s3store"
-	"github.com/tus/tusd/gcsstore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
