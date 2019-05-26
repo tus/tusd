@@ -2,6 +2,8 @@ package tusd
 
 import (
 	"io"
+
+	"golang.org/x/net/context"
 )
 
 type MetaData map[string]string
@@ -25,6 +27,21 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
+
+	// stopUpload is the cancel function for the upload's context.Context. When
+	// invoked it will interrupt the writes to DataStore#WriteChunk.
+	stopUpload context.CancelFunc
+}
+
+// StopUpload interrupts an running upload from the server-side. This means that
+// the current request body is closed, so that the data store does not get any
+// more data. Furthermore, a response is sent to notify the client of the
+// interrupting and the upload is terminated (if supported by the data store),
+// so the upload cannot be resumed anymore.
+func (f FileInfo) StopUpload() {
+	if f.stopUpload != nil {
+		f.stopUpload()
+	}
 }
 
 type DataStore interface {

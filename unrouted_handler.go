@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 const UploadLengthDeferred = "1"
@@ -70,6 +72,7 @@ var (
 	ErrModifyFinal                      = NewHTTPError(errors.New("modifying a final upload is not allowed"), http.StatusForbidden)
 	ErrUploadLengthAndUploadDeferLength = NewHTTPError(errors.New("provided both Upload-Length and Upload-Defer-Length"), http.StatusBadRequest)
 	ErrInvalidUploadDeferLength         = NewHTTPError(errors.New("invalid Upload-Defer-Length header"), http.StatusBadRequest)
+	ErrUploadStoppedByServer            = NewHTTPError(errors.New("upload has been stopped by server"), http.StatusBadRequest)
 )
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -535,14 +538,46 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 		// Limit the data read from the request's body to the allowed maximum
 		reader := io.LimitReader(r.Body, maxSize)
 
+		// We use a context object to allow the hook system to cancel an upload
+		uploadCtx, stopUpload := context.WithCancel(context.Background())
+		info.stopUpload = stopUpload
+		// terminateUpload specifies whether the upload should be deleted after
+		// the write has finished
+		terminateUpload := false
+		// Cancel the context when the function exits to ensure that the goroutine
+		// is properly cleaned up
+		defer stopUpload()
+
+		go func() {
+			// Interrupt the Read() call from the request body
+			<-uploadCtx.Done()
+			terminateUpload = true
+			r.Body.Close()
+		}()
+
 		if handler.config.NotifyUploadProgress {
-			var stop chan<- struct{}
-			reader, stop = handler.sendProgressMessages(info, reader)
-			defer close(stop)
+			var stopProgressEvents chan<- struct{}
+			reader, stopProgressEvents = handler.sendProgressMessages(info, reader)
+			defer close(stopProgressEvents)
 		}
 
 		var err error
 		bytesWritten, err = handler.composer.Core.WriteChunk(id, offset, reader)
+		if terminateUpload && handler.composer.UsesTerminater {
+			if terminateErr := handler.terminateUpload(id, info); terminateErr != nil {
+				// We only log this error and not show it to the user since this
+				// termination error is not relevant to the uploading client
+				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+			}
+		}
+
+		// The error "http: invalid Read on closed Body" is returned if we stop the upload
+		// while the data store is still reading. Since this is an implementation detail,
+		// we replace this error with a message saying that the upload has been stopped.
+		if err == http.ErrBodyReadAfterClose {
+			err = ErrUploadStoppedByServer
+		}
+
 		if err != nil {
 			return err
 		}
@@ -735,19 +770,33 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	err = handler.composer.Terminater.Terminate(id)
+	err = handler.terminateUpload(id, info)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
 	handler.sendResp(w, r, http.StatusNoContent)
+}
+
+// terminateUpload passes a given upload to the DataStore's Terminater,
+// send the corresponding upload info on the TerminatedUploads channnel
+// and updates the statistics.
+// Note the the info argument is only needed if the terminated uploads
+// notifications are enabled.
+func (handler *UnroutedHandler) terminateUpload(id string, info FileInfo) error {
+	err := handler.composer.Terminater.Terminate(id)
+	if err != nil {
+		return err
+	}
 
 	if handler.config.NotifyTerminatedUploads {
 		handler.TerminatedUploads <- info
 	}
 
 	handler.Metrics.incUploadsTerminated()
+
+	return nil
 }
 
 // Send the error in the response body. The status code will be looked up in
