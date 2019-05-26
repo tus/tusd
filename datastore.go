@@ -29,7 +29,7 @@ type FileInfo struct {
 
 	// stopUpload is the cancel function for the upload's context.Context. When
 	// invoked it will interrupt the writes to DataStore#WriteChunk.
-	stopUpload context.CancelFunc `json:"-"`
+	stopUpload context.CancelFunc
 }
 
 // StopUpload interrupts an running upload from the server-side. This means that
