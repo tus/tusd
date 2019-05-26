@@ -1,8 +1,9 @@
 package tusd
 
 import (
-	"context"
 	"io"
+
+	"golang.org/x/net/context"
 )
 
 type MetaData map[string]string

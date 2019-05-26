@@ -1,7 +1,6 @@
 package tusd
 
 import (
-	"context"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 const UploadLengthDeferred = "1"
