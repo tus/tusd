@@ -109,13 +109,14 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 
 	output := []byte{}
 	err := error(nil)
+	returnCode := 0
 
 	if Flags.FileHooksInstalled {
-		output, err = invokeFileHook(name, typ, info, captureOutput)
+		output, returnCode, err = invokeFileHook(name, typ, info, captureOutput)
 	}
 
 	if Flags.HttpHooksInstalled {
-		output, err = invokeHttpHook(name, typ, info, captureOutput)
+		output, returnCode, err = invokeHttpHook(name, typ, info, captureOutput)
 	}
 
 	if err != nil {
@@ -125,18 +126,24 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", info.ID)
 	}
 
+	if typ == HookPostReceive && Flags.HooksStopUploadCode != 0 && Flags.HooksStopUploadCode == returnCode {
+		logEv(stdout, "HookStopUpload", "id", info.ID)
+
+		info.StopUpload()
+	}
+
 	return output, err
 }
 
-func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	req, err := http.NewRequest("POST", Flags.HttpHooksEndpoint, bytes.NewBuffer(jsonInfo))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	req.Header.Set("Hook-Name", name)
@@ -152,27 +159,27 @@ func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return body, hookError{fmt.Errorf("endpoint returned: %s", resp.Status), resp.StatusCode, body}
+		return body, resp.StatusCode, hookError{fmt.Errorf("endpoint returned: %s", resp.Status), resp.StatusCode, body}
 	}
 
 	if captureOutput {
-		return body, err
+		return body, resp.StatusCode, err
 	}
 
-	return nil, err
+	return nil, resp.StatusCode, err
 }
 
-func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
 	hookPath := Flags.FileHooksDir + string(os.PathSeparator) + name
 	cmd := exec.Command(hookPath)
 	env := os.Environ()
@@ -182,7 +189,7 @@ func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	reader := bytes.NewReader(jsonInfo)
@@ -208,5 +215,7 @@ func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput
 		err = nil
 	}
 
-	return output, err
+	returnCode := cmd.ProcessState.ExitCode()
+
+	return output, returnCode, err
 }

@@ -74,6 +74,10 @@ func Serve() {
 		stderr.Fatalf("Unable to create listener: %s", err)
 	}
 
+	if Flags.HttpSock == "" {
+		stdout.Printf("You can now upload files to: http://%s%s", address, basepath)
+	}
+
 	if err = http.Serve(listener, nil); err != nil {
 		stderr.Fatalf("Unable to serve: %s", err)
 	}
