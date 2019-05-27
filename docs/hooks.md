@@ -13,7 +13,7 @@ If not otherwise noted, all hooks are invoked in a *non-blocking* way, meaning t
 
 ## Blocking Hooks
 
-On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` event. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks. 
+On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` event. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks.
 
 ### Blocking File Hooks
 
@@ -31,7 +31,7 @@ This event will be triggered before an upload is created, allowing you to run ce
 
 ### post-create
 
-This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration. 
+This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration.
 
 ### post-finish
 
@@ -88,6 +88,38 @@ The process of the hook files are provided with information about the event and 
   // trust it without escaping it first!
   "MetaData": {
     "filename": "transloadit.png"
+  },
+  "OriginalRequest": {
+    "Headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Tus-Resumable": [
+        "1.0.0"
+      ],
+      "Upload-Length": [
+        "9216959"
+      ],
+      "Upload-Metadata": [
+        "filename dHJhbnNsb2FkaXQucG5n"
+      ],
+      "User-Agent": [
+        "python-requests/2.20.1"
+      ]
+    },
+    "RemoteAddr": "127.0.0.1:58383",
+    "Proto": "HTTP/1.1",
+    "RequestURI": "/files/",
+    "Host": "localhost:1080"
   }
 }
 ```
@@ -138,6 +170,38 @@ Tusd will issue a `POST` request to the specified URL endpoint, specifying the h
   // trust it without escaping it first!
   "MetaData": {
     "filename": "transloadit.png"
+  },
+  "OriginalRequest": {
+    "Headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Tus-Resumable": [
+        "1.0.0"
+      ],
+      "Upload-Length": [
+        "9216959"
+      ],
+      "Upload-Metadata": [
+        "filename dHJhbnNsb2FkaXQucG5n"
+      ],
+      "User-Agent": [
+        "python-requests/2.20.1"
+      ]
+    },
+    "RemoteAddr": "127.0.0.1:58383",
+    "Proto": "HTTP/1.1",
+    "RequestURI": "/files/",
+    "Host": "localhost:1080"
   }
 }
 ```

@@ -79,6 +79,14 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	return w
 }
 
+func toHTTPHeader(headerMap map[string]string) http.Header {
+	header := http.Header{}
+	for key, value := range headerMap {
+		header.Set(key, value)
+	}
+	return header
+}
+
 type readerMatcher struct {
 	expect string
 }

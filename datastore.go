@@ -2,6 +2,7 @@ package tusd
 
 import (
 	"io"
+	"net/http"
 
 	"golang.org/x/net/context"
 )
@@ -27,7 +28,8 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
-
+	// The original http request initiating this FileInfo instance
+	OriginalRequest OriginalRequest
 	// stopUpload is the cancel function for the upload's context.Context. When
 	// invoked it will interrupt the writes to DataStore#WriteChunk.
 	stopUpload context.CancelFunc
@@ -42,6 +44,14 @@ func (f FileInfo) StopUpload() {
 	if f.stopUpload != nil {
 		f.stopUpload()
 	}
+}
+
+type OriginalRequest struct {
+	Host       string
+	Proto      string
+	RequestURI string
+	RemoteAddr string
+	Headers    http.Header
 }
 
 type DataStore interface {

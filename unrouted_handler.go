@@ -155,6 +155,21 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 
 	return handler, nil
 }
+func (handler *UnroutedHandler) getInfo(id string, httpRequest *http.Request) (FileInfo, error) {
+	info, err := handler.composer.Core.GetInfo(id)
+	if err != nil {
+		return info, err
+	}
+
+	if httpRequest != nil {
+		info.OriginalRequest.Headers = httpRequest.Header
+		info.OriginalRequest.RemoteAddr = httpRequest.RemoteAddr
+		info.OriginalRequest.Proto = httpRequest.Proto
+		info.OriginalRequest.RequestURI = httpRequest.RequestURI
+		info.OriginalRequest.Host = httpRequest.Host
+	}
+	return info, err
+}
 
 // Middleware checks various aspects of the request and ensures that it
 // conforms with the spec. Also handles method overriding for clients which
@@ -296,6 +311,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		IsPartial:      isPartial,
 		IsFinal:        isFinal,
 		PartialUploads: partialUploads,
+		OriginalRequest: OriginalRequest{
+			Headers:    r.Header,
+			RemoteAddr: r.RemoteAddr,
+			Proto:      r.Proto,
+			RequestURI: r.RequestURI,
+			Host:       r.Host,
+		},
 	}
 
 	id, err := handler.composer.Core.NewUpload(info)
@@ -374,7 +396,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	info, err := handler.getInfo(id, r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -444,7 +466,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	info, err := handler.getInfo(id, r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -642,7 +664,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	info, err := handler.getInfo(id, r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -763,7 +785,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 
 	var info FileInfo
 	if handler.config.NotifyTerminatedUploads {
-		info, err = handler.composer.Core.GetInfo(id)
+		info, err = handler.getInfo(id, r)
 		if err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -944,7 +966,7 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // of a final resource.
 func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err error) {
 	for _, id := range ids {
-		info, err := handler.composer.Core.GetInfo(id)
+		info, err := handler.getInfo(id, nil)
 		if err != nil {
 			return size, err
 		}

@@ -32,20 +32,12 @@ func TestConcat(t *testing.T) {
 
 	SubTest(t, "Partial", func(t *testing.T, store *MockFullDataStore) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:           300,
-				IsPartial:      true,
-				IsFinal:        false,
-				PartialUploads: nil,
-				MetaData:       make(map[string]string),
-			}).Return("foo", nil)
-
 			handler, _ := NewHandler(Config{
 				BasePath:  "files",
 				DataStore: store,
 			})
 
-			(&httpTest{
+			test := &httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Tus-Resumable": "1.0.0",
@@ -53,7 +45,20 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "partial",
 				},
 				Code: http.StatusCreated,
-			}).Run(handler, t)
+			}
+			store.EXPECT().NewUpload(FileInfo{
+				Size:           300,
+				IsPartial:      true,
+				IsFinal:        false,
+				PartialUploads: nil,
+				MetaData:       make(map[string]string),
+				OriginalRequest: OriginalRequest{
+					Proto:   "HTTP/1.1",
+					Host:    "tus.io",
+					Headers: toHTTPHeader(test.ReqHeader),
+				},
+			}).Return("foo", nil)
+			test.Run(handler, t)
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
@@ -84,6 +89,27 @@ func TestConcat(t *testing.T) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
 			a := assert.New(t)
 
+			handler, _ := NewHandler(Config{
+				BasePath:              "files",
+				DataStore:             store,
+				NotifyCompleteUploads: true,
+			})
+
+			c := make(chan FileInfo, 1)
+			handler.CompleteUploads = c
+
+			test := &httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					// A space between `final;` and the first URL should be allowed due to
+					// compatibility reasons, even if the specification does not define
+					// it. Therefore this character is included in this test case.
+					"Upload-Concat": "final; http://tus.io/files/a /files/b/",
+				},
+				Code: http.StatusCreated,
+			}
+
 			gomock.InOrder(
 				store.EXPECT().GetInfo("a").Return(FileInfo{
 					IsPartial: true,
@@ -101,30 +127,15 @@ func TestConcat(t *testing.T) {
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
 					MetaData:       make(map[string]string),
+					OriginalRequest: OriginalRequest{
+						Proto:   "HTTP/1.1",
+						Host:    "tus.io",
+						Headers: toHTTPHeader(test.ReqHeader),
+					},
 				}).Return("foo", nil),
 				store.EXPECT().ConcatUploads("foo", []string{"a", "b"}).Return(nil),
 			)
-
-			handler, _ := NewHandler(Config{
-				BasePath:              "files",
-				DataStore:             store,
-				NotifyCompleteUploads: true,
-			})
-
-			c := make(chan FileInfo, 1)
-			handler.CompleteUploads = c
-
-			(&httpTest{
-				Method: "POST",
-				ReqHeader: map[string]string{
-					"Tus-Resumable": "1.0.0",
-					// A space between `final;` and the first URL should be allowed due to
-					// compatibility reasons, even if the specification does not define
-					// it. Therefore this character is included in this test case.
-					"Upload-Concat": "final; http://tus.io/files/a /files/b/",
-				},
-				Code: http.StatusCreated,
-			}).Run(handler, t)
+			test.Run(handler, t)
 
 			info := <-c
 			a.Equal("foo", info.ID)
@@ -133,6 +144,7 @@ func TestConcat(t *testing.T) {
 			a.False(info.IsPartial)
 			a.True(info.IsFinal)
 			a.Equal([]string{"a", "b"}, info.PartialUploads)
+			a.Equal(toHTTPHeader(test.ReqHeader), info.OriginalRequest.Headers)
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
