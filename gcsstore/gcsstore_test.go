@@ -20,7 +20,6 @@ import (
 
 const mockID = "123456789abcdefghijklmnopqrstuvwxyz"
 const mockBucket = "bucket"
-const mockObjPrefix = ""
 const mockSize = 1337
 const mockReaderData = "helloworld"
 
@@ -44,7 +43,7 @@ func TestNewUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -95,7 +94,7 @@ func TestGetInfo(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -158,7 +157,7 @@ func TestGetInfoNotFound(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
@@ -203,7 +202,7 @@ func TestGetReader(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -232,7 +231,7 @@ func TestTerminate(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -254,7 +253,7 @@ func TestFinishUpload(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 
@@ -373,7 +372,7 @@ func TestWriteChunk(t *testing.T) {
 	assert := assert.New(t)
 
 	service := NewMockGCSAPI(mockCtrl)
-	store := gcsstore.New(mockBucket, mockObjPrefix, service)
+	store := gcsstore.New(mockBucket, service)
 
 	assert.Equal(store.Bucket, mockBucket)
 

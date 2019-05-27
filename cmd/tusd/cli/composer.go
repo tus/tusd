@@ -55,7 +55,8 @@ func CreateComposer() {
 
 		stdout.Printf("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
 
-		store := gcsstore.New(Flags.GCSBucket, Flags.GCSObjectPrefix, service)
+		store := gcsstore.New(Flags.GCSBucket, service)
+		store.ObjectPrefix = Flags.GCSObjectPrefix
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
