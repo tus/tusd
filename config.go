@@ -47,7 +47,7 @@ type Config struct {
 
 func (config *Config) validate() error {
 	if config.Logger == nil {
-		config.Logger = log.New(os.Stdout, "[tusd] ", 0)
+		config.Logger = log.New(os.Stdout, "[tusd] ", log.Ldate | log.Lmicroseconds)
 	}
 
 	base := config.BasePath
