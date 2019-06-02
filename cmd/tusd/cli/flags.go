@@ -3,30 +3,31 @@ package cli
 import (
 	"flag"
 	"path/filepath"
+	"strings"
 )
 
 var Flags struct {
-	HttpHost            string
-	HttpPort            string
-	HttpSock            string
-	MaxSize             int64
-	UploadDir           string
-	StoreSize           int64
-	Basepath            string
-	Timeout             int64
-	S3Bucket            string
-	S3ObjectPrefix      string
-	S3Endpoint          string
-	GCSBucket           string
-	FileHooksDir        string
-	HttpHooksEndpoint   string
-	HttpHooksRetry      int
-	HttpHooksBackoff    int
-	HooksStopUploadCode int
-	ShowVersion         bool
-	ExposeMetrics       bool
-	MetricsPath         string
-	BehindProxy         bool
+	HttpHost          string
+	HttpPort          string
+	HttpSock          string
+	MaxSize           int64
+	UploadDir         string
+	StoreSize         int64
+	Basepath          string
+	Timeout           int64
+	S3Bucket          string
+	S3ObjectPrefix    string
+	S3Endpoint        string
+	GCSBucket         string
+	GCSObjectPrefix   string
+	FileHooksDir      string
+	HttpHooksEndpoint string
+	HttpHooksRetry    int
+	HttpHooksBackoff  int
+	ShowVersion       bool
+	ExposeMetrics     bool
+	MetricsPath       string
+	BehindProxy       bool
 
 	FileHooksInstalled bool
 	HttpHooksInstalled bool
@@ -45,6 +46,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
+	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
@@ -75,5 +77,10 @@ func ParseFlags() {
 			"(using -s3-bucket) must be specified to start tusd but " +
 			"neither flag was provided. Please consult `tusd -help` for " +
 			"more information on these options.")
+	}
+
+	if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
+		stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
+			"Please remove underscore from the value", Flags.GCSObjectPrefix)
 	}
 }

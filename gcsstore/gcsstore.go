@@ -14,12 +14,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/tus/tusd"
@@ -31,6 +32,11 @@ import (
 type GCSStore struct {
 	// Specifies the GCS bucket that uploads will be stored in
 	Bucket string
+
+	// ObjectPrefix is prepended to the name of each GCS object that is created.
+	// It can be used to create a pseudo-directory structure in the bucket,
+	// e.g. "path/to/my/uploads".
+	ObjectPrefix string
 
 	// Service specifies an interface used to communicate with the Google
 	// cloud storage backend. Implementation can be seen in gcsservice file.
@@ -59,7 +65,7 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 	}
 
 	ctx := context.Background()
-	err = store.writeInfo(ctx, info.ID, info)
+	err = store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
 	if err != nil {
 		return info.ID, err
 	}
@@ -68,7 +74,7 @@ func (store GCSStore) NewUpload(info tusd.FileInfo) (id string, err error) {
 }
 
 func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	prefix := fmt.Sprintf("%s_", id)
+	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
@@ -94,7 +100,7 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 		}
 	}
 
-	cid := fmt.Sprintf("%s_%d", id, maxIdx+1)
+	cid := fmt.Sprintf("%s_%d", store.keyWithPrefix(id), maxIdx+1)
 	objectParams := GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     cid,
@@ -112,7 +118,7 @@ const CONCURRENT_SIZE_REQUESTS = 32
 
 func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	info := tusd.FileInfo{}
-	i := fmt.Sprintf("%s.info", id)
+	i := fmt.Sprintf("%s.info", store.keyWithPrefix(id))
 
 	params := GCSObjectParams{
 		Bucket: store.Bucket,
@@ -138,7 +144,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 		return info, err
 	}
 
-	prefix := fmt.Sprintf("%s", id)
+	prefix := fmt.Sprintf("%s", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
@@ -200,7 +206,7 @@ func (store GCSStore) GetInfo(id string) (tusd.FileInfo, error) {
 	}
 
 	info.Offset = offset
-	err = store.writeInfo(ctx, id, info)
+	err = store.writeInfo(ctx, store.keyWithPrefix(id), info)
 	if err != nil {
 		return info, err
 	}
@@ -231,7 +237,7 @@ func (store GCSStore) writeInfo(ctx context.Context, id string, info tusd.FileIn
 }
 
 func (store GCSStore) FinishUpload(id string) error {
-	prefix := fmt.Sprintf("%s_", id)
+	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
@@ -245,7 +251,7 @@ func (store GCSStore) FinishUpload(id string) error {
 
 	composeParams := GCSComposeParams{
 		Bucket:      store.Bucket,
-		Destination: id,
+		Destination: store.keyWithPrefix(id),
 		Sources:     names,
 	}
 
@@ -266,7 +272,7 @@ func (store GCSStore) FinishUpload(id string) error {
 
 	objectParams := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     id,
+		ID:     store.keyWithPrefix(id),
 	}
 
 	err = store.Service.SetObjectMetadata(ctx, objectParams, info.MetaData)
@@ -280,7 +286,7 @@ func (store GCSStore) FinishUpload(id string) error {
 func (store GCSStore) Terminate(id string) error {
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: id,
+		Prefix: store.keyWithPrefix(id),
 	}
 
 	ctx := context.Background()
@@ -295,7 +301,7 @@ func (store GCSStore) Terminate(id string) error {
 func (store GCSStore) GetReader(id string) (io.Reader, error) {
 	params := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     id,
+		ID:     store.keyWithPrefix(id),
 	}
 
 	ctx := context.Background()
@@ -305,4 +311,12 @@ func (store GCSStore) GetReader(id string) (io.Reader, error) {
 	}
 
 	return r, nil
+}
+
+func (store GCSStore) keyWithPrefix(key string) string {
+	prefix := store.ObjectPrefix
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	return prefix + key
 }

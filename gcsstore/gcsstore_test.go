@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/golang/mock/gomock"
@@ -54,6 +55,35 @@ func TestNewUpload(t *testing.T) {
 	params := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     fmt.Sprintf("%s.info", mockID),
+	}
+
+	ctx := context.Background()
+	service.EXPECT().WriteObject(ctx, params, r).Return(int64(r.Len()), nil)
+
+	id, err := store.NewUpload(mockTusdInfo)
+	assert.Nil(err)
+	assert.Equal(id, mockID)
+}
+
+func TestNewUploadWithPrefix(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+	store.ObjectPrefix = "/path/to/file"
+
+	assert.Equal(store.Bucket, mockBucket)
+
+	data, err := json.Marshal(mockTusdInfo)
+	assert.Nil(err)
+
+	r := bytes.NewReader(data)
+
+	params := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     fmt.Sprintf("%s.info", "/path/to/file/"+mockID),
 	}
 
 	ctx := context.Background()
