@@ -7,27 +7,28 @@ import (
 )
 
 var Flags struct {
-	HttpHost          string
-	HttpPort          string
-	HttpSock          string
-	MaxSize           int64
-	UploadDir         string
-	StoreSize         int64
-	Basepath          string
-	Timeout           int64
-	S3Bucket          string
-	S3ObjectPrefix    string
-	S3Endpoint        string
-	GCSBucket         string
-	GCSObjectPrefix   string
-	FileHooksDir      string
-	HttpHooksEndpoint string
-	HttpHooksRetry    int
-	HttpHooksBackoff  int
-	ShowVersion       bool
-	ExposeMetrics     bool
-	MetricsPath       string
-	BehindProxy       bool
+	HttpHost            string
+	HttpPort            string
+	HttpSock            string
+	MaxSize             int64
+	UploadDir           string
+	StoreSize           int64
+	Basepath            string
+	Timeout             int64
+	S3Bucket            string
+	S3ObjectPrefix      string
+	S3Endpoint          string
+	GCSBucket           string
+	GCSObjectPrefix     string
+	FileHooksDir        string
+	HttpHooksEndpoint   string
+	HttpHooksRetry      int
+	HttpHooksBackoff    int
+	HooksStopUploadCode int
+	ShowVersion         bool
+	ExposeMetrics       bool
+	MetricsPath         string
+	BehindProxy         bool
 
 	FileHooksInstalled bool
 	HttpHooksInstalled bool
