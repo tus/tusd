@@ -15,7 +15,9 @@ import (
 // specified, in which case a different socket creation and binding mechanism
 // is put in place.
 func Serve() {
-	SetupPreHooks(Composer)
+	if err := SetupPreHooks(Composer); err != nil {
+		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
+	}
 
 	handler, err := tusd.NewHandler(tusd.Config{
 		MaxSize:                 Flags.MaxSize,

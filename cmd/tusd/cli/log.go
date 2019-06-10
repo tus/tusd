@@ -7,8 +7,8 @@ import (
 	"github.com/tus/tusd"
 )
 
-var stdout = log.New(os.Stdout, "[tusd] ", 0)
-var stderr = log.New(os.Stderr, "[tusd] ", 0)
+var stdout = log.New(os.Stdout, "[tusd] ", log.Ldate|log.Ltime)
+var stderr = log.New(os.Stderr, "[tusd] ", log.Ldate|log.Ltime)
 
 func logEv(logOutput *log.Logger, eventName string, details ...string) {
 	tusd.LogEvent(logOutput, eventName, details...)

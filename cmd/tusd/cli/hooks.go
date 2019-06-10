@@ -1,54 +1,27 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"os/exec"
 	"strconv"
-	"time"
 
 	"github.com/tus/tusd"
-
-	"github.com/sethgrid/pester"
+	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
 
-type HookType string
-
-const (
-	HookPostFinish    HookType = "post-finish"
-	HookPostTerminate HookType = "post-terminate"
-	HookPostReceive   HookType = "post-receive"
-	HookPostCreate    HookType = "post-create"
-	HookPreCreate     HookType = "pre-create"
-)
+var hookHandler hooks.HookHandler = nil
 
 type hookDataStore struct {
 	tusd.DataStore
 }
 
-type hookError struct {
-	error
-	statusCode int
-	body       []byte
-}
-
-func (herr hookError) StatusCode() int {
-	return herr.statusCode
-}
-
-func (herr hookError) Body() []byte {
-	return herr.body
-}
-
 func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) {
-	if output, err := invokeHookSync(HookPreCreate, info, true); err != nil {
-		if hookErr, ok := err.(hookError); ok {
-			hookErr.error = fmt.Errorf("pre-create hook failed: %s", err)
-			return "", hookErr
+	if output, err := invokeHookSync(hooks.HookPreCreate, info, true); err != nil {
+		if hookErr, ok := err.(hooks.HookError); ok {
+			return "", hooks.NewHookError(
+				fmt.Errorf("pre-create hook failed: %s", err),
+				hookErr.StatusCode(),
+				hookErr.Body(),
+			)
 		}
 		return "", fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
 	}
@@ -56,17 +29,41 @@ func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) 
 }
 
 func SetupHookMetrics() {
-	MetricsHookErrorsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
-	MetricsHookErrorsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
-	MetricsHookErrorsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
-	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
-	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostTerminate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostReceive)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
 }
 
-func SetupPreHooks(composer *tusd.StoreComposer) {
+func SetupPreHooks(composer *tusd.StoreComposer) error {
+	if Flags.FileHooksDir != "" {
+		hookHandler = &hooks.FileHook{
+			Directory: Flags.FileHooksDir,
+		}
+	} else if Flags.HttpHooksEndpoint != "" {
+		hookHandler = &hooks.HttpHook{
+			Endpoint:   Flags.HttpHooksEndpoint,
+			MaxRetries: Flags.HttpHooksRetry,
+			Backoff:    Flags.HttpHooksBackoff,
+		}
+	} else if Flags.PluginHookPath != "" {
+		hookHandler = &hooks.PluginHook{
+			Path: Flags.PluginHookPath,
+		}
+	} else {
+		return nil
+	}
+
+	if err := hookHandler.Setup(); err != nil {
+		return err
+	}
+
 	composer.UseCore(hookDataStore{
 		DataStore: composer.Core,
 	})
+
+	return nil
 }
 
 func SetupPostHooks(handler *tusd.Handler) {
@@ -74,50 +71,41 @@ func SetupPostHooks(handler *tusd.Handler) {
 		for {
 			select {
 			case info := <-handler.CompleteUploads:
-				invokeHook(HookPostFinish, info)
+				invokeHookAsync(hooks.HookPostFinish, info)
 			case info := <-handler.TerminatedUploads:
-				invokeHook(HookPostTerminate, info)
+				invokeHookAsync(hooks.HookPostTerminate, info)
 			case info := <-handler.UploadProgress:
-				invokeHook(HookPostReceive, info)
+				invokeHookAsync(hooks.HookPostReceive, info)
 			case info := <-handler.CreatedUploads:
-				invokeHook(HookPostCreate, info)
+				invokeHookAsync(hooks.HookPostCreate, info)
 			}
 		}
 	}()
 }
 
-func invokeHook(typ HookType, info tusd.FileInfo) {
+func invokeHookAsync(typ hooks.HookType, info tusd.FileInfo) {
 	go func() {
 		// Error handling is taken care by the function.
 		_, _ = invokeHookSync(typ, info, false)
 	}()
 }
 
-func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
-	case HookPostFinish:
+	case hooks.HookPostFinish:
 		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
-	case HookPostTerminate:
+	case hooks.HookPostTerminate:
 		logEv(stdout, "UploadTerminated", "id", info.ID)
 	}
 
-	if !Flags.FileHooksInstalled && !Flags.HttpHooksInstalled {
+	if hookHandler == nil {
 		return nil, nil
 	}
+
 	name := string(typ)
 	logEv(stdout, "HookInvocationStart", "type", name, "id", info.ID)
 
-	output := []byte{}
-	err := error(nil)
-	returnCode := 0
-
-	if Flags.FileHooksInstalled {
-		output, returnCode, err = invokeFileHook(name, typ, info, captureOutput)
-	}
-
-	if Flags.HttpHooksInstalled {
-		output, returnCode, err = invokeHttpHook(name, typ, info, captureOutput)
-	}
+	output, returnCode, err := hookHandler.InvokeHook(typ, info, captureOutput)
 
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
@@ -126,96 +114,11 @@ func invokeHookSync(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byt
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", info.ID)
 	}
 
-	if typ == HookPostReceive && Flags.HooksStopUploadCode != 0 && Flags.HooksStopUploadCode == returnCode {
+	if typ == hooks.HookPostReceive && Flags.HooksStopUploadCode != 0 && Flags.HooksStopUploadCode == returnCode {
 		logEv(stdout, "HookStopUpload", "id", info.ID)
 
 		info.StopUpload()
 	}
 
 	return output, err
-}
-
-func invokeHttpHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
-	jsonInfo, err := json.Marshal(info)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	req, err := http.NewRequest("POST", Flags.HttpHooksEndpoint, bytes.NewBuffer(jsonInfo))
-	if err != nil {
-		return nil, 0, err
-	}
-
-	req.Header.Set("Hook-Name", name)
-	req.Header.Set("Content-Type", "application/json")
-
-	// Use linear backoff strategy with the user defined values.
-	client := pester.New()
-	client.KeepLog = true
-	client.MaxRetries = Flags.HttpHooksRetry
-	client.Backoff = func(_ int) time.Duration {
-		return time.Duration(Flags.HttpHooksBackoff) * time.Second
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		return body, resp.StatusCode, hookError{fmt.Errorf("endpoint returned: %s", resp.Status), resp.StatusCode, body}
-	}
-
-	if captureOutput {
-		return body, resp.StatusCode, err
-	}
-
-	return nil, resp.StatusCode, err
-}
-
-func invokeFileHook(name string, typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
-	hookPath := Flags.FileHooksDir + string(os.PathSeparator) + name
-	cmd := exec.Command(hookPath)
-	env := os.Environ()
-	env = append(env, "TUS_ID="+info.ID)
-	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
-	env = append(env, "TUS_OFFSET="+strconv.FormatInt(info.Offset, 10))
-
-	jsonInfo, err := json.Marshal(info)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	reader := bytes.NewReader(jsonInfo)
-	cmd.Stdin = reader
-
-	cmd.Env = env
-	cmd.Dir = Flags.FileHooksDir
-	cmd.Stderr = os.Stderr
-
-	// If `captureOutput` is true, this function will return the output (both,
-	// stderr and stdout), else it will use this process' stdout
-	var output []byte
-	if !captureOutput {
-		cmd.Stdout = os.Stdout
-		err = cmd.Run()
-	} else {
-		output, err = cmd.Output()
-	}
-
-	// Ignore the error, only, if the hook's file could not be found. This usually
-	// means that the user is only using a subset of the available hooks.
-	if os.IsNotExist(err) {
-		err = nil
-	}
-
-	returnCode := cmd.ProcessState.ExitCode()
-
-	return output, returnCode, err
 }
