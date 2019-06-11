@@ -24,13 +24,6 @@ type MemoryLocker struct {
 	mutex sync.Mutex
 }
 
-// NewMemoryLocker creates a new in-memory locker. The DataStore parameter
-// is only presented for back-wards compatibility and is ignored. Please
-// use the New() function instead.
-func NewMemoryLocker(_ handler.DataStore) *MemoryLocker {
-	return New()
-}
-
 // New creates a new in-memory locker.
 func New() *MemoryLocker {
 	return &MemoryLocker{
