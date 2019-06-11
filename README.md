@@ -226,7 +226,6 @@ useful tools:
 * [**filestore**](https://godoc.org/github.com/tus/tusd/filestore): A storage backend using the local file system
 * [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
 * [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
-* [**consullocker**](https://godoc.org/github.com/tus/tusd/consullocker): A locker using the distributed Consul service
 * [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
 * [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
 

@@ -5,7 +5,7 @@ set -e
 # Find all packages containing Go source code inside the current directory
 packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
 
-# The consul package only supports Go1.10+ and therefore we will only run the
+# Some packages only support Go1.10+ and therefore we will only run the
 # corresponding tests on these versions.
 goversion=$(go version)
 if [[ "$goversion" == *"go1.5"* ]] ||
@@ -14,19 +14,12 @@ if [[ "$goversion" == *"go1.5"* ]] ||
    [[ "$goversion" == *"go1.8"* ]] ||
    [[ "$goversion" == *"go1.9"* ]]; then
 
-  echo "Skipping tests requiring Consul which is not supported on $goversion"
-
-  # Exclude consullocker since this may not be run on all Go versions.
-  packages=$(echo "$packages" | sed '/consul/d')
-
   echo "Skipping tests requiring GCSStore, which is not supported on $goversion"
   packages=$(echo "$packages" | sed '/gcsstore/d')
 
   echo "Skipping tests requiring Prometheus, which is not supported on $goversion"
   packages=$(echo "$packages" | sed '/prometheuscollector/d')
 else
-  # Install the Consul and Prometheus client packages which are not vendored.
-  go get -u github.com/hashicorp/consul/...
   go get -u github.com/prometheus/client_golang/prometheus
 fi
 
