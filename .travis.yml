@@ -1,12 +1,5 @@
 language: go
 go:
-- 1.5
-- 1.6
-- 1.7
-- 1.8
-- 1.9
-- "1.10"
-- 1.11
 - 1.12
 sudo: required
 addons:
@@ -18,9 +11,6 @@ cache:
   directories:
   - $HOME/.gimme
   - "$HOME/google-cloud-sdk/"
-env:
-  global:
-  - GO15VENDOREXPERIMENT=1
 install:
 - true
 script:
