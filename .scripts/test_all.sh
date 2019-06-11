@@ -2,27 +2,6 @@
 
 set -e
 
-# Find all packages containing Go source code inside the current directory
-packages=$(find ./ -maxdepth 2 -name '*.go' -printf '%h\n' | sort | uniq)
-
-# Some packages only support Go1.10+ and therefore we will only run the
-# corresponding tests on these versions.
-goversion=$(go version)
-if [[ "$goversion" == *"go1.5"* ]] ||
-   [[ "$goversion" == *"go1.6"* ]] ||
-   [[ "$goversion" == *"go1.7"* ]] ||
-   [[ "$goversion" == *"go1.8"* ]] ||
-   [[ "$goversion" == *"go1.9"* ]]; then
-
-  echo "Skipping tests requiring GCSStore, which is not supported on $goversion"
-  packages=$(echo "$packages" | sed '/gcsstore/d')
-
-  echo "Skipping tests requiring Prometheus, which is not supported on $goversion"
-  packages=$(echo "$packages" | sed '/prometheuscollector/d')
-else
-  go get -u github.com/prometheus/client_golang/prometheus
-fi
-
 install_etcd_pkgs() {
   ETCD_VERSION="3.3.10"
   go get -u go.etcd.io/etcd/clientv3
@@ -32,26 +11,14 @@ install_etcd_pkgs() {
   export PATH="$PATH:/tmp/etcd-v$ETCD_VERSION-linux-amd64"
 }
 
-# The etcd 3.3.x package only supports Go1.11+ and therefore
-# we will only run the corresponding tests on these versions.
-if [[ "$goversion" == *"go1.5"* ]] ||
-   [[ "$goversion" == *"go1.6"* ]] ||
-   [[ "$goversion" == *"go1.7"* ]] ||
-   [[ "$goversion" == *"go1.8"* ]] ||
-   [[ "$goversion" == *"go1.9"* ]] ||
-   [[ "$goversion" == *"go1.10"* ]]; then
-  echo "Skipping tests requiring etcd3locker, which is not supported on $goversion"
-  packages=$(echo "$packages" | sed '/etcd3locker/d')
-else
-  # Install the etcd packages which are not vendored.
-  install_etcd_pkgs
-fi
-
 # Install the AWS SDK  which is explicitly not vendored
 go get -u github.com/aws/aws-sdk-go/service/s3
 go get -u github.com/aws/aws-sdk-go/aws/...
 
-# Test all packages which are allowed on all Go versions
-go test $packages
+go get -u github.com/prometheus/client_golang/prometheus
 
-go vet $packages
+# Install the etcd packages which are not vendored.
+install_etcd_pkgs
+
+go test ./pkg/...
+go vet ./pkg/...

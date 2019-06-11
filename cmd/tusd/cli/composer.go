@@ -3,23 +3,23 @@ package cli
 import (
 	"os"
 
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/filestore"
-	"github.com/tus/tusd/gcsstore"
-	"github.com/tus/tusd/memorylocker"
-	"github.com/tus/tusd/s3store"
+	"github.com/tus/tusd/pkg/filestore"
+	"github.com/tus/tusd/pkg/gcsstore"
+	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/pkg/memorylocker"
+	"github.com/tus/tusd/pkg/s3store"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-var Composer *tusd.StoreComposer
+var Composer *handler.StoreComposer
 
 func CreateComposer() {
 	// Attempt to use S3 as a backend if the -s3-bucket option has been supplied.
 	// If not, we default to storing them locally on disk.
-	Composer = tusd.NewStoreComposer()
+	Composer = handler.NewStoreComposer()
 	if Flags.S3Bucket != "" {
 		s3Config := aws.NewConfig()
 

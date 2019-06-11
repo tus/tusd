@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 // Setups the different components, starts a Listener and give it to
@@ -19,7 +19,7 @@ func Serve() {
 		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
 	}
 
-	handler, err := tusd.NewHandler(tusd.Config{
+	handler, err := handler.NewHandler(handler.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
 		RespectForwardedHeaders: Flags.BehindProxy,

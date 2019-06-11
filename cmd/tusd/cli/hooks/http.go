@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 
 	"github.com/sethgrid/pester"
 )
@@ -23,7 +23,7 @@ func (_ HttpHook) Setup() error {
 	return nil
 }
 
-func (h HttpHook) InvokeHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
+func (h HttpHook) InvokeHook(typ HookType, info handler.FileInfo, captureOutput bool) ([]byte, int, error) {
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
 		return nil, 0, err

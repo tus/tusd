@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/tus/tusd"
 	"github.com/tus/tusd/cmd/tusd/cli/hooks"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 var hookHandler hooks.HookHandler = nil
 
 type hookDataStore struct {
-	tusd.DataStore
+	handler.DataStore
 }
 
-func (store hookDataStore) NewUpload(info tusd.FileInfo) (id string, err error) {
+func (store hookDataStore) NewUpload(info handler.FileInfo) (id string, err error) {
 	if output, err := invokeHookSync(hooks.HookPreCreate, info, true); err != nil {
 		if hookErr, ok := err.(hooks.HookError); ok {
 			return "", hooks.NewHookError(
@@ -36,7 +36,7 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
 }
 
-func SetupPreHooks(composer *tusd.StoreComposer) error {
+func SetupPreHooks(composer *handler.StoreComposer) error {
 	if Flags.FileHooksDir != "" {
 		hookHandler = &hooks.FileHook{
 			Directory: Flags.FileHooksDir,
@@ -66,7 +66,7 @@ func SetupPreHooks(composer *tusd.StoreComposer) error {
 	return nil
 }
 
-func SetupPostHooks(handler *tusd.Handler) {
+func SetupPostHooks(handler *handler.Handler) {
 	go func() {
 		for {
 			select {
@@ -83,14 +83,14 @@ func SetupPostHooks(handler *tusd.Handler) {
 	}()
 }
 
-func invokeHookAsync(typ hooks.HookType, info tusd.FileInfo) {
+func invokeHookAsync(typ hooks.HookType, info handler.FileInfo) {
 	go func() {
 		// Error handling is taken care by the function.
 		_, _ = invokeHookSync(typ, info, false)
 	}()
 }
 
-func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+func invokeHookSync(typ hooks.HookType, info handler.FileInfo, captureOutput bool) ([]byte, error) {
 	switch typ {
 	case hooks.HookPostFinish:
 		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))

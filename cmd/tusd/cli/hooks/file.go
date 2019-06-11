@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 type FileHook struct {
@@ -18,7 +18,7 @@ func (_ FileHook) Setup() error {
 	return nil
 }
 
-func (h FileHook) InvokeHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
+func (h FileHook) InvokeHook(typ HookType, info handler.FileInfo, captureOutput bool) ([]byte, int, error) {
 	hookPath := h.Directory + string(os.PathSeparator) + string(typ)
 	cmd := exec.Command(hookPath)
 	env := os.Environ()
