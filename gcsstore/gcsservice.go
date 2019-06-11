@@ -1,20 +1,19 @@
 package gcsstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"math"
 	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-
-	"hash/crc32"
 
 	"github.com/vimeo/go-util/crc32combine"
 )

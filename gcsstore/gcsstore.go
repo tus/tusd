@@ -12,6 +12,7 @@ package gcsstore
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,8 +20,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-
-	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/tus/tusd"
