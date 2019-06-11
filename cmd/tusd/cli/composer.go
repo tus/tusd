@@ -6,7 +6,6 @@ import (
 	"github.com/tus/tusd"
 	"github.com/tus/tusd/filestore"
 	"github.com/tus/tusd/gcsstore"
-	"github.com/tus/tusd/limitedstore"
 	"github.com/tus/tusd/memorylocker"
 	"github.com/tus/tusd/s3store"
 
@@ -71,19 +70,6 @@ func CreateComposer() {
 
 		store := filestore.New(dir)
 		store.UseIn(Composer)
-	}
-
-	storeSize := Flags.StoreSize
-	maxSize := Flags.MaxSize
-
-	if storeSize > 0 {
-		limitedstore.New(storeSize, Composer.Core, Composer.Terminater).UseIn(Composer)
-		stdout.Printf("Using %.2fMB as storage size.\n", float64(storeSize)/1024/1024)
-
-		// We need to ensure that a single upload can fit into the storage size
-		if maxSize > storeSize || maxSize == 0 {
-			Flags.MaxSize = storeSize
-		}
 	}
 
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)

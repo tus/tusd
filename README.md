@@ -227,7 +227,6 @@ useful tools:
 * [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
 * [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
 * [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
-* [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
 
 ### 3rd-Party tusd Packages
 

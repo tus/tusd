@@ -12,7 +12,6 @@ var Flags struct {
 	HttpSock            string
 	MaxSize             int64
 	UploadDir           string
-	StoreSize           int64
 	Basepath            string
 	Timeout             int64
 	S3Bucket            string
@@ -41,7 +40,6 @@ func ParseFlags() {
 	flag.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
 	flag.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	flag.StringVar(&Flags.UploadDir, "dir", "./data", "Directory to store uploads in")
-	flag.Int64Var(&Flags.StoreSize, "store-size", 0, "Size of space allowed for storage")
 	flag.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&Flags.Timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
