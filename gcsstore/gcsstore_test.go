@@ -167,7 +167,7 @@ func TestGetInfo(t *testing.T) {
 		service.EXPECT().FilterObjects(ctx, filterParams).Return(mockPartials, nil),
 	)
 
-	ctxCancel, _ := context.WithCancel(ctx)
+	ctxCancel, cancel := context.WithCancel(ctx)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
 	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
@@ -177,6 +177,9 @@ func TestGetInfo(t *testing.T) {
 	info, err := store.GetInfo(mockID)
 	assert.Nil(err)
 	assert.Equal(mockTusdInfo, info)
+
+	// Cancel the context to avoid getting an error from `go vet`
+	cancel()
 }
 
 func TestGetInfoNotFound(t *testing.T) {
@@ -349,7 +352,7 @@ func TestFinishUpload(t *testing.T) {
 		service.EXPECT().FilterObjects(ctx, filterParams2).Return(mockPartials, nil),
 	)
 
-	ctxCancel, _ := context.WithCancel(ctx)
+	ctxCancel, cancel := context.WithCancel(ctx)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
 	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
@@ -359,6 +362,9 @@ func TestFinishUpload(t *testing.T) {
 
 	err = store.FinishUpload(mockID)
 	assert.Nil(err)
+
+	// Cancel the context to avoid getting an error from `go vet`
+	cancel()
 }
 
 var mockTusdChunk0InfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"Offset":%d,"MetaData":{"foo":"bar"}}`, mockID, mockSize, mockSize/3)
