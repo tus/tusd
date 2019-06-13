@@ -33,3 +33,5 @@ WORKDIR /srv/tusd-data
 EXPOSE 1080
 ENTRYPOINT ["tusd"]
 CMD ["--hooks-dir","/srv/tusd-hooks"]
+
+USER tusd
