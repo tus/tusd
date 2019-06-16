@@ -48,8 +48,8 @@ import (
 	"time"
 
 	"github.com/tus/tusd/pkg/handler"
-	etcd3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/concurrency"
+	etcd3 "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
 var (

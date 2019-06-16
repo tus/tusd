@@ -2,7 +2,7 @@ package etcd3locker
 
 import (
 	etcd_harness "github.com/chen-anders/go-etcd-harness"
-	"go.etcd.io/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3"
 	"os"
 	"testing"
 	"time"
