@@ -11,6 +11,8 @@ cache:
   directories:
   - $HOME/.gimme
   - "$HOME/google-cloud-sdk/"
+env:
+- GO111MODULE=on
 install:
 - true
 script:
