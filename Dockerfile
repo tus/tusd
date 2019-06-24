@@ -18,7 +18,7 @@ RUN apk add --no-cache \
     && apk del git
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.8
+FROM alpine:3.9
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
