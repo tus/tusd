@@ -7,7 +7,7 @@ COPY . /go/src/github.com/tus/tusd/
 WORKDIR /go/src/github.com/tus/tusd
 
 RUN apk add --no-cache \
-        git \
+        git gcc libc-dev \
     && go get -d -v ./... \
     && version="$(git tag -l --points-at HEAD)" \
     && commit=$(git log --format="%H" -n 1) \
