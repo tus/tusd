@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+#
+# official-images tag file generator
+#
+# usage: ./generate-docker-library.sh > [official-images-folder]/library/tusd
+#
+
 cat <<-EOH
 # This file is generated via https://github.com/tus/tusd/blob/master/generate-docker-library.sh
 Maintainers: tus.io (@tus), Thomas A. Hirsch (@thirsch)
