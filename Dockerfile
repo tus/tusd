@@ -8,6 +8,8 @@ WORKDIR /go/src/github.com/tus/tusd
 
 RUN apk add --no-cache \
         git \
+        gcc \ 
+        musl-dev \
     && go get -d -v ./... \
     && version="$(git tag -l --points-at HEAD)" \
     && commit=$(git log --format="%H" -n 1) \
