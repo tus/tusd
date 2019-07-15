@@ -8,6 +8,12 @@ set -o nounset
 __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __root="$(cd "$(dirname "${__dir}")" && pwd)"
 
+curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+mkdir -p ${HOME}/.local/bin/
+export PATH="${HOME}/.local/bin/:$PATH"
+mv ./kubectl ${HOME}/.local/bin/
+kubectl version
 
 #Store the new image in docker hub
 docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
@@ -19,13 +25,14 @@ docker push tusproject/tusd:latest;
 echo "Create directory..."
 mkdir ${HOME}/.kube
 echo "Writing KUBECONFIG to file..."
-echo $KUBECONFIGVAR | base64 --decode -i > ${HOME}/.kube/config
+echo $KUBECONFIGVAR | base64 --decode -i > ${HOME}/config
 echo "KUBECONFIG file written"
 
 
 sleep 10s # This cost me some precious debugging time.
 # kubectl apply --validate=false -f "${__root}/.infra/kube/tusd-kube.yaml"
 
+export KUBECONFIG="${HOME}/config"
 
 kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
 
@@ -36,7 +43,7 @@ kubectl get deployment --namespace=tus
 
 function cleanup {
     printf "Cleaning up...\n"
-    rm -f ${HOME}/ca.crt
+    rm -f ${HOME}/config
     printf "Cleaning done."
 }
 
