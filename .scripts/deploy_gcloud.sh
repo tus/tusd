@@ -19,7 +19,7 @@ docker push tusproject/tusd:latest;
 echo "Create directory..."
 mkdir ${HOME}/.kube
 echo "Writing KUBECONFIG to file..."
-echo $KUBECONFIGVAR | python -m base64 -d > ${HOME}/.kube/config
+echo $KUBECONFIGVAR | base64 --decode -i > ${HOME}/.kube/config
 echo "KUBECONFIG file written"
 
 
