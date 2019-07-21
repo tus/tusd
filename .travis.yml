@@ -26,6 +26,7 @@ install:
 script:
 - ./.scripts/test_all.sh
 before_deploy:
+- go get golang.org/x/sys/windows
 - if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
 - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; curl https://sdk.cloud.google.com | bash; fi
 - source /home/travis/google-cloud-sdk/path.bash.inc
@@ -33,7 +34,6 @@ before_deploy:
 - gcloud --quiet components update
 - gcloud --quiet components update kubectl
 - curl https://raw.githubusercontent.com/kubernetes/helm/d87ce93e1e287ece84d940dbfe09b0de493d9953/scripts/get | bash
-- go get golang.org/x/sys/windows
 deploy:
 - provider: releases
   api_key:
