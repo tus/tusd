@@ -26,7 +26,6 @@ install:
 script:
 - ./.scripts/test_all.sh
 before_deploy:
-- go get golang.org/x/sys/windows
 - if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
 - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; curl https://sdk.cloud.google.com | bash; fi
 - source /home/travis/google-cloud-sdk/path.bash.inc
