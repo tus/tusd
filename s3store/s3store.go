@@ -90,7 +90,9 @@ import (
 
 // This regular expression matches every character which is not defined in the
 // ASCII tables which range from 00 to 7F, inclusive.
-var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F])`)
+// It also matches the \r and \n characters which are not allowed in values
+// for HTTP headers.
+var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F]|[\r\n])`)
 
 // See the tusd.DataStore interface for documentation about the different
 // methods.
