@@ -33,6 +33,7 @@ before_deploy:
 - gcloud --quiet components update
 - gcloud --quiet components update kubectl
 - curl https://raw.githubusercontent.com/kubernetes/helm/d87ce93e1e287ece84d940dbfe09b0de493d9953/scripts/get | bash
+- go get golang.org/x/sys/windows
 deploy:
 - provider: releases
   api_key:
