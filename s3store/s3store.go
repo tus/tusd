@@ -259,8 +259,8 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		return 0, err
 	}
 	if incompletePartFile != nil {
-		defer incompletePartFile.Close()
 		defer os.Remove(incompletePartFile.Name())
+		defer incompletePartFile.Close()
 
 		if err := store.deleteIncompletePartForUpload(uploadId); err != nil {
 			return 0, err
