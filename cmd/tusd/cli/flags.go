@@ -4,6 +4,8 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
+
+	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
 
 var Flags struct {
@@ -20,6 +22,7 @@ var Flags struct {
 	S3Endpoint          string
 	GCSBucket           string
 	GCSObjectPrefix     string
+	EnabledHooks        string
 	FileHooksDir        string
 	HttpHooksEndpoint   string
 	HttpHooksRetry      int
@@ -33,6 +36,17 @@ var Flags struct {
 
 	FileHooksInstalled bool
 	HttpHooksInstalled bool
+}
+
+var EnabledHooks map[hooks.HookType]bool
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 
 func ParseFlags() {
@@ -49,6 +63,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
+	flag.StringVar(&Flags.EnabledHooks, "enabled-hooks", "", "List of enabled hook events")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
@@ -59,8 +74,42 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
-
 	flag.Parse()
+
+	EnabledHooks = make(map[hooks.HookType]bool)
+	if Flags.EnabledHooks != "*" && Flags.EnabledHooks != "" {
+		slc := strings.Split(Flags.EnabledHooks, ",")
+		for i := range slc {
+			slc[i] = strings.TrimSpace(slc[i])
+		}
+		if stringInSlice("post-finish", slc) {
+			EnabledHooks[hooks.HookPostFinish] = true
+		}
+		if stringInSlice("post-create", slc) {
+			EnabledHooks[hooks.HookPostCreate] = true
+		}
+		if stringInSlice("post-terminate", slc) {
+			EnabledHooks[hooks.HookPostTerminate] = true
+		}
+		if stringInSlice("post-receive", slc) {
+			EnabledHooks[hooks.HookPostReceive] = true
+		}
+		if stringInSlice("pre-create", slc) {
+			EnabledHooks[hooks.HookPreCreate] = true
+		}
+	} else if Flags.EnabledHooks == "*" {
+		EnabledHooks[hooks.HookPreCreate] = true
+		EnabledHooks[hooks.HookPostTerminate] = true
+		EnabledHooks[hooks.HookPostReceive] = true
+		EnabledHooks[hooks.HookPostCreate] = true
+		EnabledHooks[hooks.HookPostFinish] = true
+	} else if Flags.EnabledHooks == "" {
+		EnabledHooks[hooks.HookPreCreate] = false
+		EnabledHooks[hooks.HookPostTerminate] = false
+		EnabledHooks[hooks.HookPostReceive] = false
+		EnabledHooks[hooks.HookPostCreate] = false
+		EnabledHooks[hooks.HookPostFinish] = false
+	}
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)

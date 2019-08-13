@@ -62,7 +62,6 @@ func SetupPreHooks(composer *tusd.StoreComposer) error {
 	composer.UseCore(hookDataStore{
 		DataStore: composer.Core,
 	})
-
 	return nil
 }
 
@@ -91,6 +90,10 @@ func invokeHookAsync(typ hooks.HookType, info tusd.FileInfo) {
 }
 
 func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
+	if !EnabledHooks[typ] {
+		return nil, nil
+	}
+
 	switch typ {
 	case hooks.HookPostFinish:
 		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
