@@ -103,14 +103,16 @@ func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) 
 	}
 
 	name := string(typ)
-	logEv(stdout, "HookInvocationStart", "type", name, "id", info.ID)
+	if Flags.VerboseOutput {
+		logEv(stdout, "HookInvocationStart", "type", name, "id", info.ID)
+	}
 
 	output, returnCode, err := hookHandler.InvokeHook(typ, info, captureOutput)
 
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", info.ID, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
-	} else {
+	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", info.ID)
 	}
 
