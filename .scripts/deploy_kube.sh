@@ -38,7 +38,7 @@ kubectl get deployment --namespace=tus
 
 function cleanup {
     printf "Cleaning up...\n"
-    rm -f ${__root}/config
+    rm -f ${HOME}/.kube/config
     printf "Cleaning done."
 }
 
