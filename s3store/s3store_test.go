@@ -37,7 +37,7 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal(s3obj, store.Service)
 
 	s1 := "hello"
-	s2 := "men?"
+	s2 := "men???hi"
 
 	gomock.InOrder(
 		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
@@ -53,8 +53,8 @@ func TestNewUpload(t *testing.T) {
 		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
-			ContentLength: aws.Int64(int64(171)),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(177)),
 		}),
 	)
 
@@ -63,7 +63,7 @@ func TestNewUpload(t *testing.T) {
 		Size: 500,
 		MetaData: map[string]string{
 			"foo": "hello",
-			"bar": "menü",
+			"bar": "menü\r\nhi",
 		},
 	}
 
@@ -243,8 +243,8 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
-			ContentLength: 	aws.Int64(10),
-			Body: 			ioutil.NopCloser(bytes.NewReader([]byte("0123456789"))),
+			ContentLength: aws.Int64(10),
+			Body:          ioutil.NopCloser(bytes.NewReader([]byte("0123456789"))),
 		}, nil),
 	)
 
@@ -730,8 +730,8 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
-			ContentLength: 	aws.Int64(3),
-			Body:			ioutil.NopCloser(bytes.NewReader([]byte("123"))),
+			ContentLength: aws.Int64(3),
+			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
 		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
