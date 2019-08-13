@@ -41,6 +41,6 @@ deploy:
 - provider: script
   script: .scripts/deploy_kube.sh
   on:
-    branch: change-cloud
+    branch: master
     go: 1.12
     repo: tus/tusd
