@@ -24,27 +24,15 @@ spec:
         name: tusd
         resources:
           limits:
-            memory: "2Gi"
-          # requests:
-          #   memory: "1Gi"
+            memory: "1Gi"
+          requests:
+            memory: "1Gi"
         ports:
         - name: tusd-web
           containerPort: 8080
         envFrom:
-        - configMapRef:
-            name: tusd-env
         - secretRef:
-            name: tusd-s3
-        securityContext:
-          runAsUser: 0
-          fsGroup: 0
-        volumeMounts:
-        - name: tusd-account
-          mountPath: /gcs
-      volumes:
-      - name: tusd-account
-        secret:
-          secretName: gcs-account
+            name: tusd-env
 ---
 apiVersion: v1
 kind: Service
@@ -98,25 +86,3 @@ spec:
         backend:
           serviceName: tusd
           servicePort: 80
----
-apiVersion: autoscaling/v1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: tusd
-  namespace: tus
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1beta1
-    kind: Deployment
-    name: tusd
-  minReplicas: 1
-  maxReplicas: 5
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
-  - type: Resource
-    resource:
-      name: memory
-      targetAverageValue: 1800Mi

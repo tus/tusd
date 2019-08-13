@@ -27,7 +27,7 @@ echo $KUBECONFIGVAR | python -m base64 -d > ${HOME}/.kube/config
 echo "KUBECONFIG file written"
 
 sleep 10s # This cost me some precious debugging time.
-# kubectl apply --validate=false -f "${__root}/.infra/kube/tusd-kube.yaml"
+kubectl apply -f "${__root}/.infra/kube/tusd-kube.yaml"
 
 
 kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
