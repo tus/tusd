@@ -106,7 +106,19 @@ func ParseFlags() {
 
 func SetEnabledHooks() {
 	EnabledHooks = make(map[hooks.HookType]bool)
-	if Flags.EnabledHooks != "*" && Flags.EnabledHooks != "-" {
+	if Flags.EnabledHooks == "*" {
+		EnabledHooks[hooks.HookPreCreate] = true
+		EnabledHooks[hooks.HookPostTerminate] = true
+		EnabledHooks[hooks.HookPostReceive] = true
+		EnabledHooks[hooks.HookPostCreate] = true
+		EnabledHooks[hooks.HookPostFinish] = true
+	} else if Flags.EnabledHooks == "-" {
+		EnabledHooks[hooks.HookPreCreate] = false
+		EnabledHooks[hooks.HookPostTerminate] = false
+		EnabledHooks[hooks.HookPostReceive] = false
+		EnabledHooks[hooks.HookPostCreate] = false
+		EnabledHooks[hooks.HookPostFinish] = false
+	} else {
 		slc := strings.Split(Flags.EnabledHooks, ",")
 		for i := range slc {
 			slc[i] = strings.TrimSpace(slc[i])
@@ -126,18 +138,6 @@ func SetEnabledHooks() {
 		if stringInSlice("pre-create", slc) {
 			EnabledHooks[hooks.HookPreCreate] = true
 		}
-	} else if Flags.EnabledHooks == "*" {
-		EnabledHooks[hooks.HookPreCreate] = true
-		EnabledHooks[hooks.HookPostTerminate] = true
-		EnabledHooks[hooks.HookPostReceive] = true
-		EnabledHooks[hooks.HookPostCreate] = true
-		EnabledHooks[hooks.HookPostFinish] = true
-	} else if Flags.EnabledHooks == "-" {
-		EnabledHooks[hooks.HookPreCreate] = false
-		EnabledHooks[hooks.HookPostTerminate] = false
-		EnabledHooks[hooks.HookPostReceive] = false
-		EnabledHooks[hooks.HookPostCreate] = false
-		EnabledHooks[hooks.HookPostFinish] = false
 	}
 	stringHooks := ""
 	for k, v := range EnabledHooks {
