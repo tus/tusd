@@ -63,7 +63,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
-	flag.StringVar(&Flags.EnabledHooks, "enabled-hooks", "", "List of enabled hook events")
+	flag.StringVar(&Flags.EnabledHooks, "hooks-enabled-events", "*", "Comma separated list of enabled hook events, set to \"-\" to disable all")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
@@ -76,8 +76,37 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.Parse()
 
+	SetEnabledHooks()
+
+	if Flags.FileHooksDir != "" {
+		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
+		Flags.FileHooksInstalled = true
+
+		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+	}
+
+	if Flags.HttpHooksEndpoint != "" {
+		Flags.HttpHooksInstalled = true
+
+		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
+	}
+
+	if Flags.UploadDir == "" && Flags.S3Bucket == "" {
+		stderr.Fatalf("Either an upload directory (using -dir) or an AWS S3 Bucket " +
+			"(using -s3-bucket) must be specified to start tusd but " +
+			"neither flag was provided. Please consult `tusd -help` for " +
+			"more information on these options.")
+	}
+
+	if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
+		stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
+			"Please remove underscore from the value", Flags.GCSObjectPrefix)
+	}
+}
+
+func SetEnabledHooks() {
 	EnabledHooks = make(map[hooks.HookType]bool)
-	if Flags.EnabledHooks != "*" && Flags.EnabledHooks != "" {
+	if Flags.EnabledHooks != "*" && Flags.EnabledHooks != "-" {
 		slc := strings.Split(Flags.EnabledHooks, ",")
 		for i := range slc {
 			slc[i] = strings.TrimSpace(slc[i])
@@ -103,36 +132,25 @@ func ParseFlags() {
 		EnabledHooks[hooks.HookPostReceive] = true
 		EnabledHooks[hooks.HookPostCreate] = true
 		EnabledHooks[hooks.HookPostFinish] = true
-	} else if Flags.EnabledHooks == "" {
+	} else if Flags.EnabledHooks == "-" {
 		EnabledHooks[hooks.HookPreCreate] = false
 		EnabledHooks[hooks.HookPostTerminate] = false
 		EnabledHooks[hooks.HookPostReceive] = false
 		EnabledHooks[hooks.HookPostCreate] = false
 		EnabledHooks[hooks.HookPostFinish] = false
 	}
-
-	if Flags.FileHooksDir != "" {
-		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
-		Flags.FileHooksInstalled = true
-
-		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+	stringHooks := ""
+	for k, v := range EnabledHooks {
+		if v {
+			if stringHooks != "" {
+				stringHooks += ", "
+			}
+			stringHooks += string(k)
+		}
 	}
-
-	if Flags.HttpHooksEndpoint != "" {
-		Flags.HttpHooksInstalled = true
-
-		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
-	}
-
-	if Flags.UploadDir == "" && Flags.S3Bucket == "" {
-		stderr.Fatalf("Either an upload directory (using -dir) or an AWS S3 Bucket " +
-			"(using -s3-bucket) must be specified to start tusd but " +
-			"neither flag was provided. Please consult `tusd -help` for " +
-			"more information on these options.")
-	}
-
-	if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
-		stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
-			"Please remove underscore from the value", Flags.GCSObjectPrefix)
+	if stringHooks == "" {
+		stdout.Print("All hook events disabled")
+	} else {
+		stdout.Printf("Enabled hook events: '%s'", stringHooks)
 	}
 }

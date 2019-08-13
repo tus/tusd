@@ -110,6 +110,8 @@ Usage of tusd:
     	Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
   -hooks-dir string
     	Directory to search for available hooks scripts
+  -hooks-enabled-events string
+    	Comma separated list of enabled hook events, set to "-" to disable all (default "*")
   -hooks-http string
     	An HTTP endpoint to which hook events will be sent to
   -hooks-http-backoff int
