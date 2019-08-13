@@ -21,14 +21,14 @@ docker push tusproject/tusd:latest;
 
 
 echo "Writing KUBECONFIG to file..."
-echo $KUBECONFIGVAR | base64 --decode -i > ${__root}/config
+echo $KUBECONFIGVAR | base64 --decode -i > ${PWD}/config
 echo "KUBECONFIG file written"
 
 
 sleep 10s # This cost me some precious debugging time.
 # kubectl apply --validate=false -f "${__root}/.infra/kube/tusd-kube.yaml"
 
-export KUBECONFIG="${__root}/config"
+export KUBECONFIG="${PWD}/config"
 
 kubectl set image deployment/tusd --namespace=tus tusd=docker.io/tusproject/tusd:$TRAVIS_COMMIT
 

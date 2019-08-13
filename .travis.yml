@@ -39,7 +39,7 @@ deploy:
     go: 1.12
     repo: tus/tusd
 - provider: script
-  script: .scripts/deploy_gcloud.sh
+  script: .scripts/deploy_kube.sh
   on:
     branch: change-cloud
     go: 1.12
