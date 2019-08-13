@@ -14,7 +14,7 @@ sudo mv ./kubectl /usr/local/bin/kubectl
 
 #Store the new image in docker hub
 docker build --quiet -t tusproject/tusd:latest -t tusproject/tusd:$TRAVIS_COMMIT ${__root};
-docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+docker login -u=$DOCKER_USERNAME -p=$DOCKER_PASSWORD;
 docker push tusproject/tusd:$TRAVIS_COMMIT;
 docker push tusproject/tusd:latest;
 
