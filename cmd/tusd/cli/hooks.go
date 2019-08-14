@@ -10,6 +10,15 @@ import (
 
 var hookHandler hooks.HookHandler = nil
 
+func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 type hookDataStore struct {
 	tusd.DataStore
 }
@@ -90,7 +99,7 @@ func invokeHookAsync(typ hooks.HookType, info tusd.FileInfo) {
 }
 
 func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	if !EnabledHooks[typ] {
+	if hookTypeInSlice(typ, EnabledHooks) {
 		return nil, nil
 	}
 

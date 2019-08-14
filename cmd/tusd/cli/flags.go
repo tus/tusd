@@ -38,7 +38,7 @@ var Flags struct {
 	HttpHooksInstalled bool
 }
 
-var EnabledHooks map[hooks.HookType]bool
+var EnabledHooks []hooks.HookType
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -63,7 +63,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
-	flag.StringVar(&Flags.EnabledHooks, "hooks-enabled-events", "*", "Comma separated list of enabled hook events, set to \"-\" to disable all")
+	flag.StringVar(&Flags.EnabledHooks, "hooks-enabled-events", "*", "Comma separated list of enabled hook events, set to \"\" to disable all")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
@@ -105,52 +105,29 @@ func ParseFlags() {
 }
 
 func SetEnabledHooks() {
-	EnabledHooks = make(map[hooks.HookType]bool)
 	if Flags.EnabledHooks == "*" {
-		EnabledHooks[hooks.HookPreCreate] = true
-		EnabledHooks[hooks.HookPostTerminate] = true
-		EnabledHooks[hooks.HookPostReceive] = true
-		EnabledHooks[hooks.HookPostCreate] = true
-		EnabledHooks[hooks.HookPostFinish] = true
-	} else if Flags.EnabledHooks == "-" {
-		EnabledHooks[hooks.HookPreCreate] = false
-		EnabledHooks[hooks.HookPostTerminate] = false
-		EnabledHooks[hooks.HookPostReceive] = false
-		EnabledHooks[hooks.HookPostCreate] = false
-		EnabledHooks[hooks.HookPostFinish] = false
+		for _, h := range hooks.AvailableHooks {
+			EnabledHooks = append(EnabledHooks, h)
+		}
 	} else {
 		slc := strings.Split(Flags.EnabledHooks, ",")
 		for i := range slc {
 			slc[i] = strings.TrimSpace(slc[i])
 		}
-		if stringInSlice("post-finish", slc) {
-			EnabledHooks[hooks.HookPostFinish] = true
-		}
-		if stringInSlice("post-create", slc) {
-			EnabledHooks[hooks.HookPostCreate] = true
-		}
-		if stringInSlice("post-terminate", slc) {
-			EnabledHooks[hooks.HookPostTerminate] = true
-		}
-		if stringInSlice("post-receive", slc) {
-			EnabledHooks[hooks.HookPostReceive] = true
-		}
-		if stringInSlice("pre-create", slc) {
-			EnabledHooks[hooks.HookPreCreate] = true
-		}
-	}
-	stringHooks := ""
-	for k, v := range EnabledHooks {
-		if v {
-			if stringHooks != "" {
-				stringHooks += ", "
+		for _, h := range hooks.AvailableHooks {
+			if stringInSlice(string(h), slc) {
+				EnabledHooks = append(EnabledHooks, h)
 			}
-			stringHooks += string(k)
 		}
 	}
-	if stringHooks == "" {
+
+	if len(EnabledHooks) == 0 {
 		stdout.Print("All hook events disabled")
 	} else {
-		stdout.Printf("Enabled hook events: '%s'", stringHooks)
+		var EnabledHooksString []string
+		for _, h := range EnabledHooks {
+			EnabledHooksString = append(EnabledHooksString, string(h))
+		}
+		stdout.Printf("Enabled hook events: %s", strings.Join(EnabledHooksString[:], ", "))
 	}
 }
