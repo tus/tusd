@@ -326,6 +326,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
+			// strip multipartupload identifier from upload identifier (s3 storage)
+			if strings.Contains(info.ID, "+") {
+				info.ID = strings.Split(info.ID, "+")[0]
+			}
 			handler.CompleteUploads <- info
 		}
 	}
@@ -609,6 +613,10 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
+			// strip multipartupload identifier from upload identifier (s3 storage)
+			if strings.Contains(info.ID, "+") {
+				info.ID = strings.Split(info.ID, "+")[0]
+			}
 			handler.CompleteUploads <- info
 		}
 
