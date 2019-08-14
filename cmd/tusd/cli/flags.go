@@ -33,6 +33,7 @@ var Flags struct {
 	ExposeMetrics       bool
 	MetricsPath         string
 	BehindProxy         bool
+	VerboseOutput       bool
 
 	FileHooksInstalled bool
 	HttpHooksInstalled bool
@@ -74,6 +75,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
+	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 	flag.Parse()
 
 	SetEnabledHooks()
