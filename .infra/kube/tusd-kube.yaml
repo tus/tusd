@@ -10,13 +10,6 @@ spec:
       labels:
         app: tusd
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: cloud.google.com/gke-preemptible
-                  operator: DoesNotExist   
       containers:
       - image: docker.io/tusproject/tusd:latest
         imagePullPolicy: Always
@@ -63,7 +56,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   tls:
   - hosts:
