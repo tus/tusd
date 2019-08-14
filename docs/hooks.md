@@ -52,7 +52,7 @@ The `--hooks-enabled-events` option for the tusd binary works as a whitelist for
 Possible values for the `--hooks-enabled-events` option:
 
 - `*` - enable all hook events (default value)
-- `-` - disable all hook events
+- `""` - disable all hook events
 - comma separated list of hook events (for instance: `pre-create,post-create`) - whitelist of hook events
 
 ## File Hooks
