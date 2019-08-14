@@ -517,6 +517,18 @@ func (store S3Store) FinishUpload(id string) error {
 			Parts: completedParts,
 		},
 	})
+	if err != nil {
+		return err
+	}
+
+	// rewrite ID field in .info metadata file to contain only upload id
+	info, err := store.GetInfo(id)
+	if err != nil {
+		return err
+	}
+
+	info.ID = uploadId
+	err = store.writeInfo(uploadId, info)
 
 	return err
 }
