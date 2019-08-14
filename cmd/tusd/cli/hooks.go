@@ -99,7 +99,7 @@ func invokeHookAsync(typ hooks.HookType, info tusd.FileInfo) {
 }
 
 func invokeHookSync(typ hooks.HookType, info tusd.FileInfo, captureOutput bool) ([]byte, error) {
-	if hookTypeInSlice(typ, EnabledHooks) {
+	if !hookTypeInSlice(typ, EnabledHooks) {
 		return nil, nil
 	}
 
