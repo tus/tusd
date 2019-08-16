@@ -45,15 +45,9 @@ This event will be triggered after an upload has been terminated, meaning that t
 
 This event will be triggered for every running upload to indicate its current progress. It will be emitted whenever the server has received more data from the client but at most every second. The offset property will be set to the number of bytes which have been transfered to the server, at the time in total. Please be aware that this number may be higher than the number of bytes which have been stored by the data store!
 
-## Enabling/Disabling Hook Events
+## Whitelisting Hook Events
 
-The `--hooks-enabled-events` option for the tusd binary works as a whitelist for hook events and takes a comma separated list of hook events. By default all hook events are enabled.
-
-Possible values for the `--hooks-enabled-events` option:
-
-- `*` - enable all hook events (default value)
-- `""` - disable all hook events
-- comma separated list of hook events (for instance: `pre-create,post-create`) - whitelist of hook events
+The `--hooks-enabled-events` option for the tusd binary works as a whitelist for hook events and takes a comma separated list of hook events (for instance: `pre-create,post-create`). If the `--hooks-enabled-events` option is omitted, all hook events are enabled.
 
 ## File Hooks
 ### The Hook Directory
