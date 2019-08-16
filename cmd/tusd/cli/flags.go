@@ -107,10 +107,18 @@ func ParseFlags() {
 }
 
 func SetEnabledHooks() {
+	var InvalidHooks []string
 	if Flags.EnabledHooks != "" {
 		slc := strings.Split(Flags.EnabledHooks, ",")
 		for i, h := range slc {
 			slc[i] = strings.TrimSpace(h)
+		}
+
+		// check if enabled hook strings are valid
+		for _, h := range slc {
+			if !hookTypeInSlice(hooks.HookType(h), hooks.AvailableHooks) {
+				InvalidHooks = append(InvalidHooks, h)
+			}
 		}
 
 		for _, h := range hooks.AvailableHooks {
@@ -131,5 +139,8 @@ func SetEnabledHooks() {
 		EnabledHooksString = append(EnabledHooksString, string(h))
 	}
 
+	if len(InvalidHooks) > 0 {
+		stdout.Printf("Invalid hook events in hooks-enabled-events option: %s", strings.Join(InvalidHooks[:], ", "))
+	}
 	stdout.Printf("Enabled hook events: %s", strings.Join(EnabledHooksString[:], ", "))
 }
