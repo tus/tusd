@@ -37,7 +37,7 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal(s3obj, store.Service)
 
 	s1 := "hello"
-	s2 := "men?"
+	s2 := "men???hi"
 
 	gomock.InOrder(
 		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
@@ -53,8 +53,8 @@ func TestNewUpload(t *testing.T) {
 		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
-			ContentLength: aws.Int64(int64(171)),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null}`)),
+			ContentLength: aws.Int64(int64(177)),
 		}),
 	)
 
@@ -63,7 +63,7 @@ func TestNewUpload(t *testing.T) {
 		Size: 500,
 		MetaData: map[string]string{
 			"foo": "hello",
-			"bar": "menü",
+			"bar": "menü\r\nhi",
 		},
 	}
 

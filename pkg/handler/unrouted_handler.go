@@ -814,6 +814,13 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		err = errors.New("read tcp: i/o timeout")
 	}
 
+	// Errors for connnection resets also contain TCP details, we don't need, e.g:
+	// read tcp 127.0.0.1:1080->127.0.0.1:10023: read: connection reset by peer
+	// Therefore, we also trim those down.
+	if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
+		err = errors.New("read tcp: connection reset by peer")
+	}
+
 	statusErr, ok := err.(HTTPError)
 	if !ok {
 		statusErr = NewHTTPError(err, http.StatusInternalServerError)

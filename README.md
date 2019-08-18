@@ -267,11 +267,11 @@ Yes, this is made possible by the [hook system](/docs/hooks.md) inside the tusd 
 
 ### Can I run tusd inside a VM/Vagrant/VirtualBox?
 
-Yes, you can absolutely do so without any modifications. However, there is one known problem: If you are using tusd inside VirtualBox (the default provider for Vagrant) and are storing the files inside a shared/synced folder, you might get TemporaryErrors (Lockfile created, but doesn't exist) when trying to upload. This happens because shared folders do not support symbolic links which are necessary for tusd. Please use another non-shared folder for storing files (see https://github.com/tus/tusd/issues/201).
+Yes, you can absolutely do so without any modifications. However, there is one known problem: If you are using tusd inside VirtualBox (the default provider for Vagrant) and are storing the files inside a shared/synced folder, you might get TemporaryErrors (Lockfile created, but doesn't exist) when trying to upload. This happens because shared folders do not support hard links which are necessary for tusd. Please use another non-shared folder for storing files (see https://github.com/tus/tusd/issues/201).
 
 ### I am getting TemporaryErrors (Lockfile created, but doesn't exist)! What can I do?
 
-This error can occur when you are running tusd's disk storage on a file system which does not support symbolic links. These symbolic links are used to create lock files for ensuring that an upload's data is consistent. For example, this problem can happen when running tusd inside VirtualBox (see the answer above for more details) or when using file system interfaces to cloud storage providers (see https://github.com/tus/tusd/issues/257). We recommend you to ensure that your file system supports symbolic links, use a different file system, or use one of tusd's cloud storage abilities. If the problem still persists, please open a bug report.
+This error can occur when you are running tusd's disk storage on a file system which does not support hard links. These hard links are used to create lock files for ensuring that an upload's data is consistent. For example, this problem can happen when running tusd inside VirtualBox (see the answer above for more details) or when using file system interfaces to cloud storage providers (see https://github.com/tus/tusd/issues/257). We recommend you to ensure that your file system supports hard links, use a different file system, or use one of tusd's cloud storage abilities. If the problem still persists, please open a bug report.
 
 ### How can I prevent users from downloading the uploaded files?
 

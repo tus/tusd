@@ -7,7 +7,7 @@ COPY . /go/src/github.com/tus/tusd/
 WORKDIR /go/src/github.com/tus/tusd
 
 RUN apk add --no-cache \
-        git \
+        git gcc libc-dev \
     && go get -d -v ./... \
     && version="$(git tag -l --points-at HEAD)" \
     && commit=$(git log --format="%H" -n 1) \
@@ -18,11 +18,11 @@ RUN apk add --no-cache \
     && apk del git
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.8
+FROM alpine:3.9
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
-RUN apk add --no-cache ca-certificates jq \
+RUN apk add --no-cache ca-certificates jq gcc \
     && addgroup -g 1000 tusd \
     && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
     && mkdir -p /srv/tusd-hooks \

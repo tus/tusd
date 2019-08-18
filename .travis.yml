@@ -22,12 +22,6 @@ script:
 - ./.scripts/test_all.sh
 before_deploy:
 - if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
-- if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; curl https://sdk.cloud.google.com | bash; fi
-- source /home/travis/google-cloud-sdk/path.bash.inc
-- gcloud --quiet version
-- gcloud --quiet components update
-- gcloud --quiet components update kubectl
-- curl https://raw.githubusercontent.com/kubernetes/helm/d87ce93e1e287ece84d940dbfe09b0de493d9953/scripts/get | bash
 deploy:
 - provider: releases
   api_key:
@@ -41,7 +35,7 @@ deploy:
     repo: tus/tusd
     os: linux
 - provider: script
-  script: .scripts/deploy_gcloud.sh
+  script: .scripts/deploy_kube.sh
   on:
     branch: master
     go: 1.12

@@ -90,7 +90,9 @@ import (
 
 // This regular expression matches every character which is not defined in the
 // ASCII tables which range from 00 to 7F, inclusive.
-var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F])`)
+// It also matches the \r and \n characters which are not allowed in values
+// for HTTP headers.
+var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F]|[\r\n])`)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
@@ -257,8 +259,8 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 		return 0, err
 	}
 	if incompletePartFile != nil {
-		defer incompletePartFile.Close()
 		defer os.Remove(incompletePartFile.Name())
+		defer incompletePartFile.Close()
 
 		if err := store.deleteIncompletePartForUpload(uploadId); err != nil {
 			return 0, err
