@@ -22,12 +22,17 @@ const mockBucket = "bucket"
 const mockSize = 1337
 const mockReaderData = "helloworld"
 
-var mockTusdInfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"MetaData":{"foo":"bar"}}`, mockID, mockSize)
+var mockTusdInfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"MetaData":{"foo":"bar"},"Storage":{"Bucket":"bucket","Key":"%s","Type":"gcsstore"}}`, mockID, mockSize, mockID)
 var mockTusdInfo = handler.FileInfo{
 	ID:   mockID,
 	Size: mockSize,
 	MetaData: map[string]string{
 		"foo": "bar",
+	},
+	Storage: map[string]string{
+		"Type":   "gcsstore",
+		"Bucket": mockBucket,
+		"Key":    mockID,
 	},
 }
 
@@ -75,7 +80,13 @@ func TestNewUploadWithPrefix(t *testing.T) {
 
 	assert.Equal(store.Bucket, mockBucket)
 
-	data, err := json.Marshal(mockTusdInfo)
+	info := mockTusdInfo
+	info.Storage = map[string]string{
+		"Type":   "gcsstore",
+		"Bucket": mockBucket,
+		"Key":    "/path/to/file/" + mockID,
+	}
+	data, err := json.Marshal(info)
 	assert.Nil(err)
 
 	r := bytes.NewReader(data)

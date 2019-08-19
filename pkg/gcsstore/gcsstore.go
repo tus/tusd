@@ -63,6 +63,12 @@ func (store GCSStore) NewUpload(info handler.FileInfo) (id string, err error) {
 		info.ID = uid.Uid()
 	}
 
+	info.Storage = map[string]string{
+		"Type":   "gcsstore",
+		"Bucket": store.Bucket,
+		"Key":    store.keyWithPrefix(info.ID),
+	}
+
 	ctx := context.Background()
 	err = store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
 	if err != nil {
