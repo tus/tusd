@@ -204,6 +204,12 @@ func (store S3Store) NewUpload(info handler.FileInfo) (id string, err error) {
 	id = uploadId + "+" + *res.UploadId
 	info.ID = id
 
+	info.Storage = map[string]string{
+		"Type":   "s3store",
+		"Bucket": store.Bucket,
+		"Key":    *store.keyWithPrefix(uploadId),
+	}
+
 	err = store.writeInfo(uploadId, info)
 	if err != nil {
 		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)

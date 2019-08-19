@@ -119,10 +119,6 @@ func (store FileStore) GetInfo(id string) (handler.FileInfo, error) {
 	}
 
 	info.Offset = stat.Size()
-	info.Storage = map[string]string{
-		"Type": "filestore",
-		"Path": binPath,
-	}
 
 	return info, nil
 }
