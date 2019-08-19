@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -44,6 +45,9 @@ func TestFilestore(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
+	a.Equal(2, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(filepath.Join(tmp, id+".bin"), info.Storage["Path"])
 
 	// Write data to upload
 	bytesWritten, err := store.WriteChunk(id, 0, strings.NewReader("hello world"))

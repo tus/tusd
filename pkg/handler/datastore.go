@@ -26,6 +26,10 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
+	// Storage contains information about where the data storage saves the upload,
+	// for example a file path. The available values vary depending on what data
+	// store is used. This map may also be nil.
+	Storage map[string]string
 
 	// stopUpload is the cancel function for the upload's context.Context. When
 	// invoked it will interrupt the writes to DataStore#WriteChunk.

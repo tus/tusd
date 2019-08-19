@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/gcsstore"
@@ -61,7 +62,10 @@ func CreateComposer() {
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
 	} else {
-		dir := Flags.UploadDir
+		dir, err := filepath.Abs(Flags.UploadDir)
+		if err != nil {
+			stderr.Fatalf("Unable to make absolute path: %s", err)
+		}
 
 		stdout.Printf("Using '%s' as directory storage.\n", dir)
 		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {

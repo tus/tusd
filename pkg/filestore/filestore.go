@@ -60,10 +60,15 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 
 func (store FileStore) NewUpload(info handler.FileInfo) (id string, err error) {
 	id = uid.Uid()
+	binPath := store.binPath(id)
 	info.ID = id
+	info.Storage = map[string]string{
+		"Type": "filestore",
+		"Path": binPath,
+	}
 
 	// Create .bin file with no content
-	file, err := os.OpenFile(store.binPath(id), os.O_CREATE|os.O_WRONLY, defaultFilePerm)
+	file, err := os.OpenFile(binPath, os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("upload directory does not exist: %s", store.Path)
@@ -107,12 +112,17 @@ func (store FileStore) GetInfo(id string) (handler.FileInfo, error) {
 		return info, err
 	}
 
-	stat, err := os.Stat(store.binPath(id))
+	binPath := store.binPath(id)
+	stat, err := os.Stat(binPath)
 	if err != nil {
 		return info, err
 	}
 
 	info.Offset = stat.Size()
+	info.Storage = map[string]string{
+		"Type": "filestore",
+		"Path": binPath,
+	}
 
 	return info, nil
 }

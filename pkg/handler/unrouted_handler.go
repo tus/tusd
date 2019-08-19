@@ -303,6 +303,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// TODO: Should we use GetInfo here?
 	info.ID = id
 
 	// Add the Location header directly after creating the new resource to even
