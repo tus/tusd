@@ -3,6 +3,7 @@ package cli
 import (
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tus/tusd/pkg/handler"
@@ -62,6 +63,13 @@ func Serve() {
 	}
 
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
+
+	// Also register a route without the trailing slash, so we can handle uploads
+	// for /files/ and /files, for example.
+	if strings.HasSuffix(basepath, "/") {
+		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
+		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+	}
 
 	var listener net.Listener
 	timeoutDuration := time.Duration(Flags.Timeout) * time.Millisecond
