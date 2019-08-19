@@ -88,6 +88,18 @@ The process of the hook files are provided with information about the event and 
   // trust it without escaping it first!
   "MetaData": {
     "filename": "transloadit.png"
+  },
+  // Details about where the data store saved the uploaded file. The different
+  // availabl keys vary depending on the used data store.
+  "Storage": {
+    // For example, the filestore supplies the absolute file path:
+    "Type": "filestore",
+    "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+
+    // The S3Store and GCSStore supply the bucket name and object key:
+    "Type": "s3store",
+    "Bucket": "my-upload-bucket",
+    "Key": "my-prefix/14b1c4c77771671a8479bc0444bbc5ce"
   }
 }
 ```
