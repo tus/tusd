@@ -3,7 +3,7 @@
 // FileStore is a storage backend used as a handler.DataStore in handler.NewHandler.
 // It stores the uploads in a directory specified in two different files: The
 // `[id].info` files are used to store the fileinfo in JSON format. The
-// `[id].bin` files contain the raw binary data uploaded.
+// `[id]` files without an extension contain the raw binary data uploaded.
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
 //
@@ -67,7 +67,7 @@ func (store FileStore) NewUpload(info handler.FileInfo) (id string, err error) {
 		"Path": binPath,
 	}
 
-	// Create .bin file with no content
+	// Create binary file with no content
 	file, err := os.OpenFile(binPath, os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -213,9 +213,9 @@ func (store FileStore) newLock(id string) (lockfile.Lockfile, error) {
 	return lockfile.Lockfile(path), nil
 }
 
-// binPath returns the path to the .bin storing the binary data.
+// binPath returns the path to the file storing the binary data.
 func (store FileStore) binPath(id string) string {
-	return filepath.Join(store.Path, id+".bin")
+	return filepath.Join(store.Path, id)
 }
 
 // infoPath returns the path to the .info file storing the file's info.

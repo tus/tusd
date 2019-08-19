@@ -47,7 +47,7 @@ func TestFilestore(t *testing.T) {
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(2, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.Join(tmp, id+".bin"), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, id), info.Storage["Path"])
 
 	// Write data to upload
 	bytesWritten, err := store.WriteChunk(id, 0, strings.NewReader("hello world"))
