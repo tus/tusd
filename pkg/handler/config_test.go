@@ -23,9 +23,12 @@ func (store zeroStore) GetInfo(id string) (FileInfo, error) {
 func TestConfig(t *testing.T) {
 	a := assert.New(t)
 
+	composer := NewStoreComposer()
+	composer.UseCore(zeroStore{})
+
 	config := Config{
-		DataStore: zeroStore{},
-		BasePath:  "files",
+		StoreComposer: composer,
+		BasePath:      "files",
 	}
 
 	a.Nil(config.validate())
@@ -39,19 +42,6 @@ func TestConfigEmptyCore(t *testing.T) {
 
 	config := Config{
 		StoreComposer: NewStoreComposer(),
-	}
-
-	a.Error(config.validate())
-}
-
-func TestConfigStoreAndComposer(t *testing.T) {
-	a := assert.New(t)
-	composer := NewStoreComposer()
-	composer.UseCore(zeroStore{})
-
-	config := Config{
-		StoreComposer: composer,
-		DataStore:     zeroStore{},
 	}
 
 	a.Error(config.validate())

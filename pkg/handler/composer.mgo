@@ -39,23 +39,6 @@ func NewStoreComposer() *StoreComposer {
   return &StoreComposer{}
 }
 
-// newStoreComposerFromDataStore creates a new store composer and attempts to
-// extract the extensions for the provided store. This is intended to be used
-// for transitioning from data stores to composers.
-func newStoreComposerFromDataStore(store DataStore) *StoreComposer {
-  composer := NewStoreComposer()
-  composer.UseCore(store)
-
-  USE_FROM(Terminater)
-  USE_FROM(Finisher)
-  USE_FROM(Locker)
-  USE_FROM(GetReader)
-  USE_FROM(Concater)
-  USE_FROM(LengthDeferrer)
-
-  return composer
-}
-
 // Capabilities returns a string representing the provided extensions in a
 // human-readable format meant for debugging.
 func (store *StoreComposer) Capabilities() string {

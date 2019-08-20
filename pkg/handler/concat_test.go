@@ -12,8 +12,8 @@ import (
 )
 
 func TestConcat(t *testing.T) {
-	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore) {
-		composer := NewStoreComposer()
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseConcater(store)
 
@@ -30,8 +30,8 @@ func TestConcat(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Partial", func(t *testing.T, store *MockFullDataStore) {
-		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Partial", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:           300,
 				IsPartial:      true,
@@ -41,8 +41,8 @@ func TestConcat(t *testing.T) {
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				BasePath:  "files",
-				DataStore: store,
+				BasePath:      "files",
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -56,14 +56,14 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().GetInfo("foo").Return(FileInfo{
 				IsPartial: true,
 			}, nil)
 
 			handler, _ := NewHandler(Config{
-				BasePath:  "files",
-				DataStore: store,
+				BasePath:      "files",
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -80,8 +80,8 @@ func TestConcat(t *testing.T) {
 		})
 	})
 
-	SubTest(t, "Final", func(t *testing.T, store *MockFullDataStore) {
-		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Final", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			a := assert.New(t)
 
 			gomock.InOrder(
@@ -107,7 +107,7 @@ func TestConcat(t *testing.T) {
 
 			handler, _ := NewHandler(Config{
 				BasePath:              "files",
-				DataStore:             store,
+				StoreComposer:         composer,
 				NotifyCompleteUploads: true,
 			})
 
@@ -135,7 +135,7 @@ func TestConcat(t *testing.T) {
 			a.Equal([]string{"a", "b"}, info.PartialUploads)
 		})
 
-		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().GetInfo("foo").Return(FileInfo{
 				IsFinal:        true,
 				PartialUploads: []string{"a", "b"},
@@ -144,8 +144,8 @@ func TestConcat(t *testing.T) {
 			}, nil)
 
 			handler, _ := NewHandler(Config{
-				BasePath:  "files",
-				DataStore: store,
+				BasePath:      "files",
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -163,7 +163,7 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "CreateWithUnfinishedFail", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "CreateWithUnfinishedFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			// This upload is still unfinished (mismatching offset and size) and
 			// will therefore cause the POST request to fail.
 			store.EXPECT().GetInfo("c").Return(FileInfo{
@@ -173,8 +173,8 @@ func TestConcat(t *testing.T) {
 			}, nil)
 
 			handler, _ := NewHandler(Config{
-				BasePath:  "files",
-				DataStore: store,
+				BasePath:      "files",
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -187,16 +187,16 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().GetInfo("huge").Return(FileInfo{
 				Size:   1000,
 				Offset: 1000,
 			}, nil)
 
 			handler, _ := NewHandler(Config{
-				MaxSize:   100,
-				BasePath:  "files",
-				DataStore: store,
+				MaxSize:       100,
+				BasePath:      "files",
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -209,7 +209,7 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "UploadToFinalFail", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "UploadToFinalFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().GetInfo("foo").Return(FileInfo{
 				Size:    10,
 				Offset:  0,
@@ -217,7 +217,7 @@ func TestConcat(t *testing.T) {
 			}, nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore: store,
+				StoreComposer: composer,
 			})
 
 			(&httpTest{
@@ -233,9 +233,9 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "InvalidConcatHeaderFail", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "InvalidConcatHeaderFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			handler, _ := NewHandler(Config{
-				DataStore: store,
+				StoreComposer: composer,
 			})
 
 			(&httpTest{

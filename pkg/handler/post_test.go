@@ -13,7 +13,7 @@ import (
 )
 
 func TestPost(t *testing.T) {
-	SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().NewUpload(FileInfo{
 			Size: 300,
 			MetaData: map[string]string{
@@ -23,7 +23,7 @@ func TestPost(t *testing.T) {
 		}).Return("foo", nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore:            store,
+			StoreComposer:        composer,
 			BasePath:             "https://buy.art/files/",
 			NotifyCreatedUploads: true,
 		})
@@ -52,7 +52,7 @@ func TestPost(t *testing.T) {
 		a.Equal(int64(300), info.Size)
 	})
 
-	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().NewUpload(FileInfo{
 			Size:     0,
 			MetaData: map[string]string{},
@@ -61,7 +61,7 @@ func TestPost(t *testing.T) {
 		store.EXPECT().FinishUpload("foo").Return(nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore:             store,
+			StoreComposer:         composer,
 			BasePath:              "https://buy.art/files/",
 			NotifyCompleteUploads: true,
 		})
@@ -88,11 +88,11 @@ func TestPost(t *testing.T) {
 		a.Equal(int64(0), info.Offset)
 	})
 
-	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			MaxSize:   400,
-			DataStore: store,
-			BasePath:  "/files/",
+			MaxSize:       400,
+			StoreComposer: composer,
+			BasePath:      "/files/",
 		})
 
 		(&httpTest{
@@ -107,9 +107,9 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "InvalidUploadLengthFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidUploadLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -123,9 +123,9 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "UploadLengthAndUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadLengthAndUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -140,9 +140,9 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NeitherUploadLengthNorUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "NeitherUploadLengthNorUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -155,9 +155,9 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "InvalidUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -171,16 +171,16 @@ func TestPost(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore) {
-		SubTest(t, "IgnoreXForwarded", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "IgnoreXForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore: store,
-				BasePath:  "/files/",
+				StoreComposer: composer,
+				BasePath:      "/files/",
 			})
 
 			(&httpTest{
@@ -198,14 +198,14 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "RespectXForwarded", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "RespectXForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore:               store,
+				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
 			})
@@ -225,14 +225,14 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "RespectForwarded", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "RespectForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore:               store,
+				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
 			})
@@ -253,14 +253,14 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore:               store,
+				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
 			})
@@ -281,8 +281,8 @@ func TestPost(t *testing.T) {
 		})
 	})
 
-	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore) {
-		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockLocker(ctrl)
@@ -300,7 +300,7 @@ func TestPost(t *testing.T) {
 				locker.EXPECT().UnlockUpload("foo"),
 			)
 
-			composer := NewStoreComposer()
+			composer = NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
@@ -326,15 +326,15 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore: store,
-				BasePath:  "/files/",
+				StoreComposer: composer,
+				BasePath:      "/files/",
 			})
 
 			(&httpTest{
@@ -349,15 +349,15 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "IncorrectContentType", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "IncorrectContentType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			store.EXPECT().NewUpload(FileInfo{
 				Size:     300,
 				MetaData: map[string]string{},
 			}).Return("foo", nil)
 
 			handler, _ := NewHandler(Config{
-				DataStore: store,
-				BasePath:  "/files/",
+				StoreComposer: composer,
+				BasePath:      "/files/",
 			})
 
 			(&httpTest{
@@ -377,10 +377,10 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "UploadToFinalUpload", func(t *testing.T, store *MockFullDataStore) {
+		SubTest(t, "UploadToFinalUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			handler, _ := NewHandler(Config{
-				DataStore: store,
-				BasePath:  "/files/",
+				StoreComposer: composer,
+				BasePath:      "/files/",
 			})
 
 			(&httpTest{

@@ -10,7 +10,7 @@ import (
 )
 
 func TestHead(t *testing.T) {
-	SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
@@ -28,7 +28,7 @@ func TestHead(t *testing.T) {
 			locker.EXPECT().UnlockUpload("yes"),
 		)
 
-		composer := NewStoreComposer()
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 
@@ -58,11 +58,11 @@ func TestHead(t *testing.T) {
 		}
 	})
 
-	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("no").Return(FileInfo{}, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		res := (&httpTest{
@@ -82,14 +82,14 @@ func TestHead(t *testing.T) {
 		}
 	})
 
-	SubTest(t, "DeferLengthHeader", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "DeferLengthHeader", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			SizeIsDeferred: true,
 			Size:           0,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -105,7 +105,7 @@ func TestHead(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NoDeferLengthHeader", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "NoDeferLengthHeader", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				SizeIsDeferred: false,
@@ -114,7 +114,7 @@ func TestHead(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{

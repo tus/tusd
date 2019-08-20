@@ -8,8 +8,8 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	SubTest(t, "Discovery", func(t *testing.T, store *MockFullDataStore) {
-		composer := NewStoreComposer()
+	SubTest(t, "Discovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 
 		handler, _ := NewHandler(Config{
@@ -29,9 +29,9 @@ func TestOptions(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "InvalidVersion", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidVersion", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{

@@ -9,9 +9,9 @@ import (
 )
 
 func TestCORS(t *testing.T) {
-	SubTest(t, "Preflight", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Preflight", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -29,9 +29,9 @@ func TestCORS(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Request", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Request", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -48,9 +48,9 @@ func TestCORS(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "AppendHeaders", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "AppendHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		req, _ := http.NewRequest("OPTIONS", "", nil)

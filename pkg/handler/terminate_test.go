@@ -11,8 +11,8 @@ import (
 )
 
 func TestTerminate(t *testing.T) {
-	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore) {
-		composer := NewStoreComposer()
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseTerminater(store)
 
@@ -29,7 +29,7 @@ func TestTerminate(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
@@ -44,7 +44,7 @@ func TestTerminate(t *testing.T) {
 			locker.EXPECT().UnlockUpload("foo"),
 		)
 
-		composer := NewStoreComposer()
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseTerminater(store)
 		composer.UseLocker(locker)
@@ -73,8 +73,8 @@ func TestTerminate(t *testing.T) {
 		a.Equal(int64(10), info.Size)
 	})
 
-	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
-		composer := NewStoreComposer()
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 
 		handler, _ := NewUnroutedHandler(Config{

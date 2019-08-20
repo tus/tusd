@@ -20,7 +20,7 @@ func (reader *closingStringReader) Close() error {
 }
 
 func TestGet(t *testing.T) {
-	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		reader := &closingStringReader{
 			Reader: strings.NewReader("hello"),
 		}
@@ -43,7 +43,7 @@ func TestGet(t *testing.T) {
 			locker.EXPECT().UnlockUpload("yes"),
 		)
 
-		composer := NewStoreComposer()
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseGetReader(store)
 		composer.UseLocker(locker)
@@ -69,13 +69,13 @@ func TestGet(t *testing.T) {
 		}
 	})
 
-	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 0,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -90,8 +90,8 @@ func TestGet(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore) {
-		composer := NewStoreComposer()
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 
 		handler, _ := NewUnroutedHandler(Config{
@@ -105,7 +105,7 @@ func TestGet(t *testing.T) {
 		}).Run(http.HandlerFunc(handler.GetFile), t)
 	})
 
-	SubTest(t, "InvalidFileType", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 0,
 			MetaData: map[string]string{
@@ -114,7 +114,7 @@ func TestGet(t *testing.T) {
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -130,7 +130,7 @@ func TestGet(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NotWhitelistedFileType", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "NotWhitelistedFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 0,
 			MetaData: map[string]string{
@@ -140,7 +140,7 @@ func TestGet(t *testing.T) {
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{

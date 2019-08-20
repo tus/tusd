@@ -25,35 +25,6 @@ func NewStoreComposer() *StoreComposer {
 	return &StoreComposer{}
 }
 
-// newStoreComposerFromDataStore creates a new store composer and attempts to
-// extract the extensions for the provided store. This is intended to be used
-// for transitioning from data stores to composers.
-func newStoreComposerFromDataStore(store DataStore) *StoreComposer {
-	composer := NewStoreComposer()
-	composer.UseCore(store)
-
-	if mod, ok := store.(TerminaterDataStore); ok {
-		composer.UseTerminater(mod)
-	}
-	if mod, ok := store.(FinisherDataStore); ok {
-		composer.UseFinisher(mod)
-	}
-	if mod, ok := store.(LockerDataStore); ok {
-		composer.UseLocker(mod)
-	}
-	if mod, ok := store.(GetReaderDataStore); ok {
-		composer.UseGetReader(mod)
-	}
-	if mod, ok := store.(ConcaterDataStore); ok {
-		composer.UseConcater(mod)
-	}
-	if mod, ok := store.(LengthDeferrerDataStore); ok {
-		composer.UseLengthDeferrer(mod)
-	}
-
-	return composer
-}
-
 // Capabilities returns a string representing the provided extensions in a
 // human-readable format meant for debugging.
 func (store *StoreComposer) Capabilities() string {

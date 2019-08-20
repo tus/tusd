@@ -16,7 +16,7 @@ import (
 )
 
 func TestPatch(t *testing.T) {
-	SubTest(t, "UploadChunk", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:     "yes",
@@ -28,7 +28,7 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore:             store,
+			StoreComposer:         composer,
 			NotifyCompleteUploads: true,
 		})
 
@@ -57,7 +57,7 @@ func TestPatch(t *testing.T) {
 		a.Equal(int64(10), info.Offset)
 	})
 
-	SubTest(t, "MethodOverriding", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "MethodOverriding", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:     "yes",
@@ -68,7 +68,7 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -88,14 +88,14 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "UploadChunkToFinished", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadChunkToFinished", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 20,
 			Size:   20,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -114,11 +114,11 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("no").Return(FileInfo{}, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -133,13 +133,13 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "MissmatchingOffsetFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "MissmatchingOffsetFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 5,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -154,14 +154,14 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "ExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "ExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetInfo("yes").Return(FileInfo{
 			Offset: 5,
 			Size:   10,
 		}, nil)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -177,9 +177,9 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "InvalidContentTypeFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidContentTypeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -195,9 +195,9 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "InvalidOffsetFail", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "InvalidOffsetFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		(&httpTest{
@@ -213,7 +213,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "OverflowWithoutLength", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "OverflowWithoutLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		// In this test we attempt to upload more than 15 bytes to an upload
 		// which has only space for 15 bytes (offset of 5 and size of 20).
 		// The request does not contain the Content-Length header and the handler
@@ -232,7 +232,7 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
+			StoreComposer: composer,
 		})
 
 		// Wrap the string.Reader in a NopCloser to hide its type. else
@@ -257,7 +257,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "DeclareLengthOnFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "DeclareLengthOnFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:             "yes",
@@ -271,8 +271,8 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
-			MaxSize:   20,
+			StoreComposer: composer,
+			MaxSize:       20,
 		})
 
 		body := strings.NewReader("hellothisismore")
@@ -294,7 +294,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "DeclareLengthAfterFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "DeclareLengthAfterFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:             "yes",
@@ -307,8 +307,8 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
-			MaxSize:   20,
+			StoreComposer: composer,
+			MaxSize:       20,
 		})
 
 		(&httpTest{
@@ -326,7 +326,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "DeclareLengthOnNonFinalChunk", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "DeclareLengthOnNonFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:             "yes",
@@ -347,8 +347,8 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore: store,
-			MaxSize:   20,
+			StoreComposer: composer,
+			MaxSize:       20,
 		})
 
 		(&httpTest{
@@ -383,7 +383,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
@@ -398,7 +398,7 @@ func TestPatch(t *testing.T) {
 			locker.EXPECT().UnlockUpload("yes").Return(nil),
 		)
 
-		composer := NewStoreComposer()
+		composer = NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 
@@ -419,7 +419,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NotifyUploadProgress", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "NotifyUploadProgress", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:     "yes",
@@ -430,7 +430,7 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore:            store,
+			StoreComposer:        composer,
 			NotifyUploadProgress: true,
 		})
 
@@ -486,7 +486,7 @@ func TestPatch(t *testing.T) {
 		a.False(more)
 	})
 
-	SubTest(t, "StopUpload", func(t *testing.T, store *MockFullDataStore) {
+	SubTest(t, "StopUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		gomock.InOrder(
 			store.EXPECT().GetInfo("yes").Return(FileInfo{
 				ID:     "yes",
@@ -498,7 +498,7 @@ func TestPatch(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			DataStore:            store,
+			StoreComposer:        composer,
 			NotifyUploadProgress: true,
 		})
 
