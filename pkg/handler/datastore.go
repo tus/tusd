@@ -47,12 +47,7 @@ func (f FileInfo) StopUpload() {
 	}
 }
 
-type DataStore interface {
-	// Create a new upload using the size as the file's length. The method must
-	// return an unique id which is used to identify the upload. If no backend
-	// (e.g. Riak) specifes the id you may want to use the uid package to
-	// generate one. The properties Size and MetaData will be filled.
-	NewUpload(info FileInfo) (id string, err error)
+type Upload interface {
 	// Write the chunk read from src into the file specified by the id at the
 	// given offset. The handler will take care of validating the offset and
 	// limiting the size of the src to not overflow the file's size. It may
@@ -60,31 +55,50 @@ type DataStore interface {
 	// It will also lock resources while they are written to ensure only one
 	// write happens per time.
 	// The function call must return the number of bytes written.
-	WriteChunk(id string, offset int64, src io.Reader) (int64, error)
+	WriteChunk(offset int64, src io.Reader) (int64, error)
 	// Read the fileinformation used to validate the offset and respond to HEAD
 	// requests. It may return an os.ErrNotExist which will be interpreted as a
 	// 404 Not Found.
-	GetInfo(id string) (FileInfo, error)
+	GetInfo() (FileInfo, error)
+	// GetReader returns a reader which allows iterating of the content of an
+	// upload specified by its ID. It should attempt to provide a reader even if
+	// the upload has not been finished yet but it's not required.
+	// If the returned reader also implements the io.Closer interface, the
+	// Close() method will be invoked once everything has been read.
+	// If the given upload could not be found, the error tusd.ErrNotFound should
+	// be returned.
+	GetReader() (io.Reader, error)
+	// FinisherDataStore is the interface which can be implemented by DataStores
+	// which need to do additional operations once an entire upload has been
+	// completed. These tasks may include but are not limited to freeing unused
+	// resources or notifying other services. For example, S3Store uses this
+	// interface for removing a temporary object.
+	// FinishUpload executes additional operations for the finished upload which
+	// is specified by its ID.
+	FinishUpload() error
+}
+
+type DataStore interface {
+	// Create a new upload using the size as the file's length. The method must
+	// return an unique id which is used to identify the upload. If no backend
+	// (e.g. Riak) specifes the id you may want to use the uid package to
+	// generate one. The properties Size and MetaData will be filled.
+	NewUpload(info FileInfo) (upload Upload, err error)
+
+	GetUpload(id string) (upload Upload, err error)
+}
+
+type TerminatableUpload interface {
+	// Terminate an upload so any further requests to the resource, both reading
+	// and writing, must return os.ErrNotExist or similar.
+	Terminate() error
 }
 
 // TerminaterDataStore is the interface which must be implemented by DataStores
 // if they want to receive DELETE requests using the Handler. If this interface
 // is not implemented, no request handler for this method is attached.
 type TerminaterDataStore interface {
-	// Terminate an upload so any further requests to the resource, both reading
-	// and writing, must return os.ErrNotExist or similar.
-	Terminate(id string) error
-}
-
-// FinisherDataStore is the interface which can be implemented by DataStores
-// which need to do additional operations once an entire upload has been
-// completed. These tasks may include but are not limited to freeing unused
-// resources or notifying other services. For example, S3Store uses this
-// interface for removing a temporary object.
-type FinisherDataStore interface {
-	// FinishUpload executes additional operations for the finished upload which
-	// is specified by its ID.
-	FinishUpload(id string) error
+	AsTerminatableUpload(upload Upload) TerminatableUpload
 }
 
 // LockerDataStore is the interface required for custom lock persisting mechanisms.
@@ -106,22 +120,6 @@ type LockerDataStore interface {
 	UnlockUpload(id string) error
 }
 
-// GetReaderDataStore is the interface which must be implemented if handler should
-// expose and support the GET route. It will allow clients to download the
-// content of an upload regardless whether it's finished or not.
-// Please, be aware that this feature is not part of the official tus
-// specification. Instead it's a custom mechanism by tusd.
-type GetReaderDataStore interface {
-	// GetReader returns a reader which allows iterating of the content of an
-	// upload specified by its ID. It should attempt to provide a reader even if
-	// the upload has not been finished yet but it's not required.
-	// If the returned reader also implements the io.Closer interface, the
-	// Close() method will be invoked once everything has been read.
-	// If the given upload could not be found, the error tusd.ErrNotFound should
-	// be returned.
-	GetReader(id string) (io.Reader, error)
-}
-
 // ConcaterDataStore is the interface required to be implemented if the
 // Concatenation extension should be enabled. Only in this case, the handler
 // will parse and respect the Upload-Concat header.
@@ -140,5 +138,9 @@ type ConcaterDataStore interface {
 // client to upload files when their total size is not yet known. Instead, the
 // client must send the total size as soon as it becomes known.
 type LengthDeferrerDataStore interface {
-	DeclareLength(id string, length int64) error
+	AsLengthDeclarableUpload(upload Upload) LengthDeclarableUpload
+}
+
+type LengthDeclarableUpload interface {
+	DeclareLength(length int64) error
 }

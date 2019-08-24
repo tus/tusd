@@ -33,17 +33,14 @@ func TestTerminate(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
-		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
 			locker.EXPECT().LockUpload("foo"),
-			store.EXPECT().GetUpload("foo").Return(upload, nil),
-			upload.EXPECT().GetInfo().Return(FileInfo{
+			store.EXPECT().GetInfo("foo").Return(FileInfo{
 				ID:   "foo",
 				Size: 10,
 			}, nil),
-			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate().Return(nil),
+			store.EXPECT().Terminate("foo").Return(nil),
 			locker.EXPECT().UnlockUpload("foo"),
 		)
 

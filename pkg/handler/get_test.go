@@ -28,10 +28,12 @@ func TestGet(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
+		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
 			locker.EXPECT().LockUpload("yes"),
-			store.EXPECT().GetInfo("yes").Return(FileInfo{
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
 				Offset: 5,
 				Size:   20,
 				MetaData: map[string]string{
@@ -39,13 +41,12 @@ func TestGet(t *testing.T) {
 					"filetype": "image/jpeg",
 				},
 			}, nil),
-			store.EXPECT().GetReader("yes").Return(reader, nil),
+			upload.EXPECT().GetReader().Return(reader, nil),
 			locker.EXPECT().UnlockUpload("yes"),
 		)
 
 		composer = NewStoreComposer()
 		composer.UseCore(store)
-		composer.UseGetReader(store)
 		composer.UseLocker(locker)
 
 		handler, _ := NewHandler(Config{
@@ -70,9 +71,16 @@ func TestGet(t *testing.T) {
 	})
 
 	SubTest(t, "EmptyDownload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetInfo("yes").Return(FileInfo{
-			Offset: 0,
-		}, nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				Offset: 0,
+			}, nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -90,28 +98,20 @@ func TestGet(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		composer = NewStoreComposer()
-		composer.UseCore(store)
-
-		handler, _ := NewUnroutedHandler(Config{
-			StoreComposer: composer,
-		})
-
-		(&httpTest{
-			Method: "GET",
-			URL:    "foo",
-			Code:   http.StatusNotImplemented,
-		}).Run(http.HandlerFunc(handler.GetFile), t)
-	})
-
 	SubTest(t, "InvalidFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetInfo("yes").Return(FileInfo{
-			Offset: 0,
-			MetaData: map[string]string{
-				"filetype": "non-a-valid-mime-type",
-			},
-		}, nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				Offset: 0,
+				MetaData: map[string]string{
+					"filetype": "non-a-valid-mime-type",
+				},
+			}, nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -131,13 +131,20 @@ func TestGet(t *testing.T) {
 	})
 
 	SubTest(t, "NotWhitelistedFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetInfo("yes").Return(FileInfo{
-			Offset: 0,
-			MetaData: map[string]string{
-				"filetype": "text/html",
-				"filename": "invoice.html",
-			},
-		}, nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				Offset: 0,
+				MetaData: map[string]string{
+					"filetype": "text/html",
+					"filename": "invoice.html",
+				},
+			}, nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,

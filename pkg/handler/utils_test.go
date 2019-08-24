@@ -13,7 +13,7 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 )
 
-//go:generate mockgen -package handler_test -source utils_test.go -aux_files tusd=datastore.go -destination=handler_mock_test.go
+//go:generate mockgen -package handler_test -source utils_test.go -aux_files handler=datastore.go -destination=handler_mock_test.go
 
 // FullDataStore is an interface combining most interfaces for data stores.
 // This is used by mockgen(1) to generate a mocked data store used for testing
@@ -25,9 +25,13 @@ type FullDataStore interface {
 	handler.DataStore
 	handler.TerminaterDataStore
 	handler.ConcaterDataStore
-	handler.GetReaderDataStore
-	handler.FinisherDataStore
 	handler.LengthDeferrerDataStore
+}
+
+type FullUpload interface {
+	handler.Upload
+	handler.TerminatableUpload
+	handler.LengthDeclarableUpload
 }
 
 type Locker interface {

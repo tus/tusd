@@ -297,14 +297,19 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		PartialUploads: partialUploads,
 	}
 
-	id, err := handler.composer.Core.NewUpload(info)
+	upload, err := handler.composer.Core.NewUpload(info)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
-	// TODO: Should we use GetInfo here?
-	info.ID = id
+	info, err = upload.GetInfo()
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	id := info.ID
 
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
@@ -341,7 +346,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			defer locker.UnlockUpload(id)
 		}
 
-		if err := handler.writeChunk(id, info, w, r); err != nil {
+		if err := handler.writeChunk(upload, info, w, r); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -349,7 +354,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
-		handler.finishUploadIfComplete(info)
+		handler.finishUploadIfComplete(upload, info)
 	}
 
 	handler.sendResp(w, r, http.StatusCreated)
@@ -374,7 +379,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	upload, err := handler.composer.Core.GetUpload(id)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	info, err := upload.GetInfo()
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -444,7 +455,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	upload, err := handler.composer.Core.GetUpload(id)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	info, err := upload.GetInfo()
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -482,7 +499,9 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 			handler.sendError(w, r, ErrInvalidUploadLength)
 			return
 		}
-		if err := handler.composer.LengthDeferrer.DeclareLength(id, uploadLength); err != nil {
+
+		lengthDeclarableUpload := handler.composer.LengthDeferrer.AsLengthDeclarableUpload(upload)
+		if err := lengthDeclarableUpload.DeclareLength(uploadLength); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -491,7 +510,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.SizeIsDeferred = false
 	}
 
-	if err := handler.writeChunk(id, info, w, r); err != nil {
+	if err := handler.writeChunk(upload, info, w, r); err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
@@ -502,10 +521,11 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // writeChunk reads the body from the requests r and appends it to the upload
 // with the corresponding id. Afterwards, it will set the necessary response
 // headers but will not send the response.
-func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.ResponseWriter, r *http.Request) error {
+func (handler *UnroutedHandler) writeChunk(upload Upload, info FileInfo, w http.ResponseWriter, r *http.Request) error {
 	// Get Content-Length if possible
 	length := r.ContentLength
 	offset := info.Offset
+	id := info.ID
 
 	// Test if this upload fits into the file's size
 	if !info.SizeIsDeferred && offset+length > info.Size {
@@ -562,9 +582,9 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 		}
 
 		var err error
-		bytesWritten, err = handler.composer.Core.WriteChunk(id, offset, reader)
+		bytesWritten, err = upload.WriteChunk(offset, reader)
 		if terminateUpload && handler.composer.UsesTerminater {
-			if terminateErr := handler.terminateUpload(id, info); terminateErr != nil {
+			if terminateErr := handler.terminateUpload(upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
 				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
@@ -591,20 +611,18 @@ func (handler *UnroutedHandler) writeChunk(id string, info FileInfo, w http.Resp
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
-	return handler.finishUploadIfComplete(info)
+	return handler.finishUploadIfComplete(upload, info)
 }
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
 // matches upload size) and if so, it will call the data store's FinishUpload
 // function and send the necessary message on the CompleteUpload channel.
-func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
+func (handler *UnroutedHandler) finishUploadIfComplete(upload Upload, info FileInfo) error {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
-		if handler.composer.UsesFinisher {
-			if err := handler.composer.Finisher.FinishUpload(info.ID); err != nil {
-				return err
-			}
+		if err := upload.FinishUpload(); err != nil {
+			return err
 		}
 
 		// ... send the info out to the channel
@@ -621,11 +639,6 @@ func (handler *UnroutedHandler) finishUploadIfComplete(info FileInfo) error {
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	if !handler.composer.UsesGetReader {
-		handler.sendError(w, r, ErrNotImplemented)
-		return
-	}
-
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -642,7 +655,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
-	info, err := handler.composer.Core.GetInfo(id)
+	upload, err := handler.composer.Core.GetUpload(id)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	info, err := upload.GetInfo()
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -661,7 +680,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	src, err := handler.composer.GetReader.GetReader(id)
+	src, err := upload.GetReader()
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -761,16 +780,22 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		defer locker.UnlockUpload(id)
 	}
 
+	upload, err := handler.composer.Core.GetUpload(id)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
 	var info FileInfo
 	if handler.config.NotifyTerminatedUploads {
-		info, err = handler.composer.Core.GetInfo(id)
+		info, err = upload.GetInfo()
 		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
 	}
 
-	err = handler.terminateUpload(id, info)
+	err = handler.terminateUpload(upload, info)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -784,8 +809,10 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 // and updates the statistics.
 // Note the the info argument is only needed if the terminated uploads
 // notifications are enabled.
-func (handler *UnroutedHandler) terminateUpload(id string, info FileInfo) error {
-	err := handler.composer.Terminater.Terminate(id)
+func (handler *UnroutedHandler) terminateUpload(upload Upload, info FileInfo) error {
+	terminatableUpload := handler.composer.Terminater.AsTerminatableUpload(upload)
+
+	err := terminatableUpload.Terminate()
 	if err != nil {
 		return err
 	}
@@ -951,7 +978,12 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // of a final resource.
 func (handler *UnroutedHandler) sizeOfUploads(ids []string) (size int64, err error) {
 	for _, id := range ids {
-		info, err := handler.composer.Core.GetInfo(id)
+		upload, err := handler.composer.Core.GetUpload(id)
+		if err != nil {
+			return size, err
+		}
+
+		info, err := upload.GetInfo()
 		if err != nil {
 			return size, err
 		}

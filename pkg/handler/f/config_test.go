@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,15 +8,11 @@ import (
 
 type zeroStore struct{}
 
-func (store zeroStore) NewUpload(info FileInfo) (string, error) {
-	return "", nil
+func (store zeroStore) NewUpload(info FileInfo) (Upload, error) {
+	return nil, nil
 }
-func (store zeroStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	return 0, nil
-}
-
-func (store zeroStore) GetInfo(id string) (FileInfo, error) {
-	return FileInfo{}, nil
+func (store zeroStore) GetUpload(id string) (Upload, error) {
+	return nil, nil
 }
 
 func TestConfig(t *testing.T) {

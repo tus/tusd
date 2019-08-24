@@ -8,12 +8,8 @@ type StoreComposer struct {
 
 	UsesTerminater     bool
 	Terminater         TerminaterDataStore
-	UsesFinisher       bool
-	Finisher           FinisherDataStore
 	UsesLocker         bool
 	Locker             LockerDataStore
-	UsesGetReader      bool
-	GetReader          GetReaderDataStore
 	UsesConcater       bool
 	Concater           ConcaterDataStore
 	UsesLengthDeferrer bool
@@ -42,20 +38,8 @@ func (store *StoreComposer) Capabilities() string {
 	} else {
 		str += "✗"
 	}
-	str += ` Finisher: `
-	if store.UsesFinisher {
-		str += "✓"
-	} else {
-		str += "✗"
-	}
 	str += ` Locker: `
 	if store.UsesLocker {
-		str += "✓"
-	} else {
-		str += "✗"
-	}
-	str += ` GetReader: `
-	if store.UsesGetReader {
 		str += "✓"
 	} else {
 		str += "✗"
@@ -86,18 +70,12 @@ func (store *StoreComposer) UseTerminater(ext TerminaterDataStore) {
 	store.UsesTerminater = ext != nil
 	store.Terminater = ext
 }
-func (store *StoreComposer) UseFinisher(ext FinisherDataStore) {
-	store.UsesFinisher = ext != nil
-	store.Finisher = ext
-}
+
 func (store *StoreComposer) UseLocker(ext LockerDataStore) {
 	store.UsesLocker = ext != nil
 	store.Locker = ext
 }
-func (store *StoreComposer) UseGetReader(ext GetReaderDataStore) {
-	store.UsesGetReader = ext != nil
-	store.GetReader = ext
-}
+
 func (store *StoreComposer) UseConcater(ext ConcaterDataStore) {
 	store.UsesConcater = ext != nil
 	store.Concater = ext

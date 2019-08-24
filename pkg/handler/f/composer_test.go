@@ -1,5 +1,6 @@
 package handler_test
 
+/*
 import (
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/handler"
@@ -21,3 +22,4 @@ func ExampleNewStoreComposer() {
 
 	_, _ = handler.NewHandler(config)
 }
+*/
