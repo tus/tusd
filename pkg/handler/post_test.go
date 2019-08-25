@@ -14,13 +14,27 @@ import (
 
 func TestPost(t *testing.T) {
 	SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().NewUpload(FileInfo{
-			Size: 300,
-			MetaData: map[string]string{
-				"foo": "hello",
-				"bar": "world",
-			},
-		}).Return("foo", nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().NewUpload(FileInfo{
+				Size: 300,
+				MetaData: map[string]string{
+					"foo": "hello",
+					"bar": "world",
+				},
+			}).Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				ID:   "foo",
+				Size: 300,
+				MetaData: map[string]string{
+					"foo": "hello",
+					"bar": "world",
+				},
+			}, nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer:        composer,
@@ -53,12 +67,22 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().NewUpload(FileInfo{
-			Size:     0,
-			MetaData: map[string]string{},
-		}).Return("foo", nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
 
-		store.EXPECT().FinishUpload("foo").Return(nil)
+		gomock.InOrder(
+			store.EXPECT().NewUpload(FileInfo{
+				Size:     0,
+				MetaData: map[string]string{},
+			}).Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				ID:       "foo",
+				Size:     0,
+				MetaData: map[string]string{},
+			}, nil),
+			upload.EXPECT().FinishUpload().Return(nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer:         composer,
@@ -173,10 +197,21 @@ func TestPost(t *testing.T) {
 
 	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		SubTest(t, "IgnoreXForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer: composer,
@@ -199,10 +234,21 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "RespectXForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer:           composer,
@@ -226,10 +272,21 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "RespectForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer:           composer,
@@ -254,10 +311,21 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer:           composer,
@@ -286,6 +354,7 @@ func TestPost(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockLocker(ctrl)
+			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
 				store.EXPECT().NewUpload(FileInfo{
@@ -294,9 +363,17 @@ func TestPost(t *testing.T) {
 						"foo": "hello",
 						"bar": "world",
 					},
-				}).Return("foo", nil),
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:   "foo",
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}, nil),
 				locker.EXPECT().LockUpload("foo"),
-				store.EXPECT().WriteChunk("foo", int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				upload.EXPECT().WriteChunk(int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 				locker.EXPECT().UnlockUpload("foo"),
 			)
 
@@ -327,10 +404,21 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer: composer,
@@ -350,10 +438,21 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "IncorrectContentType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:     300,
-				MetaData: map[string]string{},
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer: composer,

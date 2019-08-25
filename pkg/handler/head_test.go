@@ -14,10 +14,12 @@ func TestHead(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockLocker(ctrl)
+		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
 			locker.EXPECT().LockUpload("yes"),
-			store.EXPECT().GetInfo("yes").Return(FileInfo{
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
 				Offset: 11,
 				Size:   44,
 				MetaData: map[string]string{
@@ -59,7 +61,7 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetInfo("no").Return(FileInfo{}, os.ErrNotExist)
+		store.EXPECT().GetUpload("no").Return(nil, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -83,10 +85,17 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "DeferLengthHeader", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetInfo("yes").Return(FileInfo{
-			SizeIsDeferred: true,
-			Size:           0,
-		}, nil)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
+				SizeIsDeferred: true,
+				Size:           0,
+			}, nil),
+		)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -106,8 +115,13 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "NoDeferLengthHeader", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
 		gomock.InOrder(
-			store.EXPECT().GetInfo("yes").Return(FileInfo{
+			store.EXPECT().GetUpload("yes").Return(upload, nil),
+			upload.EXPECT().GetInfo().Return(FileInfo{
 				SizeIsDeferred: false,
 				Size:           10,
 			}, nil),

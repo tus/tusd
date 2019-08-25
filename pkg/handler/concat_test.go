@@ -32,13 +32,27 @@ func TestConcat(t *testing.T) {
 
 	SubTest(t, "Partial", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().NewUpload(FileInfo{
-				Size:           300,
-				IsPartial:      true,
-				IsFinal:        false,
-				PartialUploads: nil,
-				MetaData:       make(map[string]string),
-			}).Return("foo", nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(FileInfo{
+					Size:           300,
+					IsPartial:      true,
+					IsFinal:        false,
+					PartialUploads: nil,
+					MetaData:       make(map[string]string),
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:             "foo",
+					Size:           300,
+					IsPartial:      true,
+					IsFinal:        false,
+					PartialUploads: nil,
+					MetaData:       make(map[string]string),
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				BasePath:      "files",
@@ -57,9 +71,17 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().GetInfo("foo").Return(FileInfo{
-				IsPartial: true,
-			}, nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload("foo").Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:        "foo",
+					IsPartial: true,
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				BasePath:      "files",
@@ -84,13 +106,21 @@ func TestConcat(t *testing.T) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			a := assert.New(t)
 
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
 			gomock.InOrder(
-				store.EXPECT().GetInfo("a").Return(FileInfo{
+				store.EXPECT().GetUpload("a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo().Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
 				}, nil),
-				store.EXPECT().GetInfo("b").Return(FileInfo{
+				store.EXPECT().GetUpload("b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo().Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
@@ -101,7 +131,15 @@ func TestConcat(t *testing.T) {
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
 					MetaData:       make(map[string]string),
-				}).Return("foo", nil),
+				}).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo().Return(FileInfo{
+					ID:             "foo",
+					Size:           10,
+					IsPartial:      false,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+					MetaData:       make(map[string]string),
+				}, nil),
 				store.EXPECT().ConcatUploads("foo", []string{"a", "b"}).Return(nil),
 			)
 
@@ -136,12 +174,20 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().GetInfo("foo").Return(FileInfo{
-				IsFinal:        true,
-				PartialUploads: []string{"a", "b"},
-				Size:           10,
-				Offset:         10,
-			}, nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload("foo").Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:             "foo",
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+					Size:           10,
+					Offset:         10,
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				BasePath:      "files",
@@ -164,13 +210,21 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "CreateWithUnfinishedFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
 			// This upload is still unfinished (mismatching offset and size) and
 			// will therefore cause the POST request to fail.
-			store.EXPECT().GetInfo("c").Return(FileInfo{
-				IsPartial: true,
-				Size:      5,
-				Offset:    3,
-			}, nil)
+			gomock.InOrder(
+				store.EXPECT().GetUpload("c").Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:        "c",
+					IsPartial: true,
+					Size:      5,
+					Offset:    3,
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				BasePath:      "files",
@@ -188,10 +242,18 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().GetInfo("huge").Return(FileInfo{
-				Size:   1000,
-				Offset: 1000,
-			}, nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload("huge").Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:     "huge",
+					Size:   1000,
+					Offset: 1000,
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				MaxSize:       100,
@@ -210,11 +272,19 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "UploadToFinalFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			store.EXPECT().GetInfo("foo").Return(FileInfo{
-				Size:    10,
-				Offset:  0,
-				IsFinal: true,
-			}, nil)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload("foo").Return(upload, nil),
+				upload.EXPECT().GetInfo().Return(FileInfo{
+					ID:      "foo",
+					Size:    10,
+					Offset:  0,
+					IsFinal: true,
+				}, nil),
+			)
 
 			handler, _ := NewHandler(Config{
 				StoreComposer: composer,
