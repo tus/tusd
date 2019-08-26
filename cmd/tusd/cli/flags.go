@@ -4,6 +4,8 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
+
+	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
 
 var Flags struct {
@@ -20,12 +22,14 @@ var Flags struct {
 	S3Endpoint          string
 	GCSBucket           string
 	GCSObjectPrefix     string
+	EnabledHooksString  string
 	FileHooksDir        string
 	HttpHooksEndpoint   string
 	HttpHooksRetry      int
 	HttpHooksBackoff    int
 	HooksStopUploadCode int
 	PluginHookPath      string
+	EnabledHooks        []hooks.HookType
 	ShowVersion         bool
 	ExposeMetrics       bool
 	MetricsPath         string
@@ -50,6 +54,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
+	flag.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable all events")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
@@ -61,8 +66,9 @@ func ParseFlags() {
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
-
 	flag.Parse()
+
+	SetEnabledHooks()
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
@@ -88,4 +94,31 @@ func ParseFlags() {
 		stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
 			"Please remove underscore from the value", Flags.GCSObjectPrefix)
 	}
+}
+
+func SetEnabledHooks() {
+	if Flags.EnabledHooksString != "" {
+		slc := strings.Split(Flags.EnabledHooksString, ",")
+
+		for i, h := range slc {
+			slc[i] = strings.TrimSpace(h)
+
+			if !hookTypeInSlice(hooks.HookType(h), hooks.AvailableHooks) {
+				stderr.Fatalf("Unknown hook event type in -hooks-enabled-events flag: %s", h)
+			}
+
+			Flags.EnabledHooks = append(Flags.EnabledHooks, hooks.HookType(h))
+		}
+	}
+
+	if len(Flags.EnabledHooks) == 0 {
+		Flags.EnabledHooks = hooks.AvailableHooks
+	}
+
+	var enabledHooksString []string
+	for _, h := range Flags.EnabledHooks {
+		enabledHooksString = append(enabledHooksString, string(h))
+	}
+
+	stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 }
