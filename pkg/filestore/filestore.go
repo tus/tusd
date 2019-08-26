@@ -6,13 +6,6 @@
 // `[id]` files without an extension contain the raw binary data uploaded.
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
-//
-// In addition, it provides an exclusive upload locking mechanism using lock files
-// which are stored on disk. Each of them stores the PID of the process which
-// acquired the lock. This allows locks to be automatically freed when a process
-// is unable to release it on its own because the process is not alive anymore.
-// For more information, consult the documentation for handler.LockerDataStore
-// interface, which is implemented by FileStore
 package filestore
 
 import (
@@ -25,8 +18,6 @@ import (
 
 	"github.com/tus/tusd/internal/uid"
 	"github.com/tus/tusd/pkg/handler"
-
-	"gopkg.in/Acconut/lockfile.v1"
 )
 
 var defaultFilePerm = os.FileMode(0664)
@@ -51,15 +42,13 @@ func New(path string) FileStore {
 // all possible extension to it.
 func (store FileStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
-	composer.UseGetReader(store)
 	composer.UseTerminater(store)
-	composer.UseLocker(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
 }
 
-func (store FileStore) NewUpload(info handler.FileInfo) (id string, err error) {
-	id = uid.Uid()
+func (store FileStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+	id := uid.Uid()
 	binPath := store.binPath(id)
 	info.ID = id
 	info.Storage = map[string]string{
@@ -73,17 +62,84 @@ func (store FileStore) NewUpload(info handler.FileInfo) (id string, err error) {
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("upload directory does not exist: %s", store.Path)
 		}
-		return "", err
+		return nil, err
 	}
 	defer file.Close()
 
+	upload := &fileUpload{
+		info:     info,
+		infoPath: store.infoPath(id),
+		binPath:  store.binPath(id),
+	}
+
 	// writeInfo creates the file by itself if necessary
-	err = store.writeInfo(id, info)
-	return
+	err = upload.writeInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	return upload, nil
 }
 
-func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
-	file, err := os.OpenFile(store.binPath(id), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+func (store FileStore) GetUpload(id string) (handler.Upload, error) {
+	info := handler.FileInfo{}
+	data, err := ioutil.ReadFile(store.infoPath(id))
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &info); err != nil {
+		return nil, err
+	}
+
+	binPath := store.binPath(id)
+	infoPath := store.infoPath(id)
+	stat, err := os.Stat(binPath)
+	if err != nil {
+		return nil, err
+	}
+
+	info.Offset = stat.Size()
+
+	return &fileUpload{
+		info:     info,
+		binPath:  binPath,
+		infoPath: infoPath,
+	}, nil
+}
+
+func (store FileStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+	return upload.(*fileUpload)
+}
+
+func (store FileStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
+	return upload.(*fileUpload)
+}
+
+// binPath returns the path to the file storing the binary data.
+func (store FileStore) binPath(id string) string {
+	return filepath.Join(store.Path, id)
+}
+
+// infoPath returns the path to the .info file storing the file's info.
+func (store FileStore) infoPath(id string) string {
+	return filepath.Join(store.Path, id+".info")
+}
+
+type fileUpload struct {
+	// info stores the current information about the upload
+	info handler.FileInfo
+	// infoPath is the path to the .info file
+	infoPath string
+	// binPath is the path to the binary file (which has no extension)
+	binPath string
+}
+
+func (upload *fileUpload) GetInfo() (handler.FileInfo, error) {
+	return upload.info, nil
+}
+
+func (upload *fileUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return 0, err
 	}
@@ -99,39 +155,20 @@ func (store FileStore) WriteChunk(id string, offset int64, src io.Reader) (int64
 		err = nil
 	}
 
+	upload.info.Offset += n
+
 	return n, err
 }
 
-func (store FileStore) GetInfo(id string) (handler.FileInfo, error) {
-	info := handler.FileInfo{}
-	data, err := ioutil.ReadFile(store.infoPath(id))
-	if err != nil {
-		return info, err
-	}
-	if err := json.Unmarshal(data, &info); err != nil {
-		return info, err
-	}
-
-	binPath := store.binPath(id)
-	stat, err := os.Stat(binPath)
-	if err != nil {
-		return info, err
-	}
-
-	info.Offset = stat.Size()
-
-	return info, nil
+func (upload *fileUpload) GetReader() (io.Reader, error) {
+	return os.Open(upload.binPath)
 }
 
-func (store FileStore) GetReader(id string) (io.Reader, error) {
-	return os.Open(store.binPath(id))
-}
-
-func (store FileStore) Terminate(id string) error {
-	if err := os.Remove(store.infoPath(id)); err != nil {
+func (upload *fileUpload) Terminate() error {
+	if err := os.Remove(upload.infoPath); err != nil {
 		return err
 	}
-	if err := os.Remove(store.binPath(id)); err != nil {
+	if err := os.Remove(upload.binPath); err != nil {
 		return err
 	}
 	return nil
@@ -145,7 +182,7 @@ func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) 
 	defer file.Close()
 
 	for _, id := range uploads {
-		src, err := store.GetReader(id)
+		src, err := os.Open(store.binPath(id))
 		if err != nil {
 			return err
 		}
@@ -158,76 +195,21 @@ func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) 
 	return
 }
 
-func (store FileStore) DeclareLength(id string, length int64) error {
-	info, err := store.GetInfo(id)
-	if err != nil {
-		return err
-	}
-	info.Size = length
-	info.SizeIsDeferred = false
-	return store.writeInfo(id, info)
-}
-
-func (store FileStore) LockUpload(id string) error {
-	lock, err := store.newLock(id)
-	if err != nil {
-		return err
-	}
-
-	err = lock.TryLock()
-	if err == lockfile.ErrBusy {
-		return handler.ErrFileLocked
-	}
-
-	return err
-}
-
-func (store FileStore) UnlockUpload(id string) error {
-	lock, err := store.newLock(id)
-	if err != nil {
-		return err
-	}
-
-	err = lock.Unlock()
-
-	// A "no such file or directory" will be returned if no lockfile was found.
-	// Since this means that the file has never been locked, we drop the error
-	// and continue as if nothing happened.
-	if os.IsNotExist(err) {
-		err = nil
-	}
-
-	return err
-}
-
-// newLock contructs a new Lockfile instance.
-func (store FileStore) newLock(id string) (lockfile.Lockfile, error) {
-	path, err := filepath.Abs(filepath.Join(store.Path, id+".lock"))
-	if err != nil {
-		return lockfile.Lockfile(""), err
-	}
-
-	// We use Lockfile directly instead of lockfile.New to bypass the unnecessary
-	// check whether the provided path is absolute since we just resolved it
-	// on our own.
-	return lockfile.Lockfile(path), nil
-}
-
-// binPath returns the path to the file storing the binary data.
-func (store FileStore) binPath(id string) string {
-	return filepath.Join(store.Path, id)
-}
-
-// infoPath returns the path to the .info file storing the file's info.
-func (store FileStore) infoPath(id string) string {
-	return filepath.Join(store.Path, id+".info")
+func (upload *fileUpload) DeclareLength(length int64) error {
+	upload.info.Size = length
+	upload.info.SizeIsDeferred = false
+	return upload.writeInfo()
 }
 
 // writeInfo updates the entire information. Everything will be overwritten.
-func (store FileStore) writeInfo(id string, info handler.FileInfo) error {
-	data, err := json.Marshal(info)
+func (upload *fileUpload) writeInfo() error {
+	data, err := json.Marshal(upload.info)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(store.infoPath(id), data, defaultFilePerm)
+	return ioutil.WriteFile(upload.infoPath, data, defaultFilePerm)
+}
+
+func (upload *fileUpload) FinishUpload() error {
+	return nil
 }
