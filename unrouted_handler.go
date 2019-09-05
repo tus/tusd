@@ -24,7 +24,7 @@ var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
 	reForwardedHost  = regexp.MustCompile(`host=([^,]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
-	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z\-\+]+$`)
+	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z\-\+\.]+$`)
 )
 
 // HTTPError represents an error with an additional status code attached
