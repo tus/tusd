@@ -10,6 +10,15 @@ import (
 
 var hookHandler hooks.HookHandler = nil
 
+func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 type hookDataStore struct {
 	handler.DataStore
 }
@@ -62,7 +71,6 @@ func SetupPreHooks(composer *handler.StoreComposer) error {
 	composer.UseCore(hookDataStore{
 		DataStore: composer.Core,
 	})
-
 	return nil
 }
 
@@ -91,6 +99,10 @@ func invokeHookAsync(typ hooks.HookType, info handler.FileInfo) {
 }
 
 func invokeHookSync(typ hooks.HookType, info handler.FileInfo, captureOutput bool) ([]byte, error) {
+	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
+		return nil, nil
+	}
+
 	switch typ {
 	case hooks.HookPostFinish:
 		logEv(stdout, "UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))

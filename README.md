@@ -54,7 +54,7 @@ snippet demonstrates how to start a tusd process which accepts tus uploads at
 `http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
-$ tusd -dir ./data
+$ tusd -dir=./data
 [tusd] Using './data' as directory storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
@@ -71,7 +71,7 @@ option):
 $ export AWS_ACCESS_KEY_ID=xxxxx
 $ export AWS_SECRET_ACCESS_KEY=xxxxx
 $ export AWS_REGION=eu-west-1
-$ tusd -s3-bucket my-test-bucket.com
+$ tusd -s3-bucket=my-test-bucket.com
 [tusd] Using 's3://my-test-bucket.com' as S3 bucket for storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
@@ -86,7 +86,7 @@ enable this feature, supply the path to your account file containing the necessa
 
 ```
 $ export GCS_SERVICE_ACCOUNT_FILE=./account.json
-$ tusd -gcs-bucket my-test-bucket.com
+$ tusd -gcs-bucket=my-test-bucket.com
 [tusd] Using 'gcs://my-test-bucket.com' as GCS bucket for storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
@@ -112,6 +112,8 @@ Usage of tusd:
     	Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
   -hooks-dir string
     	Directory to search for available hooks scripts
+  -hooks-enabled-events string
+    	Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable all events
   -hooks-http string
     	An HTTP endpoint to which hook events will be sent to
   -hooks-http-backoff int

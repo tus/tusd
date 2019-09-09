@@ -19,6 +19,8 @@ const (
 	HookPreCreate     HookType = "pre-create"
 )
 
+var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish}
+
 type hookDataStore struct {
 	handler.DataStore
 }
