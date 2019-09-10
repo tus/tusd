@@ -20,10 +20,9 @@ import (
 
 // Test interface implementations
 var _ handler.DataStore = S3Store{}
-var _ handler.GetReaderDataStore = S3Store{}
 var _ handler.TerminaterDataStore = S3Store{}
-var _ handler.FinisherDataStore = S3Store{}
 var _ handler.ConcaterDataStore = S3Store{}
+var _ handler.LengthDeferrerDataStore = S3Store{}
 
 func TestNewUpload(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -67,9 +66,9 @@ func TestNewUpload(t *testing.T) {
 		},
 	}
 
-	id, err := store.NewUpload(info)
+	upload, err := store.NewUpload(info)
 	assert.Nil(err)
-	assert.Equal("uploadId+multipartId", id)
+	assert.NotNil(upload)
 }
 
 func TestNewUploadWithObjectPrefix(t *testing.T) {
@@ -115,9 +114,9 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 		},
 	}
 
-	id, err := store.NewUpload(info)
+	upload, err := store.NewUpload(info)
 	assert.Nil(err)
-	assert.Equal("uploadId+multipartId", id)
+	assert.NotNil(upload)
 }
 
 func TestNewUploadLargerMaxObjectSize(t *testing.T) {
@@ -136,10 +135,10 @@ func TestNewUploadLargerMaxObjectSize(t *testing.T) {
 		Size: store.MaxObjectSize + 1,
 	}
 
-	id, err := store.NewUpload(info)
+	upload, err := store.NewUpload(info)
 	assert.NotNil(err)
 	assert.EqualError(err, fmt.Sprintf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize))
-	assert.Equal("", id)
+	assert.Nil(upload)
 }
 
 func TestGetInfoNotFound(t *testing.T) {
@@ -155,7 +154,10 @@ func TestGetInfoNotFound(t *testing.T) {
 		Key:    aws.String("uploadId.info"),
 	}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil))
 
-	_, err := store.GetInfo("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	_, err = upload.GetInfo()
 	assert.Equal(handler.ErrNotFound, err)
 }
 
@@ -209,7 +211,10 @@ func TestGetInfo(t *testing.T) {
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
 	)
 
-	info, err := store.GetInfo("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	info, err := upload.GetInfo()
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(400), info.Offset)
@@ -251,7 +256,10 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 		}, nil),
 	)
 
-	info, err := store.GetInfo("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	info, err := upload.GetInfo()
 	assert.Nil(err)
 	assert.Equal(int64(10), info.Offset)
 	assert.Equal("uploadId+multipartId", info.ID)
@@ -280,7 +288,10 @@ func TestGetInfoFinished(t *testing.T) {
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
 
-	info, err := store.GetInfo("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	info, err := upload.GetInfo()
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(500), info.Offset)
@@ -301,7 +312,10 @@ func TestGetReader(t *testing.T) {
 		Body: ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))),
 	}, nil)
 
-	content, err := store.GetReader("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	content, err := upload.GetReader()
 	assert.Nil(err)
 	assert.Equal(ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))), content)
 }
@@ -327,7 +341,10 @@ func TestGetReaderNotFound(t *testing.T) {
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
 
-	content, err := store.GetReader("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	content, err := upload.GetReader()
 	assert.Nil(content)
 	assert.Equal(handler.ErrNotFound, err)
 }
@@ -355,7 +372,10 @@ func TestGetReaderNotFinished(t *testing.T) {
 		}, nil),
 	)
 
-	content, err := store.GetReader("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	content, err := upload.GetReader()
 	assert.Nil(content)
 	assert.Equal("cannot stream non-finished upload", err.Error())
 }
@@ -395,7 +415,10 @@ func TestDeclareLength(t *testing.T) {
 		}),
 	)
 
-	err := store.DeclareLength("uploadId+multipartId", 500)
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	err = store.AsLengthDeclarableUpload(upload).DeclareLength(500)
 	assert.Nil(err)
 }
 
@@ -466,7 +489,10 @@ func TestFinishUpload(t *testing.T) {
 		}).Return(nil, nil),
 	)
 
-	err := store.FinishUpload("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	err = upload.FinishUpload()
 	assert.Nil(err)
 }
 
@@ -555,7 +581,10 @@ func TestWriteChunk(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890ABCD")))
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(300, bytes.NewReader([]byte("1234567890ABCD")))
 	assert.Nil(err)
 	assert.Equal(int64(14), bytesRead)
 }
@@ -634,7 +663,10 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 		writer.CloseWithError(io.ErrUnexpectedEOF)
 	}()
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, reader)
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(300, reader)
 	assert.Nil(err)
 	assert.Equal(int64(14), bytesRead)
 }
@@ -699,7 +731,10 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 300, bytes.NewReader([]byte("1234567890")))
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(300, bytes.NewReader([]byte("1234567890")))
 	assert.Nil(err)
 	assert.Equal(int64(10), bytesRead)
 }
@@ -769,7 +804,10 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 3, bytes.NewReader([]byte("45")))
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(3, bytes.NewReader([]byte("45")))
 	assert.Nil(err)
 	assert.Equal(int64(2), bytesRead)
 }
@@ -837,7 +875,10 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		})).Return(nil, nil),
 	)
 
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 3, bytes.NewReader([]byte("45")))
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(3, bytes.NewReader([]byte("45")))
 	assert.Nil(err)
 	assert.Equal(int64(2), bytesRead)
 }
@@ -905,10 +946,13 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
 	// 10 bytes are missing for the upload to be finished (offset at 490 for 500
 	// bytes file) but the minimum chunk size is higher (20). The chunk is
 	// still uploaded since the last part may be smaller than the minimum.
-	bytesRead, err := store.WriteChunk("uploadId+multipartId", 490, bytes.NewReader([]byte("1234567890")))
+	bytesRead, err := upload.WriteChunk(490, bytes.NewReader([]byte("1234567890")))
 	assert.Nil(err)
 	assert.Equal(int64(10), bytesRead)
 }
@@ -946,7 +990,10 @@ func TestTerminate(t *testing.T) {
 		},
 	}).Return(&s3.DeleteObjectsOutput{}, nil)
 
-	err := store.Terminate("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	err = store.AsTerminatableUpload(upload).Terminate()
 	assert.Nil(err)
 }
 
@@ -992,7 +1039,10 @@ func TestTerminateWithErrors(t *testing.T) {
 		},
 	}, nil)
 
-	err := store.Terminate("uploadId+multipartId")
+	upload, err := store.GetUpload("uploadId+multipartId")
+	assert.Nil(err)
+
+	err = store.AsTerminatableUpload(upload).Terminate()
 	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
 }
 

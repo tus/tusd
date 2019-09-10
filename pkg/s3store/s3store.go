@@ -162,16 +162,19 @@ func New(bucket string, service S3API) S3Store {
 func (store S3Store) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
-	composer.UseFinisher(store)
-	composer.UseGetReader(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
 }
 
-func (store S3Store) NewUpload(info handler.FileInfo) (id string, err error) {
+type s3Upload struct {
+	id    string
+	store *S3Store
+}
+
+func (store S3Store) NewUpload(info handler.FileInfo) (handler.Upload, error) {
 	// an upload larger than MaxObjectSize must throw an error
 	if info.Size > store.MaxObjectSize {
-		return "", fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
+		return nil, fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
 	}
 
 	var uploadId string
@@ -198,10 +201,10 @@ func (store S3Store) NewUpload(info handler.FileInfo) (id string, err error) {
 		Metadata: metadata,
 	})
 	if err != nil {
-		return "", fmt.Errorf("s3store: unable to create multipart upload:\n%s", err)
+		return nil, fmt.Errorf("s3store: unable to create multipart upload:\n%s", err)
 	}
 
-	id = uploadId + "+" + *res.UploadId
+	id := uploadId + "+" + *res.UploadId
 	info.ID = id
 
 	info.Storage = map[string]string{
@@ -212,10 +215,22 @@ func (store S3Store) NewUpload(info handler.FileInfo) (id string, err error) {
 
 	err = store.writeInfo(uploadId, info)
 	if err != nil {
-		return "", fmt.Errorf("s3store: unable to create info file:\n%s", err)
+		return nil, fmt.Errorf("s3store: unable to create info file:\n%s", err)
 	}
 
-	return id, nil
+	return &s3Upload{id, &store}, nil
+}
+
+func (store S3Store) GetUpload(id string) (handler.Upload, error) {
+	return &s3Upload{id, &store}, nil
+}
+
+func (store S3Store) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+	return upload.(*s3Upload)
+}
+
+func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
+	return upload.(*s3Upload)
 }
 
 func (store S3Store) writeInfo(uploadId string, info handler.FileInfo) error {
@@ -235,11 +250,14 @@ func (store S3Store) writeInfo(uploadId string, info handler.FileInfo) error {
 	return err
 }
 
-func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+func (upload s3Upload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+	id := upload.id
+	store := upload.store
+
 	uploadId, multipartId := splitIds(id)
 
 	// Get the total size of the current upload
-	info, err := store.GetInfo(id)
+	info, err := upload.GetInfo()
 	if err != nil {
 		return 0, err
 	}
@@ -336,7 +354,9 @@ func (store S3Store) WriteChunk(id string, offset int64, src io.Reader) (int64, 
 	}
 }
 
-func (store S3Store) GetInfo(id string) (info handler.FileInfo, err error) {
+func (upload s3Upload) GetInfo() (info handler.FileInfo, err error) {
+	id := upload.id
+	store := upload.store
 	uploadId, _ := splitIds(id)
 
 	// Get file info stored in separate object
@@ -391,7 +411,9 @@ func (store S3Store) GetInfo(id string) (info handler.FileInfo, err error) {
 	return
 }
 
-func (store S3Store) GetReader(id string) (io.Reader, error) {
+func (upload s3Upload) GetReader() (io.Reader, error) {
+	id := upload.id
+	store := upload.store
 	uploadId, multipartId := splitIds(id)
 
 	// Attempt to get upload content
@@ -432,7 +454,9 @@ func (store S3Store) GetReader(id string) (io.Reader, error) {
 	return nil, err
 }
 
-func (store S3Store) Terminate(id string) error {
+func (upload s3Upload) Terminate() error {
+	id := upload.id
+	store := upload.store
 	uploadId, multipartId := splitIds(id)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -495,7 +519,9 @@ func (store S3Store) Terminate(id string) error {
 	return nil
 }
 
-func (store S3Store) FinishUpload(id string) error {
+func (upload s3Upload) FinishUpload() error {
+	id := upload.id
+	store := upload.store
 	uploadId, multipartId := splitIds(id)
 
 	// Get uploaded parts
@@ -564,12 +590,18 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 		return newMultiError(errs)
 	}
 
-	return store.FinishUpload(dest)
+	upload, err := store.GetUpload(dest)
+	if err != nil {
+		return err
+	}
+	return upload.FinishUpload()
 }
 
-func (store S3Store) DeclareLength(id string, length int64) error {
+func (upload s3Upload) DeclareLength(length int64) error {
+	id := upload.id
+	store := upload.store
 	uploadId, _ := splitIds(id)
-	info, err := store.GetInfo(id)
+	info, err := upload.GetInfo()
 	if err != nil {
 		return err
 	}
