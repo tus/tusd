@@ -23,16 +23,16 @@ type hookDataStore struct {
 	handler.DataStore
 }
 
-func (store hookDataStore) NewUpload(info handler.FileInfo) (id string, err error) {
+func (store hookDataStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
 	if output, err := invokeHookSync(hooks.HookPreCreate, info, true); err != nil {
 		if hookErr, ok := err.(hooks.HookError); ok {
-			return "", hooks.NewHookError(
+			return nil, hooks.NewHookError(
 				fmt.Errorf("pre-create hook failed: %s", err),
 				hookErr.StatusCode(),
 				hookErr.Body(),
 			)
 		}
-		return "", fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
+		return nil, fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
 	}
 	return store.DataStore.NewUpload(info)
 }
