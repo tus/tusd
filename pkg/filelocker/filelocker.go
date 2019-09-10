@@ -1,19 +1,12 @@
-// Package filestore provide a storage backend based on the local file system.
+// Package filelocker provide an upload locker based on the local file system.
 //
-// FileStore is a storage backend used as a handler.DataStore in handler.NewHandler.
-// It stores the uploads in a directory specified in two different files: The
-// `[id].info` files are used to store the fileinfo in JSON format. The
-// `[id]` files without an extension contain the raw binary data uploaded.
-// No cleanup is performed so you may want to run a cronjob to ensure your disk
-// is not filled up with old and finished uploads.
-//
-// In addition, it provides an exclusive upload locking mechanism using lock files
+// It provides an exclusive upload locking mechanism using lock files
 // which are stored on disk. Each of them stores the PID of the process which
 // acquired the lock. This allows locks to be automatically freed when a process
 // is unable to release it on its own because the process is not alive anymore.
 // For more information, consult the documentation for handler.LockerDataStore
-// interface, which is implemented by FileStore
-package filestore
+// interface, which is implemented by FileLocker.
+package filelocker
 
 import (
 	"os"
@@ -42,16 +35,16 @@ func New(path string) FileLocker {
 	return FileLocker{path}
 }
 
-func (locker FileLocker) NewLock(id string) (handler.UploadLock, error) {
+func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 	path, err := filepath.Abs(filepath.Join(locker.Path, id+".lock"))
 	if err != nil {
-		return lockfile.Lockfile(""), err
+		return nil, err
 	}
 
 	// We use Lockfile directly instead of lockfile.New to bypass the unnecessary
 	// check whether the provided path is absolute since we just resolved it
 	// on our own.
-	return fileUploadLock{
+	return &fileUploadLock{
 		file: lockfile.Lockfile(path),
 	}, nil
 }
@@ -61,7 +54,7 @@ type fileUploadLock struct {
 }
 
 func (lock fileUploadLock) Lock() error {
-	err = lock.file.TryLock()
+	err := lock.file.TryLock()
 	if err == lockfile.ErrBusy {
 		return handler.ErrFileLocked
 	}
@@ -70,7 +63,7 @@ func (lock fileUploadLock) Lock() error {
 }
 
 func (lock fileUploadLock) Unlock() error {
-	err = lock.file.Unlock()
+	err := lock.file.Unlock()
 
 	// A "no such file or directory" will be returned if no lockfile was found.
 	// Since this means that the file has never been locked, we drop the error

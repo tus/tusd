@@ -144,3 +144,28 @@ type LengthDeferrerDataStore interface {
 type LengthDeclarableUpload interface {
 	DeclareLength(length int64) error
 }
+
+// Locker is the interface required for custom lock persisting mechanisms.
+// Common ways to store this information is in memory, on disk or using an
+// external service, such as ZooKeeper.
+// When multiple processes are attempting to access an upload, whether it be
+// by reading or writing, a synchronization mechanism is required to prevent
+// data corruption, especially to ensure correct offset values and the proper
+// order of chunks inside a single upload.
+type Locker interface {
+	// NewLock creates a new unlocked lock object for the given upload ID.
+	NewLock(id string) (Lock, error)
+}
+
+// Lock is the interface for a lock as returned from a Locker.
+type Lock interface {
+	// Lock attempts to obtain an exclusive lock for the upload specified
+	// by its id.
+	// If this operation fails because the resource is already locked, the
+	// tusd.ErrFileLocked must be returned. If no error is returned, the attempt
+	// is consider to be successful and the upload to be locked until UnlockUpload
+	// is invoked for the same upload.
+	Lock() error
+	// Unlock releases an existing lock for the given upload.
+	Unlock() error
+}
