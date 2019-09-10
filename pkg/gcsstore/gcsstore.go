@@ -54,11 +54,9 @@ func New(bucket string, service GCSAPI) GCSStore {
 func (store GCSStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
-	composer.UseFinisher(store)
-	composer.UseGetReader(store)
 }
 
-func (store GCSStore) NewUpload(info handler.FileInfo) (id string, err error) {
+func (store GCSStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
 	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
@@ -70,15 +68,31 @@ func (store GCSStore) NewUpload(info handler.FileInfo) (id string, err error) {
 	}
 
 	ctx := context.Background()
-	err = store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
+	err := store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
 	if err != nil {
-		return info.ID, err
+		return &gcsUpload{info.ID, &store}, err
 	}
 
-	return info.ID, nil
+	return &gcsUpload{info.ID, &store}, nil
 }
 
-func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64, error) {
+type gcsUpload struct {
+	id    string
+	store *GCSStore
+}
+
+func (store GCSStore) GetUpload(id string) (handler.Upload, error) {
+	return &gcsUpload{id, &store}, nil
+}
+
+func (store GCSStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+	return upload.(*gcsUpload)
+}
+
+func (upload gcsUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+	id := upload.id
+	store := upload.store
+
 	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
@@ -121,7 +135,10 @@ func (store GCSStore) WriteChunk(id string, offset int64, src io.Reader) (int64,
 
 const CONCURRENT_SIZE_REQUESTS = 32
 
-func (store GCSStore) GetInfo(id string) (handler.FileInfo, error) {
+func (upload gcsUpload) GetInfo() (handler.FileInfo, error) {
+	id := upload.id
+	store := upload.store
+
 	info := handler.FileInfo{}
 	i := fmt.Sprintf("%s.info", store.keyWithPrefix(id))
 
@@ -241,7 +258,10 @@ func (store GCSStore) writeInfo(ctx context.Context, id string, info handler.Fil
 	return nil
 }
 
-func (store GCSStore) FinishUpload(id string) error {
+func (upload gcsUpload) FinishUpload() error {
+	id := upload.id
+	store := upload.store
+
 	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
@@ -270,7 +290,7 @@ func (store GCSStore) FinishUpload(id string) error {
 		return err
 	}
 
-	info, err := store.GetInfo(id)
+	info, err := upload.GetInfo()
 	if err != nil {
 		return err
 	}
@@ -288,7 +308,10 @@ func (store GCSStore) FinishUpload(id string) error {
 	return nil
 }
 
-func (store GCSStore) Terminate(id string) error {
+func (upload gcsUpload) Terminate() error {
+	id := upload.id
+	store := upload.store
+
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: store.keyWithPrefix(id),
@@ -303,7 +326,10 @@ func (store GCSStore) Terminate(id string) error {
 	return nil
 }
 
-func (store GCSStore) GetReader(id string) (io.Reader, error) {
+func (upload gcsUpload) GetReader() (io.Reader, error) {
+	id := upload.id
+	store := upload.store
+
 	params := GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     store.keyWithPrefix(id),

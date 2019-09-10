@@ -64,9 +64,9 @@ func TestNewUpload(t *testing.T) {
 	ctx := context.Background()
 	service.EXPECT().WriteObject(ctx, params, r).Return(int64(r.Len()), nil)
 
-	id, err := store.NewUpload(mockTusdInfo)
+	upload, err := store.NewUpload(mockTusdInfo)
 	assert.Nil(err)
-	assert.Equal(id, mockID)
+	assert.NotNil(upload)
 }
 
 func TestNewUploadWithPrefix(t *testing.T) {
@@ -99,9 +99,9 @@ func TestNewUploadWithPrefix(t *testing.T) {
 	ctx := context.Background()
 	service.EXPECT().WriteObject(ctx, params, r).Return(int64(r.Len()), nil)
 
-	id, err := store.NewUpload(mockTusdInfo)
+	upload, err := store.NewUpload(mockTusdInfo)
 	assert.Nil(err)
-	assert.Equal(id, mockID)
+	assert.NotNil(upload)
 }
 
 type MockGetInfoReader struct{}
@@ -185,7 +185,10 @@ func TestGetInfo(t *testing.T) {
 
 	service.EXPECT().WriteObject(ctx, params, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
 
-	info, err := store.GetInfo(mockID)
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	info, err := upload.GetInfo()
 	assert.Nil(err)
 	assert.Equal(mockTusdInfo, info)
 
@@ -211,7 +214,10 @@ func TestGetInfoNotFound(t *testing.T) {
 		service.EXPECT().ReadObject(ctx, params).Return(nil, storage.ErrObjectNotExist),
 	)
 
-	_, err := store.GetInfo(mockID)
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	_, err = upload.GetInfo()
 	assert.Equal(handler.ErrNotFound, err)
 }
 
@@ -257,7 +263,11 @@ func TestGetReader(t *testing.T) {
 
 	ctx := context.Background()
 	service.EXPECT().ReadObject(ctx, params).Return(r, nil)
-	reader, err := store.GetReader(mockID)
+
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	reader, err := upload.GetReader()
 	assert.Nil(err)
 
 	buf := make([]byte, len(mockReaderData))
@@ -285,7 +295,10 @@ func TestTerminate(t *testing.T) {
 	ctx := context.Background()
 	service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil)
 
-	err := store.Terminate(mockID)
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	err = store.AsTerminatableUpload(upload).Terminate()
 	assert.Nil(err)
 }
 
@@ -371,7 +384,10 @@ func TestFinishUpload(t *testing.T) {
 	writeObject := service.EXPECT().WriteObject(ctx, infoParams, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
 	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(writeObject)
 
-	err = store.FinishUpload(mockID)
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	err = upload.FinishUpload()
 	assert.Nil(err)
 
 	// Cancel the context to avoid getting an error from `go vet`
@@ -446,7 +462,11 @@ func TestWriteChunk(t *testing.T) {
 	reader := bytes.NewReader([]byte(mockReaderData))
 	var offset int64
 	offset = mockSize / 3
-	_, err := store.WriteChunk(mockID, offset, reader)
+
+	upload, err := store.GetUpload(mockID)
+	assert.Nil(err)
+
+	_, err = upload.WriteChunk(offset, reader)
 	assert.Nil(err)
 
 }

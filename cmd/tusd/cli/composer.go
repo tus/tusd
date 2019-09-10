@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/tus/tusd/pkg/filestore"
+	"github.com/tus/tusd/pkg/gcsstore"
 	"github.com/tus/tusd/pkg/handler"
 	"github.com/tus/tusd/pkg/memorylocker"
 	"github.com/tus/tusd/pkg/s3store"
@@ -47,7 +48,7 @@ func CreateComposer() {
 			stderr.Fatalf("No service account file provided for Google Cloud Storage using the GCS_SERVICE_ACCOUNT_FILE environment variable.\n")
 		}
 
-		/*service, err := gcsstore.NewGCSService(gcsSAF)
+		service, err := gcsstore.NewGCSService(gcsSAF)
 		if err != nil {
 			stderr.Fatalf("Unable to create Google Cloud Storage service: %s\n", err)
 		}
@@ -59,7 +60,7 @@ func CreateComposer() {
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
-		locker.UseIn(Composer)*/
+		locker.UseIn(Composer)
 	} else {
 		dir, err := filepath.Abs(Flags.UploadDir)
 		if err != nil {
