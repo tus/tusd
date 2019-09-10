@@ -155,6 +155,13 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	return handler, nil
 }
 
+// SupportedExtensions returns a comma-separated list of the supported tus extensions.
+// The availability of an extension usually depends on whether the provided data store
+// implements some additional interfaces.
+func (handler *UnroutedHandler) SupportedExtensions() string {
+	return handler.extensions
+}
+
 // Middleware checks various aspects of the request and ensures that it
 // conforms with the spec. Also handles method overriding for clients which
 // cannot make PATCH AND DELETE requests. If you are using the tusd handlers

@@ -54,7 +54,7 @@ func Serve() {
 		SetupHookMetrics()
 	}
 
-	stdout.Printf(Composer.Capabilities())
+	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	// Do not display the greeting if the tusd handler will be mounted at the root
 	// path. Else this would cause a "multiple registrations for /" panic.
