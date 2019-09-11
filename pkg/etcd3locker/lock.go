@@ -6,14 +6,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/tus/tusd/pkg/handler"
 	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 type etcd3Lock struct {
 	Id      string
 	Mutex   *concurrency.Mutex
 	Session *concurrency.Session
+
+	isHeld bool
 }
 
 func newEtcd3Lock(session *concurrency.Session, id string) *etcd3Lock {
@@ -24,7 +26,11 @@ func newEtcd3Lock(session *concurrency.Session, id string) *etcd3Lock {
 }
 
 // Acquires a lock from etcd3
-func (lock *etcd3Lock) Acquire() error {
+func (lock *etcd3Lock) Lock() error {
+	if lock.isHeld {
+		return handler.ErrFileLocked
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -37,15 +43,18 @@ func (lock *etcd3Lock) Acquire() error {
 			return err
 		}
 	}
+
+	lock.isHeld = true
 	return nil
 }
 
 // Releases a lock from etcd3
-func (lock *etcd3Lock) Release() error {
-	return lock.Mutex.Unlock(context.Background())
-}
+func (lock *etcd3Lock) Unlock() error {
+	if !lock.isHeld {
+		return ErrLockNotHeld
+	}
 
-// Closes etcd3 session
-func (lock *etcd3Lock) CloseSession() error {
-	return lock.Session.Close()
+	lock.isHeld = false
+	defer lock.Session.Close()
+	return lock.Mutex.Unlock(context.Background())
 }

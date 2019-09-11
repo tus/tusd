@@ -44,12 +44,11 @@ package etcd3locker
 
 import (
 	"errors"
-	"sync"
 	"time"
 
-	"github.com/tus/tusd/pkg/handler"
 	etcd3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 var (
@@ -61,11 +60,6 @@ type Etcd3Locker struct {
 	// etcd3 client session
 	Client *etcd3.Client
 
-	// locks is used for storing Etcd3Locks before they are
-	// unlocked. If you want to release a lock, you need the same locker
-	// instance and therefore we need to save them temporarily.
-	locks      map[string]*etcd3Lock
-	mutex      sync.Mutex
 	prefix     string
 	sessionTtl int
 }
@@ -84,56 +78,24 @@ func NewWithPrefix(client *etcd3.Client, prefix string) (*Etcd3Locker, error) {
 
 // This method may be used if we want control over both prefix/session TTLs. This is used for testing in particular.
 func NewWithLockerOptions(client *etcd3.Client, opts LockerOptions) (*Etcd3Locker, error) {
-	locksMap := map[string]*etcd3Lock{}
-	return &Etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTtl: opts.Ttl(), locks: locksMap, mutex: sync.Mutex{}}, nil
+	return &Etcd3Locker{Client: client, prefix: opts.Prefix(), sessionTtl: opts.Ttl()}, nil
 }
 
 // UseIn adds this locker to the passed composer.
 func (locker *Etcd3Locker) UseIn(composer *handler.StoreComposer) {
-	composer.UseLocker(locker)
+	// TODO: Add back UseIn method
+	//composer.UseLocker(locker)
 }
 
-// LockUpload tries to obtain the exclusive lock.
-func (locker *Etcd3Locker) LockUpload(id string) error {
+func (locker *Etcd3Locker) NewLock(id string) (handler.Lock, error) {
 	session, err := locker.createSession()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lock := newEtcd3Lock(session, locker.getId(id))
 
-	err = lock.Acquire()
-	if err != nil {
-		return err
-	}
-
-	locker.mutex.Lock()
-	defer locker.mutex.Unlock()
-	// Only add the lock to our list if the acquire was successful and no error appeared.
-	locker.locks[locker.getId(id)] = lock
-
-	return nil
-}
-
-// UnlockUpload releases a lock.
-func (locker *Etcd3Locker) UnlockUpload(id string) error {
-	locker.mutex.Lock()
-	defer locker.mutex.Unlock()
-
-	// Complain if no lock has been found. This can only happen if LockUpload
-	// has not been invoked before or UnlockUpload multiple times.
-	lock, ok := locker.locks[locker.getId(id)]
-	if !ok {
-		return ErrLockNotHeld
-	}
-
-	err := lock.Release()
-	if err != nil {
-		return err
-	}
-
-	defer delete(locker.locks, locker.getId(id))
-	return lock.CloseSession()
+	return lock, nil
 }
 
 func (locker *Etcd3Locker) createSession() (*concurrency.Session, error) {

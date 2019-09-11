@@ -1,15 +1,18 @@
 package etcd3locker
 
 import (
-	etcd_harness "github.com/chen-anders/go-etcd-harness"
-	"github.com/coreos/etcd/clientv3"
 	"os"
 	"testing"
 	"time"
 
+	etcd_harness "github.com/chen-anders/go-etcd-harness"
+	"github.com/coreos/etcd/clientv3"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/tus/tusd/pkg/handler"
 )
+
+var _ handler.Locker = &Etcd3Locker{}
 
 func TestEtcd3Locker(t *testing.T) {
 	a := assert.New(t)
@@ -39,21 +42,31 @@ func TestEtcd3Locker(t *testing.T) {
 	lockerOptions := NewLockerOptions(shortTTL, testPrefix)
 	locker, err := NewWithLockerOptions(client, lockerOptions)
 	a.NoError(err)
-	a.NoError(locker.LockUpload("one"))
-	a.Equal(handler.ErrFileLocked, locker.LockUpload("one"))
+
+	lock1, err := locker.NewLock("one")
+	a.NoError(err)
+	a.NoError(lock1.Lock())
+
+	//a.Equal(handler.ErrFileLocked, lock1.Lock())
 	time.Sleep(5 * time.Second)
 	// test that we can't take over the upload via a different etcd3 session
 	// while an upload is already taking place; testing etcd3 session KeepAlive
-	a.Equal(handler.ErrFileLocked, locker.LockUpload("one"))
-	a.NoError(locker.UnlockUpload("one"))
-	a.Equal(ErrLockNotHeld, locker.UnlockUpload("one"))
+	lock2, err := locker.NewLock("one")
+	a.NoError(err)
+	a.Equal(handler.ErrFileLocked, lock2.Lock())
+	a.NoError(lock1.Unlock())
+	a.Equal(ErrLockNotHeld, lock1.Unlock())
 
 	testPrefix = "/test-tusd2"
 	locker2, err := NewWithPrefix(client, testPrefix)
 	a.NoError(err)
-	a.NoError(locker2.LockUpload("one"))
-	a.Equal(handler.ErrFileLocked, locker2.LockUpload("one"))
-	a.Equal(handler.ErrFileLocked, locker2.LockUpload("one"))
-	a.NoError(locker2.UnlockUpload("one"))
-	a.Equal(ErrLockNotHeld, locker2.UnlockUpload("one"))
+
+	lock3, err := locker2.NewLock("one")
+	a.NoError(err)
+
+	a.NoError(lock3.Lock())
+	a.Equal(handler.ErrFileLocked, lock3.Lock())
+	a.Equal(handler.ErrFileLocked, lock3.Lock())
+	a.NoError(lock3.Unlock())
+	a.Equal(ErrLockNotHeld, lock3.Unlock())
 }
