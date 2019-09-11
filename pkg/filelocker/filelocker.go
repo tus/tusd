@@ -35,6 +35,8 @@ func New(path string) FileLocker {
 	return FileLocker{path}
 }
 
+// TODO: Add UseIn method
+
 func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 	path, err := filepath.Abs(filepath.Join(locker.Path, id+".lock"))
 	if err != nil {

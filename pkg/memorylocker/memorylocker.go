@@ -33,32 +33,42 @@ func New() *MemoryLocker {
 
 // UseIn adds this locker to the passed composer.
 func (locker *MemoryLocker) UseIn(composer *handler.StoreComposer) {
-	composer.UseLocker(locker)
+	// TOOD: Add back
+	//composer.UseLocker(locker)
+}
+
+func (locker *MemoryLocker) NewLock(id string) (handler.Lock, error) {
+	return memoryLock{locker, id}, nil
+}
+
+type memoryLock struct {
+	locker *MemoryLocker
+	id     string
 }
 
 // LockUpload tries to obtain the exclusive lock.
-func (locker *MemoryLocker) LockUpload(id string) error {
-	locker.mutex.Lock()
-	defer locker.mutex.Unlock()
+func (lock memoryLock) Lock() error {
+	lock.locker.mutex.Lock()
+	defer lock.locker.mutex.Unlock()
 
 	// Ensure file is not locked
-	if _, ok := locker.locks[id]; ok {
+	if _, ok := lock.locker.locks[lock.id]; ok {
 		return handler.ErrFileLocked
 	}
 
-	locker.locks[id] = struct{}{}
+	lock.locker.locks[lock.id] = struct{}{}
 
 	return nil
 }
 
 // UnlockUpload releases a lock. If no such lock exists, no error will be returned.
-func (locker *MemoryLocker) UnlockUpload(id string) error {
-	locker.mutex.Lock()
+func (lock memoryLock) Unlock() error {
+	lock.locker.mutex.Lock()
 
 	// Deleting a non-existing key does not end in unexpected errors or panic
 	// since this operation results in a no-op
-	delete(locker.locks, id)
+	delete(lock.locker.locks, lock.id)
 
-	locker.mutex.Unlock()
+	lock.locker.mutex.Unlock()
 	return nil
 }
