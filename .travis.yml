@@ -19,9 +19,9 @@ env:
 install:
 - true
 script:
-- ./.scripts/test_all.sh
+- ./scripts/test_all.sh
 before_deploy:
-- if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
+- if [[ "$TRAVIS_TAG" != "" ]]; then ./scripts/build_all.sh; fi
 deploy:
 - provider: releases
   api_key:
@@ -35,7 +35,7 @@ deploy:
     repo: tus/tusd
     os: linux
 - provider: script
-  script: .scripts/deploy_kube.sh
+  script: scripts/deploy_kube.sh
   on:
     branch: master
     go: 1.12
