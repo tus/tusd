@@ -353,7 +353,8 @@ func TestPost(t *testing.T) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			locker := NewMockLocker(ctrl)
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
@@ -372,9 +373,10 @@ func TestPost(t *testing.T) {
 						"bar": "world",
 					},
 				}, nil),
-				locker.EXPECT().LockUpload("foo"),
+				locker.EXPECT().NewLock("foo").Return(lock, nil),
+				lock.EXPECT().Lock().Return(nil),
 				upload.EXPECT().WriteChunk(int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
-				locker.EXPECT().UnlockUpload("foo"),
+				lock.EXPECT().Unlock().Return(nil),
 			)
 
 			composer = NewStoreComposer()

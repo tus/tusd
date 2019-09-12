@@ -32,11 +32,13 @@ func TestTerminate(t *testing.T) {
 	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		locker := NewMockLocker(ctrl)
+		locker := NewMockFullLocker(ctrl)
+		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			locker.EXPECT().LockUpload("foo"),
+			locker.EXPECT().NewLock("foo").Return(lock, nil),
+			lock.EXPECT().Lock().Return(nil),
 			store.EXPECT().GetUpload("foo").Return(upload, nil),
 			upload.EXPECT().GetInfo().Return(FileInfo{
 				ID:   "foo",
@@ -44,7 +46,7 @@ func TestTerminate(t *testing.T) {
 			}, nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
 			upload.EXPECT().Terminate().Return(nil),
-			locker.EXPECT().UnlockUpload("foo"),
+			lock.EXPECT().Unlock().Return(nil),
 		)
 
 		composer = NewStoreComposer()

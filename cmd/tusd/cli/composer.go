@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tus/tusd/pkg/filelocker"
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/gcsstore"
 	"github.com/tus/tusd/pkg/handler"
@@ -74,7 +75,9 @@ func CreateComposer() {
 
 		store := filestore.New(dir)
 		store.UseIn(Composer)
-		// TODO: Add locker
+
+		locker := filelocker.New(dir)
+		locker.UseIn(Composer)
 	}
 
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)

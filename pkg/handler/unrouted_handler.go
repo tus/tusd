@@ -344,13 +344,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	if containsChunk {
 		if handler.composer.UsesLocker {
-			locker := handler.composer.Locker
-			if err := locker.LockUpload(id); err != nil {
+			lock, err := handler.lockUpload(id)
+			if err != nil {
 				handler.sendError(w, r, err)
 				return
 			}
 
-			defer locker.UnlockUpload(id)
+			defer lock.Unlock()
 		}
 
 		if err := handler.writeChunk(upload, info, w, r); err != nil {
@@ -377,13 +377,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.composer.UsesLocker {
-		locker := handler.composer.Locker
-		if err := locker.LockUpload(id); err != nil {
+		lock, err := handler.lockUpload(id)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
 
-		defer locker.UnlockUpload(id)
+		defer lock.Unlock()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(id)
@@ -453,13 +453,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	if handler.composer.UsesLocker {
-		locker := handler.composer.Locker
-		if err := locker.LockUpload(id); err != nil {
+		lock, err := handler.lockUpload(id)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
 
-		defer locker.UnlockUpload(id)
+		defer lock.Unlock()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(id)
@@ -653,13 +653,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if handler.composer.UsesLocker {
-		locker := handler.composer.Locker
-		if err := locker.LockUpload(id); err != nil {
+		lock, err := handler.lockUpload(id)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
 
-		defer locker.UnlockUpload(id)
+		defer lock.Unlock()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(id)
@@ -778,13 +778,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if handler.composer.UsesLocker {
-		locker := handler.composer.Locker
-		if err := locker.LockUpload(id); err != nil {
+		lock, err := handler.lockUpload(id)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
 
-		defer locker.UnlockUpload(id)
+		defer lock.Unlock()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(id)
@@ -1029,6 +1029,21 @@ func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeade
 	}
 
 	return
+}
+
+// lockUpload creates a new lock for the given upload ID and attempts to lock it.
+// The created lock is returned if it was aquired successfully.
+func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
+	lock, err := handler.composer.Locker.NewLock(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := lock.Lock(); err != nil {
+		return nil, err
+	}
+
+	return lock, nil
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the

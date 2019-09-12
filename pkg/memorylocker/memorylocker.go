@@ -33,8 +33,7 @@ func New() *MemoryLocker {
 
 // UseIn adds this locker to the passed composer.
 func (locker *MemoryLocker) UseIn(composer *handler.StoreComposer) {
-	// TOOD: Add back
-	//composer.UseLocker(locker)
+	composer.UseLocker(locker)
 }
 
 func (locker *MemoryLocker) NewLock(id string) (handler.Lock, error) {

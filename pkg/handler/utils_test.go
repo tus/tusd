@@ -34,8 +34,12 @@ type FullUpload interface {
 	handler.LengthDeclarableUpload
 }
 
-type Locker interface {
-	handler.LockerDataStore
+type FullLocker interface {
+	handler.Locker
+}
+
+type FullLock interface {
+	handler.Lock
 }
 
 type httpTest struct {

@@ -27,11 +27,13 @@ func TestGet(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		locker := NewMockLocker(ctrl)
+		locker := NewMockFullLocker(ctrl)
+		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			locker.EXPECT().LockUpload("yes"),
+			locker.EXPECT().NewLock("yes").Return(lock, nil),
+			lock.EXPECT().Lock().Return(nil),
 			store.EXPECT().GetUpload("yes").Return(upload, nil),
 			upload.EXPECT().GetInfo().Return(FileInfo{
 				Offset: 5,
@@ -42,7 +44,7 @@ func TestGet(t *testing.T) {
 				},
 			}, nil),
 			upload.EXPECT().GetReader().Return(reader, nil),
-			locker.EXPECT().UnlockUpload("yes"),
+			lock.EXPECT().Unlock().Return(nil),
 		)
 
 		composer = NewStoreComposer()

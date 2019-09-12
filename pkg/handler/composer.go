@@ -9,7 +9,7 @@ type StoreComposer struct {
 	UsesTerminater     bool
 	Terminater         TerminaterDataStore
 	UsesLocker         bool
-	Locker             LockerDataStore
+	Locker             Locker
 	UsesConcater       bool
 	Concater           ConcaterDataStore
 	UsesLengthDeferrer bool
@@ -71,7 +71,7 @@ func (store *StoreComposer) UseTerminater(ext TerminaterDataStore) {
 	store.Terminater = ext
 }
 
-func (store *StoreComposer) UseLocker(ext LockerDataStore) {
+func (store *StoreComposer) UseLocker(ext Locker) {
 	store.UsesLocker = ext != nil
 	store.Locker = ext
 }

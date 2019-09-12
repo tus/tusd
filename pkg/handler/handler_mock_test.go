@@ -216,53 +216,91 @@ func (mr *MockFullUploadMockRecorder) DeclareLength(length interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeclareLength", reflect.TypeOf((*MockFullUpload)(nil).DeclareLength), length)
 }
 
-// MockLocker is a mock of Locker interface
-type MockLocker struct {
+// MockFullLocker is a mock of FullLocker interface
+type MockFullLocker struct {
 	ctrl     *gomock.Controller
-	recorder *MockLockerMockRecorder
+	recorder *MockFullLockerMockRecorder
 }
 
-// MockLockerMockRecorder is the mock recorder for MockLocker
-type MockLockerMockRecorder struct {
-	mock *MockLocker
+// MockFullLockerMockRecorder is the mock recorder for MockFullLocker
+type MockFullLockerMockRecorder struct {
+	mock *MockFullLocker
 }
 
-// NewMockLocker creates a new mock instance
-func NewMockLocker(ctrl *gomock.Controller) *MockLocker {
-	mock := &MockLocker{ctrl: ctrl}
-	mock.recorder = &MockLockerMockRecorder{mock}
+// NewMockFullLocker creates a new mock instance
+func NewMockFullLocker(ctrl *gomock.Controller) *MockFullLocker {
+	mock := &MockFullLocker{ctrl: ctrl}
+	mock.recorder = &MockFullLockerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockLocker) EXPECT() *MockLockerMockRecorder {
+func (m *MockFullLocker) EXPECT() *MockFullLockerMockRecorder {
 	return m.recorder
 }
 
-// LockUpload mocks base method
-func (m *MockLocker) LockUpload(id string) error {
+// NewLock mocks base method
+func (m *MockFullLocker) NewLock(id string) (handler.Lock, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LockUpload", id)
+	ret := m.ctrl.Call(m, "NewLock", id)
+	ret0, _ := ret[0].(handler.Lock)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewLock indicates an expected call of NewLock
+func (mr *MockFullLockerMockRecorder) NewLock(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewLock", reflect.TypeOf((*MockFullLocker)(nil).NewLock), id)
+}
+
+// MockFullLock is a mock of FullLock interface
+type MockFullLock struct {
+	ctrl     *gomock.Controller
+	recorder *MockFullLockMockRecorder
+}
+
+// MockFullLockMockRecorder is the mock recorder for MockFullLock
+type MockFullLockMockRecorder struct {
+	mock *MockFullLock
+}
+
+// NewMockFullLock creates a new mock instance
+func NewMockFullLock(ctrl *gomock.Controller) *MockFullLock {
+	mock := &MockFullLock{ctrl: ctrl}
+	mock.recorder = &MockFullLockMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockFullLock) EXPECT() *MockFullLockMockRecorder {
+	return m.recorder
+}
+
+// Lock mocks base method
+func (m *MockFullLock) Lock() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// LockUpload indicates an expected call of LockUpload
-func (mr *MockLockerMockRecorder) LockUpload(id interface{}) *gomock.Call {
+// Lock indicates an expected call of Lock
+func (mr *MockFullLockMockRecorder) Lock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockUpload", reflect.TypeOf((*MockLocker)(nil).LockUpload), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockFullLock)(nil).Lock))
 }
 
-// UnlockUpload mocks base method
-func (m *MockLocker) UnlockUpload(id string) error {
+// Unlock mocks base method
+func (m *MockFullLock) Unlock() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnlockUpload", id)
+	ret := m.ctrl.Call(m, "Unlock")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UnlockUpload indicates an expected call of UnlockUpload
-func (mr *MockLockerMockRecorder) UnlockUpload(id interface{}) *gomock.Call {
+// Unlock indicates an expected call of Unlock
+func (mr *MockFullLockMockRecorder) Unlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnlockUpload", reflect.TypeOf((*MockLocker)(nil).UnlockUpload), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockFullLock)(nil).Unlock))
 }

@@ -35,7 +35,10 @@ func New(path string) FileLocker {
 	return FileLocker{path}
 }
 
-// TODO: Add UseIn method
+// UseIn adds this locker to the passed composer.
+func (locker FileLocker) UseIn(composer *handler.StoreComposer) {
+	composer.UseLocker(locker)
+}
 
 func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 	path, err := filepath.Abs(filepath.Join(locker.Path, id+".lock"))

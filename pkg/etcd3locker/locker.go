@@ -83,8 +83,7 @@ func NewWithLockerOptions(client *etcd3.Client, opts LockerOptions) (*Etcd3Locke
 
 // UseIn adds this locker to the passed composer.
 func (locker *Etcd3Locker) UseIn(composer *handler.StoreComposer) {
-	// TODO: Add back UseIn method
-	//composer.UseLocker(locker)
+	composer.UseLocker(locker)
 }
 
 func (locker *Etcd3Locker) NewLock(id string) (handler.Lock, error) {
