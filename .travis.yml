@@ -1,6 +1,7 @@
 language: go
 go:
 - 1.12
+- 1.13
 os:
 - linux
 - windows
@@ -14,8 +15,6 @@ cache:
   directories:
   - $HOME/.gimme
   - "$HOME/google-cloud-sdk/"
-env:
-- GO111MODULE=on
 install:
 - true
 script:
@@ -31,13 +30,13 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    go: 1.12
+    go: 1.13
     repo: tus/tusd
     os: linux
 - provider: script
   script: scripts/deploy_kube.sh
   on:
     branch: master
-    go: 1.12
+    go: 1.13
     repo: tus/tusd
     os: linux
