@@ -40,7 +40,7 @@ func TestNewUpload(t *testing.T) {
 	s2 := "men???hi"
 
 	gomock.InOrder(
-		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
+		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 			Metadata: map[string]*string{
@@ -50,7 +50,7 @@ func TestNewUpload(t *testing.T) {
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
-		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
@@ -88,7 +88,7 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 	s2 := "men?"
 
 	gomock.InOrder(
-		s3obj.EXPECT().CreateMultipartUpload(&s3.CreateMultipartUploadInput{
+		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("my/uploaded/files/uploadId"),
 			Metadata: map[string]*string{
@@ -98,7 +98,7 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
-		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("my/uploaded/files/uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`)),
@@ -150,7 +150,7 @@ func TestGetInfoNotFound(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+	s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil))
@@ -171,13 +171,13 @@ func TestGetInfo(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -194,7 +194,7 @@ func TestGetInfo(t *testing.T) {
 			NextPartNumberMarker: aws.Int64(2),
 			IsTruncated:          aws.Bool(true),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -206,7 +206,7 @@ func TestGetInfo(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
@@ -236,19 +236,19 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
@@ -275,13 +275,13 @@ func TestGetInfoFinished(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -306,7 +306,7 @@ func TestGetReader(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+	s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId"),
 	}).Return(&s3.GetObjectOutput{
@@ -330,11 +330,11 @@ func TestGetReaderNotFound(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 		}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),
@@ -359,11 +359,11 @@ func TestGetReaderNotFinished(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 		}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),
@@ -390,13 +390,13 @@ func TestDeclareLength(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -404,11 +404,11 @@ func TestDeclareLength(t *testing.T) {
 		}).Return(&s3.ListPartsOutput{
 			Parts: []*s3.Part{},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(nil, awserr.New("NotFound", "Not Found", nil)),
-		s3obj.EXPECT().PutObject(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
@@ -432,7 +432,7 @@ func TestFinishUpload(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -453,7 +453,7 @@ func TestFinishUpload(t *testing.T) {
 			NextPartNumberMarker: aws.Int64(2),
 			IsTruncated:          aws.Bool(true),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -467,7 +467,7 @@ func TestFinishUpload(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
+		s3obj.EXPECT().CompleteMultipartUploadWithContext(context.Background(), &s3.CompleteMultipartUploadInput{
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),
@@ -510,13 +510,13 @@ func TestWriteChunk(t *testing.T) {
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -531,11 +531,11 @@ func TestWriteChunk(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -550,32 +550,32 @@ func TestWriteChunk(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(3),
 			Body:       bytes.NewReader([]byte("1234")),
 		})).Return(nil, nil),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(4),
 			Body:       bytes.NewReader([]byte("5678")),
 		})).Return(nil, nil),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(5),
 			Body:       bytes.NewReader([]byte("90AB")),
 		})).Return(nil, nil),
-		s3obj.EXPECT().PutObject(NewPutObjectInputMatcher(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 			Body:   bytes.NewReader([]byte("CD")),
@@ -606,13 +606,13 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -627,11 +627,11 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -646,11 +646,11 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().PutObject(NewPutObjectInputMatcher(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 			Body:   bytes.NewReader([]byte("1234567890ABCD")),
@@ -681,13 +681,13 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -702,11 +702,11 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -721,11 +721,11 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().PutObject(NewPutObjectInputMatcher(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 			Body:   bytes.NewReader([]byte("1234567890")),
@@ -753,50 +753,50 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":5,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
 			ContentLength: aws.Int64(3),
 			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
 			ContentLength: aws.Int64(3),
 			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
-		s3obj.EXPECT().DeleteObject(&s3.DeleteObjectInput{
+		s3obj.EXPECT().DeleteObjectWithContext(context.Background(), &s3.DeleteObjectInput{
 			Bucket: aws.String(store.Bucket),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.DeleteObjectOutput{}, nil),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(1),
 			Body:       bytes.NewReader([]byte("1234")),
 		})).Return(nil, nil),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
@@ -826,50 +826,50 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":10,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
 			ContentLength: aws.Int64(3),
 			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
 			PartNumberMarker: aws.Int64(0),
 		}).Return(&s3.ListPartsOutput{Parts: []*s3.Part{}}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{
 			Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
 			ContentLength: aws.Int64(3),
 		}, nil),
-		s3obj.EXPECT().DeleteObject(&s3.DeleteObjectInput{
+		s3obj.EXPECT().DeleteObjectWithContext(context.Background(), &s3.DeleteObjectInput{
 			Bucket: aws.String(store.Bucket),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.DeleteObjectOutput{}, nil),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
 			PartNumber: aws.Int64(1),
 			Body:       bytes.NewReader([]byte("1234")),
 		})).Return(nil, nil),
-		s3obj.EXPECT().PutObject(NewPutObjectInputMatcher(&s3.PutObjectInput{
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 			Body:   bytes.NewReader([]byte("5")),
@@ -894,13 +894,13 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 	store.MinPartSize = 20
 
 	gomock.InOrder(
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.info"),
 		}).Return(&s3.GetObjectOutput{
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 		}, nil),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -915,11 +915,11 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("AccessDenied", "Access Denied.", nil)),
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -934,11 +934,11 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().GetObject(&s3.GetObjectInput{
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId.part"),
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil)),
-		s3obj.EXPECT().UploadPart(NewUploadPartInputMatcher(&s3.UploadPartInput{
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
@@ -967,13 +967,13 @@ func TestTerminate(t *testing.T) {
 	store := New("bucket", s3obj)
 
 	// Order is not important in this situation.
-	s3obj.EXPECT().AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+	s3obj.EXPECT().AbortMultipartUploadWithContext(context.Background(), &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String("bucket"),
 		Key:      aws.String("uploadId"),
 		UploadId: aws.String("multipartId"),
 	}).Return(nil, nil)
 
-	s3obj.EXPECT().DeleteObjects(&s3.DeleteObjectsInput{
+	s3obj.EXPECT().DeleteObjectsWithContext(context.Background(), &s3.DeleteObjectsInput{
 		Bucket: aws.String("bucket"),
 		Delete: &s3.Delete{
 			Objects: []*s3.ObjectIdentifier{
@@ -1008,13 +1008,13 @@ func TestTerminateWithErrors(t *testing.T) {
 
 	// Order is not important in this situation.
 	// NoSuchUpload errors should be ignored
-	s3obj.EXPECT().AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+	s3obj.EXPECT().AbortMultipartUploadWithContext(context.Background(), &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String("bucket"),
 		Key:      aws.String("uploadId"),
 		UploadId: aws.String("multipartId"),
 	}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil))
 
-	s3obj.EXPECT().DeleteObjects(&s3.DeleteObjectsInput{
+	s3obj.EXPECT().DeleteObjectsWithContext(context.Background(), &s3.DeleteObjectsInput{
 		Bucket: aws.String("bucket"),
 		Delete: &s3.Delete{
 			Objects: []*s3.ObjectIdentifier{
@@ -1055,7 +1055,7 @@ func TestConcatUploads(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+	s3obj.EXPECT().UploadPartCopyWithContext(context.Background(), &s3.UploadPartCopyInput{
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
@@ -1063,7 +1063,7 @@ func TestConcatUploads(t *testing.T) {
 		PartNumber: aws.Int64(1),
 	}).Return(nil, nil)
 
-	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+	s3obj.EXPECT().UploadPartCopyWithContext(context.Background(), &s3.UploadPartCopyInput{
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
@@ -1071,7 +1071,7 @@ func TestConcatUploads(t *testing.T) {
 		PartNumber: aws.Int64(2),
 	}).Return(nil, nil)
 
-	s3obj.EXPECT().UploadPartCopy(&s3.UploadPartCopyInput{
+	s3obj.EXPECT().UploadPartCopyWithContext(context.Background(), &s3.UploadPartCopyInput{
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
@@ -1081,7 +1081,7 @@ func TestConcatUploads(t *testing.T) {
 
 	// Output from s3Store.FinishUpload
 	gomock.InOrder(
-		s3obj.EXPECT().ListParts(&s3.ListPartsInput{
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 			Bucket:           aws.String("bucket"),
 			Key:              aws.String("uploadId"),
 			UploadId:         aws.String("multipartId"),
@@ -1102,7 +1102,7 @@ func TestConcatUploads(t *testing.T) {
 				},
 			},
 		}, nil),
-		s3obj.EXPECT().CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
+		s3obj.EXPECT().CompleteMultipartUploadWithContext(context.Background(), &s3.CompleteMultipartUploadInput{
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),

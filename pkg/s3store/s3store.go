@@ -86,6 +86,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -134,16 +135,16 @@ type S3Store struct {
 }
 
 type S3API interface {
-	PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error)
-	ListParts(input *s3.ListPartsInput) (*s3.ListPartsOutput, error)
-	UploadPart(input *s3.UploadPartInput) (*s3.UploadPartOutput, error)
-	GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error)
-	CreateMultipartUpload(input *s3.CreateMultipartUploadInput) (*s3.CreateMultipartUploadOutput, error)
-	AbortMultipartUpload(input *s3.AbortMultipartUploadInput) (*s3.AbortMultipartUploadOutput, error)
-	DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error)
-	DeleteObjects(input *s3.DeleteObjectsInput) (*s3.DeleteObjectsOutput, error)
-	CompleteMultipartUpload(input *s3.CompleteMultipartUploadInput) (*s3.CompleteMultipartUploadOutput, error)
-	UploadPartCopy(input *s3.UploadPartCopyInput) (*s3.UploadPartCopyOutput, error)
+	PutObjectWithContext(ctx context.Context, input *s3.PutObjectInput, opt ...request.Option) (*s3.PutObjectOutput, error)
+	ListPartsWithContext(ctx context.Context, input *s3.ListPartsInput, opt ...request.Option) (*s3.ListPartsOutput, error)
+	UploadPartWithContext(ctx context.Context, input *s3.UploadPartInput, opt ...request.Option) (*s3.UploadPartOutput, error)
+	GetObjectWithContext(ctx context.Context, input *s3.GetObjectInput, opt ...request.Option) (*s3.GetObjectOutput, error)
+	CreateMultipartUploadWithContext(ctx context.Context, input *s3.CreateMultipartUploadInput, opt ...request.Option) (*s3.CreateMultipartUploadOutput, error)
+	AbortMultipartUploadWithContext(ctx context.Context, input *s3.AbortMultipartUploadInput, opt ...request.Option) (*s3.AbortMultipartUploadOutput, error)
+	DeleteObjectWithContext(ctx context.Context, input *s3.DeleteObjectInput, opt ...request.Option) (*s3.DeleteObjectOutput, error)
+	DeleteObjectsWithContext(ctx context.Context, input *s3.DeleteObjectsInput, opt ...request.Option) (*s3.DeleteObjectsOutput, error)
+	CompleteMultipartUploadWithContext(ctx context.Context, input *s3.CompleteMultipartUploadInput, opt ...request.Option) (*s3.CompleteMultipartUploadOutput, error)
+	UploadPartCopyWithContext(ctx context.Context, input *s3.UploadPartCopyInput, opt ...request.Option) (*s3.UploadPartCopyOutput, error)
 }
 
 // New constructs a new storage using the supplied bucket and service object.
@@ -196,7 +197,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	}
 
 	// Create the actual multipart upload
-	res, err := store.Service.CreateMultipartUpload(&s3.CreateMultipartUploadInput{
+	res, err := store.Service.CreateMultipartUploadWithContext(ctx, &s3.CreateMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(uploadId),
 		Metadata: metadata,
@@ -214,7 +215,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		"Key":    *store.keyWithPrefix(uploadId),
 	}
 
-	err = store.writeInfo(uploadId, info)
+	err = store.writeInfo(ctx, uploadId, info)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create info file:\n%s", err)
 	}
@@ -234,14 +235,14 @@ func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.Len
 	return upload.(*s3Upload)
 }
 
-func (store S3Store) writeInfo(uploadId string, info handler.FileInfo) error {
+func (store S3Store) writeInfo(ctx context.Context, uploadId string, info handler.FileInfo) error {
 	infoJson, err := json.Marshal(info)
 	if err != nil {
 		return err
 	}
 
 	// Create object on S3 containing information about the file
-	_, err = store.Service.PutObject(&s3.PutObjectInput{
+	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
 		Key:           store.keyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
@@ -271,7 +272,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	}
 
 	// Get number of parts to generate next number
-	parts, err := store.listAllParts(id)
+	parts, err := store.listAllParts(ctx, id)
 	if err != nil {
 		return 0, err
 	}
@@ -279,7 +280,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
-	incompletePartFile, incompletePartSize, err := store.downloadIncompletePartForUpload(uploadId)
+	incompletePartFile, incompletePartSize, err := store.downloadIncompletePartForUpload(ctx, uploadId)
 	if err != nil {
 		return 0, err
 	}
@@ -287,7 +288,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		defer os.Remove(incompletePartFile.Name())
 		defer incompletePartFile.Close()
 
-		if err := store.deleteIncompletePartForUpload(uploadId); err != nil {
+		if err := store.deleteIncompletePartForUpload(ctx, uploadId); err != nil {
 			return 0, err
 		}
 
@@ -329,7 +330,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
-			_, err = store.Service.UploadPart(&s3.UploadPartInput{
+			_, err = store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(uploadId),
 				UploadId:   aws.String(multipartId),
@@ -340,7 +341,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 				return bytesUploaded, err
 			}
 		} else {
-			if err := store.putIncompletePartForUpload(uploadId, file); err != nil {
+			if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
 				return bytesUploaded, err
 			}
 
@@ -361,7 +362,7 @@ func (upload s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err 
 	uploadId, _ := splitIds(id)
 
 	// Get file info stored in separate object
-	res, err := store.Service.GetObject(&s3.GetObjectInput{
+	res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId + ".info"),
 	})
@@ -378,7 +379,7 @@ func (upload s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err 
 	}
 
 	// Get uploaded parts and their offset
-	parts, err := store.listAllParts(id)
+	parts, err := store.listAllParts(ctx, id)
 	if err != nil {
 		// Check if the error is caused by the upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
@@ -398,7 +399,7 @@ func (upload s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err 
 		offset += *part.Size
 	}
 
-	incompletePartObject, err := store.getIncompletePartForUpload(uploadId)
+	incompletePartObject, err := store.getIncompletePartForUpload(ctx, uploadId)
 	if err != nil {
 		return info, err
 	}
@@ -418,7 +419,7 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.Reader, error) {
 	uploadId, multipartId := splitIds(id)
 
 	// Attempt to get upload content
-	res, err := store.Service.GetObject(&s3.GetObjectInput{
+	res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId),
 	})
@@ -436,7 +437,7 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.Reader, error) {
 
 	// Test whether the multipart upload exists to find out if the upload
 	// never existsted or just has not been finished yet
-	_, err = store.Service.ListParts(&s3.ListPartsInput{
+	_, err = store.Service.ListPartsWithContext(ctx, &s3.ListPartsInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(uploadId),
 		UploadId: aws.String(multipartId),
@@ -467,7 +468,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 		defer wg.Done()
 
 		// Abort the multipart upload
-		_, err := store.Service.AbortMultipartUpload(&s3.AbortMultipartUploadInput{
+		_, err := store.Service.AbortMultipartUploadWithContext(ctx, &s3.AbortMultipartUploadInput{
 			Bucket:   aws.String(store.Bucket),
 			Key:      store.keyWithPrefix(uploadId),
 			UploadId: aws.String(multipartId),
@@ -481,7 +482,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 		defer wg.Done()
 
 		// Delete the info and content files
-		res, err := store.Service.DeleteObjects(&s3.DeleteObjectsInput{
+		res, err := store.Service.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(store.Bucket),
 			Delete: &s3.Delete{
 				Objects: []*s3.ObjectIdentifier{
@@ -526,7 +527,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	uploadId, multipartId := splitIds(id)
 
 	// Get uploaded parts
-	parts, err := store.listAllParts(id)
+	parts, err := store.listAllParts(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -542,7 +543,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 		}
 	}
 
-	_, err = store.Service.CompleteMultipartUpload(&s3.CompleteMultipartUploadInput{
+	_, err = store.Service.CompleteMultipartUploadWithContext(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(uploadId),
 		UploadId: aws.String(multipartId),
@@ -569,7 +570,7 @@ func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUplo
 
 			partialUploadId, _ := splitIds(partialId)
 
-			_, err := store.Service.UploadPartCopy(&s3.UploadPartCopyInput{
+			_, err := store.Service.UploadPartCopyWithContext(ctx, &s3.UploadPartCopyInput{
 				Bucket:   aws.String(store.Bucket),
 				Key:      store.keyWithPrefix(uploadId),
 				UploadId: aws.String(multipartId),
@@ -609,16 +610,16 @@ func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	info.Size = length
 	info.SizeIsDeferred = false
 
-	return store.writeInfo(uploadId, info)
+	return store.writeInfo(ctx, uploadId, info)
 }
 
-func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
+func (store S3Store) listAllParts(ctx context.Context, id string) (parts []*s3.Part, err error) {
 	uploadId, multipartId := splitIds(id)
 
 	partMarker := int64(0)
 	for {
 		// Get uploaded parts
-		listPtr, err := store.Service.ListParts(&s3.ListPartsInput{
+		listPtr, err := store.Service.ListPartsWithContext(ctx, &s3.ListPartsInput{
 			Bucket:           aws.String(store.Bucket),
 			Key:              store.keyWithPrefix(uploadId),
 			UploadId:         aws.String(multipartId),
@@ -639,8 +640,8 @@ func (store S3Store) listAllParts(id string) (parts []*s3.Part, err error) {
 	return parts, nil
 }
 
-func (store S3Store) downloadIncompletePartForUpload(uploadId string) (*os.File, int64, error) {
-	incompleteUploadObject, err := store.getIncompletePartForUpload(uploadId)
+func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, uploadId string) (*os.File, int64, error) {
+	incompleteUploadObject, err := store.getIncompletePartForUpload(ctx, uploadId)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -671,8 +672,8 @@ func (store S3Store) downloadIncompletePartForUpload(uploadId string) (*os.File,
 	return partFile, n, nil
 }
 
-func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectOutput, error) {
-	obj, err := store.Service.GetObject(&s3.GetObjectInput{
+func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId string) (*s3.GetObjectOutput, error) {
+	obj, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
@@ -684,8 +685,8 @@ func (store S3Store) getIncompletePartForUpload(uploadId string) (*s3.GetObjectO
 	return obj, err
 }
 
-func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker) error {
-	_, err := store.Service.PutObject(&s3.PutObjectInput{
+func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
+	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 		Body:   r,
@@ -693,8 +694,8 @@ func (store S3Store) putIncompletePartForUpload(uploadId string, r io.ReadSeeker
 	return err
 }
 
-func (store S3Store) deleteIncompletePartForUpload(uploadId string) error {
-	_, err := store.Service.DeleteObject(&s3.DeleteObjectInput{
+func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId string) error {
+	_, err := store.Service.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
