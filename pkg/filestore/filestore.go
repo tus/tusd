@@ -9,6 +9,7 @@
 package filestore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,7 +48,7 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseLengthDeferrer(store)
 }
 
-func (store FileStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	id := uid.Uid()
 	binPath := store.binPath(id)
 	info.ID = id
@@ -81,7 +82,7 @@ func (store FileStore) NewUpload(info handler.FileInfo) (handler.Upload, error) 
 	return upload, nil
 }
 
-func (store FileStore) GetUpload(id string) (handler.Upload, error) {
+func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	info := handler.FileInfo{}
 	data, err := ioutil.ReadFile(store.infoPath(id))
 	if err != nil {
@@ -134,11 +135,11 @@ type fileUpload struct {
 	binPath string
 }
 
-func (upload *fileUpload) GetInfo() (handler.FileInfo, error) {
+func (upload *fileUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 	return upload.info, nil
 }
 
-func (upload *fileUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return 0, err
@@ -160,11 +161,11 @@ func (upload *fileUpload) WriteChunk(offset int64, src io.Reader) (int64, error)
 	return n, err
 }
 
-func (upload *fileUpload) GetReader() (io.Reader, error) {
+func (upload *fileUpload) GetReader(ctx context.Context) (io.Reader, error) {
 	return os.Open(upload.binPath)
 }
 
-func (upload *fileUpload) Terminate() error {
+func (upload *fileUpload) Terminate(ctx context.Context) error {
 	if err := os.Remove(upload.infoPath); err != nil {
 		return err
 	}
@@ -174,7 +175,7 @@ func (upload *fileUpload) Terminate() error {
 	return nil
 }
 
-func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) {
+func (store FileStore) ConcatUploads(ctx context.Context, dest string, uploads []string) (err error) {
 	file, err := os.OpenFile(store.binPath(dest), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return err
@@ -195,7 +196,7 @@ func (store FileStore) ConcatUploads(dest string, uploads []string) (err error) 
 	return
 }
 
-func (upload *fileUpload) DeclareLength(length int64) error {
+func (upload *fileUpload) DeclareLength(ctx context.Context, length int64) error {
 	upload.info.Size = length
 	upload.info.SizeIsDeferred = false
 	return upload.writeInfo()
@@ -210,6 +211,6 @@ func (upload *fileUpload) writeInfo() error {
 	return ioutil.WriteFile(upload.infoPath, data, defaultFilePerm)
 }
 
-func (upload *fileUpload) FinishUpload() error {
+func (upload *fileUpload) FinishUpload(ctx context.Context) error {
 	return nil
 }

@@ -55,11 +55,11 @@ type Upload interface {
 	// It will also lock resources while they are written to ensure only one
 	// write happens per time.
 	// The function call must return the number of bytes written.
-	WriteChunk(offset int64, src io.Reader) (int64, error)
+	WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error)
 	// Read the fileinformation used to validate the offset and respond to HEAD
 	// requests. It may return an os.ErrNotExist which will be interpreted as a
 	// 404 Not Found.
-	GetInfo() (FileInfo, error)
+	GetInfo(ctx context.Context) (FileInfo, error)
 	// GetReader returns a reader which allows iterating of the content of an
 	// upload specified by its ID. It should attempt to provide a reader even if
 	// the upload has not been finished yet but it's not required.
@@ -67,7 +67,7 @@ type Upload interface {
 	// Close() method will be invoked once everything has been read.
 	// If the given upload could not be found, the error tusd.ErrNotFound should
 	// be returned.
-	GetReader() (io.Reader, error)
+	GetReader(ctx context.Context) (io.Reader, error)
 	// FinisherDataStore is the interface which can be implemented by DataStores
 	// which need to do additional operations once an entire upload has been
 	// completed. These tasks may include but are not limited to freeing unused
@@ -75,7 +75,7 @@ type Upload interface {
 	// interface for removing a temporary object.
 	// FinishUpload executes additional operations for the finished upload which
 	// is specified by its ID.
-	FinishUpload() error
+	FinishUpload(ctx context.Context) error
 }
 
 type DataStore interface {
@@ -83,15 +83,15 @@ type DataStore interface {
 	// return an unique id which is used to identify the upload. If no backend
 	// (e.g. Riak) specifes the id you may want to use the uid package to
 	// generate one. The properties Size and MetaData will be filled.
-	NewUpload(info FileInfo) (upload Upload, err error)
+	NewUpload(ctx context.Context, info FileInfo) (upload Upload, err error)
 
-	GetUpload(id string) (upload Upload, err error)
+	GetUpload(ctx context.Context, id string) (upload Upload, err error)
 }
 
 type TerminatableUpload interface {
 	// Terminate an upload so any further requests to the resource, both reading
 	// and writing, must return os.ErrNotExist or similar.
-	Terminate() error
+	Terminate(ctx context.Context) error
 }
 
 // TerminaterDataStore is the interface which must be implemented by DataStores
@@ -111,7 +111,7 @@ type ConcaterDataStore interface {
 	// destination upload has been created before with enough space to hold all
 	// partial uploads. The order, in which the partial uploads are supplied,
 	// must be respected during concatenation.
-	ConcatUploads(destination string, partialUploads []string) error
+	ConcatUploads(ctx context.Context, destination string, partialUploads []string) error
 }
 
 // LengthDeferrerDataStore is the interface that must be implemented if the
@@ -123,7 +123,7 @@ type LengthDeferrerDataStore interface {
 }
 
 type LengthDeclarableUpload interface {
-	DeclareLength(length int64) error
+	DeclareLength(ctx context.Context, length int64) error
 }
 
 // Locker is the interface required for custom lock persisting mechanisms.

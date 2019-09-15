@@ -56,7 +56,7 @@ func (store GCSStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseTerminater(store)
 }
 
-func (store GCSStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+func (store GCSStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
@@ -67,7 +67,6 @@ func (store GCSStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
 		"Key":    store.keyWithPrefix(info.ID),
 	}
 
-	ctx := context.Background()
 	err := store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
 	if err != nil {
 		return &gcsUpload{info.ID, &store}, err
@@ -81,7 +80,7 @@ type gcsUpload struct {
 	store *GCSStore
 }
 
-func (store GCSStore) GetUpload(id string) (handler.Upload, error) {
+func (store GCSStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	return &gcsUpload{id, &store}, nil
 }
 
@@ -89,7 +88,7 @@ func (store GCSStore) AsTerminatableUpload(upload handler.Upload) handler.Termin
 	return upload.(*gcsUpload)
 }
 
-func (upload gcsUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+func (upload gcsUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	id := upload.id
 	store := upload.store
 
@@ -99,7 +98,6 @@ func (upload gcsUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
 		Prefix: prefix,
 	}
 
-	ctx := context.Background()
 	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return 0, err
@@ -135,7 +133,7 @@ func (upload gcsUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
 
 const CONCURRENT_SIZE_REQUESTS = 32
 
-func (upload gcsUpload) GetInfo() (handler.FileInfo, error) {
+func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 	id := upload.id
 	store := upload.store
 
@@ -147,7 +145,6 @@ func (upload gcsUpload) GetInfo() (handler.FileInfo, error) {
 		ID:     i,
 	}
 
-	ctx := context.Background()
 	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
@@ -258,7 +255,7 @@ func (store GCSStore) writeInfo(ctx context.Context, id string, info handler.Fil
 	return nil
 }
 
-func (upload gcsUpload) FinishUpload() error {
+func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 	id := upload.id
 	store := upload.store
 
@@ -268,7 +265,6 @@ func (upload gcsUpload) FinishUpload() error {
 		Prefix: prefix,
 	}
 
-	ctx := context.Background()
 	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return err
@@ -290,7 +286,7 @@ func (upload gcsUpload) FinishUpload() error {
 		return err
 	}
 
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -308,7 +304,7 @@ func (upload gcsUpload) FinishUpload() error {
 	return nil
 }
 
-func (upload gcsUpload) Terminate() error {
+func (upload gcsUpload) Terminate(ctx context.Context) error {
 	id := upload.id
 	store := upload.store
 
@@ -317,7 +313,6 @@ func (upload gcsUpload) Terminate() error {
 		Prefix: store.keyWithPrefix(id),
 	}
 
-	ctx := context.Background()
 	err := store.Service.DeleteObjectsWithFilter(ctx, filterParams)
 	if err != nil {
 		return err
@@ -326,7 +321,7 @@ func (upload gcsUpload) Terminate() error {
 	return nil
 }
 
-func (upload gcsUpload) GetReader() (io.Reader, error) {
+func (upload gcsUpload) GetReader(ctx context.Context) (io.Reader, error) {
 	id := upload.id
 	store := upload.store
 
@@ -335,7 +330,6 @@ func (upload gcsUpload) GetReader() (io.Reader, error) {
 		ID:     store.keyWithPrefix(id),
 	}
 
-	ctx := context.Background()
 	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
 		return nil, err

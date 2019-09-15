@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,10 +9,10 @@ import (
 
 type zeroStore struct{}
 
-func (store zeroStore) NewUpload(info FileInfo) (Upload, error) {
+func (store zeroStore) NewUpload(ctx context.Context, info FileInfo) (Upload, error) {
 	return nil, nil
 }
-func (store zeroStore) GetUpload(id string) (Upload, error) {
+func (store zeroStore) GetUpload(ctx context.Context, id string) (Upload, error) {
 	return nil, nil
 }
 

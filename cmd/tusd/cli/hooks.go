@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -23,7 +24,7 @@ type hookDataStore struct {
 	handler.DataStore
 }
 
-func (store hookDataStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+func (store hookDataStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	if output, err := invokeHookSync(hooks.HookPreCreate, info, true); err != nil {
 		if hookErr, ok := err.(hooks.HookError); ok {
 			return nil, hooks.NewHookError(
@@ -34,7 +35,7 @@ func (store hookDataStore) NewUpload(info handler.FileInfo) (handler.Upload, err
 		}
 		return nil, fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
 	}
-	return store.DataStore.NewUpload(info)
+	return store.DataStore.NewUpload(ctx, info)
 }
 
 func SetupHookMetrics() {

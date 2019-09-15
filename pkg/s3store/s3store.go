@@ -70,6 +70,7 @@ package s3store
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -171,7 +172,7 @@ type s3Upload struct {
 	store *S3Store
 }
 
-func (store S3Store) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	// an upload larger than MaxObjectSize must throw an error
 	if info.Size > store.MaxObjectSize {
 		return nil, fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
@@ -221,7 +222,7 @@ func (store S3Store) NewUpload(info handler.FileInfo) (handler.Upload, error) {
 	return &s3Upload{id, &store}, nil
 }
 
-func (store S3Store) GetUpload(id string) (handler.Upload, error) {
+func (store S3Store) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	return &s3Upload{id, &store}, nil
 }
 
@@ -250,14 +251,14 @@ func (store S3Store) writeInfo(uploadId string, info handler.FileInfo) error {
 	return err
 }
 
-func (upload s3Upload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	id := upload.id
 	store := upload.store
 
 	uploadId, multipartId := splitIds(id)
 
 	// Get the total size of the current upload
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -354,7 +355,7 @@ func (upload s3Upload) WriteChunk(offset int64, src io.Reader) (int64, error) {
 	}
 }
 
-func (upload s3Upload) GetInfo() (info handler.FileInfo, err error) {
+func (upload s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
 	id := upload.id
 	store := upload.store
 	uploadId, _ := splitIds(id)
@@ -411,7 +412,7 @@ func (upload s3Upload) GetInfo() (info handler.FileInfo, err error) {
 	return
 }
 
-func (upload s3Upload) GetReader() (io.Reader, error) {
+func (upload s3Upload) GetReader(ctx context.Context) (io.Reader, error) {
 	id := upload.id
 	store := upload.store
 	uploadId, multipartId := splitIds(id)
@@ -454,7 +455,7 @@ func (upload s3Upload) GetReader() (io.Reader, error) {
 	return nil, err
 }
 
-func (upload s3Upload) Terminate() error {
+func (upload s3Upload) Terminate(ctx context.Context) error {
 	id := upload.id
 	store := upload.store
 	uploadId, multipartId := splitIds(id)
@@ -519,7 +520,7 @@ func (upload s3Upload) Terminate() error {
 	return nil
 }
 
-func (upload s3Upload) FinishUpload() error {
+func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	id := upload.id
 	store := upload.store
 	uploadId, multipartId := splitIds(id)
@@ -553,7 +554,7 @@ func (upload s3Upload) FinishUpload() error {
 	return err
 }
 
-func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
+func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUploads []string) error {
 	uploadId, multipartId := splitIds(dest)
 
 	numPartialUploads := len(partialUploads)
@@ -590,18 +591,18 @@ func (store S3Store) ConcatUploads(dest string, partialUploads []string) error {
 		return newMultiError(errs)
 	}
 
-	upload, err := store.GetUpload(dest)
+	upload, err := store.GetUpload(ctx, dest)
 	if err != nil {
 		return err
 	}
-	return upload.FinishUpload()
+	return upload.FinishUpload(ctx)
 }
 
-func (upload s3Upload) DeclareLength(length int64) error {
+func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	id := upload.id
 	store := upload.store
 	uploadId, _ := splitIds(id)
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
 	}

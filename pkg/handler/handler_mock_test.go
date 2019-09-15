@@ -5,6 +5,7 @@
 package handler_test
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	handler "github.com/tus/tusd/pkg/handler"
 	io "io"
@@ -35,33 +36,33 @@ func (m *MockFullDataStore) EXPECT() *MockFullDataStoreMockRecorder {
 }
 
 // NewUpload mocks base method
-func (m *MockFullDataStore) NewUpload(info handler.FileInfo) (handler.Upload, error) {
+func (m *MockFullDataStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewUpload", info)
+	ret := m.ctrl.Call(m, "NewUpload", ctx, info)
 	ret0, _ := ret[0].(handler.Upload)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewUpload indicates an expected call of NewUpload
-func (mr *MockFullDataStoreMockRecorder) NewUpload(info interface{}) *gomock.Call {
+func (mr *MockFullDataStoreMockRecorder) NewUpload(ctx, info interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewUpload", reflect.TypeOf((*MockFullDataStore)(nil).NewUpload), info)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewUpload", reflect.TypeOf((*MockFullDataStore)(nil).NewUpload), ctx, info)
 }
 
 // GetUpload mocks base method
-func (m *MockFullDataStore) GetUpload(id string) (handler.Upload, error) {
+func (m *MockFullDataStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUpload", id)
+	ret := m.ctrl.Call(m, "GetUpload", ctx, id)
 	ret0, _ := ret[0].(handler.Upload)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUpload indicates an expected call of GetUpload
-func (mr *MockFullDataStoreMockRecorder) GetUpload(id interface{}) *gomock.Call {
+func (mr *MockFullDataStoreMockRecorder) GetUpload(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpload", reflect.TypeOf((*MockFullDataStore)(nil).GetUpload), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpload", reflect.TypeOf((*MockFullDataStore)(nil).GetUpload), ctx, id)
 }
 
 // AsTerminatableUpload mocks base method
@@ -79,17 +80,17 @@ func (mr *MockFullDataStoreMockRecorder) AsTerminatableUpload(upload interface{}
 }
 
 // ConcatUploads mocks base method
-func (m *MockFullDataStore) ConcatUploads(destination string, partialUploads []string) error {
+func (m *MockFullDataStore) ConcatUploads(ctx context.Context, destination string, partialUploads []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConcatUploads", destination, partialUploads)
+	ret := m.ctrl.Call(m, "ConcatUploads", ctx, destination, partialUploads)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ConcatUploads indicates an expected call of ConcatUploads
-func (mr *MockFullDataStoreMockRecorder) ConcatUploads(destination, partialUploads interface{}) *gomock.Call {
+func (mr *MockFullDataStoreMockRecorder) ConcatUploads(ctx, destination, partialUploads interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConcatUploads", reflect.TypeOf((*MockFullDataStore)(nil).ConcatUploads), destination, partialUploads)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConcatUploads", reflect.TypeOf((*MockFullDataStore)(nil).ConcatUploads), ctx, destination, partialUploads)
 }
 
 // AsLengthDeclarableUpload mocks base method
@@ -130,90 +131,90 @@ func (m *MockFullUpload) EXPECT() *MockFullUploadMockRecorder {
 }
 
 // WriteChunk mocks base method
-func (m *MockFullUpload) WriteChunk(offset int64, src io.Reader) (int64, error) {
+func (m *MockFullUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteChunk", offset, src)
+	ret := m.ctrl.Call(m, "WriteChunk", ctx, offset, src)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WriteChunk indicates an expected call of WriteChunk
-func (mr *MockFullUploadMockRecorder) WriteChunk(offset, src interface{}) *gomock.Call {
+func (mr *MockFullUploadMockRecorder) WriteChunk(ctx, offset, src interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteChunk", reflect.TypeOf((*MockFullUpload)(nil).WriteChunk), offset, src)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteChunk", reflect.TypeOf((*MockFullUpload)(nil).WriteChunk), ctx, offset, src)
 }
 
 // GetInfo mocks base method
-func (m *MockFullUpload) GetInfo() (handler.FileInfo, error) {
+func (m *MockFullUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInfo")
+	ret := m.ctrl.Call(m, "GetInfo", ctx)
 	ret0, _ := ret[0].(handler.FileInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetInfo indicates an expected call of GetInfo
-func (mr *MockFullUploadMockRecorder) GetInfo() *gomock.Call {
+func (mr *MockFullUploadMockRecorder) GetInfo(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInfo", reflect.TypeOf((*MockFullUpload)(nil).GetInfo))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInfo", reflect.TypeOf((*MockFullUpload)(nil).GetInfo), ctx)
 }
 
 // GetReader mocks base method
-func (m *MockFullUpload) GetReader() (io.Reader, error) {
+func (m *MockFullUpload) GetReader(ctx context.Context) (io.Reader, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetReader")
+	ret := m.ctrl.Call(m, "GetReader", ctx)
 	ret0, _ := ret[0].(io.Reader)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetReader indicates an expected call of GetReader
-func (mr *MockFullUploadMockRecorder) GetReader() *gomock.Call {
+func (mr *MockFullUploadMockRecorder) GetReader(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReader", reflect.TypeOf((*MockFullUpload)(nil).GetReader))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReader", reflect.TypeOf((*MockFullUpload)(nil).GetReader), ctx)
 }
 
 // FinishUpload mocks base method
-func (m *MockFullUpload) FinishUpload() error {
+func (m *MockFullUpload) FinishUpload(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinishUpload")
+	ret := m.ctrl.Call(m, "FinishUpload", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // FinishUpload indicates an expected call of FinishUpload
-func (mr *MockFullUploadMockRecorder) FinishUpload() *gomock.Call {
+func (mr *MockFullUploadMockRecorder) FinishUpload(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishUpload", reflect.TypeOf((*MockFullUpload)(nil).FinishUpload))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishUpload", reflect.TypeOf((*MockFullUpload)(nil).FinishUpload), ctx)
 }
 
 // Terminate mocks base method
-func (m *MockFullUpload) Terminate() error {
+func (m *MockFullUpload) Terminate(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Terminate")
+	ret := m.ctrl.Call(m, "Terminate", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Terminate indicates an expected call of Terminate
-func (mr *MockFullUploadMockRecorder) Terminate() *gomock.Call {
+func (mr *MockFullUploadMockRecorder) Terminate(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Terminate", reflect.TypeOf((*MockFullUpload)(nil).Terminate))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Terminate", reflect.TypeOf((*MockFullUpload)(nil).Terminate), ctx)
 }
 
 // DeclareLength mocks base method
-func (m *MockFullUpload) DeclareLength(length int64) error {
+func (m *MockFullUpload) DeclareLength(ctx context.Context, length int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeclareLength", length)
+	ret := m.ctrl.Call(m, "DeclareLength", ctx, length)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeclareLength indicates an expected call of DeclareLength
-func (mr *MockFullUploadMockRecorder) DeclareLength(length interface{}) *gomock.Call {
+func (mr *MockFullUploadMockRecorder) DeclareLength(ctx, length interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeclareLength", reflect.TypeOf((*MockFullUpload)(nil).DeclareLength), length)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeclareLength", reflect.TypeOf((*MockFullUpload)(nil).DeclareLength), ctx, length)
 }
 
 // MockFullLocker is a mock of FullLocker interface

@@ -2,6 +2,7 @@ package s3store
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -66,7 +67,7 @@ func TestNewUpload(t *testing.T) {
 		},
 	}
 
-	upload, err := store.NewUpload(info)
+	upload, err := store.NewUpload(context.Background(), info)
 	assert.Nil(err)
 	assert.NotNil(upload)
 }
@@ -114,7 +115,7 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 		},
 	}
 
-	upload, err := store.NewUpload(info)
+	upload, err := store.NewUpload(context.Background(), info)
 	assert.Nil(err)
 	assert.NotNil(upload)
 }
@@ -135,7 +136,7 @@ func TestNewUploadLargerMaxObjectSize(t *testing.T) {
 		Size: store.MaxObjectSize + 1,
 	}
 
-	upload, err := store.NewUpload(info)
+	upload, err := store.NewUpload(context.Background(), info)
 	assert.NotNil(err)
 	assert.EqualError(err, fmt.Sprintf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize))
 	assert.Nil(upload)
@@ -154,10 +155,10 @@ func TestGetInfoNotFound(t *testing.T) {
 		Key:    aws.String("uploadId.info"),
 	}).Return(nil, awserr.New("NoSuchKey", "The specified key does not exist.", nil))
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	_, err = upload.GetInfo()
+	_, err = upload.GetInfo(context.Background())
 	assert.Equal(handler.ErrNotFound, err)
 }
 
@@ -211,10 +212,10 @@ func TestGetInfo(t *testing.T) {
 		}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil)),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(context.Background())
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(400), info.Offset)
@@ -256,10 +257,10 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 		}, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(context.Background())
 	assert.Nil(err)
 	assert.Equal(int64(10), info.Offset)
 	assert.Equal("uploadId+multipartId", info.ID)
@@ -288,10 +289,10 @@ func TestGetInfoFinished(t *testing.T) {
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	info, err := upload.GetInfo()
+	info, err := upload.GetInfo(context.Background())
 	assert.Nil(err)
 	assert.Equal(int64(500), info.Size)
 	assert.Equal(int64(500), info.Offset)
@@ -312,10 +313,10 @@ func TestGetReader(t *testing.T) {
 		Body: ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))),
 	}, nil)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	content, err := upload.GetReader()
+	content, err := upload.GetReader(context.Background())
 	assert.Nil(err)
 	assert.Equal(ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))), content)
 }
@@ -341,10 +342,10 @@ func TestGetReaderNotFound(t *testing.T) {
 		}).Return(nil, awserr.New("NoSuchUpload", "The specified upload does not exist.", nil)),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	content, err := upload.GetReader()
+	content, err := upload.GetReader(context.Background())
 	assert.Nil(content)
 	assert.Equal(handler.ErrNotFound, err)
 }
@@ -372,10 +373,10 @@ func TestGetReaderNotFinished(t *testing.T) {
 		}, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	content, err := upload.GetReader()
+	content, err := upload.GetReader(context.Background())
 	assert.Nil(content)
 	assert.Equal("cannot stream non-finished upload", err.Error())
 }
@@ -415,10 +416,10 @@ func TestDeclareLength(t *testing.T) {
 		}),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	err = store.AsLengthDeclarableUpload(upload).DeclareLength(500)
+	err = store.AsLengthDeclarableUpload(upload).DeclareLength(context.Background(), 500)
 	assert.Nil(err)
 }
 
@@ -489,10 +490,10 @@ func TestFinishUpload(t *testing.T) {
 		}).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	err = upload.FinishUpload()
+	err = upload.FinishUpload(context.Background())
 	assert.Nil(err)
 }
 
@@ -581,10 +582,10 @@ func TestWriteChunk(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	bytesRead, err := upload.WriteChunk(300, bytes.NewReader([]byte("1234567890ABCD")))
+	bytesRead, err := upload.WriteChunk(context.Background(), 300, bytes.NewReader([]byte("1234567890ABCD")))
 	assert.Nil(err)
 	assert.Equal(int64(14), bytesRead)
 }
@@ -663,10 +664,10 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 		writer.CloseWithError(io.ErrUnexpectedEOF)
 	}()
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	bytesRead, err := upload.WriteChunk(300, reader)
+	bytesRead, err := upload.WriteChunk(context.Background(), 300, reader)
 	assert.Nil(err)
 	assert.Equal(int64(14), bytesRead)
 }
@@ -731,10 +732,10 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	bytesRead, err := upload.WriteChunk(300, bytes.NewReader([]byte("1234567890")))
+	bytesRead, err := upload.WriteChunk(context.Background(), 300, bytes.NewReader([]byte("1234567890")))
 	assert.Nil(err)
 	assert.Equal(int64(10), bytesRead)
 }
@@ -804,10 +805,10 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	bytesRead, err := upload.WriteChunk(3, bytes.NewReader([]byte("45")))
+	bytesRead, err := upload.WriteChunk(context.Background(), 3, bytes.NewReader([]byte("45")))
 	assert.Nil(err)
 	assert.Equal(int64(2), bytesRead)
 }
@@ -875,10 +876,10 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		})).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	bytesRead, err := upload.WriteChunk(3, bytes.NewReader([]byte("45")))
+	bytesRead, err := upload.WriteChunk(context.Background(), 3, bytes.NewReader([]byte("45")))
 	assert.Nil(err)
 	assert.Equal(int64(2), bytesRead)
 }
@@ -946,13 +947,13 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		})).Return(nil, nil),
 	)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
 	// 10 bytes are missing for the upload to be finished (offset at 490 for 500
 	// bytes file) but the minimum chunk size is higher (20). The chunk is
 	// still uploaded since the last part may be smaller than the minimum.
-	bytesRead, err := upload.WriteChunk(490, bytes.NewReader([]byte("1234567890")))
+	bytesRead, err := upload.WriteChunk(context.Background(), 490, bytes.NewReader([]byte("1234567890")))
 	assert.Nil(err)
 	assert.Equal(int64(10), bytesRead)
 }
@@ -990,10 +991,10 @@ func TestTerminate(t *testing.T) {
 		},
 	}).Return(&s3.DeleteObjectsOutput{}, nil)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	err = store.AsTerminatableUpload(upload).Terminate()
+	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
 	assert.Nil(err)
 }
 
@@ -1039,10 +1040,10 @@ func TestTerminateWithErrors(t *testing.T) {
 		},
 	}, nil)
 
-	upload, err := store.GetUpload("uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
 	assert.Nil(err)
 
-	err = store.AsTerminatableUpload(upload).Terminate()
+	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
 	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
 }
 
@@ -1124,7 +1125,7 @@ func TestConcatUploads(t *testing.T) {
 		}).Return(nil, nil),
 	)
 
-	err := store.ConcatUploads("uploadId+multipartId", []string{
+	err := store.ConcatUploads(context.Background(), "uploadId+multipartId", []string{
 		"aaa+AAA",
 		"bbb+BBB",
 		"ccc+CCC",
