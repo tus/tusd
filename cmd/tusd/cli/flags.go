@@ -44,7 +44,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.HttpPort, "port", "1080", "Port to bind HTTP server to")
 	flag.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
 	flag.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
-	flag.StringVar(&Flags.UploadDir, "dir", "./data", "Directory to store uploads in")
+	flag.StringVar(&Flags.UploadDir, "upload-dir", "./data", "Directory to store uploads in")
 	flag.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.Int64Var(&Flags.Timeout, "timeout", 30*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
@@ -79,18 +79,6 @@ func ParseFlags() {
 		Flags.HttpHooksInstalled = true
 
 		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
-	}
-
-	if Flags.UploadDir == "" && Flags.S3Bucket == "" {
-		stderr.Fatalf("Either an upload directory (using -dir) or an AWS S3 Bucket " +
-			"(using -s3-bucket) must be specified to start tusd but " +
-			"neither flag was provided. Please consult `tusd -help` for " +
-			"more information on these options.")
-	}
-
-	if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
-		stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
-			"Please remove underscore from the value", Flags.GCSObjectPrefix)
 	}
 }
 

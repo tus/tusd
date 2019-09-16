@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tus/tusd/pkg/filelocker"
 	"github.com/tus/tusd/pkg/filestore"
@@ -42,6 +43,11 @@ func CreateComposer() {
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
 	} else if Flags.GCSBucket != "" {
+		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
+			stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
+				"Please remove underscore from the value", Flags.GCSObjectPrefix)
+		}
+
 		// Derivce credentials from service account file path passed in
 		// GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")

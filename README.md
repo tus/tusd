@@ -54,7 +54,7 @@ snippet demonstrates how to start a tusd process which accepts tus uploads at
 `http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
-$ tusd -dir=./data
+$ tusd -upload-dir./data
 [tusd] Using './data' as directory storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
