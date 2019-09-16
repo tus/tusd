@@ -171,6 +171,11 @@ func (store S3Store) UseIn(composer *handler.StoreComposer) {
 type s3Upload struct {
 	id    string
 	store *S3Store
+
+	// info stores the upload's current FileInfo struct. It may be nil if it hasn't
+	// been fetched yet from S3. Never read or write to it directly but instead use
+	// the GetInfo and writeInfo functions.
+	info *handler.FileInfo
 }
 
 func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
@@ -215,16 +220,17 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		"Key":    *store.keyWithPrefix(uploadId),
 	}
 
-	err = store.writeInfo(ctx, uploadId, info)
+	upload := &s3Upload{id, &store, nil}
+	err = upload.writeInfo(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create info file:\n%s", err)
 	}
 
-	return &s3Upload{id, &store}, nil
+	return upload, nil
 }
 
 func (store S3Store) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	return &s3Upload{id, &store}, nil
+	return &s3Upload{id, &store, nil}, nil
 }
 
 func (store S3Store) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
@@ -235,7 +241,14 @@ func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.Len
 	return upload.(*s3Upload)
 }
 
-func (store S3Store) writeInfo(ctx context.Context, uploadId string, info handler.FileInfo) error {
+func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) error {
+	id := upload.id
+	store := upload.store
+
+	uploadId, _ := splitIds(id)
+
+	upload.info = &info
+
 	infoJson, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -356,7 +369,21 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	}
 }
 
-func (upload s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
+func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
+	if upload.info != nil {
+		return *upload.info, nil
+	}
+
+	info, err = upload.fetchInfo(ctx)
+	if err != nil {
+		return info, err
+	}
+
+	upload.info = &info
+	return info, nil
+}
+
+func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, err error) {
 	id := upload.id
 	store := upload.store
 	uploadId, _ := splitIds(id)
@@ -600,9 +627,6 @@ func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUplo
 }
 
 func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
-	id := upload.id
-	store := upload.store
-	uploadId, _ := splitIds(id)
 	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
@@ -610,7 +634,7 @@ func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	info.Size = length
 	info.SizeIsDeferred = false
 
-	return store.writeInfo(ctx, uploadId, info)
+	return upload.writeInfo(ctx, info)
 }
 
 func (store S3Store) listAllParts(ctx context.Context, id string) (parts []*s3.Part, err error) {
