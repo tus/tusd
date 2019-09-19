@@ -58,6 +58,7 @@ type httpTest struct {
 
 func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
 	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
+	req.RequestURI = test.URL
 
 	// Add headers
 	for key, value := range test.ReqHeader {

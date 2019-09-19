@@ -23,7 +23,7 @@ func (_ HttpHook) Setup() error {
 	return nil
 }
 
-func (h HttpHook) InvokeHook(typ HookType, info handler.FileInfo, captureOutput bool) ([]byte, int, error) {
+func (h HttpHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
 		return nil, 0, err

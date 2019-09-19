@@ -6,7 +6,7 @@ import (
 
 type HookHandler interface {
 	Setup() error
-	InvokeHook(typ HookType, info handler.FileInfo, captureOutput bool) ([]byte, int, error)
+	InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error)
 }
 
 type HookType string

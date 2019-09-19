@@ -38,7 +38,7 @@ func TestPatch(t *testing.T) {
 			NotifyCompleteUploads: true,
 		})
 
-		c := make(chan FileInfo, 1)
+		c := make(chan HookEvent, 1)
 		handler.CompleteUploads = c
 
 		(&httpTest{
@@ -57,10 +57,16 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 
 		a := assert.New(t)
-		info := <-c
+		event := <-c
+		info := event.Upload
 		a.Equal("yes", info.ID)
 		a.EqualValues(int64(10), info.Size)
 		a.Equal(int64(10), info.Offset)
+
+		req := event.HTTPRequest
+		a.Equal("PATCH", req.Method)
+		a.Equal("yes", req.URI)
+		a.Equal("5", req.Header.Get("Upload-Offset"))
 	})
 
 	SubTest(t, "MethodOverriding", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -506,7 +512,7 @@ func TestPatch(t *testing.T) {
 			NotifyUploadProgress: true,
 		})
 
-		c := make(chan FileInfo)
+		c := make(chan HookEvent)
 		handler.UploadProgress = c
 
 		reader, writer := io.Pipe()
@@ -514,8 +520,9 @@ func TestPatch(t *testing.T) {
 
 		go func() {
 			writer.Write([]byte("first "))
+			event := <-c
 
-			info := <-c
+			info := event.Upload
 			a.Equal("yes", info.ID)
 			a.Equal(int64(100), info.Size)
 			a.Equal(int64(6), info.Offset)
@@ -523,7 +530,8 @@ func TestPatch(t *testing.T) {
 			writer.Write([]byte("second "))
 			writer.Write([]byte("third"))
 
-			info = <-c
+			event = <-c
+			info = event.Upload
 			a.Equal("yes", info.ID)
 			a.Equal(int64(100), info.Size)
 			a.Equal(int64(18), info.Offset)
@@ -580,7 +588,7 @@ func TestPatch(t *testing.T) {
 			NotifyUploadProgress: true,
 		})
 
-		c := make(chan FileInfo)
+		c := make(chan HookEvent)
 		handler.UploadProgress = c
 
 		reader, writer := io.Pipe()
@@ -589,7 +597,8 @@ func TestPatch(t *testing.T) {
 		go func() {
 			writer.Write([]byte("first "))
 
-			info := <-c
+			event := <-c
+			info := event.Upload
 			info.StopUpload()
 
 			// Wait a short time to ensure that the goroutine in the PATCH

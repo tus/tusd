@@ -43,7 +43,7 @@ func TestPost(t *testing.T) {
 			NotifyCreatedUploads: true,
 		})
 
-		c := make(chan FileInfo, 1)
+		c := make(chan HookEvent, 1)
 		handler.CreatedUploads = c
 
 		(&httpTest{
@@ -60,7 +60,8 @@ func TestPost(t *testing.T) {
 			},
 		}).Run(handler, t)
 
-		info := <-c
+		event := <-c
+		info := event.Upload
 
 		a := assert.New(t)
 		a.Equal("foo", info.ID)
@@ -91,7 +92,7 @@ func TestPost(t *testing.T) {
 			NotifyCompleteUploads: true,
 		})
 
-		handler.CompleteUploads = make(chan FileInfo, 1)
+		handler.CompleteUploads = make(chan HookEvent, 1)
 
 		(&httpTest{
 			Method: "POST",
@@ -105,12 +106,17 @@ func TestPost(t *testing.T) {
 			},
 		}).Run(handler, t)
 
-		info := <-handler.CompleteUploads
+		event := <-handler.CompleteUploads
+		info := event.Upload
 
 		a := assert.New(t)
 		a.Equal("foo", info.ID)
 		a.Equal(int64(0), info.Size)
 		a.Equal(int64(0), info.Offset)
+
+		req := event.HTTPRequest
+		a.Equal("POST", req.Method)
+		a.Equal("", req.URI)
 	})
 
 	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

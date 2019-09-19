@@ -150,7 +150,7 @@ func TestConcat(t *testing.T) {
 				NotifyCompleteUploads: true,
 			})
 
-			c := make(chan FileInfo, 1)
+			c := make(chan HookEvent, 1)
 			handler.CompleteUploads = c
 
 			(&httpTest{
@@ -160,18 +160,25 @@ func TestConcat(t *testing.T) {
 					// A space between `final;` and the first URL should be allowed due to
 					// compatibility reasons, even if the specification does not define
 					// it. Therefore this character is included in this test case.
-					"Upload-Concat": "final; http://tus.io/files/a /files/b/",
+					"Upload-Concat":   "final; http://tus.io/files/a /files/b/",
+					"X-Custom-Header": "tada",
 				},
 				Code: http.StatusCreated,
 			}).Run(handler, t)
 
-			info := <-c
+			event := <-c
+			info := event.Upload
 			a.Equal("foo", info.ID)
 			a.EqualValues(10, info.Size)
 			a.EqualValues(10, info.Offset)
 			a.False(info.IsPartial)
 			a.True(info.IsFinal)
 			a.Equal([]string{"a", "b"}, info.PartialUploads)
+
+			req := event.HTTPRequest
+			a.Equal("POST", req.Method)
+			a.Equal("", req.URI)
+			a.Equal("tada", req.Header.Get("X-Custom-Header"))
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

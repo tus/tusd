@@ -60,7 +60,7 @@ func TestTerminate(t *testing.T) {
 			NotifyTerminatedUploads: true,
 		})
 
-		c := make(chan FileInfo, 1)
+		c := make(chan HookEvent, 1)
 		handler.TerminatedUploads = c
 
 		(&httpTest{
@@ -72,11 +72,16 @@ func TestTerminate(t *testing.T) {
 			Code: http.StatusNoContent,
 		}).Run(handler, t)
 
-		info := <-c
+		event := <-c
+		info := event.Upload
 
 		a := assert.New(t)
 		a.Equal("foo", info.ID)
 		a.Equal(int64(10), info.Size)
+
+		req := event.HTTPRequest
+		a.Equal("DELETE", req.Method)
+		a.Equal("foo", req.URI)
 	})
 
 	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

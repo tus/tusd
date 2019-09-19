@@ -74,6 +74,40 @@ var (
 	ErrUploadStoppedByServer            = NewHTTPError(errors.New("upload has been stopped by server"), http.StatusBadRequest)
 )
 
+// HTTPRequest contains basic details of an incoming HTTP request.
+type HTTPRequest struct {
+	// Method is the HTTP method, e.g. POST or PATCH
+	Method string
+	// URI is the full HTTP request URI, e.g. /files/fooo
+	URI string
+	// RemoteAddr contains the network address that sent the request
+	RemoteAddr string
+	// Header contains all HTTP headers as present in the HTTP request.
+	Header http.Header
+}
+
+// HookEvent represents an event from tusd which can be handled by the application.
+type HookEvent struct {
+	// Upload contains information about the upload that caused this hook
+	// to be fired.
+	Upload FileInfo
+	// HTTPRequest contains details about the HTTP request that reached
+	// tusd.
+	HTTPRequest HTTPRequest
+}
+
+func newHookEvent(info FileInfo, r *http.Request) HookEvent {
+	return HookEvent{
+		Upload: info,
+		HTTPRequest: HTTPRequest{
+			Method:     r.Method,
+			URI:        r.RequestURI,
+			RemoteAddr: r.RemoteAddr,
+			Header:     r.Header,
+		},
+	}
+}
+
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
 // such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method
 // is provided which is, however, not part of the specification.
@@ -86,33 +120,33 @@ type UnroutedHandler struct {
 	extensions    string
 
 	// CompleteUploads is used to send notifications whenever an upload is
-	// completed by a user. The FileInfo will contain information about this
+	// completed by a user. The HookEvent will contain information about this
 	// upload after it is completed. Sending to this channel will only
 	// happen if the NotifyCompleteUploads field is set to true in the Config
 	// structure. Notifications will also be sent for completions using the
 	// Concatenation extension.
-	CompleteUploads chan FileInfo
+	CompleteUploads chan HookEvent
 	// TerminatedUploads is used to send notifications whenever an upload is
-	// terminated by a user. The FileInfo will contain information about this
+	// terminated by a user. The HookEvent will contain information about this
 	// upload gathered before the termination. Sending to this channel will only
 	// happen if the NotifyTerminatedUploads field is set to true in the Config
 	// structure.
-	TerminatedUploads chan FileInfo
+	TerminatedUploads chan HookEvent
 	// UploadProgress is used to send notifications about the progress of the
 	// currently running uploads. For each open PATCH request, every second
-	// a FileInfo instance will be send over this channel with the Offset field
+	// a HookEvent instance will be send over this channel with the Offset field
 	// being set to the number of bytes which have been transfered to the server.
 	// Please be aware that this number may be higher than the number of bytes
 	// which have been stored by the data store! Sending to this channel will only
 	// happen if the NotifyUploadProgress field is set to true in the Config
 	// structure.
-	UploadProgress chan FileInfo
+	UploadProgress chan HookEvent
 	// CreatedUploads is used to send notifications about the uploads having been
-	// created. It triggers post creation and therefore has all the FileInfo incl.
+	// created. It triggers post creation and therefore has all the HookEvent incl.
 	// the ID available already. It facilitates the post-create hook. Sending to
 	// this channel will only happen if the NotifyCreatedUploads field is set to
 	// true in the Config structure.
-	CreatedUploads chan FileInfo
+	CreatedUploads chan HookEvent
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -143,10 +177,10 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		composer:          config.StoreComposer,
 		basePath:          config.BasePath,
 		isBasePathAbs:     config.isAbs,
-		CompleteUploads:   make(chan FileInfo),
-		TerminatedUploads: make(chan FileInfo),
-		UploadProgress:    make(chan FileInfo),
-		CreatedUploads:    make(chan FileInfo),
+		CompleteUploads:   make(chan HookEvent),
+		TerminatedUploads: make(chan HookEvent),
+		UploadProgress:    make(chan HookEvent),
+		CreatedUploads:    make(chan HookEvent),
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
@@ -306,6 +340,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		PartialUploads: partialUploads,
 	}
 
+	if handler.config.PreUploadCreateCallback != nil {
+		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
 	upload, err := handler.composer.Core.NewUpload(ctx, info)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -329,7 +370,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- info
+		handler.CreatedUploads <- newHookEvent(info, r)
 	}
 
 	if isFinal {
@@ -340,7 +381,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			handler.CompleteUploads <- newHookEvent(info, r)
 		}
 	}
 
@@ -363,7 +404,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
-		handler.finishUploadIfComplete(ctx, upload, info)
+		handler.finishUploadIfComplete(ctx, upload, info, r)
 	}
 
 	handler.sendResp(w, r, http.StatusCreated)
@@ -590,14 +631,14 @@ func (handler *UnroutedHandler) writeChunk(upload Upload, info FileInfo, w http.
 
 		if handler.config.NotifyUploadProgress {
 			var stopProgressEvents chan<- struct{}
-			reader, stopProgressEvents = handler.sendProgressMessages(info, reader)
+			reader, stopProgressEvents = handler.sendProgressMessages(newHookEvent(info, r), reader)
 			defer close(stopProgressEvents)
 		}
 
 		var err error
 		bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
 		if terminateUpload && handler.composer.UsesTerminater {
-			if terminateErr := handler.terminateUpload(ctx, upload, info); terminateErr != nil {
+			if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
 				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
@@ -624,13 +665,13 @@ func (handler *UnroutedHandler) writeChunk(upload Upload, info FileInfo, w http.
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
-	return handler.finishUploadIfComplete(ctx, upload, info)
+	return handler.finishUploadIfComplete(ctx, upload, info, r)
 }
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
 // matches upload size) and if so, it will call the data store's FinishUpload
 // function and send the necessary message on the CompleteUpload channel.
-func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo) error {
+func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
@@ -640,7 +681,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- info
+			handler.CompleteUploads <- newHookEvent(info, r)
 		}
 
 		handler.Metrics.incUploadsFinished()
@@ -812,7 +853,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	err = handler.terminateUpload(ctx, upload, info)
+	err = handler.terminateUpload(ctx, upload, info, r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -826,7 +867,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 // and updates the statistics.
 // Note the the info argument is only needed if the terminated uploads
 // notifications are enabled.
-func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Upload, info FileInfo) error {
+func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
 	terminatableUpload := handler.composer.Terminater.AsTerminatableUpload(upload)
 
 	err := terminatableUpload.Terminate(ctx)
@@ -835,7 +876,7 @@ func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Uplo
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- info
+		handler.TerminatedUploads <- newHookEvent(info, r)
 	}
 
 	handler.Metrics.incUploadsTerminated()
@@ -921,10 +962,10 @@ func (w *progressWriter) Write(b []byte) (int, error) {
 // every second, indicating how much data has been transfered to the server.
 // It will stop sending these instances once the returned channel has been
 // closed. The returned reader should be used to read the request body.
-func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Reader) (io.Reader, chan<- struct{}) {
+func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader io.Reader) (io.Reader, chan<- struct{}) {
 	previousOffset := int64(0)
 	progress := &progressWriter{
-		Offset: info.Offset,
+		Offset: hook.Upload.Offset,
 	}
 	stop := make(chan struct{}, 1)
 	reader = io.TeeReader(reader, progress)
@@ -933,17 +974,17 @@ func (handler *UnroutedHandler) sendProgressMessages(info FileInfo, reader io.Re
 		for {
 			select {
 			case <-stop:
-				info.Offset = atomic.LoadInt64(&progress.Offset)
-				if info.Offset != previousOffset {
-					handler.UploadProgress <- info
-					previousOffset = info.Offset
+				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
+				if hook.Upload.Offset != previousOffset {
+					handler.UploadProgress <- hook
+					previousOffset = hook.Upload.Offset
 				}
 				return
 			case <-time.After(1 * time.Second):
-				info.Offset = atomic.LoadInt64(&progress.Offset)
-				if info.Offset != previousOffset {
-					handler.UploadProgress <- info
-					previousOffset = info.Offset
+				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
+				if hook.Upload.Offset != previousOffset {
+					handler.UploadProgress <- hook
+					previousOffset = hook.Upload.Offset
 				}
 			}
 		}
