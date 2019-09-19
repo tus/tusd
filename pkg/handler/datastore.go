@@ -105,13 +105,17 @@ type TerminaterDataStore interface {
 // Concatenation extension should be enabled. Only in this case, the handler
 // will parse and respect the Upload-Concat header.
 type ConcaterDataStore interface {
-	// ConcatUploads concatenations the content from the provided partial uploads
-	// and write the result in the destination upload which is specified by its
-	// ID. The caller (usually the handler) must and will ensure that this
+	AsConcatableUpload(upload Upload) ConcatableUpload
+}
+
+type ConcatableUpload interface {
+	// ConcatUploads concatenates the content from the provided partial uploads
+	// and writes the result in the destination upload.
+	// The caller (usually the handler) must and will ensure that this
 	// destination upload has been created before with enough space to hold all
 	// partial uploads. The order, in which the partial uploads are supplied,
 	// must be respected during concatenation.
-	ConcatUploads(ctx context.Context, destination string, partialUploads []string) error
+	ConcatUploads(ctx context.Context, partialUploads []Upload) error
 }
 
 // LengthDeferrerDataStore is the interface that must be implemented if the

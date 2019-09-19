@@ -32,6 +32,7 @@ type FullUpload interface {
 	handler.Upload
 	handler.TerminatableUpload
 	handler.LengthDeclarableUpload
+	handler.ConcatableUpload
 }
 
 type FullLocker interface {

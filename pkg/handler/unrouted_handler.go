@@ -289,7 +289,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploads, err := parseConcat(concatHeader)
+	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -300,6 +300,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Upload-Length header)
 	var size int64
 	var sizeIsDeferred bool
+	var partialUploads []Upload
 	if isFinal {
 		// A final upload must not contain a chunk within the creation request
 		if containsChunk {
@@ -307,7 +308,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		size, err = handler.sizeOfUploads(ctx, partialUploads)
+		partialUploads, size, err = handler.sizeOfUploads(ctx, partialUploadIDs)
 		if err != nil {
 			handler.sendError(w, r, err)
 			return
@@ -337,7 +338,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		MetaData:       meta,
 		IsPartial:      isPartial,
 		IsFinal:        isFinal,
-		PartialUploads: partialUploads,
+		PartialUploads: partialUploadIDs,
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
@@ -374,7 +375,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if isFinal {
-		if err := handler.composer.Concater.ConcatUploads(ctx, id, partialUploads); err != nil {
+		concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
+		if err := concatableUpload.ConcatUploads(ctx, partialUploads); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -1034,24 +1036,27 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // The get sum of all sizes for a list of upload ids while checking whether
 // all of these uploads are finished yet. This is used to calculate the size
 // of a final resource.
-func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (size int64, err error) {
-	for _, id := range ids {
+func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, size int64, err error) {
+	partialUploads = make([]Upload, len(ids))
+
+	for i, id := range ids {
 		upload, err := handler.composer.Core.GetUpload(ctx, id)
 		if err != nil {
-			return size, err
+			return nil, 0, err
 		}
 
 		info, err := upload.GetInfo(ctx)
 		if err != nil {
-			return size, err
+			return nil, 0, err
 		}
 
 		if info.SizeIsDeferred || info.Offset != info.Size {
 			err = ErrUploadNotFinished
-			return size, err
+			return nil, 0, err
 		}
 
 		size += info.Size
+		partialUploads[i] = upload
 	}
 
 	return

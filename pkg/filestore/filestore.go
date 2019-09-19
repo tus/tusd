@@ -116,6 +116,10 @@ func (store FileStore) AsLengthDeclarableUpload(upload handler.Upload) handler.L
 	return upload.(*fileUpload)
 }
 
+func (store FileStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
+	return upload.(*fileUpload)
+}
+
 // binPath returns the path to the file storing the binary data.
 func (store FileStore) binPath(id string) string {
 	return filepath.Join(store.Path, id)
@@ -175,15 +179,17 @@ func (upload *fileUpload) Terminate(ctx context.Context) error {
 	return nil
 }
 
-func (store FileStore) ConcatUploads(ctx context.Context, dest string, uploads []string) (err error) {
-	file, err := os.OpenFile(store.binPath(dest), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.Upload) (err error) {
+	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	for _, id := range uploads {
-		src, err := os.Open(store.binPath(id))
+	for _, partialUpload := range uploads {
+		fileUpload := partialUpload.(*fileUpload)
+
+		src, err := os.Open(fileUpload.binPath)
 		if err != nil {
 			return err
 		}

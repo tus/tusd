@@ -141,7 +141,8 @@ func TestConcat(t *testing.T) {
 					PartialUploads: []string{"a", "b"},
 					MetaData:       make(map[string]string),
 				}, nil),
-				store.EXPECT().ConcatUploads(context.Background(), "foo", []string{"a", "b"}).Return(nil),
+				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
+				uploadC.EXPECT().ConcatUploads(context.Background(), []Upload{uploadA, uploadB}).Return(nil),
 			)
 
 			handler, _ := NewHandler(Config{

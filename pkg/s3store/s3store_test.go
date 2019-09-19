@@ -1125,10 +1125,20 @@ func TestConcatUploads(t *testing.T) {
 		}).Return(nil, nil),
 	)
 
-	err := store.ConcatUploads(context.Background(), "uploadId+multipartId", []string{
-		"aaa+AAA",
-		"bbb+BBB",
-		"ccc+CCC",
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
+	uploadA, err := store.GetUpload(context.Background(), "aaa+AAA")
+	assert.Nil(err)
+	uploadB, err := store.GetUpload(context.Background(), "bbb+BBB")
+	assert.Nil(err)
+	uploadC, err := store.GetUpload(context.Background(), "ccc+CCC")
+	assert.Nil(err)
+
+	err = store.AsConcatableUpload(upload).ConcatUploads(context.Background(), []handler.Upload{
+		uploadA,
+		uploadB,
+		uploadC,
 	})
 	assert.Nil(err)
 }

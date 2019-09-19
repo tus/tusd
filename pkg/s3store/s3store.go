@@ -241,6 +241,10 @@ func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.Len
 	return upload.(*s3Upload)
 }
 
+func (store S3Store) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
+	return upload.(*s3Upload)
+}
+
 func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) error {
 	id := upload.id
 	store := upload.store
@@ -582,8 +586,10 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	return err
 }
 
-func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUploads []string) error {
-	uploadId, multipartId := splitIds(dest)
+func (upload *s3Upload) ConcatUploads(ctx context.Context, partialUploads []handler.Upload) error {
+	id := upload.id
+	store := upload.store
+	uploadId, multipartId := splitIds(id)
 
 	numPartialUploads := len(partialUploads)
 	errs := make([]error, 0, numPartialUploads)
@@ -591,11 +597,12 @@ func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUplo
 	// Copy partial uploads concurrently
 	var wg sync.WaitGroup
 	wg.Add(numPartialUploads)
-	for i, partialId := range partialUploads {
+	for i, partialUpload := range partialUploads {
+		partialS3Upload := partialUpload.(*s3Upload)
+		partialId, _ := splitIds(partialS3Upload.id)
+
 		go func(i int, partialId string) {
 			defer wg.Done()
-
-			partialUploadId, _ := splitIds(partialId)
 
 			_, err := store.Service.UploadPartCopyWithContext(ctx, &s3.UploadPartCopyInput{
 				Bucket:   aws.String(store.Bucket),
@@ -604,7 +611,7 @@ func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUplo
 				// Part numbers must be in the range of 1 to 10000, inclusive. Since
 				// slice indexes start at 0, we add 1 to ensure that i >= 1.
 				PartNumber: aws.Int64(int64(i + 1)),
-				CopySource: aws.String(store.Bucket + "/" + partialUploadId),
+				CopySource: aws.String(store.Bucket + "/" + partialId),
 			})
 			if err != nil {
 				errs = append(errs, err)
@@ -619,10 +626,6 @@ func (store S3Store) ConcatUploads(ctx context.Context, dest string, partialUplo
 		return newMultiError(errs)
 	}
 
-	upload, err := store.GetUpload(ctx, dest)
-	if err != nil {
-		return err
-	}
 	return upload.FinishUpload(ctx)
 }
 

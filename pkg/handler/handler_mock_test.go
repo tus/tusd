@@ -79,18 +79,18 @@ func (mr *MockFullDataStoreMockRecorder) AsTerminatableUpload(upload interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AsTerminatableUpload", reflect.TypeOf((*MockFullDataStore)(nil).AsTerminatableUpload), upload)
 }
 
-// ConcatUploads mocks base method
-func (m *MockFullDataStore) ConcatUploads(ctx context.Context, destination string, partialUploads []string) error {
+// AsConcatableUpload mocks base method
+func (m *MockFullDataStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConcatUploads", ctx, destination, partialUploads)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "AsConcatableUpload", upload)
+	ret0, _ := ret[0].(handler.ConcatableUpload)
 	return ret0
 }
 
-// ConcatUploads indicates an expected call of ConcatUploads
-func (mr *MockFullDataStoreMockRecorder) ConcatUploads(ctx, destination, partialUploads interface{}) *gomock.Call {
+// AsConcatableUpload indicates an expected call of AsConcatableUpload
+func (mr *MockFullDataStoreMockRecorder) AsConcatableUpload(upload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConcatUploads", reflect.TypeOf((*MockFullDataStore)(nil).ConcatUploads), ctx, destination, partialUploads)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AsConcatableUpload", reflect.TypeOf((*MockFullDataStore)(nil).AsConcatableUpload), upload)
 }
 
 // AsLengthDeclarableUpload mocks base method
@@ -215,6 +215,20 @@ func (m *MockFullUpload) DeclareLength(ctx context.Context, length int64) error 
 func (mr *MockFullUploadMockRecorder) DeclareLength(ctx, length interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeclareLength", reflect.TypeOf((*MockFullUpload)(nil).DeclareLength), ctx, length)
+}
+
+// ConcatUploads mocks base method
+func (m *MockFullUpload) ConcatUploads(ctx context.Context, partialUploads []handler.Upload) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConcatUploads", ctx, partialUploads)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ConcatUploads indicates an expected call of ConcatUploads
+func (mr *MockFullUploadMockRecorder) ConcatUploads(ctx, partialUploads interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConcatUploads", reflect.TypeOf((*MockFullUpload)(nil).ConcatUploads), ctx, partialUploads)
 }
 
 // MockFullLocker is a mock of FullLocker interface

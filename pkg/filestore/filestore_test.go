@@ -108,7 +108,7 @@ func TestConcatUploads(t *testing.T) {
 	finId := finInfo.ID
 
 	// Create three uploads for concatenating
-	ids := make([]string, 3)
+	partialUploads := make([]handler.Upload, 3)
 	contents := []string{
 		"abc",
 		"def",
@@ -122,13 +122,10 @@ func TestConcatUploads(t *testing.T) {
 		a.NoError(err)
 		a.EqualValues(3, n)
 
-		info, err := upload.GetInfo(ctx)
-		a.NoError(err)
-
-		ids[i] = info.ID
+		partialUploads[i] = upload
 	}
 
-	err = store.ConcatUploads(ctx, finId, ids)
+	err = store.AsConcatableUpload(finUpload).ConcatUploads(ctx, partialUploads)
 	a.NoError(err)
 
 	// Check offset
