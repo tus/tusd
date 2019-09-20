@@ -34,11 +34,11 @@ deploy:
     tags: true
     go: 1.13
     repo: tus/tusd
-    os: linux
+    condition: $TRAVIS_OS_NAME = linux
 - provider: script
   script: scripts/deploy_kube.sh
   on:
     branch: master
     go: 1.13
     repo: tus/tusd
-    os: linux
+    condition: $TRAVIS_OS_NAME = linux
