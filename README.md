@@ -21,6 +21,9 @@ nearly any other cloud provider could easily be added to tusd.
 
 **Protocol version:** 1.0.0
 
+This branch contains tusd v1. If you are looking for the previous major release, after which
+breaking changes have been introduced, please look at the [0.14.0 tag](https://github.com/tus/tusd/tree/0.14.0).
+
 ## Getting started
 
 ### Download pre-builts binaries (recommended)
