@@ -58,7 +58,7 @@ function makedep {
   echo "Maintainer: Marius <maerious@gmail.com>" >> "./$dir/DEBIAN/control"
   echo "Section: devel" >> "./$dir/DEBIAN/control"
   echo "Priority: optional" >> "./$dir/DEBIAN/control"
-  echo "Version: ${version}" >> "./$dir/DEBIAN/control"
+  echo "Version: ${version:1}" >> "./$dir/DEBIAN/control"
   echo "Architecture: ${arch}" >> "./$dir/DEBIAN/control"
   echo "Homepage: https://github.com/tus/tusd" >> "./$dir/DEBIAN/control"
   echo "Built-Using: $(go version)" >> "./$dir/DEBIAN/control"
