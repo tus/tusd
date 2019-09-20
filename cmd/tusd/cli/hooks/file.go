@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 type FileHook struct {
@@ -18,13 +18,13 @@ func (_ FileHook) Setup() error {
 	return nil
 }
 
-func (h FileHook) InvokeHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
+func (h FileHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	hookPath := h.Directory + string(os.PathSeparator) + string(typ)
 	cmd := exec.Command(hookPath)
 	env := os.Environ()
-	env = append(env, "TUS_ID="+info.ID)
-	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Size, 10))
-	env = append(env, "TUS_OFFSET="+strconv.FormatInt(info.Offset, 10))
+	env = append(env, "TUS_ID="+info.Upload.ID)
+	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Upload.Size, 10))
+	env = append(env, "TUS_OFFSET="+strconv.FormatInt(info.Upload.Offset, 10))
 
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {

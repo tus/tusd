@@ -2,25 +2,27 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/filestore"
-	"github.com/tus/tusd/gcsstore"
-	"github.com/tus/tusd/limitedstore"
-	"github.com/tus/tusd/memorylocker"
-	"github.com/tus/tusd/s3store"
+	"github.com/tus/tusd/pkg/filelocker"
+	"github.com/tus/tusd/pkg/filestore"
+	"github.com/tus/tusd/pkg/gcsstore"
+	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/pkg/memorylocker"
+	"github.com/tus/tusd/pkg/s3store"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-var Composer *tusd.StoreComposer
+var Composer *handler.StoreComposer
 
 func CreateComposer() {
 	// Attempt to use S3 as a backend if the -s3-bucket option has been supplied.
 	// If not, we default to storing them locally on disk.
-	Composer = tusd.NewStoreComposer()
+	Composer = handler.NewStoreComposer()
 	if Flags.S3Bucket != "" {
 		s3Config := aws.NewConfig()
 
@@ -41,6 +43,11 @@ func CreateComposer() {
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
 	} else if Flags.GCSBucket != "" {
+		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
+			stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
+				"Please remove underscore from the value", Flags.GCSObjectPrefix)
+		}
+
 		// Derivce credentials from service account file path passed in
 		// GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
@@ -62,7 +69,10 @@ func CreateComposer() {
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
 	} else {
-		dir := Flags.UploadDir
+		dir, err := filepath.Abs(Flags.UploadDir)
+		if err != nil {
+			stderr.Fatalf("Unable to make absolute path: %s", err)
+		}
 
 		stdout.Printf("Using '%s' as directory storage.\n", dir)
 		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
@@ -71,19 +81,9 @@ func CreateComposer() {
 
 		store := filestore.New(dir)
 		store.UseIn(Composer)
-	}
 
-	storeSize := Flags.StoreSize
-	maxSize := Flags.MaxSize
-
-	if storeSize > 0 {
-		limitedstore.New(storeSize, Composer.Core, Composer.Terminater).UseIn(Composer)
-		stdout.Printf("Using %.2fMB as storage size.\n", float64(storeSize)/1024/1024)
-
-		// We need to ensure that a single upload can fit into the storage size
-		if maxSize > storeSize || maxSize == 0 {
-			Flags.MaxSize = storeSize
-		}
+		locker := filelocker.New(dir)
+		locker.UseIn(Composer)
 	}
 
 	stdout.Printf("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)

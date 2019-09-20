@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"plugin"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 type PluginHookHandler interface {
-	PreCreate(info tusd.FileInfo) error
-	PostCreate(info tusd.FileInfo) error
-	PostReceive(info tusd.FileInfo) error
-	PostFinish(info tusd.FileInfo) error
-	PostTerminate(info tusd.FileInfo) error
+	PreCreate(info handler.HookEvent) error
+	PostCreate(info handler.HookEvent) error
+	PostReceive(info handler.HookEvent) error
+	PostFinish(info handler.HookEvent) error
+	PostTerminate(info handler.HookEvent) error
 }
 
 type PluginHook struct {
@@ -41,7 +41,7 @@ func (h *PluginHook) Setup() error {
 	return nil
 }
 
-func (h PluginHook) InvokeHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error) {
+func (h PluginHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	var err error
 	switch typ {
 	case HookPostFinish:

@@ -61,42 +61,65 @@ $ tusd --hooks-dir ./path/to/hooks/
 ...
 ```
 
-If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that in UNIX environments the hook file *must not* have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. On Windows, however, the hook file *must* have an extension, such as `.bat` or `.exe`. A detailed list of all events can be found at the end of this document.
+If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that in UNIX environments the hook file *must not* have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. On Windows, however, the hook file *must* have an extension, such as `.bat` or `.exe`.
 
 ### The Hook's Environment
 
 The process of the hook files are provided with information about the event and the upload using to two methods:
 * The `TUS_ID` and `TUS_SIZE` environment variables will contain the upload ID and its size in bytes, which triggered the event. Please be aware, that in the `pre-create` hook the upload ID will be an empty string as the entity has not been created and therefore this piece of information is not yet available.
-* On `stdin` a JSON-encoded object can be read which contains more details about the corresponding upload in following format:
+* On `stdin` a JSON-encoded object can be read which contains more details about the corresponding event in following format:
 
 ```js
 {
-  // The upload's ID. Will be empty during the pre-create event
-  "ID": "14b1c4c77771671a8479bc0444bbc5ce",
-  // The upload's total size in bytes.
-  "Size": 46205,
-  // The upload's current offset in bytes.
-  "Offset": 1592,
-  // These properties will be set to true, if the upload as a final or partial
-  // one. See the Concatenation extension for details:
-  // http://tus.io/protocols/resumable-upload.html#concatenation
-  "IsFinal": false,
-  "IsPartial": false,
-  // If the upload is a final one, this value will be an array of upload IDs
-  // which are concatenated to produce the upload.
-  "PartialUploads": null,
-  // The upload's meta data which can be supplied by the clients as it wishes.
-  // All keys and values in this object will be strings.
-  // Be aware that it may contain maliciously crafted values and you must not
-  // trust it without escaping it first!
-  "MetaData": {
-    "filename": "transloadit.png"
+  // The upload object contains the upload's details
+  "Upload": {
+    // The upload's ID. Will be empty during the pre-create event
+    "ID": "14b1c4c77771671a8479bc0444bbc5ce",
+    // The upload's total size in bytes.
+    "Size": 46205,
+    // The upload's current offset in bytes.
+    "Offset": 1592,
+    // These properties will be set to true, if the upload as a final or partial
+    // one. See the Concatenation extension for details:
+    // http://tus.io/protocols/resumable-upload.html#concatenation
+    "IsFinal": false,
+    "IsPartial": false,
+    // If the upload is a final one, this value will be an array of upload IDs
+    // which are concatenated to produce the upload.
+    "PartialUploads": null,
+    // The upload's meta data which can be supplied by the clients as it wishes.
+    // All keys and values in this object will be strings.
+    // Be aware that it may contain maliciously crafted values and you must not
+    // trust it without escaping it first!
+    "MetaData": {
+      "filename": "transloadit.png"
+    },
+    // Details about where the data store saved the uploaded file. The different
+    // availabl keys vary depending on the used data store.
+    "Storage": {
+      // For example, the filestore supplies the absolute file path:
+      "Type": "filestore",
+      "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+
+      // The S3Store and GCSStore supply the bucket name and object key:
+      "Type": "s3store",
+      "Bucket": "my-upload-bucket",
+      "Key": "my-prefix/14b1c4c77771671a8479bc0444bbc5ce"
+    }
+  },
+  // Details about the HTTP request which caused this hook to be fired.
+  // It can be used to record the client's IP address or inspect the headers.
+  "HTTPRequest": {
+    "Method": "PATCH",
+    "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
+    "RemoteAddr": "1.2.3.4:47689",
+    "Header": {
+      "Host": "myuploads.net",
+      "Cookies": "..."
+    }
   }
 }
 ```
-
-Be aware that this environment does *not* contain direct data from any HTTP request, in particular not any header values or cookies. If you would like to pass information from the client to the hook, such as authentication details, you may wish to use the [metadata system](http://tus.io/protocols/resumable-upload.html#upload-metadata).
-
 
 ## HTTP Hooks
 
@@ -121,26 +144,52 @@ Tusd will issue a `POST` request to the specified URL endpoint, specifying the h
 
 ```js
 {
-  // The upload's ID. Will be empty during the pre-create event
-  "ID": "14b1c4c77771671a8479bc0444bbc5ce",
-  // The upload's total size in bytes.
-  "Size": 46205,
-  // The upload's current offset in bytes.
-  "Offset": 1592,
-  // These properties will be set to true, if the upload as a final or partial
-  // one. See the Concatenation extension for details:
-  // http://tus.io/protocols/resumable-upload.html#concatenation
-  "IsFinal": false,
-  "IsPartial": false,
-  // If the upload is a final one, this value will be an array of upload IDs
-  // which are concatenated to produce the upload.
-  "PartialUploads": null,
-  // The upload's meta data which can be supplied by the clients as it wishes.
-  // All keys and values in this object will be strings.
-  // Be aware that it may contain maliciously crafted values and you must not
-  // trust it without escaping it first!
-  "MetaData": {
-    "filename": "transloadit.png"
+  // The upload object contains the upload's details
+  "Upload": {
+    // The upload's ID. Will be empty during the pre-create event
+    "ID": "14b1c4c77771671a8479bc0444bbc5ce",
+    // The upload's total size in bytes.
+    "Size": 46205,
+    // The upload's current offset in bytes.
+    "Offset": 1592,
+    // These properties will be set to true, if the upload as a final or partial
+    // one. See the Concatenation extension for details:
+    // http://tus.io/protocols/resumable-upload.html#concatenation
+    "IsFinal": false,
+    "IsPartial": false,
+    // If the upload is a final one, this value will be an array of upload IDs
+    // which are concatenated to produce the upload.
+    "PartialUploads": null,
+    // The upload's meta data which can be supplied by the clients as it wishes.
+    // All keys and values in this object will be strings.
+    // Be aware that it may contain maliciously crafted values and you must not
+    // trust it without escaping it first!
+    "MetaData": {
+      "filename": "transloadit.png"
+    },
+    // Details about where the data store saved the uploaded file. The different
+    // availabl keys vary depending on the used data store.
+    "Storage": {
+      // For example, the filestore supplies the absolute file path:
+      "Type": "filestore",
+      "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+
+      // The S3Store and GCSStore supply the bucket name and object key:
+      "Type": "s3store",
+      "Bucket": "my-upload-bucket",
+      "Key": "my-prefix/14b1c4c77771671a8479bc0444bbc5ce"
+    }
+  },
+  // Details about the HTTP request which caused this hook to be fired.
+  // It can be used to record the client's IP address or inspect the headers.
+  "HTTPRequest": {
+    "Method": "PATCH",
+    "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
+    "RemoteAddr": "1.2.3.4:47689",
+    "Header": {
+      "Host": "myuploads.net",
+      "Cookies": "..."
+    }
   }
 }
 ```

@@ -3,8 +3,8 @@ package cli
 import (
 	"net/http"
 
-	"github.com/tus/tusd"
-	"github.com/tus/tusd/prometheuscollector"
+	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/pkg/prometheuscollector"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,7 +23,7 @@ var MetricsHookErrorsTotal = prometheus.NewCounterVec(
 	[]string{"hooktype"},
 )
 
-func SetupMetrics(handler *tusd.Handler) {
+func SetupMetrics(handler *handler.Handler) {
 	prometheus.MustRegister(MetricsOpenConnections)
 	prometheus.MustRegister(MetricsHookErrorsTotal)
 	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))

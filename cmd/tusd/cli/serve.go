@@ -3,9 +3,10 @@ package cli
 import (
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 // Setups the different components, starts a Listener and give it to
@@ -15,11 +16,7 @@ import (
 // specified, in which case a different socket creation and binding mechanism
 // is put in place.
 func Serve() {
-	if err := SetupPreHooks(Composer); err != nil {
-		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
-	}
-
-	handler, err := tusd.NewHandler(tusd.Config{
+	config := handler.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
 		RespectForwardedHeaders: Flags.BehindProxy,
@@ -28,7 +25,13 @@ func Serve() {
 		NotifyTerminatedUploads: true,
 		NotifyUploadProgress:    true,
 		NotifyCreatedUploads:    true,
-	})
+	}
+
+	if err := SetupPreHooks(&config); err != nil {
+		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
+	}
+
+	handler, err := handler.NewHandler(config)
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
@@ -53,7 +56,7 @@ func Serve() {
 		SetupHookMetrics()
 	}
 
-	stdout.Printf(Composer.Capabilities())
+	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	// Do not display the greeting if the tusd handler will be mounted at the root
 	// path. Else this would cause a "multiple registrations for /" panic.
@@ -62,6 +65,13 @@ func Serve() {
 	}
 
 	http.Handle(basepath, http.StripPrefix(basepath, handler))
+
+	// Also register a route without the trailing slash, so we can handle uploads
+	// for /files/ and /files, for example.
+	if strings.HasSuffix(basepath, "/") {
+		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
+		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+	}
 
 	var listener net.Listener
 	timeoutDuration := time.Duration(Flags.Timeout) * time.Millisecond

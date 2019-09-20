@@ -1,13 +1,12 @@
 language: go
 go:
-- 1.5
-- 1.6
-- 1.7
-- 1.8
-- 1.9
-- "1.10"
-- 1.11
 - 1.12
+- 1.13
+env:
+- GO111MODULE=on
+os:
+- linux
+- windows
 sudo: required
 addons:
   apt:
@@ -18,15 +17,12 @@ cache:
   directories:
   - $HOME/.gimme
   - "$HOME/google-cloud-sdk/"
-env:
-  global:
-  - GO15VENDOREXPERIMENT=1
 install:
 - true
 script:
-- ./.scripts/test_all.sh
+- ./scripts/test_all.sh
 before_deploy:
-- if [[ "$TRAVIS_TAG" != "" ]]; then ./.scripts/build_all.sh; fi
+- if [[ "$TRAVIS_TAG" != "" ]]; then ./scripts/build_all.sh; fi
 deploy:
 - provider: releases
   api_key:
@@ -36,11 +32,13 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    go: 1.12
+    go: 1.13
     repo: tus/tusd
+    os: linux
 - provider: script
-  script: .scripts/deploy_kube.sh
+  script: scripts/deploy_kube.sh
   on:
     branch: master
-    go: 1.12
+    go: 1.13
     repo: tus/tusd
+    os: linux

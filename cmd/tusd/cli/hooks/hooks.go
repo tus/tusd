@@ -1,12 +1,12 @@
 package hooks
 
 import (
-	"github.com/tus/tusd"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 type HookHandler interface {
 	Setup() error
-	InvokeHook(typ HookType, info tusd.FileInfo, captureOutput bool) ([]byte, int, error)
+	InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error)
 }
 
 type HookType string
@@ -22,7 +22,7 @@ const (
 var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish}
 
 type hookDataStore struct {
-	tusd.DataStore
+	handler.DataStore
 }
 
 type HookError struct {

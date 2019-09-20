@@ -21,6 +21,9 @@ nearly any other cloud provider could easily be added to tusd.
 
 **Protocol version:** 1.0.0
 
+This branch contains tusd v1. If you are looking for the previous major release, after which
+breaking changes have been introduced, please look at the [0.14.0 tag](https://github.com/tus/tusd/tree/0.14.0).
+
 ## Getting started
 
 ### Download pre-builts binaries (recommended)
@@ -31,7 +34,9 @@ Windows in various formats of the
 
 ### Compile from source
 
-The only requirement for building tusd is [Go](http://golang.org/doc/install) 1.5 or newer.
+The only requirement for building tusd is [Go](http://golang.org/doc/install).
+Currently only Go 1.12 and 1.13 is tested and supported and in the future only the two latest
+major releases will be supported.
 If you meet this criteria, you can clone the git repository, install the remaining
 dependencies and build the binary:
 
@@ -52,7 +57,7 @@ snippet demonstrates how to start a tusd process which accepts tus uploads at
 `http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
-$ tusd -dir=./data
+$ tusd -upload-dir./data
 [tusd] Using './data' as directory storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
@@ -200,20 +205,20 @@ func main() {
 
 ```
 
-Please consult the [online documentation](https://godoc.org/github.com/tus/tusd)
+Please consult the [online documentation](https://godoc.org/github.com/tus/tusd/pkg)
 for more details about tusd's APIs and its sub-packages.
 
 ## Implementing own storages
 
 The tusd server is built to be as flexible as possible and to allow the use
 of different upload storage mechanisms. By default the tusd binary includes
-[`filestore`](https://godoc.org/github.com/tus/tusd/filestore) which will save every upload
+[`filestore`](https://godoc.org/github.com/tus/tusd/pkg/filestore) which will save every upload
 to a specific directory on disk.
 
 If you have different requirements, you can build your own storage backend
 which will save the files to S3, a remote FTP server or similar. Doing so
-is as simple as implementing the [`tusd.DataStore`](https://godoc.org/github.com/tus/tusd/#DataStore)
-interface and using the new struct in the [configuration object](https://godoc.org/github.com/tus/tusd/#Config).
+is as simple as implementing the [`tusd.DataStore`](https://godoc.org/github.com/tus/tusd/pkg/#DataStore)
+interface and using the new struct in the [configuration object](https://godoc.org/github.com/tus/tusd/pkg/#Config).
 Please consult the documentation about detailed information about the
 required methods.
 
@@ -222,19 +227,18 @@ required methods.
 This repository does not only contain the HTTP server's code but also other
 useful tools:
 
-* [**s3store**](https://godoc.org/github.com/tus/tusd/s3store): A storage backend using AWS S3
-* [**filestore**](https://godoc.org/github.com/tus/tusd/filestore): A storage backend using the local file system
-* [**gcsstore**](https://godoc.org/github.com/tus/tusd/gcsstore): A storage backend using Google cloud storage
-* [**memorylocker**](https://godoc.org/github.com/tus/tusd/memorylocker): An in-memory locker for handling concurrent uploads
-* [**consullocker**](https://godoc.org/github.com/tus/tusd/consullocker): A locker using the distributed Consul service
-* [**etcd3locker**](https://godoc.org/github.com/tus/tusd/etcd3locker): A locker using the distributed KV etcd3 store
-* [**limitedstore**](https://godoc.org/github.com/tus/tusd/limitedstore): A storage wrapper limiting the total used space for uploads
+* [**s3store**](https://godoc.org/github.com/tus/tusd/pkg/s3store): A storage backend using AWS S3
+* [**filestore**](https://godoc.org/github.com/tus/tusd/pkg/filestore): A storage backend using the local file system
+* [**gcsstore**](https://godoc.org/github.com/tus/tusd/pkg/gcsstore): A storage backend using Google cloud storage
+* [**memorylocker**](https://godoc.org/github.com/tus/tusd/pkg/memorylocker): An in-memory locker for handling concurrent uploads
+* [**filelocker**](https://godoc.org/github.com/tus/tusd/pkg/filelocker): A disk-based locker for handling concurrent uploads
 
 ### 3rd-Party tusd Packages
 
 The following packages are supported by 3rd-party maintainers outside of this repository. Please file issues respective to the packages in their respective repositories.
 
 * [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
+* [**tusd-etcd3-locker**](https://github.com/tus/tusd-etcd3-locker): A locker using the distributed KV etcd3 store
 
 ## Running the testsuite
 
@@ -249,7 +253,7 @@ go test -v ./...
 
 ### How can I access tusd using HTTPS?
 
-The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and *does not accept* HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077) and in the [Apache example configuration](/docs/apache2.conf).
+The tusd binary, once executed, listens on the provided port for only non-encrypted HTTP requests and *does not accept* HTTPS connections. This decision has been made to limit the functionality inside this repository which has to be developed, tested and maintained. If you want to send requests to tusd in a secure fashion - what we absolutely encourage, we recommend you to utilize a reverse proxy in front of tusd which accepts incoming HTTPS connections and forwards them to tusd using plain HTTP. More information about this topic, including sample configurations for Nginx and Apache, can be found in [issue #86](https://github.com/tus/tusd/issues/86#issuecomment-269569077) and in the [Apache example configuration](/examples/apache2.conf).
 
 ### Can I run tusd behind a reverse proxy?
 
@@ -261,7 +265,7 @@ Yes, it is absolutely possible to do so. Firstly, you should execute the tusd bi
 
 - *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
 
-Explicit examples for the above points can be found in the [Nginx configuration](/docs/nginx.conf) which is used to power the [master.tus.io](https://master.tus.io) instace.
+Explicit examples for the above points can be found in the [Nginx configuration](/examples/nginx.conf) which is used to power the [master.tus.io](https://master.tus.io) instace.
 
 ### Can I run custom verification/authentication checks before an upload begins?
 
