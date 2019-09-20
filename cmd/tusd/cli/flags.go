@@ -34,9 +34,6 @@ var Flags struct {
 	MetricsPath         string
 	BehindProxy         bool
 	VerboseOutput       bool
-
-	FileHooksInstalled bool
-	HttpHooksInstalled bool
 }
 
 func ParseFlags() {
@@ -70,15 +67,6 @@ func ParseFlags() {
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
-		Flags.FileHooksInstalled = true
-
-		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
-	}
-
-	if Flags.HttpHooksEndpoint != "" {
-		Flags.HttpHooksInstalled = true
-
-		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 	}
 }
 
@@ -100,11 +88,4 @@ func SetEnabledHooks() {
 	if len(Flags.EnabledHooks) == 0 {
 		Flags.EnabledHooks = hooks.AvailableHooks
 	}
-
-	var enabledHooksString []string
-	for _, h := range Flags.EnabledHooks {
-		enabledHooksString = append(enabledHooksString, string(h))
-	}
-
-	stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 }

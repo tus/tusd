@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 	"github.com/tus/tusd/pkg/handler"
@@ -44,22 +45,35 @@ func SetupHookMetrics() {
 
 func SetupPreHooks(config *handler.Config) error {
 	if Flags.FileHooksDir != "" {
+		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+
 		hookHandler = &hooks.FileHook{
 			Directory: Flags.FileHooksDir,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
+		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
+
 		hookHandler = &hooks.HttpHook{
 			Endpoint:   Flags.HttpHooksEndpoint,
 			MaxRetries: Flags.HttpHooksRetry,
 			Backoff:    Flags.HttpHooksBackoff,
 		}
 	} else if Flags.PluginHookPath != "" {
+		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
+
 		hookHandler = &hooks.PluginHook{
 			Path: Flags.PluginHookPath,
 		}
 	} else {
 		return nil
 	}
+
+	var enabledHooksString []string
+	for _, h := range Flags.EnabledHooks {
+		enabledHooksString = append(enabledHooksString, string(h))
+	}
+
+	stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 
 	if err := hookHandler.Setup(); err != nil {
 		return err
