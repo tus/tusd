@@ -57,7 +57,7 @@ snippet demonstrates how to start a tusd process which accepts tus uploads at
 `http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
-$ tusd -upload-dir./data
+$ tusd -upload-dir=./data
 [tusd] Using './data' as directory storage.
 [tusd] Using 0.00MB as maximum size.
 [tusd] Using 0.0.0.0:1080 as address to listen.
@@ -107,12 +107,12 @@ Usage of tusd:
     	Basepath of the HTTP server (default "/files/")
   -behind-proxy
     	Respect X-Forwarded-* and similar headers which may be set by proxies
-  -dir string
-    	Directory to store uploads in (default "./data")
   -expose-metrics
     	Expose metrics about tusd usage (default true)
   -gcs-bucket string
     	Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
+  -gcs-object-prefix string
+    	Prefix for GCS object names (can't contain underscore character)
   -hooks-dir string
     	Directory to search for available hooks scripts
   -hooks-enabled-events string
@@ -123,6 +123,10 @@ Usage of tusd:
     	Number of seconds to wait before retrying each retry (default 1)
   -hooks-http-retry int
     	Number of times to retry on a 500 or network timeout (default 3)
+  -hooks-plugin string
+    	Path to a Go plugin for loading hook functions (only supported on Linux and macOS; highly EXPERIMENTAL and may BREAK in the future)
+  -hooks-stop-code int
+    	Return code from post-receive hook which causes tusd to stop and delete the current upload. A zero value means that no uploads will be stopped
   -host string
     	Host to bind HTTP server to (default "0.0.0.0")
   -max-size int
@@ -135,10 +139,16 @@ Usage of tusd:
     	Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
   -s3-endpoint string
     	Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)
-  -store-size int
-    	Size of space allowed for storage
+  -s3-object-prefix string
+    	Prefix for S3 object names
   -timeout int
     	Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 30000)
+  -unix-sock string
+    	If set, will listen to a UNIX socket at this location instead of a TCP socket
+  -upload-dir string
+    	Directory to store uploads in (default "./data")
+  -verbose
+    	Enable verbose logging output (default true)
   -version
     	Print tusd version information
 ```
