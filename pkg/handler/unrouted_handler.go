@@ -26,6 +26,10 @@ var (
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z\-\+\.]+$`)
 )
 
+var (
+	requestTimeoutDuration = 3 * time.Second
+)
+
 // HTTPError represents an error with an additional status code attached
 // which may be used when this error is sent in a HTTP response.
 // See the net/http package for standardized status codes.
@@ -274,7 +278,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := context.Background()
 
 	// Check for presence of application/offset+octet-stream. If another content
 	// type is defined, it will be ignored and treated as none was set because
@@ -398,7 +402,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			defer lock.Unlock()
 		}
 
-		if err := handler.writeChunk(upload, info, w, r); err != nil {
+		if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -414,7 +418,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+	defer cancel()
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -478,7 +483,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := context.Background()
 
 	// Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -564,7 +569,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.SizeIsDeferred = false
 	}
 
-	if err := handler.writeChunk(upload, info, w, r); err != nil {
+	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
@@ -575,9 +580,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // writeChunk reads the body from the requests r and appends it to the upload
 // with the corresponding id. Afterwards, it will set the necessary response
 // headers but will not send the response.
-func (handler *UnroutedHandler) writeChunk(upload Upload, info FileInfo, w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
+func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, info FileInfo, w http.ResponseWriter, r *http.Request) error {
 	// Get Content-Length if possible
 	length := r.ContentLength
 	offset := info.Offset
@@ -695,7 +698,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := context.Background()
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -816,7 +819,8 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+	defer cancel()
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {
