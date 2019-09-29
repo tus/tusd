@@ -26,10 +26,6 @@ var (
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z\-\+\.]+$`)
 )
 
-var (
-	requestTimeoutDuration = 3 * time.Second
-)
-
 // HTTPError represents an error with an additional status code attached
 // which may be used when this error is sent in a HTTP response.
 // See the net/http package for standardized status codes.
@@ -418,8 +414,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
-	defer cancel()
+	ctx := context.Background()
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -819,8 +814,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
-	defer cancel()
+	ctx := context.Background()
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {
