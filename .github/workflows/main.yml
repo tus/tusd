@@ -16,3 +16,5 @@ jobs:
       uses: actions/checkout@v1
     - name: Test code
       run: ./scripts/test_all.sh
+    - name: Build TUSD
+      run: ./scripts/build_all.sh
