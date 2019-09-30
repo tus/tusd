@@ -16,7 +16,7 @@ function compile {
   rm -rf "$dir"
   mkdir -p "$dir"
   GOOS=$os GOARCH=$arch go build \
-    -trimpath \
+    # -trimpath \
     -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
     -o "$dir/tusd$ext" ./cmd/tusd/main.go
 }
