@@ -15,6 +15,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v1
     - name: Test code
+      env:
+        GO111MODULE: on
       run: ./scripts/test_all.sh
     - name: Build TUSD
+      env:
+        GO111MODULE: on
       run: ./scripts/build_all.sh
