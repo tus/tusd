@@ -8,7 +8,7 @@ jobs:
         platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-    - name: Install Go
+    - name: Install Matrix Go
       uses: actions/setup-go@v1
       with:
         go-version: ${{ matrix.go-version }}
@@ -18,7 +18,15 @@ jobs:
       env:
         GO111MODULE: on
       run: ./scripts/test_all.sh
+  build:
+    steps:
+    - name: Install Go 1.13.1
+      uses: actions/setup-go@v1
+      with:
+        go-version: '1.13.1'
+    - name: Checkout code
+      uses: actions/checkout@v1        
     - name: Build TUSD
       env:
         GO111MODULE: on
-      run: ./scripts/build_all.sh
+      run: ./scripts/build_all.sh    
