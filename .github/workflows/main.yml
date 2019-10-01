@@ -22,6 +22,7 @@ jobs:
         go vet ./pkg/...
   build:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     steps:
     - name: Install Go 1.13.1
       uses: actions/setup-go@v1
