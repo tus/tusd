@@ -19,6 +19,7 @@ jobs:
         GO111MODULE: on
       run: ./scripts/test_all.sh
   build:
+    runs-on: ubuntu-latest
     steps:
     - name: Install Go 1.13.1
       uses: actions/setup-go@v1
