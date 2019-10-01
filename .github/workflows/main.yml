@@ -33,4 +33,26 @@ jobs:
     - name: Build TUSD
       env:
         GO111MODULE: on
-      run: ./scripts/build_all.sh    
+      run: ./scripts/build_all.sh
+    - uses: azure/container-actions/docker-login@master
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}        
+    - name: Build and push docker image
+      run: |
+        docker build -t tusproject/tusd:$GITHUB_SHA .
+        docker push tusproject/tusd:$GITHUB_SHA      
+    - name: Deploy to cluster
+      uses: steebchen/kubectl@master
+      env:
+        KUBE_CONFIG_DATA: | 
+          ${{ secrets.KUBECONFIG }}          
+      with:
+        args: set image --record deployment/tusd tusd=tusproject/tusd:$GITHUB_SHA -n tus       
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: tusd_*.*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
