@@ -17,7 +17,9 @@ jobs:
     - name: Test code
       env:
         GO111MODULE: on
-      run: ./scripts/test_all.sh
+      run: |
+        go test ./pkg/...
+        go vet ./pkg/...
   build:
     runs-on: ubuntu-latest
     steps:
