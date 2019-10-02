@@ -31,9 +31,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v1        
     - name: Build TUSD
+      if: startsWith(github.ref, 'refs/tags/')    
       env:
         GO111MODULE: on
       run: ./scripts/build_all.sh
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: tusd_*.*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }} 
     - uses: azure/container-actions/docker-login@master
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
@@ -49,10 +57,3 @@ jobs:
           ${{ secrets.KUBECONFIG }}          
       with:
         args: set image --record deployment/tusd tusd=tusproject/tusd:$GITHUB_SHA -n tus       
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: tusd_*.*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }} 
