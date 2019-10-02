@@ -56,6 +56,6 @@ jobs:
       uses: steebchen/kubectl@master
       env:
         KUBE_CONFIG_DATA: | 
-          ${{ secrets.KUBECONFIG }}          
+          ${{ secrets.KUBECONFIG }}
       with:
         args: set image --record deployment/tusd tusd=tusproject/tusd:$GITHUB_SHA -n tus       
