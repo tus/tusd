@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
-					"filetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+					"filetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.v1",
 					"filename": "invoice.docx",
 				},
 			}, nil),
@@ -158,7 +158,7 @@ func TestGet(t *testing.T) {
 			URL:    "yes",
 			ResHeader: map[string]string{
 				"Content-Length":      "0",
-				"Content-Type":        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+				"Content-Type":        "application/vnd.openxmlformats-officedocument.wordprocessingml.document.v1",
 				"Content-Disposition": `attachment;filename="invoice.docx"`,
 			},
 			Code:    http.StatusNoContent,
