@@ -59,19 +59,19 @@ func TestCORS(t *testing.T) {
 		req.Host = "tus.io"
 
 		res := httptest.NewRecorder()
-		res.HeaderMap.Set("Access-Control-Allow-Headers", "HEADER")
-		res.HeaderMap.Set("Access-Control-Allow-Methods", "METHOD")
+		res.Header().Set("Access-Control-Allow-Headers", "HEADER")
+		res.Header().Set("Access-Control-Allow-Methods", "METHOD")
 		handler.ServeHTTP(res, req)
 
-		headers := res.HeaderMap["Access-Control-Allow-Headers"]
-		methods := res.HeaderMap["Access-Control-Allow-Methods"]
+		headers := res.Header()["Access-Control-Allow-Headers"]
+		methods := res.Header()["Access-Control-Allow-Methods"]
 
 		if headers[0] != "HEADER" {
 			t.Errorf("expected header to contain HEADER but got: %#v", headers)
 		}
 
 		if methods[0] != "METHOD" {
-			t.Errorf("expected header to contain HEADER but got: %#v", methods)
+			t.Errorf("expected header to contain METHOD but got: %#v", methods)
 		}
 	})
 }
