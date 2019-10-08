@@ -77,10 +77,10 @@ type GCSService struct {
 	Client *storage.Client
 }
 
-// NewGCSService returns a GCSSerivce object given a GCloud service account file path.
+// NewGCSService returns a GCSService object given a GCloud service account file path.
 func NewGCSService(filename string) (*GCSService, error) {
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithServiceAccountFile(filename))
+	client, err := storage.NewClient(ctx, option.WithCredentialsFile(filename))
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (service *GCSService) ReadObject(ctx context.Context, params GCSObjectParam
 	return r, nil
 }
 
-// SetObjectMetadata reads a GCSObjectParams and a map of metedata, returning a nil on sucess and an error otherwise
+// SetObjectMetadata reads a GCSObjectParams and a map of metadata, returning a nil on success and an error otherwise
 func (service *GCSService) SetObjectMetadata(ctx context.Context, params GCSObjectParams, metadata map[string]string) error {
 	attrs := storage.ObjectAttrsToUpdate{
 		Metadata: metadata,
@@ -324,11 +324,11 @@ func (service *GCSService) ComposeFrom(ctx context.Context, objSrcs []*storage.O
 	return dstAttrs.CRC32C, nil
 }
 
-// FilterObjects retuns a list of GCS object IDs that match the passed GCSFilterParams.
+// FilterObjects returns a list of GCS object IDs that match the passed GCSFilterParams.
 // It expects GCS objects to be of the format [uid]_[chunk_idx] where chunk_idx
 // is zero based. The format [uid]_tmp_[recursion_lvl]_[chunk_idx] can also be used to
 // specify objects that have been composed in a recursive fashion. These different formats
-// are usedd to ensure that objects are composed in the correct order.
+// are used to ensure that objects are composed in the correct order.
 func (service *GCSService) FilterObjects(ctx context.Context, params GCSFilterParams) ([]string, error) {
 	bkt := service.Client.Bucket(params.Bucket)
 	q := storage.Query{
@@ -384,6 +384,6 @@ loop:
 
 		names[idx] = objAttrs.Name
 	}
-	return names, nil
 
+	return names, nil
 }
