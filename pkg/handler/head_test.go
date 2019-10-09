@@ -82,7 +82,7 @@ func TestHead(t *testing.T) {
 			},
 		}).Run(handler, t)
 
-		if string(res.Body.Bytes()) != "" {
+		if res.Body.String() != "" {
 			t.Errorf("Expected empty body for failed HEAD request")
 		}
 	})
