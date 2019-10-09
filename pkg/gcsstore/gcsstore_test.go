@@ -146,7 +146,7 @@ func TestGetInfo(t *testing.T) {
 
 	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: fmt.Sprintf("%s", mockID),
+		Prefix: mockID,
 	}
 
 	mockObjectParams0 := gcsstore.GCSObjectParams{
@@ -319,7 +319,7 @@ func TestFinishUpload(t *testing.T) {
 
 	filterParams2 := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: fmt.Sprintf("%s", mockID),
+		Prefix: mockID,
 	}
 
 	composeParams := gcsstore.GCSComposeParams{
@@ -360,7 +360,7 @@ func TestFinishUpload(t *testing.T) {
 
 	objectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     fmt.Sprintf("%s", mockID),
+		ID:     mockID,
 	}
 
 	metadata := map[string]string{
@@ -392,39 +392,6 @@ func TestFinishUpload(t *testing.T) {
 
 	// Cancel the context to avoid getting an error from `go vet`
 	cancel()
-}
-
-var mockTusdChunk0InfoJson = fmt.Sprintf(`{"ID":"%s","Size":%d,"Offset":%d,"MetaData":{"foo":"bar"}}`, mockID, mockSize, mockSize/3)
-var mockTusdChunk1Info = handler.FileInfo{
-	ID:     mockID,
-	Size:   mockSize,
-	Offset: 455,
-	MetaData: map[string]string{
-		"foo": "bar",
-	},
-}
-
-type MockWriteChunkReader struct{}
-
-func (r MockWriteChunkReader) Close() error {
-	return nil
-}
-
-func (r MockWriteChunkReader) ContentType() string {
-	return "text/plain; charset=utf-8"
-}
-
-func (r MockWriteChunkReader) Read(p []byte) (int, error) {
-	copy(p, mockTusdChunk0InfoJson)
-	return len(p), nil
-}
-
-func (r MockWriteChunkReader) Remain() int64 {
-	return int64(len(mockTusdChunk0InfoJson))
-}
-
-func (r MockWriteChunkReader) Size() int64 {
-	return int64(len(mockTusdChunk0InfoJson))
 }
 
 func TestWriteChunk(t *testing.T) {
@@ -459,14 +426,12 @@ func TestWriteChunk(t *testing.T) {
 		service.EXPECT().WriteObject(ctx, writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
 	)
 
-	reader := bytes.NewReader([]byte(mockReaderData))
-	var offset int64
-	offset = mockSize / 3
-
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
+	reader := bytes.NewReader([]byte(mockReaderData))
+	var offset int64 = mockSize / 3
+
 	_, err = upload.WriteChunk(context.Background(), offset, reader)
 	assert.Nil(err)
-
 }

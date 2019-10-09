@@ -82,8 +82,8 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 		}
 	}
 
-	if test.ResBody != "" && string(w.Body.Bytes()) != test.ResBody {
-		t.Errorf("Expected '%s' as body (got '%s'", test.ResBody, string(w.Body.Bytes()))
+	if test.ResBody != "" && w.Body.String() != test.ResBody {
+		t.Errorf("Expected '%s' as body (got '%s'", test.ResBody, w.Body.String())
 	}
 
 	return w

@@ -3,7 +3,7 @@
 // GCSStore is a storage backend that uses the GCSAPI interface in order to store uploads
 // on GCS. Uploads will be represented by two files in GCS; the data file will be stored
 // as an extensionless object [uid] and the JSON info file will stored as [uid].info.
-// In order to store uploads on GCS, make sure to specifiy the appropriate Google service
+// In order to store uploads on GCS, make sure to specify the appropriate Google service
 // account file path in the GCS_SERVICE_ACCOUNT_FILE environment variable. Also make sure that
 // this service account file has the "https://www.googleapis.com/auth/devstorage.read_write"
 // scope enabled so you can read and write data to the storage buckets associated with the
@@ -163,7 +163,7 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 		return info, err
 	}
 
-	prefix := fmt.Sprintf("%s", store.keyWithPrefix(id))
+	prefix := store.keyWithPrefix(id)
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
 		Prefix: prefix,
