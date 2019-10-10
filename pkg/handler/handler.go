@@ -35,7 +35,9 @@ func NewHandler(config Config) (*Handler, error) {
 
 	mux := pat.New()
 
-	routedHandler.Handler = handler.Middleware(mux)
+	disconnectedHandler := handler.DisconnectMiddleware(mux)
+
+	routedHandler.Handler = handler.Middleware(disconnectedHandler)
 
 	mux.Post("", http.HandlerFunc(handler.PostFile))
 	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
