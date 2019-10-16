@@ -35,8 +35,7 @@ breaking changes have been introduced, please look at the [0.14.0 tag](https://g
 
 ## Build status
 
-[![Build Status](https://travis-ci.org/tus/tusd.svg?branch=master)](https://travis-ci.org/tus/tusd)
-[![Build status](https://ci.appveyor.com/api/projects/status/2y6fa4nyknoxmyc8/branch/master?svg=true)](https://ci.appveyor.com/project/Acconut/tusd/branch/master)
+![Build Status](https://github.com/tus/tusd/workflows/Test/badge.svg)
 
 ## License
 
