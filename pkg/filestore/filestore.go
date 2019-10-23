@@ -65,7 +65,10 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 		}
 		return nil, err
 	}
-	defer file.Close()
+	err = file.Close()
+	if err != nil {
+		return nil, err
+	}
 
 	upload := &fileUpload{
 		info:     info,
