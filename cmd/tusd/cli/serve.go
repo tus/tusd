@@ -58,18 +58,20 @@ func Serve() {
 
 	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
-	// Do not display the greeting if the tusd handler will be mounted at the root
-	// path. Else this would cause a "multiple registrations for /" panic.
-	if basepath != "/" {
+	if basepath == "/" {
+		// If the basepath is set to the root path, only install the tusd handler
+		// and do not show a greeting.
+		http.Handle("/", handler)
+	} else {
+		// If a custom basepath is defined, we show a greeting at the root path...
 		http.HandleFunc("/", DisplayGreeting)
-	}
 
-	http.Handle(basepath, http.StripPrefix(basepath, handler))
-
-	// Also register a route without the trailing slash, so we can handle uploads
-	// for /files/ and /files, for example.
-	if strings.HasSuffix(basepath, "/") {
+		// ... and register a route with and without the trailing slash, so we can
+		// handle uploads for /files/ and /files, for example.
 		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
+		basepathWithSlash := basepathWithoutSlash + "/"
+
+		http.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
 		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
 	}
 
