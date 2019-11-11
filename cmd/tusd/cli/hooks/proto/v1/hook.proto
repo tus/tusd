@@ -62,5 +62,5 @@ message SendResponse {
 // The hook service definition.
 service HookService {
   // Sends a hook
-  rpc Send (SendRequest) returns (SendResponse) {}
+  rpc Send (stream SendRequest) returns (stream SendResponse) {}
 }
