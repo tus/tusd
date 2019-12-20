@@ -18,23 +18,25 @@ type GrpcHook struct {
 	Endpoint   string
 	MaxRetries int
 	Backoff    int
+	GrpcOpts   []grpc.DialOption
 }
 
-func (_ GrpcHook) Setup() error {
+func (g GrpcHook) Setup() error {
+	opts := []grpc_retry.CallOption{
+		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(time.Duration(g.Backoff) * time.Second)),
+		grpc_retry.WithMax(uint(g.MaxRetries)),
+	}
+	g.GrpcOpts = []grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor(opts...)),
+		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(opts...)),
+	}
 	return nil
 }
 
 func (g GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	ctx := context.Background()
-	opts := []grpc_retry.CallOption{
-		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(time.Duration(g.Backoff) * time.Second)),
-		grpc_retry.WithMax(uint(g.MaxRetries)),
-	}
-	conn, err := grpc.Dial(g.Endpoint,
-		grpc.WithInsecure(),
-		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor(opts...)),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(opts...)),
-	)
+	conn, err := grpc.Dial(g.Endpoint, g.GrpcOpts...)
 	if err != nil {
 		return nil, 0, err
 	}
