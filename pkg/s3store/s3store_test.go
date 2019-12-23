@@ -36,16 +36,13 @@ func TestNewUpload(t *testing.T) {
 	assert.Equal("bucket", store.Bucket)
 	assert.Equal(s3obj, store.Service)
 
-	s1 := "hello"
-	s2 := "men???hi"
-
 	gomock.InOrder(
 		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 			Metadata: map[string]*string{
-				"foo": &s1,
-				"bar": &s2,
+				"foo": aws.String("hello"),
+				"bar": aws.String("men???hi"),
 			},
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
@@ -85,16 +82,13 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 	assert.Equal("bucket", store.Bucket)
 	assert.Equal(s3obj, store.Service)
 
-	s1 := "hello"
-	s2 := "men?"
-
 	gomock.InOrder(
 		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("my/uploaded/files/uploadId"),
 			Metadata: map[string]*string{
-				"foo": &s1,
-				"bar": &s2,
+				"foo": aws.String("hello"),
+				"bar": aws.String("men?"),
 			},
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
@@ -156,16 +150,13 @@ func TestNewUploadWithTransientTags(t *testing.T) {
 	assert.Equal("bucket", store.Bucket)
 	assert.Equal(s3obj, store.Service)
 
-	s1 := "hello"
-	s2 := "men???hi"
-
 	gomock.InOrder(
 		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 			Metadata: map[string]*string{
-				"foo": &s1,
-				"bar": &s2,
+				"foo": aws.String("hello"),
+				"bar": aws.String("men???hi"),
 			},
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
