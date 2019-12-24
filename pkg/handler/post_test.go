@@ -68,6 +68,60 @@ func TestPost(t *testing.T) {
 		a.Equal(int64(300), info.Size)
 	})
 
+	SubTest(t, "CreateWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().NewUpload(context.Background(), FileInfo{
+				Size: 300,
+				MetaData: map[string]string{
+					"foo": "hello",
+					"bar": "world",
+				},
+			}).Return(upload, nil),
+			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				ID:   "foo",
+				Size: 300,
+				MetaData: map[string]string{
+					"foo": "hello",
+					"bar": "world",
+				},
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:        composer,
+			UseRelativeURL:       true,
+			NotifyCreatedUploads: true,
+		})
+
+		c := make(chan HookEvent, 1)
+		handler.CreatedUploads = c
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "300",
+				// Invalid Base64-encoded values should be ignored
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID",
+			},
+			Code: http.StatusCreated,
+			ResHeader: map[string]string{
+				"Location": "foo",
+			},
+		}).Run(handler, t)
+
+		event := <-c
+		info := event.Upload
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(300), info.Size)
+	})
+
 	SubTest(t, "CreateEmptyUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -103,6 +157,57 @@ func TestPost(t *testing.T) {
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
 				"Location": "https://buy.art/files/foo",
+			},
+		}).Run(handler, t)
+
+		event := <-handler.CompleteUploads
+		info := event.Upload
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(0), info.Size)
+		a.Equal(int64(0), info.Offset)
+
+		req := event.HTTPRequest
+		a.Equal("POST", req.Method)
+		a.Equal("", req.URI)
+	})
+
+	SubTest(t, "CreateEmptyUploadWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().NewUpload(context.Background(), FileInfo{
+				Size:     0,
+				MetaData: map[string]string{},
+			}).Return(upload, nil),
+			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				ID:       "foo",
+				Size:     0,
+				MetaData: map[string]string{},
+			}, nil),
+			upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:         composer,
+			UseRelativeURL:        true,
+			NotifyCompleteUploads: true,
+		})
+
+		handler.CompleteUploads = make(chan HookEvent, 1)
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "0",
+			},
+			Code: http.StatusCreated,
+			ResHeader: map[string]string{
+				"Location": "foo",
 			},
 		}).Run(handler, t)
 
@@ -412,6 +517,61 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
+		SubTest(t, "CreateWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(context.Background(), FileInfo{
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					ID:   "foo",
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}, nil),
+				locker.EXPECT().NewLock("foo").Return(lock, nil),
+				lock.EXPECT().Lock().Return(nil),
+				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				lock.EXPECT().Unlock().Return(nil),
+			)
+
+			composer = NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:  composer,
+				UseRelativeURL: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":   "1.0.0",
+					"Upload-Length":   "300",
+					"Content-Type":    "application/offset+octet-stream",
+					"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location":      "foo",
+					"Upload-Offset": "5",
+				},
+			}).Run(handler, t)
+		})
+
 		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
@@ -498,6 +658,25 @@ func TestPost(t *testing.T) {
 					"Upload-Length": "300",
 					"Content-Type":  "application/offset+octet-stream",
 					"Upload-Concat": "final;http://tus.io/files/a http://tus.io/files/b",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusForbidden,
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "UploadToFinalUploadWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			handler, _ := NewHandler(Config{
+				StoreComposer:  composer,
+				UseRelativeURL: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+					"Content-Type":  "application/offset+octet-stream",
+					"Upload-Concat": "final;a b",
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusForbidden,

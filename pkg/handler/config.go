@@ -22,6 +22,10 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
+	// UseRelativeUrl indicates whether returning relative URL to the client instead of
+	// returning absolute URL. It is useful when your server is behind several proxies
+	// and you don't want to pay attention to their configurations.
+	UseRelativeURL bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

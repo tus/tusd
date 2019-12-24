@@ -182,6 +182,84 @@ func TestConcat(t *testing.T) {
 			a.Equal("tada", req.Header.Get("X-Custom-Header"))
 		})
 
+		SubTest(t, "CreateWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			a := assert.New(t)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(context.Background(), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().GetUpload(context.Background(), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().NewUpload(context.Background(), FileInfo{
+					Size:           10,
+					IsPartial:      false,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+					MetaData:       make(map[string]string),
+				}).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					ID:             "foo",
+					Size:           10,
+					IsPartial:      false,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+					MetaData:       make(map[string]string),
+				}, nil),
+				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
+				uploadC.EXPECT().ConcatUploads(context.Background(), []Upload{uploadA, uploadB}).Return(nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				UseRelativeURL:        true,
+				StoreComposer:         composer,
+				NotifyCompleteUploads: true,
+			})
+
+			c := make(chan HookEvent, 1)
+			handler.CompleteUploads = c
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					// A space between `final;` and the first URL should be allowed due to
+					// compatibility reasons, even if the specification does not define
+					// it. Therefore this character is included in this test case.
+					"Upload-Concat":   "final; a b",
+					"X-Custom-Header": "tada",
+				},
+				Code: http.StatusCreated,
+			}).Run(handler, t)
+
+			event := <-c
+			info := event.Upload
+			a.Equal("foo", info.ID)
+			a.EqualValues(10, info.Size)
+			a.EqualValues(10, info.Offset)
+			a.False(info.IsPartial)
+			a.True(info.IsFinal)
+			a.Equal([]string{"a", "b"}, info.PartialUploads)
+
+			req := event.HTTPRequest
+			a.Equal("POST", req.Method)
+			a.Equal("", req.URI)
+			a.Equal("tada", req.Header.Get("X-Custom-Header"))
+		})
+
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()

@@ -112,12 +112,13 @@ func newHookEvent(info FileInfo, r *http.Request) HookEvent {
 // such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method
 // is provided which is, however, not part of the specification.
 type UnroutedHandler struct {
-	config        Config
-	composer      *StoreComposer
-	isBasePathAbs bool
-	basePath      string
-	logger        *log.Logger
-	extensions    string
+	config         Config
+	composer       *StoreComposer
+	isBasePathAbs  bool
+	basePath       string
+	useRelativeURL bool
+	logger         *log.Logger
+	extensions     string
 
 	// CompleteUploads is used to send notifications whenever an upload is
 	// completed by a user. The HookEvent will contain information about this
@@ -177,6 +178,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		composer:          config.StoreComposer,
 		basePath:          config.BasePath,
 		isBasePathAbs:     config.isAbs,
+		useRelativeURL:    config.UseRelativeURL,
 		CompleteUploads:   make(chan HookEvent),
 		TerminatedUploads: make(chan HookEvent),
 		UploadProgress:    make(chan HookEvent),
@@ -364,7 +366,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
-	url := handler.absFileURL(r, id)
+	url := handler.generateFileURL(r, id)
 	w.Header().Set("Location", url)
 
 	handler.Metrics.incUploadsCreated()
@@ -452,7 +454,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	if info.IsFinal {
 		v := "final;"
 		for _, uploadID := range info.PartialUploads {
-			v += handler.absFileURL(r, uploadID) + " "
+			v += handler.generateFileURL(r, uploadID) + " "
 		}
 		// Remove trailing space
 		v = v[:len(v)-1]
@@ -932,6 +934,16 @@ func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(status)
 
 	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path)
+}
+
+// Make URL to the given upload id.
+func (handler *UnroutedHandler) generateFileURL(r *http.Request, id string) string {
+	if !handler.useRelativeURL {
+		// Return absolute URL
+		return handler.absFileURL(r, id)
+	}
+	// Return relative URL
+	return id
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
