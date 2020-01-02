@@ -95,6 +95,7 @@ func TestPost(t *testing.T) {
 			StoreComposer:        composer,
 			UseRelativeURL:       true,
 			NotifyCreatedUploads: true,
+			BasePath:             "/files/",
 		})
 
 		c := make(chan HookEvent, 1)
@@ -110,7 +111,7 @@ func TestPost(t *testing.T) {
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
-				"Location": "foo",
+				"Location": "files/foo",
 			},
 		}).Run(handler, t)
 
@@ -192,6 +193,7 @@ func TestPost(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
+			BasePath:              "/files/",
 			StoreComposer:         composer,
 			UseRelativeURL:        true,
 			NotifyCompleteUploads: true,
@@ -207,7 +209,7 @@ func TestPost(t *testing.T) {
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
-				"Location": "foo",
+				"Location": "files/foo",
 			},
 		}).Run(handler, t)
 
@@ -517,7 +519,7 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
-		SubTest(t, "CreateWithRelativeURL", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "CreateWithRelativeURLAndNoTrailingSlashSuffix", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -553,10 +555,69 @@ func TestPost(t *testing.T) {
 			handler, _ := NewHandler(Config{
 				StoreComposer:  composer,
 				UseRelativeURL: true,
+				BasePath:       "/files/",
 			})
 
 			(&httpTest{
 				Method: "POST",
+				URL:    "/files",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":   "1.0.0",
+					"Upload-Length":   "300",
+					"Content-Type":    "application/offset+octet-stream",
+					"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location":      "files/foo",
+					"Upload-Offset": "5",
+				},
+			}).Run(http.StripPrefix("/files", handler), t)
+		})
+
+		SubTest(t, "CreateWithRelativeURLAndTrailingSlashSuffix", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(context.Background(), FileInfo{
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					ID:   "foo",
+					Size: 300,
+					MetaData: map[string]string{
+						"foo": "hello",
+						"bar": "world",
+					},
+				}, nil),
+				locker.EXPECT().NewLock("foo").Return(lock, nil),
+				lock.EXPECT().Lock().Return(nil),
+				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				lock.EXPECT().Unlock().Return(nil),
+			)
+
+			composer = NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:  composer,
+				UseRelativeURL: true,
+				BasePath:       "/files/",
+			})
+
+			(&httpTest{
+				Method: "POST",
+				URL:    "/files/",
 				ReqHeader: map[string]string{
 					"Tus-Resumable":   "1.0.0",
 					"Upload-Length":   "300",
@@ -569,7 +630,7 @@ func TestPost(t *testing.T) {
 					"Location":      "foo",
 					"Upload-Offset": "5",
 				},
-			}).Run(handler, t)
+			}).Run(http.StripPrefix("/files/", handler), t)
 		})
 
 		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -668,6 +729,7 @@ func TestPost(t *testing.T) {
 			handler, _ := NewHandler(Config{
 				StoreComposer:  composer,
 				UseRelativeURL: true,
+				BasePath:       "/files/",
 			})
 
 			(&httpTest{
@@ -676,7 +738,7 @@ func TestPost(t *testing.T) {
 					"Tus-Resumable": "1.0.0",
 					"Upload-Length": "300",
 					"Content-Type":  "application/offset+octet-stream",
-					"Upload-Concat": "final;a b",
+					"Upload-Concat": "final;files/a files/b",
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusForbidden,

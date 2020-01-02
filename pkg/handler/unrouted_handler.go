@@ -943,7 +943,16 @@ func (handler *UnroutedHandler) generateFileURL(r *http.Request, id string) stri
 		return handler.absFileURL(r, id)
 	}
 	// Return relative URL
-	return id
+	return handler.relativeFileURL(r, id)
+}
+
+// Make a relative URL to the given upload id. If the URI ends with the base path (which ends with trailing slash),
+// the relative URL should be the upload id. Otherwise, the base path should be added as prefix.
+func (handler *UnroutedHandler) relativeFileURL(r *http.Request, id string) string {
+	if strings.HasSuffix(r.RequestURI, handler.basePath) {
+		return id
+	}
+	return strings.TrimPrefix(handler.basePath, "/") + id
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute

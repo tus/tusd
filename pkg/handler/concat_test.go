@@ -227,6 +227,7 @@ func TestConcat(t *testing.T) {
 				UseRelativeURL:        true,
 				StoreComposer:         composer,
 				NotifyCompleteUploads: true,
+				BasePath:              "/files/",
 			})
 
 			c := make(chan HookEvent, 1)
@@ -239,7 +240,7 @@ func TestConcat(t *testing.T) {
 					// A space between `final;` and the first URL should be allowed due to
 					// compatibility reasons, even if the specification does not define
 					// it. Therefore this character is included in this test case.
-					"Upload-Concat":   "final; a b",
+					"Upload-Concat":   "final; files/a files/b/",
 					"X-Custom-Header": "tada",
 				},
 				Code: http.StatusCreated,
