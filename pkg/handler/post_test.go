@@ -20,14 +20,14 @@ func TestPost(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 				Size: 300,
 				MetaData: map[string]string{
 					"foo": "hello",
 					"bar": "world",
 				},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				ID:   "foo",
 				Size: 300,
 				MetaData: map[string]string{
@@ -74,16 +74,16 @@ func TestPost(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 				Size:     0,
 				MetaData: map[string]string{},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				ID:       "foo",
 				Size:     0,
 				MetaData: map[string]string{},
 			}, nil),
-			upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+			upload.EXPECT().FinishUpload(WrapsContext(context.Background())).Return(nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -209,11 +209,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -246,11 +246,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -284,11 +284,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -323,11 +323,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -365,14 +365,14 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size: 300,
 					MetaData: map[string]string{
 						"foo": "hello",
 						"bar": "world",
 					},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:   "foo",
 					Size: 300,
 					MetaData: map[string]string{
@@ -382,7 +382,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
 				lock.EXPECT().Lock().Return(nil),
-				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				upload.EXPECT().WriteChunk(WrapsContext(context.Background()), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
@@ -418,11 +418,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -452,11 +452,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},

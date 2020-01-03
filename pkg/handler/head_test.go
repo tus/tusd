@@ -21,8 +21,8 @@ func TestHead(t *testing.T) {
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(WrapsContext(context.Background()), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				Offset: 11,
 				Size:   44,
 				MetaData: map[string]string{
@@ -64,7 +64,7 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, os.ErrNotExist)
+		store.EXPECT().GetUpload(WrapsContext(context.Background()), "no").Return(nil, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -93,8 +93,8 @@ func TestHead(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(WrapsContext(context.Background()), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				SizeIsDeferred: true,
 				Size:           0,
 			}, nil),
@@ -123,8 +123,8 @@ func TestHead(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(WrapsContext(context.Background()), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				SizeIsDeferred: false,
 				Size:           10,
 			}, nil),

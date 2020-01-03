@@ -40,13 +40,13 @@ func TestTerminate(t *testing.T) {
 		gomock.InOrder(
 			locker.EXPECT().NewLock("foo").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(WrapsContext(context.Background()), "foo").Return(upload, nil),
+			upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 				ID:   "foo",
 				Size: 10,
 			}, nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate(context.Background()).Return(nil),
+			upload.EXPECT().Terminate(WrapsContext(context.Background())).Return(nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
