@@ -38,14 +38,14 @@ func TestConcat(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:           300,
 					IsPartial:      true,
 					IsFinal:        false,
 					PartialUploads: nil,
 					MetaData:       make(map[string]string),
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:             "foo",
 					Size:           300,
 					IsPartial:      true,
@@ -77,8 +77,8 @@ func TestConcat(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:        "foo",
 					IsPartial: true,
 				}, nil),
@@ -114,26 +114,26 @@ func TestConcat(t *testing.T) {
 			uploadC := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "a").Return(uploadA, nil),
-				uploadA.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
 				}, nil),
-				store.EXPECT().GetUpload(context.Background(), "b").Return(uploadB, nil),
-				uploadB.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
 				}, nil),
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(WrapsContext(context.Background()), FileInfo{
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
 					MetaData:       make(map[string]string),
 				}).Return(uploadC, nil),
-				uploadC.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				uploadC.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:             "foo",
 					Size:           10,
 					IsPartial:      false,
@@ -142,7 +142,7 @@ func TestConcat(t *testing.T) {
 					MetaData:       make(map[string]string),
 				}, nil),
 				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
-				uploadC.EXPECT().ConcatUploads(context.Background(), []Upload{uploadA, uploadB}).Return(nil),
+				uploadC.EXPECT().ConcatUploads(WrapsContext(context.Background()), []Upload{uploadA, uploadB}).Return(nil),
 			)
 
 			handler, _ := NewHandler(Config{
@@ -188,8 +188,8 @@ func TestConcat(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:             "foo",
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
@@ -226,8 +226,8 @@ func TestConcat(t *testing.T) {
 			// This upload is still unfinished (mismatching offset and size) and
 			// will therefore cause the POST request to fail.
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "c").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "c").Return(upload, nil),
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:        "c",
 					IsPartial: true,
 					Size:      5,
@@ -256,8 +256,8 @@ func TestConcat(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "huge").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "huge").Return(upload, nil),
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:     "huge",
 					Size:   1000,
 					Offset: 1000,
@@ -286,8 +286,8 @@ func TestConcat(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(WrapsContext(context.Background()), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(WrapsContext(context.Background())).Return(FileInfo{
 					ID:      "foo",
 					Size:    10,
 					Offset:  0,
