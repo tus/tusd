@@ -1,6 +1,8 @@
 syntax = "proto3";
 package v1;
 
+import "google/protobuf/any.proto";
+
 // Uploaded data
 message Upload {
 	// Unique integer identifier of the uploaded file
@@ -49,18 +51,18 @@ message Hook {
 
 // Request data to send hook
 message SendRequest {
-  string Api = 1;
-  Hook hook = 2;
+  // The hook data
+  Hook hook = 1;
 }
 
 // Response that contains data for sended hook
 message SendResponse {
-  string Api = 1;
-  int64 statusCode = 2;
+  // The response of the hook.
+  google.protobuf.Any response = 1;
 }
 
 // The hook service definition.
 service HookService {
   // Sends a hook
-  rpc Send (stream SendRequest) returns (stream SendResponse) {}
+  rpc Send (SendRequest) returns (SendResponse) {}
 }
