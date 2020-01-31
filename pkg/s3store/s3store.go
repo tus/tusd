@@ -101,9 +101,9 @@ var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F]|[\r\n])`)
 type S3Store struct {
 	// Bucket used to store the data in, e.g. "tusdstore.example.com"
 	Bucket string
-	// ObjectPrefix is prepended to the name of each S3 object that is created.
-	// It can be used to create a pseudo-directory structure in the bucket,
-	// e.g. "path/to/my/uploads".
+	// ObjectPrefix is prepended to the name of each S3 object that is created
+	// to store uploaded files. It can be used to create a pseudo-directory
+	// structure in the bucket, e.g. "path/to/my/uploads".
 	ObjectPrefix string
 	// MetadataObjectPrefix is prepended to the name of each .info and .part S3
 	// object that is created. If it is not set, then ObjectPrefix is used.
