@@ -264,7 +264,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	// Create object on S3 containing information about the file
 	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
-		Key:           store.keyWithPrefix(uploadId + ".info"),
+		Key:           store.metadataKeyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
@@ -398,7 +398,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 	// Get file info stored in separate object
 	res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".info"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
 	})
 	if err != nil {
 		if isAwsError(err, "NoSuchKey") {
@@ -524,10 +524,10 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 						Key: store.keyWithPrefix(uploadId),
 					},
 					{
-						Key: store.keyWithPrefix(uploadId + ".part"),
+						Key: store.metadataKeyWithPrefix(uploadId + ".part"),
 					},
 					{
-						Key: store.keyWithPrefix(uploadId + ".info"),
+						Key: store.metadataKeyWithPrefix(uploadId + ".info"),
 					},
 				},
 				Quiet: aws.Bool(true),
@@ -705,7 +705,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId string) (*s3.GetObjectOutput, error) {
 	obj, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
 
 	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "NotFound") || isAwsError(err, "AccessDenied")) {
@@ -718,7 +718,7 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 		Body:   r,
 	})
 	return err
@@ -727,7 +727,7 @@ func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId st
 func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId string) error {
 	_, err := store.Service.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
 	return err
 }
