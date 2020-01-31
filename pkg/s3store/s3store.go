@@ -804,3 +804,15 @@ func (store S3Store) keyWithPrefix(key string) *string {
 
 	return aws.String(prefix + key)
 }
+
+func (store S3Store) metadataKeyWithPrefix(key string) *string {
+	prefix := store.MetadataObjectPrefix
+	if prefix == "" {
+		prefix = store.ObjectPrefix
+	}
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	return aws.String(prefix + key)
+}
