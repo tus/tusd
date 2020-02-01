@@ -101,10 +101,13 @@ var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F]|[\r\n])`)
 type S3Store struct {
 	// Bucket used to store the data in, e.g. "tusdstore.example.com"
 	Bucket string
-	// ObjectPrefix is prepended to the name of each S3 object that is created.
-	// It can be used to create a pseudo-directory structure in the bucket,
-	// e.g. "path/to/my/uploads".
+	// ObjectPrefix is prepended to the name of each S3 object that is created
+	// to store uploaded files. It can be used to create a pseudo-directory
+	// structure in the bucket, e.g. "path/to/my/uploads".
 	ObjectPrefix string
+	// MetadataObjectPrefix is prepended to the name of each .info and .part S3
+	// object that is created. If it is not set, then ObjectPrefix is used.
+	MetadataObjectPrefix string
 	// Service specifies an interface used to communicate with the S3 backend.
 	// Usually, this is an instance of github.com/aws/aws-sdk-go/service/s3.S3
 	// (http://docs.aws.amazon.com/sdk-for-go/api/service/s3/S3.html).
@@ -261,7 +264,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	// Create object on S3 containing information about the file
 	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
-		Key:           store.keyWithPrefix(uploadId + ".info"),
+		Key:           store.metadataKeyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
@@ -395,7 +398,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 	// Get file info stored in separate object
 	res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".info"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
 	})
 	if err != nil {
 		if isAwsError(err, "NoSuchKey") {
@@ -521,10 +524,10 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 						Key: store.keyWithPrefix(uploadId),
 					},
 					{
-						Key: store.keyWithPrefix(uploadId + ".part"),
+						Key: store.metadataKeyWithPrefix(uploadId + ".part"),
 					},
 					{
-						Key: store.keyWithPrefix(uploadId + ".info"),
+						Key: store.metadataKeyWithPrefix(uploadId + ".info"),
 					},
 				},
 				Quiet: aws.Bool(true),
@@ -702,7 +705,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId string) (*s3.GetObjectOutput, error) {
 	obj, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
 
 	if err != nil && (isAwsError(err, s3.ErrCodeNoSuchKey) || isAwsError(err, "NotFound") || isAwsError(err, "AccessDenied")) {
@@ -715,7 +718,7 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 		Body:   r,
 	})
 	return err
@@ -724,7 +727,7 @@ func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId st
 func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId string) error {
 	_, err := store.Service.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.keyWithPrefix(uploadId + ".part"),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
 	return err
 }
@@ -795,6 +798,18 @@ func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err
 
 func (store S3Store) keyWithPrefix(key string) *string {
 	prefix := store.ObjectPrefix
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	return aws.String(prefix + key)
+}
+
+func (store S3Store) metadataKeyWithPrefix(key string) *string {
+	prefix := store.MetadataObjectPrefix
+	if prefix == "" {
+		prefix = store.ObjectPrefix
+	}
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
