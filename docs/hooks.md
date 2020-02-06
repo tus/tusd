@@ -202,3 +202,76 @@ Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requ
 $ # Retrying 5 times with a 2 second backoff
 $ tusd --hooks-http http://localhost:8081/write --hooks-http-retry 5 --hooks-http-backoff 2
 ```
+
+## GRPC Hooks
+
+GRPC Hooks are the third type of hooks supported by tusd. Like the others hooks, it is disabled by default. To enable it, pass the `--hooks-grpc option to the tusd binary. The flag's value will be a gRPC endpoint, which the tusd binary will be sent to:
+
+```bash
+$ tusd --hooks-grpc localhost:8080
+
+[tusd] Using 'localhost:8080' as the endpoint for gRPC hooks
+[tusd] Using './data' as directory storage.
+...
+```
+
+### Usage
+
+Tusd will issue a `gRPC` request to the specified endpoint, specifying the hook name, such as pre-create or post-finish, in the `Hook-Name` header and following body:
+
+```js
+{
+  // The upload object contains the upload's details
+  "Upload": {
+    // The upload's ID. Will be empty during the pre-create event
+    "ID": "14b1c4c77771671a8479bc0444bbc5ce",
+    // The upload's total size in bytes.
+    "Size": 46205,
+    // The upload's current offset in bytes.
+    "Offset": 1592,
+    // These properties will be set to true, if the upload as a final or partial
+    // one. See the Concatenation extension for details:
+    // http://tus.io/protocols/resumable-upload.html#concatenation
+    "IsFinal": false,
+    "IsPartial": false,
+    // If the upload is a final one, this value will be an array of upload IDs
+    // which are concatenated to produce the upload.
+    "PartialUploads": null,
+    // The upload's meta data which can be supplied by the clients as it wishes.
+    // All keys and values in this object will be strings.
+    // Be aware that it may contain maliciously crafted values and you must not
+    // trust it without escaping it first!
+    "MetaData": {
+      "filename": "transloadit.png"
+    },
+    // Details about where the data store saved the uploaded file. The different
+    // availabl keys vary depending on the used data store.
+    "Storage": {
+      // For example, the filestore supplies the absolute file path:
+      "Type": "filestore",
+      "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+
+      // The S3Store and GCSStore supply the bucket name and object key:
+      "Type": "s3store",
+      "Bucket": "my-upload-bucket",
+      "Key": "my-prefix/14b1c4c77771671a8479bc0444bbc5ce"
+    }
+  },
+  // Details about the HTTP request which caused this hook to be fired.
+  // It can be used to record the client's IP address or inspect the headers.
+  "HTTPRequest": {
+    "Method": "PATCH",
+    "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
+    "RemoteAddr": "1.2.3.4:47689",
+  }
+}
+```
+
+### Configuration
+
+By default, tusd will retry 3 times based on the gRPC status response or network error, with a 1 second backoff. This can be configured with the flags `--hooks-grpc-retry` and `--hooks-grpc-backoff`, like so:
+
+```bash
+$ # Retrying 5 times with a 2 second backoff
+$ tusd --hooks-grpc localhost:8081/ --hooks-grpc-retry 5 --hooks-grpc-backoff 2
+```

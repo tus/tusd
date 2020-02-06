@@ -58,6 +58,14 @@ func SetupPreHooks(config *handler.Config) error {
 			MaxRetries: Flags.HttpHooksRetry,
 			Backoff:    Flags.HttpHooksBackoff,
 		}
+	} else if Flags.GrpcHooksEndpoint != "" {
+		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
+
+		hookHandler = &hooks.GrpcHook{
+			Endpoint:   Flags.GrpcHooksEndpoint,
+			MaxRetries: Flags.GrpcHooksRetry,
+			Backoff:    Flags.GrpcHooksBackoff,
+		}
 	} else if Flags.PluginHookPath != "" {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 
