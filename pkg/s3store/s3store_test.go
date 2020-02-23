@@ -169,6 +169,72 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 	assert.NotNil(upload)
 }
 
+func TestEmptyUpload(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	gomock.InOrder(
+		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId"),
+			Metadata: map[string]*string{},
+		}).Return(&s3.CreateMultipartUploadOutput{
+			UploadId: aws.String("multipartId"),
+		}, nil),
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), &s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(int64(208)),
+		}),
+		s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
+			Bucket:           aws.String("bucket"),
+			Key:              aws.String("uploadId"),
+			UploadId:         aws.String("multipartId"),
+			PartNumberMarker: aws.Int64(0),
+		}).Return(&s3.ListPartsOutput{
+			Parts: []*s3.Part{},
+		}, nil),
+		s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+			Bucket:     aws.String("bucket"),
+			Key:        aws.String("uploadId"),
+			UploadId:   aws.String("multipartId"),
+			PartNumber: aws.Int64(1),
+			Body:       bytes.NewReader([]byte("")),
+		})).Return(&s3.UploadPartOutput{
+			ETag: aws.String("etag"),
+		}, nil),
+		s3obj.EXPECT().CompleteMultipartUploadWithContext(context.Background(), &s3.CompleteMultipartUploadInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId"),
+			UploadId: aws.String("multipartId"),
+			MultipartUpload: &s3.CompletedMultipartUpload{
+				Parts: []*s3.CompletedPart{
+					{
+						ETag:       aws.String("etag"),
+						PartNumber: aws.Int64(1),
+					},
+				},
+			},
+		}).Return(nil, nil),
+	)
+
+	info := handler.FileInfo{
+		ID:   "uploadId",
+		Size: 0,
+	}
+
+	upload, err := store.NewUpload(context.Background(), info)
+	assert.Nil(err)
+	assert.NotNil(upload)
+	err = upload.FinishUpload(context.Background())
+	assert.Nil(err)
+}
+
 func TestNewUploadLargerMaxObjectSize(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

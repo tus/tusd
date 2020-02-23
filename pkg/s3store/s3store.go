@@ -566,6 +566,30 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 		return err
 	}
 
+	if len(parts) == 0 {
+		// AWS expects at least one part to be present when completing the multipart
+		// upload. So if the tus upload has a size of 0, we create an empty part
+		// and use that for completing the multipart upload.
+		res, err := store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
+			Bucket:     aws.String(store.Bucket),
+			Key:        store.keyWithPrefix(uploadId),
+			UploadId:   aws.String(multipartId),
+			PartNumber: aws.Int64(1),
+			Body:       bytes.NewReader([]byte{}),
+		})
+		if err != nil {
+			return err
+		}
+
+		parts = []*s3.Part{
+			&s3.Part{
+				ETag:       res.ETag,
+				PartNumber: aws.Int64(1),
+			},
+		}
+
+	}
+
 	// Transform the []*s3.Part slice to a []*s3.CompletedPart slice for the next
 	// request.
 	completedParts := make([]*s3.CompletedPart, len(parts))
