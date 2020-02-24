@@ -68,6 +68,12 @@ Usage of tusd:
     	Directory to search for available hooks scripts
   -hooks-enabled-events string
     	Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable all events
+  -hooks-grpc string
+    	An gRPC endpoint to which hook events will be sent to
+  -hooks-grpc-backoff int
+    	Number of seconds to wait before retrying each retry (default 1)
+  -hooks-grpc-retry int
+    	Number of times to retry on a server error or network timeout (default 3)
   -hooks-http string
     	An HTTP endpoint to which hook events will be sent to
   -hooks-http-backoff int
@@ -93,7 +99,7 @@ Usage of tusd:
   -s3-object-prefix string
     	Prefix for S3 object names
   -timeout int
-    	Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 30000)
+    	Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 6000)
   -unix-sock string
     	If set, will listen to a UNIX socket at this location instead of a TCP socket
   -upload-dir string
