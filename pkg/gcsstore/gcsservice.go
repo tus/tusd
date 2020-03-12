@@ -129,6 +129,10 @@ const COMPOSE_RETRIES = 3
 
 // Compose takes a bucket name, a list of initial source names, and a destination string to compose multiple GCS objects together
 func (service *GCSService) compose(ctx context.Context, bucket string, srcs []string, dst string) error {
+	if len(srcs) < 1 {
+		return fmt.Errorf("empty srcs passed to compose for bucket: %s dest: %s", bucket, dst)
+	}
+
 	dstParams := GCSObjectParams{
 		Bucket: bucket,
 		ID:     dst,

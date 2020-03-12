@@ -192,6 +192,30 @@ func TestComposeObjects(t *testing.T) {
 	}
 }
 
+func TestComposeNoObjects(t *testing.T) {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	service := GCSService{
+		Client: client,
+	}
+
+	err = service.ComposeObjects(ctx, GCSComposeParams{
+		Bucket:      "test-bucket",
+		Sources:     []string{},
+		Destination: "test_all",
+	})
+
+	if err == nil {
+		t.Errorf("Error: %v", err)
+		return
+	}
+}
+
 func TestGetObjectAttrs(t *testing.T) {
 	defer gock.Off()
 
