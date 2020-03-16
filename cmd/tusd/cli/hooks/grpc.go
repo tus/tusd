@@ -18,7 +18,7 @@ type GrpcHook struct {
 	Client     pb.HookServiceClient
 }
 
-func (g GrpcHook) Setup() error {
+func (g *GrpcHook) Setup() error {
 	opts := []grpc_retry.CallOption{
 		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(time.Duration(g.Backoff) * time.Second)),
 		grpc_retry.WithMax(uint(g.MaxRetries)),
@@ -35,7 +35,7 @@ func (g GrpcHook) Setup() error {
 	return nil
 }
 
-func (g GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
+func (g *GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	ctx := context.Background()
 	req := &pb.SendRequest{Hook: marshal(info)}
 	resp, err := g.Client.Send(ctx, req)
