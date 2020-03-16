@@ -396,9 +396,6 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	go chunkProducer.produce(optimalPartSize)
 
 	for file := range fileChan {
-		defer os.Remove(file.Name())
-		defer file.Close()
-
 		stat, err := file.Stat()
 		if err != nil {
 			return 0, err
@@ -433,6 +430,13 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		offset += n
 		bytesUploaded += n
 		nextPartNum += 1
+
+		if err := os.Remove(file.Name()); err != nil {
+			return bytesUploaded, err
+		}
+		if err := file.Close(); err != nil {
+			return bytesUploaded, err
+		}
 	}
 
 	return bytesUploaded - incompletePartSize, chunkProducer.err
