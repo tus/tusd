@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+type ctxKey string
+
+const ctxKeyRequestContext = ctxKey("reqctx")
+
 const UploadLengthDeferred = "1"
 
 var (
@@ -106,6 +110,22 @@ func newHookEvent(info FileInfo, r *http.Request) HookEvent {
 			Header:     r.Header,
 		},
 	}
+}
+
+// RequestContext returns the request context. The deadline on this context may be expired.
+// See https://github.com/tus/tusd/pull/309 https://github.com/tus/tusd/pull/315
+func RequestContext(ctx context.Context) context.Context {
+	if orig, ok := ctx.Value(ctxKeyRequestContext).(context.Context); ok {
+		return orig
+	}
+	return nil
+}
+
+func setRequestContext(ctx context.Context, reqctx context.Context) context.Context {
+	if reqctx == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxKeyRequestContext, reqctx)
 }
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -274,7 +294,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := setRequestContext(context.Background(), r.Context())
 
 	// Check for presence of application/offset+octet-stream. If another content
 	// type is defined, it will be ignored and treated as none was set because
@@ -417,7 +437,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := setRequestContext(context.Background(), r.Context())
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -481,7 +501,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := setRequestContext(context.Background(), r.Context())
 
 	// Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -696,7 +716,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := setRequestContext(context.Background(), r.Context())
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -817,7 +837,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := setRequestContext(context.Background(), r.Context())
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {
