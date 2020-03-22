@@ -28,7 +28,7 @@ func TestConcat(t *testing.T) {
 			ResHeader: map[string]string{
 				"Tus-Extension": "creation,creation-with-upload,concatenation",
 			},
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "Partial", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -37,15 +37,17 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:           300,
 					IsPartial:      true,
 					IsFinal:        false,
 					PartialUploads: nil,
 					MetaData:       make(map[string]string),
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:             "foo",
 					Size:           300,
 					IsPartial:      true,
@@ -68,7 +70,7 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "partial",
 				},
 				Code: http.StatusCreated,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -76,9 +78,11 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:        "foo",
 					IsPartial: true,
 				}, nil),
@@ -99,13 +103,15 @@ func TestConcat(t *testing.T) {
 				ResHeader: map[string]string{
 					"Upload-Concat": "partial",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 	})
 
 	SubTest(t, "Final", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			a := assert.New(t)
+
+			ctx := context.Background()
 
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
@@ -114,26 +120,26 @@ func TestConcat(t *testing.T) {
 			uploadC := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "a").Return(uploadA, nil),
-				uploadA.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
 				}, nil),
-				store.EXPECT().GetUpload(context.Background(), "b").Return(uploadB, nil),
-				uploadB.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					IsPartial: true,
 					Size:      5,
 					Offset:    5,
 				}, nil),
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
 					MetaData:       make(map[string]string),
 				}).Return(uploadC, nil),
-				uploadC.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				uploadC.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:             "foo",
 					Size:           10,
 					IsPartial:      false,
@@ -142,7 +148,7 @@ func TestConcat(t *testing.T) {
 					MetaData:       make(map[string]string),
 				}, nil),
 				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
-				uploadC.EXPECT().ConcatUploads(context.Background(), []Upload{uploadA, uploadB}).Return(nil),
+				uploadC.EXPECT().ConcatUploads(SetRequestContext(context.Background(), ctx), []Upload{uploadA, uploadB}).Return(nil),
 			)
 
 			handler, _ := NewHandler(Config{
@@ -165,7 +171,7 @@ func TestConcat(t *testing.T) {
 					"X-Custom-Header": "tada",
 				},
 				Code: http.StatusCreated,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 
 			event := <-c
 			info := event.Upload
@@ -187,9 +193,11 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:             "foo",
 					IsFinal:        true,
 					PartialUploads: []string{"a", "b"},
@@ -215,7 +223,7 @@ func TestConcat(t *testing.T) {
 					"Upload-Length": "10",
 					"Upload-Offset": "10",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "CreateWithUnfinishedFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -223,11 +231,13 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			// This upload is still unfinished (mismatching offset and size) and
 			// will therefore cause the POST request to fail.
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "c").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "c").Return(upload, nil),
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:        "c",
 					IsPartial: true,
 					Size:      5,
@@ -247,7 +257,7 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "final;http://tus.io/files/c",
 				},
 				Code: http.StatusBadRequest,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -255,9 +265,11 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "huge").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "huge").Return(upload, nil),
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:     "huge",
 					Size:   1000,
 					Offset: 1000,
@@ -277,7 +289,7 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "final;/files/huge",
 				},
 				Code: http.StatusRequestEntityTooLarge,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "UploadToFinalFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -285,9 +297,11 @@ func TestConcat(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "foo").Return(upload, nil),
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:      "foo",
 					Size:    10,
 					Offset:  0,
@@ -309,7 +323,7 @@ func TestConcat(t *testing.T) {
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusForbidden,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "InvalidConcatHeaderFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -325,7 +339,7 @@ func TestConcat(t *testing.T) {
 					"Upload-Concat": "final;",
 				},
 				Code: http.StatusBadRequest,
-			}).Run(handler, t)
+			}).Run(context.Background(), handler, t)
 		})
 	})
 }

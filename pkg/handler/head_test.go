@@ -18,11 +18,13 @@ func TestHead(t *testing.T) {
 		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				Offset: 11,
 				Size:   44,
 				MetaData: map[string]string{
@@ -53,7 +55,7 @@ func TestHead(t *testing.T) {
 				"Upload-Length": "44",
 				"Cache-Control": "no-store",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		// Since the order of a map is not guaranteed in Go, we need to be prepared
 		// for the case, that the order of the metadata may have been changed
@@ -64,7 +66,8 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, os.ErrNotExist)
+		ctx := context.Background()
+		store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "no").Return(nil, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -80,7 +83,7 @@ func TestHead(t *testing.T) {
 			ResHeader: map[string]string{
 				"Content-Length": "0",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		if res.Body.String() != "" {
 			t.Errorf("Expected empty body for failed HEAD request")
@@ -92,9 +95,11 @@ func TestHead(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				SizeIsDeferred: true,
 				Size:           0,
 			}, nil),
@@ -114,7 +119,7 @@ func TestHead(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Defer-Length": "1",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "NoDeferLengthHeader", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -122,9 +127,11 @@ func TestHead(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				SizeIsDeferred: false,
 				Size:           10,
 			}, nil),
@@ -144,6 +151,6 @@ func TestHead(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Defer-Length": "",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 }

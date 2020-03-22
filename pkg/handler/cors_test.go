@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +27,7 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
 			},
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "Request", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -45,7 +46,7 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
 				"Access-Control-Allow-Origin":   "tus.io",
 			},
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "AppendHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

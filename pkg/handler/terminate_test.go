@@ -27,7 +27,7 @@ func TestTerminate(t *testing.T) {
 			ResHeader: map[string]string{
 				"Tus-Extension": "creation,creation-with-upload,termination",
 			},
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -37,16 +37,18 @@ func TestTerminate(t *testing.T) {
 		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
 			locker.EXPECT().NewLock("foo").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "foo").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:   "foo",
 				Size: 10,
 			}, nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate(context.Background()).Return(nil),
+			upload.EXPECT().Terminate(SetRequestContext(context.Background(), ctx)).Return(nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
@@ -70,7 +72,7 @@ func TestTerminate(t *testing.T) {
 				"Tus-Resumable": "1.0.0",
 			},
 			Code: http.StatusNoContent,
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		event := <-c
 		info := event.Upload
@@ -99,6 +101,6 @@ func TestTerminate(t *testing.T) {
 				"Tus-Resumable": "1.0.0",
 			},
 			Code: http.StatusNotImplemented,
-		}).Run(http.HandlerFunc(handler.DelFile), t)
+		}).Run(context.Background(), http.HandlerFunc(handler.DelFile), t)
 	})
 }

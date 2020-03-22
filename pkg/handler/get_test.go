@@ -21,6 +21,7 @@ func (reader *closingStringReader) Close() error {
 }
 
 func TestGet(t *testing.T) {
+
 	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		reader := &closingStringReader{
 			Reader: strings.NewReader("hello"),
@@ -32,11 +33,13 @@ func TestGet(t *testing.T) {
 		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				Offset: 5,
 				Size:   20,
 				MetaData: map[string]string{
@@ -44,7 +47,7 @@ func TestGet(t *testing.T) {
 					"filetype": "image/jpeg",
 				},
 			}, nil),
-			upload.EXPECT().GetReader(context.Background()).Return(reader, nil),
+			upload.EXPECT().GetReader(SetRequestContext(context.Background(), ctx)).Return(reader, nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
@@ -66,7 +69,7 @@ func TestGet(t *testing.T) {
 			},
 			Code:    http.StatusOK,
 			ResBody: "hello",
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		if !reader.closed {
 			t.Error("expected reader to be closed")
@@ -78,9 +81,11 @@ func TestGet(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				Offset: 0,
 			}, nil),
 		)
@@ -98,7 +103,7 @@ func TestGet(t *testing.T) {
 			},
 			Code:    http.StatusNoContent,
 			ResBody: "",
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "InvalidFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -106,9 +111,11 @@ func TestGet(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
 					"filetype": "non-a-valid-mime-type",
@@ -130,7 +137,7 @@ func TestGet(t *testing.T) {
 			},
 			Code:    http.StatusNoContent,
 			ResBody: "",
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "NotWhitelistedFileType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -138,9 +145,11 @@ func TestGet(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
 					"filetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.v1",
@@ -163,6 +172,6 @@ func TestGet(t *testing.T) {
 			},
 			Code:    http.StatusNoContent,
 			ResBody: "",
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 }

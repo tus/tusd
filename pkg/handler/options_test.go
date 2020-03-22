@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestOptions(t *testing.T) {
 				"Tus-Max-Size":  "400",
 			},
 			Code: http.StatusOK,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "InvalidVersion", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -40,6 +41,6 @@ func TestOptions(t *testing.T) {
 				"Tus-Resumable": "foo",
 			},
 			Code: http.StatusPreconditionFailed,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 }

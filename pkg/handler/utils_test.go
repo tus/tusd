@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -57,9 +58,10 @@ type httpTest struct {
 	ResHeader map[string]string
 }
 
-func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
+func (test *httpTest) Run(ctx context.Context, handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
 	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
 	req.RequestURI = test.URL
+	req = req.WithContext(ctx)
 
 	// Add headers
 	for key, value := range test.ReqHeader {

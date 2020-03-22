@@ -19,15 +19,17 @@ func TestPost(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 				Size: 300,
 				MetaData: map[string]string{
 					"foo": "hello",
 					"bar": "world",
 				},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:   "foo",
 				Size: 300,
 				MetaData: map[string]string{
@@ -58,7 +60,7 @@ func TestPost(t *testing.T) {
 			ResHeader: map[string]string{
 				"Location": "https://buy.art/files/foo",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		event := <-c
 		info := event.Upload
@@ -73,17 +75,19 @@ func TestPost(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 				Size:     0,
 				MetaData: map[string]string{},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:       "foo",
 				Size:     0,
 				MetaData: map[string]string{},
 			}, nil),
-			upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)).Return(nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -104,7 +108,7 @@ func TestPost(t *testing.T) {
 			ResHeader: map[string]string{
 				"Location": "https://buy.art/files/foo",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		event := <-handler.CompleteUploads
 		info := event.Upload
@@ -135,7 +139,7 @@ func TestPost(t *testing.T) {
 				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=",
 			},
 			Code: http.StatusRequestEntityTooLarge,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "InvalidUploadLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -151,7 +155,7 @@ func TestPost(t *testing.T) {
 				"Upload-Length": "-5",
 			},
 			Code: http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "UploadLengthAndUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -168,7 +172,7 @@ func TestPost(t *testing.T) {
 				"Upload-Defer-Length": "1",
 			},
 			Code: http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "NeitherUploadLengthNorUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -183,7 +187,7 @@ func TestPost(t *testing.T) {
 				"Tus-Resumable": "1.0.0",
 			},
 			Code: http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "InvalidUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -199,7 +203,7 @@ func TestPost(t *testing.T) {
 				"Upload-Defer-Length": "bad",
 			},
 			Code: http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -208,12 +212,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -237,7 +243,7 @@ func TestPost(t *testing.T) {
 				ResHeader: map[string]string{
 					"Location": "http://tus.io/files/foo",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "RespectXForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -245,12 +251,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -275,7 +283,7 @@ func TestPost(t *testing.T) {
 				ResHeader: map[string]string{
 					"Location": "https://foo.com/files/foo",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "RespectForwarded", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -283,12 +291,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -314,7 +324,7 @@ func TestPost(t *testing.T) {
 				ResHeader: map[string]string{
 					"Location": "https://foo.com/files/foo",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -322,12 +332,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -352,7 +364,7 @@ func TestPost(t *testing.T) {
 				ResHeader: map[string]string{
 					"Location": "http://tus.io/files/foo",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 	})
 
@@ -364,15 +376,17 @@ func TestPost(t *testing.T) {
 			lock := NewMockFullLock(ctrl)
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size: 300,
 					MetaData: map[string]string{
 						"foo": "hello",
 						"bar": "world",
 					},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:   "foo",
 					Size: 300,
 					MetaData: map[string]string{
@@ -382,7 +396,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
 				lock.EXPECT().Lock().Return(nil),
-				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
@@ -409,7 +423,7 @@ func TestPost(t *testing.T) {
 					"Location":      "http://tus.io/files/foo",
 					"Upload-Offset": "5",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "CreateExceedingUploadSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -417,12 +431,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -443,7 +459,7 @@ func TestPost(t *testing.T) {
 				},
 				ReqBody: bytes.NewReader(make([]byte, 400)),
 				Code:    http.StatusRequestEntityTooLarge,
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "IncorrectContentType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -451,12 +467,14 @@ func TestPost(t *testing.T) {
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)
 
+			ctx := context.Background()
+
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(SetRequestContext(context.Background(), ctx), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -482,7 +500,7 @@ func TestPost(t *testing.T) {
 					"Location":      "http://tus.io/files/foo",
 					"Upload-Offset": "",
 				},
-			}).Run(handler, t)
+			}).Run(ctx, handler, t)
 		})
 
 		SubTest(t, "UploadToFinalUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -501,7 +519,7 @@ func TestPost(t *testing.T) {
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusForbidden,
-			}).Run(handler, t)
+			}).Run(context.Background(), handler, t)
 		})
 	})
 }

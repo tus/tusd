@@ -22,15 +22,17 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -54,7 +56,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "10",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		a := assert.New(t)
 		event := <-c
@@ -74,15 +76,17 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -103,7 +107,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "10",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "UploadChunkToFinished", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -111,9 +115,11 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 20,
 				Size:   20,
@@ -137,11 +143,12 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "20",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, os.ErrNotExist)
+		ctx := context.Background()
+		store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "no").Return(nil, os.ErrNotExist)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -156,7 +163,7 @@ func TestPatch(t *testing.T) {
 				"Upload-Offset": "5",
 			},
 			Code: http.StatusNotFound,
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "MissmatchingOffsetFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -164,9 +171,11 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 			}, nil),
@@ -185,7 +194,7 @@ func TestPatch(t *testing.T) {
 				"Upload-Offset": "4",
 			},
 			Code: http.StatusConflict,
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "ExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -193,9 +202,11 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
@@ -216,7 +227,7 @@ func TestPatch(t *testing.T) {
 			},
 			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
 			Code:    http.StatusRequestEntityTooLarge,
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "InvalidContentTypeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -234,7 +245,7 @@ func TestPatch(t *testing.T) {
 			},
 			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
 			Code:    http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "InvalidOffsetFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -252,7 +263,7 @@ func TestPatch(t *testing.T) {
 			},
 			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
 			Code:    http.StatusBadRequest,
-		}).Run(handler, t)
+		}).Run(context.Background(), handler, t)
 	})
 
 	SubTest(t, "OverflowWithoutLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -267,15 +278,17 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   20,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -301,7 +314,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "20",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "DeclareLengthOnFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -309,18 +322,20 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:             "yes",
 				Offset:         5,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload).Return(upload),
-			upload.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().DeclareLength(SetRequestContext(context.Background(), ctx), int64(20)),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -344,7 +359,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "20",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "DeclareLengthAfterFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -352,17 +367,19 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:             "yes",
 				Offset:         20,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload).Return(upload),
-			upload.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().DeclareLength(SetRequestContext(context.Background(), ctx), int64(20)),
+			upload.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -382,7 +399,7 @@ func TestPatch(t *testing.T) {
 			ReqBody:   nil,
 			Code:      http.StatusNoContent,
 			ResHeader: map[string]string{},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "DeclareLengthOnNonFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -391,27 +408,29 @@ func TestPatch(t *testing.T) {
 		upload1 := NewMockFullUpload(ctrl)
 		upload2 := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload1, nil),
-			upload1.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload1, nil),
+			upload1.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:             "yes",
 				Offset:         5,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload1).Return(upload1),
-			upload1.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload1.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload1.EXPECT().DeclareLength(SetRequestContext(context.Background(), ctx), int64(20)),
+			upload1.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
 
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload2, nil),
-			upload2.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload2, nil),
+			upload2.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:             "yes",
 				Offset:         10,
 				Size:           20,
 				SizeIsDeferred: false,
 			}, nil),
-			upload2.EXPECT().WriteChunk(context.Background(), int64(10), NewReaderMatcher("thisismore")).Return(int64(10), nil),
-			upload2.EXPECT().FinishUpload(context.Background()),
+			upload2.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(10), NewReaderMatcher("thisismore")).Return(int64(10), nil),
+			upload2.EXPECT().FinishUpload(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -433,7 +452,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "10",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		(&httpTest{
 			Method: "PATCH",
@@ -448,7 +467,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "20",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -458,16 +477,18 @@ func TestPatch(t *testing.T) {
 		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
 			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   20,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
@@ -489,7 +510,7 @@ func TestPatch(t *testing.T) {
 			},
 			ReqBody: strings.NewReader("hello"),
 			Code:    http.StatusNoContent,
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 	})
 
 	SubTest(t, "NotifyUploadProgress", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -497,14 +518,16 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first second third")).Return(int64(18), nil),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(0), NewReaderMatcher("first second third")).Return(int64(18), nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -555,7 +578,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "18",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		// Wait a short time after the request has been handled before closing the
 		// channel because another goroutine may still write to the channel.
@@ -571,16 +594,18 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		ctx := context.Background()
+
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(SetRequestContext(context.Background(), ctx), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(SetRequestContext(context.Background(), ctx)).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), http.ErrBodyReadAfterClose),
+			upload.EXPECT().WriteChunk(SetRequestContext(context.Background(), ctx), int64(0), NewReaderMatcher("first ")).Return(int64(6), http.ErrBodyReadAfterClose),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate(context.Background()),
+			upload.EXPECT().Terminate(SetRequestContext(context.Background(), ctx)),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -627,7 +652,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
 			},
-		}).Run(handler, t)
+		}).Run(ctx, handler, t)
 
 		_, more := <-c
 		a.False(more)
