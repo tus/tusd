@@ -9,6 +9,7 @@ import (
 	pb "github.com/tus/tusd/pkg/proto/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/metadata"
 )
 
 type GrpcHook struct {
@@ -36,7 +37,8 @@ func (g *GrpcHook) Setup() error {
 }
 
 func (g *GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
-	ctx := context.Background()
+	md := metadata.Pairs("Hook-Name", string(typ))
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	req := &pb.SendRequest{Hook: marshal(info)}
 	resp, err := g.Client.Send(ctx, req)
 	if err != nil {
