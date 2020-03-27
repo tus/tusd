@@ -47,6 +47,8 @@ message Hook {
 	// HTTPRequest contains details about the HTTP request that reached
 	// tusd.
 	HTTPRequest httpRequest = 2;
+	// The hook name
+	string name = 3;
 }
 
 // Request data to send hook

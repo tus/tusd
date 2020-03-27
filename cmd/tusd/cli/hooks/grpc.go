@@ -37,7 +37,7 @@ func (g *GrpcHook) Setup() error {
 
 func (g *GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
 	ctx := context.Background()
-	req := &pb.SendRequest{Hook: marshal(info)}
+	req := &pb.SendRequest{Hook: marshal(typ, info)}
 	resp, err := g.Client.Send(ctx, req)
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
@@ -51,7 +51,7 @@ func (g *GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutpu
 	return nil, 0, err
 }
 
-func marshal(info handler.HookEvent) *pb.Hook {
+func marshal(typ HookType, info handler.HookEvent) *pb.Hook {
 	return &pb.Hook{
 		Upload: &pb.Upload{
 			Id:             info.Upload.ID,
@@ -69,5 +69,6 @@ func marshal(info handler.HookEvent) *pb.Hook {
 			Uri:        info.HTTPRequest.URI,
 			RemoteAddr: info.HTTPRequest.RemoteAddr,
 		},
+		Name: string(typ),
 	}
 }
