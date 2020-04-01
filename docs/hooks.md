@@ -27,7 +27,7 @@ A successful HTTP response code (i.e. smaller than `400`) indicates that tusd sh
 
 ### pre-create
 
-This event will be triggered before an upload is created, allowing you to run certain routines. For example, validating that specific metadata values are set, or verifying that a corresponding entity belonging to the upload (e.g. a user) exists. Because this event will result in a blocking hook, you can determine whether the upload should be created or rejected using the exit code. An exit code of `0` will allow the upload to be created and continued as usual. A non-zero exit code will reject an upload creation request, making it a good place for authentication and authorization. Please be aware, that during this stage the upload ID will be an empty string as the entity has not been created and therefore this piece of information is not yet available.
+This event will be triggered before an upload is created, allowing you to run certain routines. For example, validating that specific metadata values are set, or verifying that a corresponding entity belonging to the upload (e.g. a user) exists. Because this event will result in a blocking hook, you can determine whether the upload should be created or rejected using the exit code. An exit code of `0` will allow the upload to be created and continued as usual. A non-zero exit code will reject an upload creation request, making it a good place for authentication and authorization. Please be aware that during this stage the upload ID will be an empty string and `Storage` will be null. This is because the entity has not been created and therefore this piece of information is not yet available.
 
 ### post-create
 
@@ -114,8 +114,8 @@ The process of the hook files are provided with information about the event and 
     "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
     "RemoteAddr": "1.2.3.4:47689",
     "Header": {
-      "Host": "myuploads.net",
-      "Cookies": "..."
+      "Host": ["myuploads.net"],
+      "Cookies": ["..."]
     }
   }
 }
@@ -187,8 +187,8 @@ Tusd will issue a `POST` request to the specified URL endpoint, specifying the h
     "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
     "RemoteAddr": "1.2.3.4:47689",
     "Header": {
-      "Host": "myuploads.net",
-      "Cookies": "..."
+      "Host": ["myuploads.net"],
+      "Cookies": ["..."]
     }
   }
 }
@@ -263,6 +263,10 @@ Tusd will issue a `gRPC` request to the specified endpoint, specifying the hook 
     "Method": "PATCH",
     "URI": "/files/14b1c4c77771671a8479bc0444bbc5ce",
     "RemoteAddr": "1.2.3.4:47689",
+    "Header": {
+      "Host": ["myuploads.net"],
+      "Cookies": ["..."]
+    }
   }
 }
 ```
