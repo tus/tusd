@@ -210,7 +210,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path)
+		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 
 		handler.Metrics.incRequestsTotal(r.Method)
 
@@ -222,7 +222,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			if r.Method == "OPTIONS" {
 				// Preflight request
 				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
+				header.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
@@ -925,7 +925,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(statusErr.StatusCode())
 	w.Write(reason)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error())
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error(), "requestId", getRequestId(r))
 
 	handler.Metrics.incErrorsTotal(statusErr)
 }
@@ -934,7 +934,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request, status int) {
 	w.WriteHeader(status)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path)
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -1204,4 +1204,21 @@ func extractIDFromPath(url string) (string, error) {
 
 func i64toa(num int64) string {
 	return strconv.FormatInt(num, 10)
+}
+
+// getRequestId returns the value of the X-Request-ID header, if available,
+// and also takes care of truncating the input.
+func getRequestId(r *http.Request) string {
+	reqId := r.Header.Get("X-Request-ID")
+	if reqId == "" {
+		return ""
+	}
+
+	// Limit the length of the request ID to 36 characters, which is enough
+	// to fit a UUID.
+	if len(reqId) > 36 {
+		reqId = reqId[:36]
+	}
+
+	return reqId
 }
