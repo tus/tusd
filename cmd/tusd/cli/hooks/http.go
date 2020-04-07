@@ -14,9 +14,10 @@ import (
 )
 
 type HttpHook struct {
-	Endpoint   string
-	MaxRetries int
-	Backoff    int
+	Endpoint       string
+	MaxRetries     int
+	Backoff        int
+	ForwardHeaders []string
 }
 
 func (_ HttpHook) Setup() error {
@@ -32,6 +33,14 @@ func (h HttpHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput
 	req, err := http.NewRequest("POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
 	if err != nil {
 		return nil, 0, err
+	}
+
+	for _, k := range h.ForwardHeaders {
+		// Lookup the Canonicalised version of the specified header
+		if vals, ok := info.HTTPRequest.Header[http.CanonicalHeaderKey(k)]; ok {
+			// but set the case specified by the user
+			req.Header[k] = vals
+		}
 	}
 
 	req.Header.Set("Hook-Name", string(typ))
