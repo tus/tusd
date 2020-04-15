@@ -21,10 +21,10 @@ func Serve() {
 		BasePath:                Flags.Basepath,
 		RespectForwardedHeaders: Flags.BehindProxy,
 		StoreComposer:           Composer,
-		NotifyCompleteUploads:   true,
-		NotifyTerminatedUploads: true,
-		NotifyUploadProgress:    true,
-		NotifyCreatedUploads:    true,
+		NotifyCompleteUploads:   false,
+		NotifyTerminatedUploads: false,
+		NotifyUploadProgress:    false,
+		NotifyCreatedUploads:    false,
 	}
 
 	if err := SetupPreHooks(&config); err != nil {
@@ -48,8 +48,6 @@ func Serve() {
 	}
 
 	stdout.Printf("Using %s as the base path.\n", basepath)
-
-	SetupPostHooks(handler)
 
 	if Flags.ExposeMetrics {
 		SetupMetrics(handler)

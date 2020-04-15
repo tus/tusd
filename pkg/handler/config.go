@@ -40,11 +40,17 @@ type Config struct {
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
 	RespectForwardedHeaders bool
-	// PreUploadreateCCallback will be invoked before a new upload is created, if the
-	// property is supplied. If the callback returns nil, the upload will be created.
+
+	// Callbacks will be invoked if the property is supplied.
+	PostFinishCallback    func(hook HookEvent) error
+	PostTerminateCallback func(hook HookEvent) error
+	PostReceiveCallback   func(hook HookEvent) error
+	PostCreateCallback    func(hook HookEvent) error
+	// For the PreCreate callback only
+	// If the callback returns nil, the upload will be created.
 	// Otherwise the HTTP request will be aborted. This can be used to implement
 	// validation of upload metadata etc.
-	PreUploadCreateCallback func(hook HookEvent) error
+	PreCreateCallback func(hook HookEvent) error
 }
 
 func (config *Config) validate() error {

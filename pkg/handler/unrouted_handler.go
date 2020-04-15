@@ -341,8 +341,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		PartialUploads: partialUploadIDs,
 	}
 
-	if handler.config.PreUploadCreateCallback != nil {
-		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+	if handler.config.PreCreateCallback != nil {
+		if err := handler.config.PreCreateCallback(newHookEvent(info, r)); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -373,6 +373,9 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(info, r)
 	}
+	if handler.config.PostCreateCallback != nil {
+		_ = handler.config.PostCreateCallback(newHookEvent(info, r))
+	}
 
 	if isFinal {
 		concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
@@ -384,6 +387,9 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 		if handler.config.NotifyCompleteUploads {
 			handler.CompleteUploads <- newHookEvent(info, r)
+		}
+		if handler.config.PostFinishCallback != nil {
+			_ = handler.config.PostFinishCallback(newHookEvent(info, r))
 		}
 	}
 
@@ -686,6 +692,9 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 		if handler.config.NotifyCompleteUploads {
 			handler.CompleteUploads <- newHookEvent(info, r)
 		}
+		if handler.config.PostFinishCallback != nil {
+			_ = handler.config.PostFinishCallback(newHookEvent(info, r))
+		}
 
 		handler.Metrics.incUploadsFinished()
 	}
@@ -881,6 +890,9 @@ func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Uplo
 	if handler.config.NotifyTerminatedUploads {
 		handler.TerminatedUploads <- newHookEvent(info, r)
 	}
+	if handler.config.PostTerminateCallback != nil {
+		_ = handler.config.PostTerminateCallback(newHookEvent(info, r))
+	}
 
 	handler.Metrics.incUploadsTerminated()
 
@@ -980,6 +992,9 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader io.R
 				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
+					if handler.config.PostReceiveCallback != nil {
+						_ = handler.config.PostReceiveCallback(hook)
+					}
 					previousOffset = hook.Upload.Offset
 				}
 				return
@@ -987,6 +1002,9 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader io.R
 				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
+					if handler.config.PostReceiveCallback != nil {
+						_ = handler.config.PostReceiveCallback(hook)
+					}
 					previousOffset = hook.Upload.Offset
 				}
 			}
