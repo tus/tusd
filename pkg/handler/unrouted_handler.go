@@ -915,15 +915,8 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		statusErr = NewHTTPError(err, http.StatusInternalServerError)
 	}
 
-	reason := append(statusErr.Body(), '\n')
-	if r.Method == "HEAD" {
-		reason = nil
-	}
-
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
-	w.WriteHeader(statusErr.StatusCode())
-	w.Write(reason)
+	http.Error(w, string(statusErr.Body()), statusErr.StatusCode())
 
 	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error(), "requestId", getRequestId(r))
 
