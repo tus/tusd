@@ -6,6 +6,8 @@ package handler
 type StoreComposer struct {
 	Core DataStore
 
+	UsesCreator        bool
+	Creator            CreatorDataStore
 	UsesTerminater     bool
 	Terminater         TerminaterDataStore
 	UsesLocker         bool
@@ -32,6 +34,12 @@ func (store *StoreComposer) Capabilities() string {
 		str += "✗"
 	}
 
+	str += ` Creator: `
+	if store.UsesCreator {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
 	str += ` Terminater: `
 	if store.UsesTerminater {
 		str += "✓"
@@ -66,22 +74,42 @@ func (store *StoreComposer) UseCore(core DataStore) {
 	store.Core = core
 }
 
+// UseCreator will set the used creator data store. If the argument is nil, the
+// property will be unset.
+func (store *StoreComposer) UseCreator(ext CreatorDataStore) {
+	store.UsesCreator = ext != nil
+	store.Creator = ext
+}
+
+// UseTerminater will set the used terminater data store. If the argument is nil, the
+// property will be unset.
 func (store *StoreComposer) UseTerminater(ext TerminaterDataStore) {
 	store.UsesTerminater = ext != nil
 	store.Terminater = ext
 }
 
+// UseLocker will set the used locker. If the argument is nil, the
+// property will be unset.
 func (store *StoreComposer) UseLocker(ext Locker) {
 	store.UsesLocker = ext != nil
 	store.Locker = ext
 }
 
+// UseConcater will set the used concater data store. If the argument is nil, the
+// property will be unset.
 func (store *StoreComposer) UseConcater(ext ConcaterDataStore) {
 	store.UsesConcater = ext != nil
 	store.Concater = ext
 }
 
+// UseLengthDeferrer will set the used length deferrer data store. If the argument is nil, the
+// property will be unset.
 func (store *StoreComposer) UseLengthDeferrer(ext LengthDeferrerDataStore) {
 	store.UsesLengthDeferrer = ext != nil
 	store.LengthDeferrer = ext
+}
+
+// Composable is the interface that a struct needs to implement to be composable by this composer
+type Composable interface {
+	UseIn(composer *StoreComposer)
 }
