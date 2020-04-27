@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -1228,13 +1229,14 @@ func TestTerminateWithErrors(t *testing.T) {
 	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
 }
 
-func TestConcatUploads(t *testing.T) {
+func TestConcatUploadsUsingMultipart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
+	store.MinPartSize = 100
 
 	s3obj.EXPECT().UploadPartCopyWithContext(context.Background(), &s3.UploadPartCopyInput{
 		Bucket:     aws.String("bucket"),
@@ -1316,10 +1318,81 @@ func TestConcatUploads(t *testing.T) {
 	uploadC, err := store.GetUpload(context.Background(), "ccc+CCC")
 	assert.Nil(err)
 
+	// All uploads have a size larger than the MinPartSize, so a S3 Multipart Upload is used for concatenation.
+	uploadA.(*s3Upload).info = &handler.FileInfo{Size: 500}
+	uploadB.(*s3Upload).info = &handler.FileInfo{Size: 500}
+	uploadC.(*s3Upload).info = &handler.FileInfo{Size: 500}
+
 	err = store.AsConcatableUpload(upload).ConcatUploads(context.Background(), []handler.Upload{
 		uploadA,
 		uploadB,
 		uploadC,
 	})
 	assert.Nil(err)
+}
+
+func TestConcatUploadsUsingDownload(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.MinPartSize = 100
+
+	gomock.InOrder(
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("aaa"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte("aaa"))),
+		}, nil),
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("bbb"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte("bbbb"))),
+		}, nil),
+		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("ccc"),
+		}).Return(&s3.GetObjectOutput{
+			Body: ioutil.NopCloser(bytes.NewReader([]byte("ccccc"))),
+		}, nil),
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId"),
+			Body:   bytes.NewReader([]byte("aaabbbbccccc")),
+		})),
+		s3obj.EXPECT().AbortMultipartUploadWithContext(context.Background(), &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId"),
+			UploadId: aws.String("multipartId"),
+		}).Return(nil, nil),
+	)
+
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
+	uploadA, err := store.GetUpload(context.Background(), "aaa+AAA")
+	assert.Nil(err)
+	uploadB, err := store.GetUpload(context.Background(), "bbb+BBB")
+	assert.Nil(err)
+	uploadC, err := store.GetUpload(context.Background(), "ccc+CCC")
+	assert.Nil(err)
+
+	// All uploads have a size smaller than the MinPartSize, so the files are downloaded for concatenation.
+	uploadA.(*s3Upload).info = &handler.FileInfo{Size: 3}
+	uploadB.(*s3Upload).info = &handler.FileInfo{Size: 4}
+	uploadC.(*s3Upload).info = &handler.FileInfo{Size: 5}
+
+	err = store.AsConcatableUpload(upload).ConcatUploads(context.Background(), []handler.Upload{
+		uploadA,
+		uploadB,
+		uploadC,
+	})
+	assert.Nil(err)
+
+	// Wait a short delay until the call to AbortMultipartUploadWithContext also occurs.
+	<-time.After(10 * time.Millisecond)
 }
