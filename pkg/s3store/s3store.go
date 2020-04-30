@@ -614,6 +614,91 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 }
 
 func (upload *s3Upload) ConcatUploads(ctx context.Context, partialUploads []handler.Upload) error {
+	hasSmallPart := false
+	for _, partialUpload := range partialUploads {
+		info, err := partialUpload.GetInfo(ctx)
+		if err != nil {
+			return err
+		}
+
+		if info.Size < upload.store.MinPartSize {
+			hasSmallPart = true
+		}
+	}
+
+	// If one partial upload is smaller than the the minimum part size for an S3
+	// Multipart Upload, we cannot use S3 Multipart Uploads for concatenating all
+	// the files.
+	// So instead we have to download them and concat them on disk.
+	if hasSmallPart {
+		return upload.concatUsingDownload(ctx, partialUploads)
+	} else {
+		return upload.concatUsingMultipart(ctx, partialUploads)
+	}
+}
+
+func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads []handler.Upload) error {
+	id := upload.id
+	store := upload.store
+	uploadId, multipartId := splitIds(id)
+
+	// Create a temporary file for holding the concatenated data
+	file, err := ioutil.TempFile("", "tusd-s3-concat-tmp-")
+	if err != nil {
+		return err
+	}
+	fmt.Println(file.Name())
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	// Download each part and append it to the temporary file
+	for _, partialUpload := range partialUploads {
+		partialS3Upload := partialUpload.(*s3Upload)
+		partialId, _ := splitIds(partialS3Upload.id)
+
+		res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(store.Bucket),
+			Key:    store.keyWithPrefix(partialId),
+		})
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		if _, err := io.Copy(file, res.Body); err != nil {
+			return err
+		}
+	}
+
+	// Seek to the beginning of the file, so the entire file is being uploaded
+	file.Seek(0, 0)
+
+	// Upload the entire file to S3
+	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.keyWithPrefix(uploadId),
+		Body:   file,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Finally, abort the multipart upload since it will no longer be used.
+	// This happens asynchronously since we do not need to wait for the result.
+	// Also, the error is ignored on purpose as it does not change the outcome of
+	// the request.
+	go func() {
+		store.Service.AbortMultipartUploadWithContext(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(store.Bucket),
+			Key:      store.keyWithPrefix(uploadId),
+			UploadId: aws.String(multipartId),
+		})
+	}()
+
+	return nil
+}
+
+func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads []handler.Upload) error {
 	id := upload.id
 	store := upload.store
 	uploadId, multipartId := splitIds(id)
