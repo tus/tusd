@@ -421,9 +421,12 @@ func TestWriteChunk(t *testing.T) {
 	rGet := bytes.NewReader([]byte(mockReaderData))
 
 	ctx := context.Background()
+	ctxCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	gomock.InOrder(
 		service.EXPECT().FilterObjects(ctx, filterParams).Return(partials, nil),
-		service.EXPECT().WriteObject(ctx, writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
+		service.EXPECT().WriteObject(ctxCancel, writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
 	)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
