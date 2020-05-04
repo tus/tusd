@@ -123,8 +123,12 @@ func (upload gcsUpload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		ID:     cid,
 	}
 
-	n, err := store.Service.WriteObject(ctx, objectParams, src)
+	ctxCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	n, err := store.Service.WriteObject(ctxCancel, objectParams, src)
 	if err != nil {
+		cancel()
 		return 0, err
 	}
 
