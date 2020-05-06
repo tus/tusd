@@ -35,3 +35,24 @@ tusd allows any user to retrieve a previously uploaded file by issuing a HTTP GE
 ### How can I keep the original filename for the uploads?
 
 tusd will generate a unique ID for every upload, e.g. `1881febb4343e9b806cad2e676989c0d`, which is also used as the filename for storing the upload. If you want to keep the original filename, e.g. `my_image.png`, you will have to rename the uploaded file manually after the upload is completed. One can use the [`post-finish` hook](https://github.com/tus/tusd/blob/master/docs/hooks.md#post-finish) to be notified once the upload is completed. The client must also be configured to add the filename to the upload's metadata, which can be [accessed inside the hooks](https://github.com/tus/tusd/blob/master/docs/hooks.md#the-hooks-environment) and used for the renaming operation.
+
+### Notes on CORS
+
+Tusd supports a number of standard HTTP headers and additional tus specific headers.  However, tusd does not allow support of any passed HTTP header.  Some common headers might be supported in development versions and are not in a release of tusd.  Up to date supported HTTP headers through CORS are specified in "/pkg/handler/unrouted_handler.go"
+
+If you are looking for a way to communicate additional information from a client to a server, use the `Upload-Metadata` header.
+
+A list of supported or soon to be supported HTTP headers through CORS and their descriptions are below:
+ * `Authorization`: Defined in [RFC 2617](https://tools.ietf.org/html/rfc2617#section-2), used in various HTTP authentication protocols.
+ * `Origin`: Defined in [RFC 6454](https://tools.ietf.org/html/rfc6454), used to specify the origin of a HTTP request.  This header is often used to aid in HTTP security.
+ * `X-Requested-With`: Used to identify AJAX requests.  See [here](https://en.wikipedia.org/wiki/List_of_HTTP_header_fields) for details.
+ * `X-Request-ID`: Correlates HTTP requests between a client and server.  See [here](https://en.wikipedia.org/wiki/List_of_HTTP_header_fields) for details.
+ * `X-HTTP-Method-Override`: Requests a web application to override the method specified in the request with the method given in the header field.  See [here](https://en.wikipedia.org/wiki/List_of_HTTP_header_fields) for details.
+ * `Content-Type`: Defined in [RFC 2616](https://tools.ietf.org/html/rfc2616#section-14.17), indicates the media type of the entity-body.
+ * `Upload-Length`: A tus specific header used to indicate the total size of an uploaded file.  See [here](https://tus.io/protocols/resumable-upload.html#upload-length) for details.
+ * `Upload-Offset`: A tus specific header used to indicate the starting byte that a PATCH should be used on to upload a chunk of a file.  See [here](https://tus.io/protocols/resumable-upload.html#upload-offset) for details.
+ * `Tus-Resumable`: A tus specific header used to match the client version with the server version of the tus protocol.  See [here](https://tus.io/protocols/resumable-upload.html#tus-resumable) for details.
+ * `Upload-Metadata`: A tus specific header used for integrators to communicate general metadata between a client and server.  See [here](https://tus.io/protocols/resumable-upload.html#upload-metadata) for details.
+ * `Upload-Defer-Length`: A tus specific header used to communicate if the upload file size is not known during the HTTP request it is in.  See [here](https://tus.io/protocols/resumable-upload.html#upload-defer-length) for details.
+ * `Upload-Concat`: A tus specific header used to indicate if the containing HTTP request is the final request for uploading a file or not.  See [here](https://tus.io/protocols/resumable-upload.html#upload-concat) for details.
+
