@@ -137,6 +137,8 @@ Note that the URL must include the `http://` prefix!
 
 In case of a blocking hook, HTTP Status Code 400 or greater tells tusd to reject the request (in the same way as non-zero exit code for File Hooks). See also [issue #170](https://github.com/tus/tusd/issues/170) regarding further improvements.
 
+Headers from the client's upload request can be copied to the hook request with the `-hooks-http-forward-headers` flag.
+This is particularly useful for including authentication headers such as `Authorization` or `Cookie`.
 
 ### Usage
 

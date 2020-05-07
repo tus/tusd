@@ -54,9 +54,10 @@ func SetupPreHooks(config *handler.Config) error {
 		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
 		hookHandler = &hooks.HttpHook{
-			Endpoint:   Flags.HttpHooksEndpoint,
-			MaxRetries: Flags.HttpHooksRetry,
-			Backoff:    Flags.HttpHooksBackoff,
+			Endpoint:       Flags.HttpHooksEndpoint,
+			MaxRetries:     Flags.HttpHooksRetry,
+			Backoff:        Flags.HttpHooksBackoff,
+			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
 		}
 	} else if Flags.GrpcHooksEndpoint != "" {
 		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
