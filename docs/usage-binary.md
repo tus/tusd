@@ -67,7 +67,7 @@ Usage of tusd:
   -hooks-dir string
     	Directory to search for available hooks scripts
   -hooks-enabled-events string
-    	Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable all events
+    	Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable all events (default "pre-create,post-create,post-receive,post-terminate,post-finish")
   -hooks-grpc string
     	An gRPC endpoint to which hook events will be sent to
   -hooks-grpc-backoff int
