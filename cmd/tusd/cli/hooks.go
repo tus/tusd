@@ -98,7 +98,7 @@ func SetupPreHooks(config *handler.Config) error {
 	}
 
 	config.PreUploadCreateCallback = preCreateCallback
-	config.PreFinishCreateCallback = preFinishCallback
+	config.PreFinishResponseCallback = preFinishCallback
 
 	return nil
 }

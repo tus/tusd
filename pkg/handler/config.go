@@ -45,10 +45,10 @@ type Config struct {
 	// Otherwise the HTTP request will be aborted. This can be used to implement
 	// validation of upload metadata etc.
 	PreUploadCreateCallback func(hook HookEvent) error
-	// PreFinishCreateCallback will be invoked after an upload is completed but before
-	// as response is returned to the client. Error responses from the callback will be passed
+	// PreFinishResponseCallback will be invoked after an upload is completed but before
+	// a response is returned to the client. Error responses from the callback will be passed
 	// back to the client. This can be used to implement post-processing validation.
-	PreFinishCreateCallback func(hook HookEvent) error
+	PreFinishResponseCallback func(hook HookEvent) error
 }
 
 func (config *Config) validate() error {

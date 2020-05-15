@@ -689,8 +689,8 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		handler.Metrics.incUploadsFinished()
 
-		if handler.config.PreFinishCreateCallback != nil {
-			if err := handler.config.PreFinishCreateCallback(newHookEvent(info, r)); err != nil {
+		if handler.config.PreFinishResponseCallback != nil {
+			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
 				return err
 			}
 		}
