@@ -20,19 +20,27 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func preCreateCallback(info handler.HookEvent) error {
-	if output, err := invokeHookSync(hooks.HookPreCreate, info, true); err != nil {
+func hookCallback(typ hooks.HookType, info handler.HookEvent) error {
+	if output, err := invokeHookSync(typ, info, true); err != nil {
 		if hookErr, ok := err.(hooks.HookError); ok {
 			return hooks.NewHookError(
-				fmt.Errorf("pre-create hook failed: %s", err),
+				fmt.Errorf("%s hook failed: %s", typ, err),
 				hookErr.StatusCode(),
 				hookErr.Body(),
 			)
 		}
-		return fmt.Errorf("pre-create hook failed: %s\n%s", err, string(output))
+		return fmt.Errorf("%s hook failed: %s\n%s", typ, err, string(output))
 	}
 
 	return nil
+}
+
+func preCreateCallback(info handler.HookEvent) error {
+	return hookCallback(hooks.HookPreCreate, info)
+}
+
+func preFinishCallback(info handler.HookEvent) error {
+	return hookCallback(hooks.HookPreFinish, info)
 }
 
 func SetupHookMetrics() {
@@ -41,6 +49,7 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostReceive)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreFinish)).Add(0)
 }
 
 func SetupPreHooks(config *handler.Config) error {
@@ -89,6 +98,7 @@ func SetupPreHooks(config *handler.Config) error {
 	}
 
 	config.PreUploadCreateCallback = preCreateCallback
+	config.PreFinishResponseCallback = preFinishCallback
 
 	return nil
 }
