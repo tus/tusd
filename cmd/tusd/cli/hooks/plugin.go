@@ -13,6 +13,7 @@ type PluginHookHandler interface {
 	PostReceive(info handler.HookEvent) error
 	PostFinish(info handler.HookEvent) error
 	PostTerminate(info handler.HookEvent) error
+	PreFinish(info handler.HookEvent) error
 }
 
 type PluginHook struct {
@@ -54,6 +55,8 @@ func (h PluginHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutp
 		err = h.handler.PostCreate(info)
 	case HookPreCreate:
 		err = h.handler.PreCreate(info)
+	case HookPreFinish:
+		err = h.handler.PreFinish(info)
 	default:
 		err = fmt.Errorf("hooks: unknown hook named %s", typ)
 	}

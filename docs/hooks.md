@@ -13,7 +13,7 @@ If not otherwise noted, all hooks are invoked in a *non-blocking* way, meaning t
 
 ## Blocking Hooks
 
-On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` event. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks. 
+On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` and `pre-finish` events. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks.
 
 ### Blocking File Hooks
 
@@ -32,6 +32,12 @@ This event will be triggered before an upload is created, allowing you to run ce
 ### post-create
 
 This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration. 
+
+### pre-finish
+
+This event will be triggered after an upload is fully finished but before a response has been returned to the client.
+This is a blocking hook, as such it can be used to validate or post-process an uploaded file.
+A non-zero exit code or HTTP response greater than `400` will return a HTTP 500 error to the client.
 
 ### post-finish
 
