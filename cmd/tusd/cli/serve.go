@@ -61,7 +61,7 @@ func Serve() {
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler
 		// and do not show a greeting.
-		http.Handle("/", handler)
+		http.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
 		http.HandleFunc("/", DisplayGreeting)
