@@ -227,7 +227,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 			} else {
 				// Actual request
-				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
+				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-pre-finish-response")
 			}
 		}
 
