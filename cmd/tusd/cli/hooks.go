@@ -20,27 +20,31 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func hookCallback(typ hooks.HookType, info handler.HookEvent) error {
-	if output, err := invokeHookSync(typ, info, true); err != nil {
+func hookCallback(typ hooks.HookType, info handler.HookEvent, captureOutput bool) (error, []byte) {
+	output, err := invokeHookSync(typ, info, true)
+	if err != nil {
 		if hookErr, ok := err.(hooks.HookError); ok {
 			return hooks.NewHookError(
 				fmt.Errorf("%s hook failed: %s", typ, err),
 				hookErr.StatusCode(),
 				hookErr.Body(),
-			)
+			), nil
 		}
-		return fmt.Errorf("%s hook failed: %s\n%s", typ, err, string(output))
+		return fmt.Errorf("%s hook failed: %s\n%s", typ, err, string(output)), nil
 	}
-
-	return nil
+	if captureOutput {
+		return nil, output
+	}
+	return nil, nil
 }
 
 func preCreateCallback(info handler.HookEvent) error {
-	return hookCallback(hooks.HookPreCreate, info)
+	err, _ := hookCallback(hooks.HookPreCreate, info, false)
+	return err
 }
 
-func preFinishCallback(info handler.HookEvent) error {
-	return hookCallback(hooks.HookPreFinish, info)
+func preFinishCallback(info handler.HookEvent) (error, []byte) {
+	return hookCallback(hooks.HookPreFinish, info, true)
 }
 
 func SetupHookMetrics() {

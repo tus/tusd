@@ -48,7 +48,7 @@ type Config struct {
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
 	// a response is returned to the client. Error responses from the callback will be passed
 	// back to the client. This can be used to implement post-processing validation.
-	PreFinishResponseCallback func(hook HookEvent) error
+	PreFinishResponseCallback func(hook HookEvent) (error, []byte)
 }
 
 func (config *Config) validate() error {
