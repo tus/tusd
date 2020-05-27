@@ -42,7 +42,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusMethodNotAllowed,
 			ResHeader: map[string]string{
-				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
+				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-pre-finish-response",
 				"Access-Control-Allow-Origin":   "tus.io",
 			},
 		}).Run(handler, t)
