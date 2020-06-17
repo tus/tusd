@@ -53,7 +53,7 @@ This event will be triggered for every running upload to indicate its current pr
 
 ## Whitelisting Hook Events
 
-The `--hooks-enabled-events` option for the tusd binary works as a whitelist for hook events and takes a comma separated list of hook events (for instance: `pre-create,post-create`). This can be useful to limit the number of hook executions and save resources if you are only interested in some events. If the `--hooks-enabled-events` option is omitted, all hook events are enabled.
+The `--hooks-enabled-events` option for the tusd binary works as a whitelist for hook events and takes a comma separated list of hook events (for instance: `pre-create,post-create`). This can be useful to limit the number of hook executions and save resources if you are only interested in some events. If the `--hooks-enabled-events` option is omitted, all default hook events are enabled (pre-create, post-create, post-receive, post-terminate, post-finish).
 
 ## File Hooks
 ### The Hook Directory
