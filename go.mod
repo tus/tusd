@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.40.0
+	github.com/Azure/azure-storage-blob-go v0.9.0
 	github.com/aws/aws-sdk-go v1.20.1
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/golang/mock v1.3.1
@@ -13,8 +14,10 @@ require (
 	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0
 	github.com/stretchr/testify v1.4.0
 	github.com/vimeo/go-util v1.2.0
+	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135 // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.28.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.0.14
+	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
 )

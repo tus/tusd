@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/tus/tusd/pkg/azurestore"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,6 +69,43 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+	} else if Flags.AzureStorage != "" {
+
+		accountName := os.Getenv("AZURE_ACCOUNT_NAME")
+		if accountName == "" {
+			stderr.Fatalf("No service account name for Azure BlockBlob Storage using the AZURE_ACCOUNT_NAME environment variable.\n")
+		}
+
+		accountKey := os.Getenv("AZURE_ACCOUNT_KEY")
+		if accountKey == "" {
+			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_ACCOUNT_KEY environment variable.\n")
+		}
+
+		azureEndpoint := Flags.AzureEndpoint
+		if azureEndpoint == "" {
+			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
+				"Using endpoint https://%s.blob.core.windows.net\n", accountName)
+			azureEndpoint = "blob.core.windows.net"
+		}
+
+		azureConfig := &azurestore.AzureConfig{
+			AccountName:   accountName,
+			AccountKey:    accountKey,
+			ContainerName: Flags.AzureStorage,
+			Endpoint:      azureEndpoint,
+		}
+
+		azservice, err := azurestore.NewAzureService(azureConfig)
+		if err != nil {
+			stderr.Fatalf(err.Error())
+		}
+
+		store := azurestore.New(azservice)
+		store.ObjectPrefix = Flags.AzureObjectPrefix
+		store.Container = Flags.AzureStorage
+
+		store.UseIn(Composer)
+
 	} else {
 		dir, err := filepath.Abs(Flags.UploadDir)
 		if err != nil {
