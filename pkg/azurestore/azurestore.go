@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"github.com/tus/tusd/internal/uid"
@@ -47,13 +48,16 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	var id string
 	if info.ID == "" {
 		id = uid.Uid()
+		info.ID = id
 	} else {
 		id = info.ID
 	}
 
 	var fileBlob *FileBlob
 
+	// Check if file size is greater than append blob max size
 	if info.Size > store.Service.MaxAppendBlobSize {
+		// Check if file size is greater than block blob max size
 		if info.Size > store.Service.MaxBlockBlobSize {
 			return nil, fmt.Errorf("azurestore: max upload of %v bytes exceeded MaxBlockBlobSize of %v bytes",
 				info.Size, store.Service.MaxBlockBlobSize)
@@ -75,9 +79,7 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	}
 
 	idInfo := store.infoPath(id)
-
-	info.ID = id
-
+	// create the info file
 	infoBlob := &InfoBlob{
 		Blob: store.Service.ContainerURL.NewAppendBlobURL(idInfo),
 	}
@@ -85,7 +87,6 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	if err != nil {
 		return nil, err
 	}
-	// containerURL := store.Service.ContainerURL.String()
 
 	info.Storage = map[string]string{
 		"Type":      "azurestore",
@@ -99,7 +100,7 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		InfoBlob:    infoBlob,
 		FileBlob:    fileBlob,
 	}
-
+	// write the info file
 	err = azureUpload.writeInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("azurestore: unable to create InfoHandler file:\n%s", err)
@@ -108,10 +109,9 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	return azureUpload, nil
 }
 
-// Get the file info and file data from Azure Storage
+// Get the file info and file offset from Azure Storage
 func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handler.Upload, err error) {
 
-	// fmt.Println("GETTING UPLOAD...")
 	info := handler.FileInfo{}
 
 	infoHandler := store.infoPath(id)
@@ -124,24 +124,19 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 	data, err := infoBlob.Download(ctx)
 
 	if err != nil {
-		return nil, handler.NewHTTPError(err, 404)
+		return nil, err
 	}
 
 	if err := json.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}
 
-	//fmt.Println(fmt.Sprintf("Got InfoHandler...%s", info.ID))
-	// check if file had extension in metadata
-	extension, extExists := info.MetaData["extension"]
-	if extExists {
-		id = fmt.Sprintf("%s.%s", id, extension)
-	}
-
 	// Get the blob type we assigned to this file upload (depending on its size)
 	var fileBlob *FileBlob
 
+	// Check if file size is greater than append blob max size
 	if info.Size > store.Service.MaxAppendBlobSize {
+		// Check if file size is greater than block blob max size
 		if info.Size > store.Service.MaxBlockBlobSize {
 			return nil, fmt.Errorf("azurestore: max upload of %v bytes exceeded MaxBlockBlobSize of %v bytes",
 				info.Size, store.Service.MaxBlockBlobSize)
@@ -150,7 +145,8 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 			fileBlob = &FileBlob{
 				BlockBlob: &bb,
 			}
-			indexes, offset, err := fileBlob.GetBlockPosition(ctx)
+
+			indexes, offset, err := fileBlob.GetBlockOffset(ctx)
 
 			if err != nil {
 				return nil, err
@@ -172,7 +168,7 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 		fileBlob = &FileBlob{
 			AppendBlob: &ab,
 		}
-		offset, err := fileBlob.GetOffset(ctx)
+		offset, err := fileBlob.GetAppendOffset(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -184,6 +180,7 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 			InfoHandler: &info,
 		}, nil
 	}
+
 }
 
 func (store AzureStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
@@ -195,13 +192,12 @@ func (store AzureStore) AsLengthDeclarableUpload(upload handler.Upload) handler.
 }
 
 func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
-	// maxChunkSize := 100 * 1024 * 1024
+
 	if len(upload.Index) == 0 {
 		upload.Index = append(upload.Index, 0)
 	} else {
 		upload.Index = append(upload.Index, upload.Index[len(upload.Index)-1]+1)
 	}
-	// wg := &sync.WaitGroup{}
 
 	r := bufio.NewReader(src)
 	buf := new(bytes.Buffer)
@@ -209,45 +205,25 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 	if err != nil {
 		return 0, err
 	}
-	/*var m int64
-	m = 0
 
-	chunks := int(math.Ceil(float64(buf.Len() / maxChunkSize)))
-	// wg.Add(int(chunks))
-	for i := 0; i < chunks; i++ {
-		x := (chunks * maxChunkSize) - buf.Len()
-		overflow := buf.Len() - x
-		var b []byte
-		if i+1 == chunks && buf.Len() < chunks*maxChunkSize {
-			b = buf.Bytes()[i*maxChunkSize : (i+1)*overflow]
-		} else {
-			b = buf.Bytes()[i*maxChunkSize : (i+1)*maxChunkSize]
-		}
+	// Get the max chunk size for this specific blob type (append / block)
+	maxChunkSize, err := upload.FileBlob.MaxChunkSize(ctx)
+	if err != nil {
+		return 0, err
+	}
 
-		re := bytes.NewReader(b)
-		err = upload.FileBlob.Upload(ctx, re, upload.Index[len(upload.Index)-1])
-
-		if err != nil {
-			return m, err
-		}
-		m += int64(len(b))
-	}*/
+	chunkSize := int64(binary.Size(buf.Bytes()))
+	if chunkSize > maxChunkSize {
+		return 0, fmt.Errorf("azurestore: Chunk of size %v too large. Max chunk size is %v", chunkSize, maxChunkSize)
+	}
 
 	re := bytes.NewReader(buf.Bytes())
 	err = upload.FileBlob.Upload(ctx, re, upload.Index[len(upload.Index)-1])
 	if err != nil {
-
+		return 0, err
 	}
+
 	upload.InfoHandler.Offset += n
-
-	// TODO: The block size might be more than 100MB (which would be too big for our block)
-	//re := bytes.NewReader(buf.Bytes())
-
-	//err = upload.FileBlob.Upload(ctx, re, upload.Index[len(upload.Index)-1])
-
-	//if err != nil {
-	//	return 0, err
-	//}
 
 	return n, nil
 }
@@ -283,7 +259,7 @@ func (upload *AzureUpload) GetReader(ctx context.Context) (io.Reader, error) {
 
 // Finish the file upload
 func (upload *AzureUpload) FinishUpload(ctx context.Context) error {
-	return nil
+	return upload.FileBlob.CommitBlocks(ctx, upload.Index)
 }
 
 // Delete files

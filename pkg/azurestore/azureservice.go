@@ -163,7 +163,7 @@ func UploadBlockBlob(ctx context.Context, body io.ReadSeeker, index int, blob az
 	if err != nil {
 		return err
 	}
-	return BlockBlobCommitUpload(ctx, blob, []int{index})
+	return nil //BlockBlobCommitUpload(ctx, blob, []int{index})
 }
 
 func UploadBlockBlobStream(ctx context.Context, body io.ReadSeeker, blob azblob.BlockBlobURL) (err error) {
@@ -281,6 +281,15 @@ func (infoBlob *InfoBlob) Create(ctx context.Context) error {
 }
 
 // ==== File BlockBlob Functions ====
+func (fileBlob *FileBlob) MaxChunkSize(ctx context.Context) (int64, error) {
+	if fileBlob.BlockBlob != nil {
+		return azblob.BlockBlobMaxUploadBlobBytes, nil
+	} else if fileBlob.AppendBlob != nil {
+		return azblob.AppendBlobMaxAppendBlockBytes, nil
+	}
+	return -1, fmt.Errorf("azservice (maxchunksize): FileBlob does not contain any blob instance")
+}
+
 func (fileBlob *FileBlob) Download(ctx context.Context) (data []byte, err error) {
 	// check if block blob exists
 	if fileBlob.BlockBlob != nil {
@@ -313,29 +322,38 @@ func (fileBlob *FileBlob) Delete(ctx context.Context) error {
 	return fmt.Errorf("azureservice (delete): FileBlob does not contain any blob instance")
 }
 
-func (fileBlob *FileBlob) GetBlockPosition(ctx context.Context) ([]int, int64, error) {
+func (fileBlob *FileBlob) GetBlockOffset(ctx context.Context) ([]int, int64, error) {
 	// Get the offset of the file from azure storage
 	// For the blob, show each block (ID and size) that is a committed part of it.
+	var uncommittedIndexes []int
 	var offset int64
 	offset = 0
-	var uncommittedIndexes []int
+
+	//prop, err := fileBlob.BlockBlob.GetProperties(ctx, azblob.BlobAccessConditions{})
+	//// The file does not exist thus just set offset to 0
+	//if prop == nil {
+	//	return uncommittedIndexes, 0, nil
+	//}
+	//
+	//offset := prop.ContentLength()
 
 	getBlock, err := fileBlob.BlockBlob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
 	if err != nil {
 		return uncommittedIndexes, 0, err
 	}
+
 	// Need committed blocks to be added to offset to know how big the file really is
 	for _, block := range getBlock.CommittedBlocks {
 		offset += int64(block.Size)
 	}
 
-	// Need to get the uncommitted blocks for offset and uncommittedIndexes
+	// Need to get the uncommitted blocks so that we can commit them
 	for _, block := range getBlock.UncommittedBlocks {
 		offset += int64(block.Size)
 		uncommittedIndexes = append(uncommittedIndexes, blockIDBase64ToInt(block.Name))
 	}
 
-	// Get the block ids sorted
+	// Get the block ids in sorted order ascending
 	sort.Ints(uncommittedIndexes)
 
 	return uncommittedIndexes, offset, nil
@@ -349,7 +367,7 @@ func (fileBlob *FileBlob) Create(ctx context.Context) error {
 	return fmt.Errorf("azureservice (create blob): Append Blob does not exist on FileBlob")
 }
 
-func (fileBlob *FileBlob) GetOffset(ctx context.Context) (int64, error) {
+func (fileBlob *FileBlob) GetAppendOffset(ctx context.Context) (int64, error) {
 	if fileBlob.AppendBlob != nil {
 		prop, err := fileBlob.AppendBlob.GetProperties(ctx, azblob.BlobAccessConditions{})
 		if err != nil {
@@ -357,7 +375,17 @@ func (fileBlob *FileBlob) GetOffset(ctx context.Context) (int64, error) {
 		}
 		return prop.ContentLength(), nil
 	}
+
 	return 0, fmt.Errorf("azureservice (get offset): Append Blob does not exist on FileBlob")
+}
+
+func (fileBlob *FileBlob) CommitBlocks(ctx context.Context, indexes []int) error {
+	if fileBlob.BlockBlob != nil {
+		return BlockBlobCommitUpload(ctx, *fileBlob.BlockBlob, indexes)
+	} else if fileBlob.AppendBlob != nil {
+		return nil
+	}
+	return fmt.Errorf("azureservice (get offset): Append Blob does not exist on FileBlob")
 }
 
 // ==== Helper Functions ====
