@@ -392,6 +392,15 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	doneChan := make(chan struct{})
 	defer close(doneChan)
 
+	// If we panic or return while there are still files in the channel, then
+	// we may leak file descriptors. Let's ensure that those are cleaned up.
+	defer func() {
+		for file := range fileChan {
+			os.Remove(file.Name())
+			file.Close()
+		}
+	}()
+
 	partProducer := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
