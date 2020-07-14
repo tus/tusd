@@ -409,9 +409,6 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		}
 		n := stat.Size()
 
-		// Seek to the beginning of the file
-		file.Seek(0, 0)
-
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
 			_, err = store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
