@@ -409,9 +409,6 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	go partProducer.produce(optimalPartSize)
 
 	for file := range fileChan {
-		defer os.Remove(file.Name())
-		defer file.Close()
-
 		stat, err := file.Stat()
 		if err != nil {
 			return 0, err
@@ -420,14 +417,14 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
-			_, err = store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
+			uploadPartInput := &s3.UploadPartInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(uploadId),
 				UploadId:   aws.String(multipartId),
 				PartNumber: aws.Int64(nextPartNum),
 				Body:       file,
-			})
-			if err != nil {
+			}
+			if err := upload.putPartForUpload(ctx, uploadPartInput, file); err != nil {
 				return bytesUploaded, err
 			}
 		} else {
@@ -446,6 +443,14 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	}
 
 	return bytesUploaded - incompletePartSize, partProducer.err
+}
+
+func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File) error {
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
+	return err
 }
 
 func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
@@ -896,11 +901,14 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 	return obj, err
 }
 
-func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
+func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file *os.File) error {
+	defer os.Remove(file.Name())
+	defer file.Close()
+
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
-		Body:   r,
+		Body:   file,
 	})
 	return err
 }
