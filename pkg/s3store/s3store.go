@@ -278,42 +278,42 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	return err
 }
 
-type s3ChunkProducer struct {
+type s3PartProducer struct {
 	files chan<- *os.File
 	done  chan struct{}
 	err   error
 	r     io.Reader
 }
 
-func (scp *s3ChunkProducer) produce(chunkSize int64) {
+func (spp *s3PartProducer) produce(partSize int64) {
 	for {
-		file, err := scp.nextChunk(chunkSize)
+		file, err := spp.nextPart(partSize)
 		if err != nil {
-			scp.err = err
-			close(scp.files)
+			spp.err = err
+			close(spp.files)
 			return
 		}
 		if file == nil {
-			close(scp.files)
+			close(spp.files)
 			return
 		}
 		select {
-		case scp.files <- file:
-		case <-scp.done:
-			close(scp.files)
+		case spp.files <- file:
+		case <-spp.done:
+			close(spp.files)
 			return
 		}
 	}
 }
 
-func (scp *s3ChunkProducer) nextChunk(size int64) (*os.File, error) {
+func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 	// Create a temporary file to store the part
 	file, err := ioutil.TempFile("", "tusd-s3-tmp-")
 	if err != nil {
 		return nil, err
 	}
 
-	limitedReader := io.LimitReader(scp.r, size)
+	limitedReader := io.LimitReader(spp.r, size)
 	n, err := io.Copy(file, limitedReader)
 
 	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
@@ -389,12 +389,12 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	doneChan := make(chan struct{})
 	defer close(doneChan)
 
-	chunkProducer := s3ChunkProducer{
+	partProducer := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
 		r:     src,
 	}
-	go chunkProducer.produce(optimalPartSize)
+	go partProducer.produce(optimalPartSize)
 
 	for file := range fileChan {
 		stat, err := file.Stat()
@@ -440,7 +440,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		}
 	}
 
-	return bytesUploaded - incompletePartSize, chunkProducer.err
+	return bytesUploaded - incompletePartSize, partProducer.err
 }
 
 func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {

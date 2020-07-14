@@ -21,17 +21,17 @@ func (ErrorReader) Read(b []byte) (int, error) {
 	return 0, errors.New("error from ErrorReader")
 }
 
-func TestChunkProducerConsumesEntireReaderWithoutError(t *testing.T) {
+func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
 	expectedStr := "test"
 	r := strings.NewReader(expectedStr)
-	cp := s3ChunkProducer{
+	pp := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
 		r:     r,
 	}
-	go cp.produce(1)
+	go pp.produce(1)
 
 	actualStr := ""
 	b := make([]byte, 1)
@@ -53,15 +53,15 @@ func TestChunkProducerConsumesEntireReaderWithoutError(t *testing.T) {
 		t.Errorf("incorrect string read from channel: wanted %s, got %s", expectedStr, actualStr)
 	}
 
-	if cp.err != nil {
-		t.Errorf("unexpected error from chunk producer: %s", cp.err)
+	if pp.err != nil {
+		t.Errorf("unexpected error from part producer: %s", pp.err)
 	}
 }
 
-func TestChunkProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
+func TestPartProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
-	cp := s3ChunkProducer{
+	pp := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
 		r:     InfiniteZeroReader{},
@@ -69,7 +69,7 @@ func TestChunkProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
 
 	completedChan := make(chan struct{})
 	go func() {
-		cp.produce(10)
+		pp.produce(10)
 		completedChan <- struct{}{}
 	}()
 
@@ -85,10 +85,10 @@ func TestChunkProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
 	safelyDrainChannelOrFail(fileChan, t)
 }
 
-func TestChunkProducerExitsWhenDoneChannelIsClosedBeforeAnyChunkIsSent(t *testing.T) {
+func TestPartProducerExitsWhenDoneChannelIsClosedBeforeAnyPartIsSent(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
-	cp := s3ChunkProducer{
+	pp := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
 		r:     InfiniteZeroReader{},
@@ -98,7 +98,7 @@ func TestChunkProducerExitsWhenDoneChannelIsClosedBeforeAnyChunkIsSent(t *testin
 
 	completedChan := make(chan struct{})
 	go func() {
-		cp.produce(10)
+		pp.produce(10)
 		completedChan <- struct{}{}
 	}()
 
@@ -112,10 +112,10 @@ func TestChunkProducerExitsWhenDoneChannelIsClosedBeforeAnyChunkIsSent(t *testin
 	safelyDrainChannelOrFail(fileChan, t)
 }
 
-func TestChunkProducerExitsWhenUnableToReadFromFile(t *testing.T) {
+func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
-	cp := s3ChunkProducer{
+	pp := s3PartProducer{
 		done:  doneChan,
 		files: fileChan,
 		r:     ErrorReader{},
@@ -123,7 +123,7 @@ func TestChunkProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 
 	completedChan := make(chan struct{})
 	go func() {
-		cp.produce(10)
+		pp.produce(10)
 		completedChan <- struct{}{}
 	}()
 
@@ -136,7 +136,7 @@ func TestChunkProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 
 	safelyDrainChannelOrFail(fileChan, t)
 
-	if cp.err == nil {
+	if pp.err == nil {
 		t.Error("expected an error but didn't get one")
 	}
 }
