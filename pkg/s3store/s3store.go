@@ -330,7 +330,9 @@ func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 		return nil, err
 	}
 
-	// io.Copy returns (0, nil) when it reaches EOF
+	// If the entire request body is read and no more data is available,
+	// io.Copy returns 0 since it is unable to read any bytes. In that
+	// case, we can close the s3PartProducer.
 	if n == 0 {
 		os.Remove(file.Name())
 		file.Close()
