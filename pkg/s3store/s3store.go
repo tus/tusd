@@ -139,7 +139,7 @@ type S3Store struct {
 	// the client and stored on disk while a part is being uploaded to S3. This
 	// can help improve throughput by not blocking the client while tusd is
 	// communicating with the S3 API, which can have unpredictable latency.
-	MaxBufferedParts int
+	MaxBufferedParts int64
 }
 
 type S3API interface {
