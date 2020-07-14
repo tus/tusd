@@ -164,6 +164,7 @@ func New(bucket string, service S3API) S3Store {
 		MinPartSize:       5 * 1024 * 1024,
 		MaxMultipartParts: 10000,
 		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:  20,
 	}
 }
 
