@@ -278,6 +278,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	return err
 }
 
+// s3PartProducer converts a stream of bytes from the reader into a stream of files on disk
 type s3PartProducer struct {
 	files chan<- *os.File
 	done  chan struct{}
