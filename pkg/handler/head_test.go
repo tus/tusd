@@ -26,8 +26,8 @@ func TestHead(t *testing.T) {
 				Offset: 11,
 				Size:   44,
 				MetaData: map[string]string{
-					"name": "lunrjs.png",
-					"type": "image/png",
+					"name":  "lunrjs.png",
+					"empty": "",
 				},
 			}, nil),
 			lock.EXPECT().Unlock().Return(nil),
@@ -57,8 +57,8 @@ func TestHead(t *testing.T) {
 
 		// Since the order of a map is not guaranteed in Go, we need to be prepared
 		// for the case, that the order of the metadata may have been changed
-		if v := res.Header().Get("Upload-Metadata"); v != "name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n" &&
-			v != "type aW1hZ2UvcG5n,name bHVucmpzLnBuZw==" {
+		if v := res.Header().Get("Upload-Metadata"); v != "name bHVucmpzLnBuZw==,empty " &&
+			v != "empty ,name bHVucmpzLnBuZw==" {
 			t.Errorf("Expected valid metadata (got '%s')", v)
 		}
 	})
