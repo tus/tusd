@@ -135,6 +135,11 @@ type S3Store struct {
 	// MaxObjectSize is the maximum size an S3 Object can have according to S3
 	// API specifications. See link above.
 	MaxObjectSize int64
+	// MaxBufferedParts is the number of additional parts that can be received from
+	// the client and stored on disk while a part is being uploaded to S3. This
+	// can help improve throughput by not blocking the client while tusd is
+	// communicating with the S3 API, which can have unpredictable latency.
+	MaxBufferedParts int64
 }
 
 type S3API interface {
@@ -159,6 +164,7 @@ func New(bucket string, service S3API) S3Store {
 		MinPartSize:       5 * 1024 * 1024,
 		MaxMultipartParts: 10000,
 		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:  20,
 	}
 }
 
@@ -272,6 +278,73 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	return err
 }
 
+// s3PartProducer converts a stream of bytes from the reader into a stream of files on disk
+type s3PartProducer struct {
+	files chan<- *os.File
+	done  chan struct{}
+	err   error
+	r     io.Reader
+}
+
+func (spp *s3PartProducer) produce(partSize int64) {
+	for {
+		file, err := spp.nextPart(partSize)
+		if err != nil {
+			spp.err = err
+			close(spp.files)
+			return
+		}
+		if file == nil {
+			close(spp.files)
+			return
+		}
+		select {
+		case spp.files <- file:
+		case <-spp.done:
+			close(spp.files)
+			return
+		}
+	}
+}
+
+func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
+	// Create a temporary file to store the part
+	file, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	if err != nil {
+		return nil, err
+	}
+
+	limitedReader := io.LimitReader(spp.r, size)
+	n, err := io.Copy(file, limitedReader)
+
+	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
+	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
+	// However, for S3Store it's not important whether the stream has ended
+	// on purpose or accidentally. Therefore, we ignore this error to not
+	// prevent the remaining chunk to be stored on S3.
+	if err == io.ErrUnexpectedEOF {
+		err = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// If the entire request body is read and no more data is available,
+	// io.Copy returns 0 since it is unable to read any bytes. In that
+	// case, we can close the s3PartProducer.
+	if n == 0 {
+		os.Remove(file.Name())
+		file.Close()
+		return nil, nil
+	}
+
+	// Seek to the beginning of the file
+	file.Seek(0, 0)
+
+	return file, nil
+}
+
 func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	id := upload.id
 	store := upload.store
@@ -315,49 +388,43 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		src = io.MultiReader(incompletePartFile, src)
 	}
 
-	for {
-		// Create a temporary file to store the part in it
-		file, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	fileChan := make(chan *os.File, store.MaxBufferedParts)
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+
+	// If we panic or return while there are still files in the channel, then
+	// we may leak file descriptors. Let's ensure that those are cleaned up.
+	defer func() {
+		for file := range fileChan {
+			os.Remove(file.Name())
+			file.Close()
+		}
+	}()
+
+	partProducer := s3PartProducer{
+		done:  doneChan,
+		files: fileChan,
+		r:     src,
+	}
+	go partProducer.produce(optimalPartSize)
+
+	for file := range fileChan {
+		stat, err := file.Stat()
 		if err != nil {
-			return bytesUploaded, err
+			return 0, err
 		}
-		defer os.Remove(file.Name())
-		defer file.Close()
-
-		limitedReader := io.LimitReader(src, optimalPartSize)
-		n, err := io.Copy(file, limitedReader)
-
-		// If the HTTP PATCH request gets interrupted in the middle (e.g. because
-		// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
-		// However, for S3Store it's not important whether the stream has ended
-		// on purpose or accidentally. Therefore, we ignore this error to not
-		// prevent the remaining chunk to be stored on S3.
-		if err == io.ErrUnexpectedEOF {
-			err = nil
-		}
-
-		// io.Copy does not return io.EOF, so we not have to handle it differently.
-		if err != nil {
-			return bytesUploaded, err
-		}
-		// If io.Copy is finished reading, it will always return (0, nil).
-		if n == 0 {
-			return (bytesUploaded - incompletePartSize), nil
-		}
-
-		// Seek to the beginning of the file
-		file.Seek(0, 0)
+		n := stat.Size()
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
-			_, err = store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
+			uploadPartInput := &s3.UploadPartInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(uploadId),
 				UploadId:   aws.String(multipartId),
 				PartNumber: aws.Int64(nextPartNum),
 				Body:       file,
-			})
-			if err != nil {
+			}
+			if err := upload.putPartForUpload(ctx, uploadPartInput, file); err != nil {
 				return bytesUploaded, err
 			}
 		} else {
@@ -374,6 +441,16 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		bytesUploaded += n
 		nextPartNum += 1
 	}
+
+	return bytesUploaded - incompletePartSize, partProducer.err
+}
+
+func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File) error {
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
+	return err
 }
 
 func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
@@ -824,11 +901,14 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 	return obj, err
 }
 
-func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
+func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file *os.File) error {
+	defer os.Remove(file.Name())
+	defer file.Close()
+
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
-		Body:   r,
+		Body:   file,
 	})
 	return err
 }
