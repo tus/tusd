@@ -396,8 +396,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	// we may leak file descriptors. Let's ensure that those are cleaned up.
 	defer func() {
 		for file := range fileChan {
-			os.Remove(file.Name())
-			file.Close()
+			cleanUpTempFile(file)
 		}
 	}()
 
@@ -445,9 +444,13 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	return bytesUploaded - incompletePartSize, partProducer.err
 }
 
+func cleanUpTempFile(file *os.File) {
+	file.Close()
+	os.Remove(file.Name())
+}
+
 func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File) error {
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer cleanUpTempFile(file)
 
 	_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
 	return err
@@ -724,9 +727,7 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	if err != nil {
 		return err
 	}
-	fmt.Println(file.Name())
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer cleanUpTempFile(file)
 
 	// Download each part and append it to the temporary file
 	for _, partialUpload := range partialUploads {
@@ -902,8 +903,7 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 }
 
 func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file *os.File) error {
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer cleanUpTempFile(file)
 
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
