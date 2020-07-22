@@ -140,6 +140,10 @@ type S3Store struct {
 	// can help improve throughput by not blocking the client while tusd is
 	// communicating with the S3 API, which can have unpredictable latency.
 	MaxBufferedParts int64
+	// TemporaryDirectory is the path where S3Store will create temporary files
+	// on disk during the upload. An empty string ("", the default value) will
+	// cause S3Store to use the operating system's default temporary directory.
+	TemporaryDirectory string
 }
 
 type S3API interface {
@@ -158,13 +162,14 @@ type S3API interface {
 // New constructs a new storage using the supplied bucket and service object.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
-		Bucket:            bucket,
-		Service:           service,
-		MaxPartSize:       5 * 1024 * 1024 * 1024,
-		MinPartSize:       5 * 1024 * 1024,
-		MaxMultipartParts: 10000,
-		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
-		MaxBufferedParts:  20,
+		Bucket:             bucket,
+		Service:            service,
+		MaxPartSize:        5 * 1024 * 1024 * 1024,
+		MinPartSize:        5 * 1024 * 1024,
+		MaxMultipartParts:  10000,
+		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:   20,
+		TemporaryDirectory: "",
 	}
 }
 
@@ -280,6 +285,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 
 // s3PartProducer converts a stream of bytes from the reader into a stream of files on disk
 type s3PartProducer struct {
+	store *S3Store
 	files chan<- *os.File
 	done  chan struct{}
 	err   error
@@ -309,7 +315,7 @@ func (spp *s3PartProducer) produce(partSize int64) {
 
 func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 	// Create a temporary file to store the part
-	file, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	file, err := ioutil.TempFile(spp.store.TemporaryDirectory, "tusd-s3-tmp-")
 	if err != nil {
 		return nil, err
 	}
@@ -334,8 +340,7 @@ func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 	// io.Copy returns 0 since it is unable to read any bytes. In that
 	// case, we can close the s3PartProducer.
 	if n == 0 {
-		os.Remove(file.Name())
-		file.Close()
+		cleanUpTempFile(file)
 		return nil, nil
 	}
 
@@ -378,8 +383,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		return 0, err
 	}
 	if incompletePartFile != nil {
-		defer os.Remove(incompletePartFile.Name())
-		defer incompletePartFile.Close()
+		defer cleanUpTempFile(incompletePartFile)
 
 		if err := store.deleteIncompletePartForUpload(ctx, uploadId); err != nil {
 			return 0, err
@@ -401,6 +405,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	}()
 
 	partProducer := s3PartProducer{
+		store: store,
 		done:  doneChan,
 		files: fileChan,
 		r:     src,
@@ -723,7 +728,7 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	uploadId, multipartId := splitIds(id)
 
 	// Create a temporary file for holding the concatenated data
-	file, err := ioutil.TempFile("", "tusd-s3-concat-tmp-")
+	file, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-concat-tmp-")
 	if err != nil {
 		return err
 	}
@@ -868,7 +873,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 	}
 	defer incompleteUploadObject.Body.Close()
 
-	partFile, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	partFile, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-tmp-")
 	if err != nil {
 		return nil, 0, err
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/tus/tusd/pkg/handler"
 )
@@ -1316,4 +1318,100 @@ func TestConcatUploadsUsingDownload(t *testing.T) {
 
 	// Wait a short delay until the call to AbortMultipartUploadWithContext also occurs.
 	<-time.After(10 * time.Millisecond)
+}
+
+type s3APIWithTempFileAssertion struct {
+	*MockS3API
+	assert  *assert.Assertions
+	tempDir string
+}
+
+func (s s3APIWithTempFileAssertion) UploadPartWithContext(context.Context, *s3.UploadPartInput, ...request.Option) (*s3.UploadPartOutput, error) {
+	assert := s.assert
+
+	// Make sure that only the two temporary files from tusd are in here.
+	files, err := ioutil.ReadDir(s.tempDir)
+	assert.Nil(err)
+	for _, file := range files {
+		assert.True(strings.HasPrefix(file.Name(), "tusd-s3-tmp-"))
+	}
+	assert.Equal(len(files), 2)
+
+	return nil, fmt.Errorf("not now")
+}
+
+// This test ensures that the S3Store will cleanup all files that it creates during
+// a call to WriteChunk, even if an error occurs during that invocation.
+// Here, we provide 14 bytes to WriteChunk and since the PartSize is set to 10,
+// it will split the input into two parts (10 bytes and 4 bytes).
+// Inside the first call to UploadPartWithContext, we assert that the temporary files
+// for both parts have been created and we return an error.
+// In the end, we assert that the error bubbled up and that all temporary files have
+// been cleaned up.
+func TestWriteChunkCleansUpTempFiles(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	// Create a temporary directory, so no files get mixed in.
+	tempDir, err := ioutil.TempDir("", "tusd-s3-cleanup-tests-")
+	assert.Nil(err)
+
+	s3obj := NewMockS3API(mockCtrl)
+	s3api := s3APIWithTempFileAssertion{
+		MockS3API: s3obj,
+		assert:    assert,
+		tempDir:   tempDir,
+	}
+	store := New("bucket", s3api)
+	store.MaxPartSize = 10
+	store.MinPartSize = 10
+	store.MaxMultipartParts = 10000
+	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
+	store.TemporaryDirectory = tempDir
+
+	// The usual S3 calls for retrieving the upload
+	s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+	}, nil)
+	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("uploadId"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: aws.Int64(0),
+	}).Return(&s3.ListPartsOutput{
+		Parts: []*s3.Part{
+			{
+				Size: aws.Int64(100),
+			},
+			{
+				Size: aws.Int64(200),
+			},
+		},
+	}, nil).Times(2)
+	s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.part"),
+	}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "Not found", nil))
+	s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.part"),
+	}).Return(&s3.GetObjectOutput{}, awserr.New("NoSuchKey", "The specified key does not exist.", nil))
+
+	// No calls to s3obj.EXPECT().UploadPartWithContext since that is handled by s3APIWithTempFileAssertion
+
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
+	bytesRead, err := upload.WriteChunk(context.Background(), 300, bytes.NewReader([]byte("1234567890ABCD")))
+	assert.NotNil(err)
+	assert.Equal(err.Error(), "not now")
+	assert.Equal(int64(0), bytesRead)
+
+	files, err := ioutil.ReadDir(tempDir)
+	assert.Nil(err)
+	assert.Equal(len(files), 0)
 }

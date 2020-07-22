@@ -27,6 +27,7 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	expectedStr := "test"
 	r := strings.NewReader(expectedStr)
 	pp := s3PartProducer{
+		store: &S3Store{},
 		done:  doneChan,
 		files: fileChan,
 		r:     r,
@@ -62,6 +63,7 @@ func TestPartProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
 	pp := s3PartProducer{
+		store: &S3Store{},
 		done:  doneChan,
 		files: fileChan,
 		r:     InfiniteZeroReader{},
@@ -89,6 +91,7 @@ func TestPartProducerExitsWhenDoneChannelIsClosedBeforeAnyPartIsSent(t *testing.
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
 	pp := s3PartProducer{
+		store: &S3Store{},
 		done:  doneChan,
 		files: fileChan,
 		r:     InfiniteZeroReader{},
@@ -116,6 +119,7 @@ func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 	fileChan := make(chan *os.File)
 	doneChan := make(chan struct{})
 	pp := s3PartProducer{
+		store: &S3Store{},
 		done:  doneChan,
 		files: fileChan,
 		r:     ErrorReader{},
