@@ -26,7 +26,7 @@ func CreateComposer() {
 	if Flags.S3Bucket != "" {
 		s3Config := aws.NewConfig()
 
-                s3Config = s3Config.WithS3UseAccelerate(true)
+		s3Config = s3Config.WithS3UseAccelerate(true)
 
 		if Flags.S3Endpoint == "" {
 			stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
