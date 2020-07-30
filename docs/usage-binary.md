@@ -43,7 +43,7 @@ $ export AWS_ACCESS_KEY_ID=xxxxx
 $ export AWS_SECRET_ACCESS_KEY=xxxxx
 $ export AWS_REGION=eu-west-1
 $ tusd -s3-bucket=my-test-bucket.com -s3-transfer-acceleration
-[tusd] 2019/09/29 21:11:23 Using 's3://my-test-bucket.com' as S3 bucket for storage.
+[tusd] 2019/09/29 21:11:23 Using 's3://my-test-bucket.com' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.
 [tusd] 2019/09/29 21:11:23 Using 0.00MB as maximum size.
 [tusd] 2019/09/29 21:11:23 Using 0.0.0.0:1080 as address to listen.
 [tusd] 2019/09/29 21:11:23 Using /files/ as the base path.
