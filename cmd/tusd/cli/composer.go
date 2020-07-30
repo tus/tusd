@@ -26,15 +26,17 @@ func CreateComposer() {
 	if Flags.S3Bucket != "" {
 		s3Config := aws.NewConfig()
 
-		// if the s3-transfer-acc is true the set the config
-		// s3Config = s3Config.WithS3UseAccelerate(true)
+		if Flags.S3TransferAcceleration {
+			s3Config = s3Config.WithS3UseAccelerate(true)
+		}
 
 		if Flags.S3Endpoint == "" {
 
-			// if s3-transfer acc is false the
-			stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
-			// else 
-			// stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
+			if Flags.S3TransferAcceleration {
+				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
+			} else {
+				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+			}
 
 		} else {
 			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
