@@ -68,7 +68,7 @@ Please consult the [online documentation](https://godoc.org/github.com/tus/tusd/
 
 ## Implementing own storages
 
-The tusd server is built to be as flexible as possible and to allow the use of different upload storage mechanisms. B
+The tusd server is built to be as flexible as possible and to allow the use of different upload storage mechanisms.
 
 If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`tusd.DataStore`](https://godoc.org/github.com/tus/tusd/pkg/#DataStore) interface and using the new struct in the [configuration object](https://godoc.org/github.com/tus/tusd/pkg/#Config). Please consult the documentation about detailed information about the required methods.
 
