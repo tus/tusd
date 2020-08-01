@@ -129,7 +129,7 @@ type S3Store struct {
 	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
 	// PreferredPartSize specifies the preferred size of a single part uploaded to
-	// S3. S3Store will attempt to slice the incoming data into part with this
+	// S3. S3Store will attempt to slice the incoming data into parts with this
 	// size whenever possible. In some cases, smaller parts are necessary, so
 	// not every part may reach this value. The PreferredPartSize must be inside the
 	// range of MinPartSize to MaxPartSize.
@@ -200,7 +200,6 @@ type s3Upload struct {
 }
 
 func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
-	fmt.Println(store.PreferredPartSize)
 	// an upload larger than MaxObjectSize must throw an error
 	if info.Size > store.MaxObjectSize {
 		return nil, fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
@@ -956,7 +955,7 @@ func isAwsError(err error, code string) bool {
 
 func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
 	switch {
-	// When upload is smaller or equal PreferredPartSize, we upload in just one part.
+	// When upload is smaller or equal to PreferredPartSize, we upload in just one part.
 	case size <= store.PreferredPartSize:
 		optimalPartSize = store.PreferredPartSize
 	// Does the upload fit in MaxMultipartParts parts or less with PreferredPartSize.
