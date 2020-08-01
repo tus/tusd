@@ -38,6 +38,7 @@ func CreateComposer() {
 		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
 		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
 		store.ObjectPrefix = Flags.S3ObjectPrefix
+		store.PreferredPartSize = Flags.S3PartSize
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()

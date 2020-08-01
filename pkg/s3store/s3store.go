@@ -128,6 +128,12 @@ type S3Store struct {
 	// in bytes. This number needs to match with the underlying S3 backend or else
 	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
+	// PreferredPartSize specifies the preferred size of a single part uploaded to
+	// S3. S3Store will attempt to slice the incoming data into parts with this
+	// size whenever possible. In some cases, smaller parts are necessary, so
+	// not every part may reach this value. The PreferredPartSize must be inside the
+	// range of MinPartSize to MaxPartSize.
+	PreferredPartSize int64
 	// MaxMultipartParts is the maximum number of parts an S3 multipart upload is
 	// allowed to have according to AWS S3 API specifications.
 	// See: http://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
@@ -166,6 +172,7 @@ func New(bucket string, service S3API) S3Store {
 		Service:            service,
 		MaxPartSize:        5 * 1024 * 1024 * 1024,
 		MinPartSize:        5 * 1024 * 1024,
+		PreferredPartSize:  50 * 1024 * 1024,
 		MaxMultipartParts:  10000,
 		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
 		MaxBufferedParts:   20,
@@ -948,12 +955,12 @@ func isAwsError(err error, code string) bool {
 
 func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
 	switch {
-	// When upload is smaller or equal MinPartSize, we upload in just one part.
-	case size <= store.MinPartSize:
-		optimalPartSize = store.MinPartSize
-	// Does the upload fit in MaxMultipartParts parts or less with MinPartSize.
-	case size <= store.MinPartSize*store.MaxMultipartParts:
-		optimalPartSize = store.MinPartSize
+	// When upload is smaller or equal to PreferredPartSize, we upload in just one part.
+	case size <= store.PreferredPartSize:
+		optimalPartSize = store.PreferredPartSize
+	// Does the upload fit in MaxMultipartParts parts or less with PreferredPartSize.
+	case size <= store.PreferredPartSize*store.MaxMultipartParts:
+		optimalPartSize = store.PreferredPartSize
 	// Prerequisite: Be aware, that the result of an integer division (x/y) is
 	// ALWAYS rounded DOWN, as there are no digits behind the comma.
 	// In order to find out, whether we have an exact result or a rounded down

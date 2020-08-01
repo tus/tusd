@@ -690,6 +690,7 @@ func TestWriteChunk(t *testing.T) {
 	store := New("bucket", s3obj)
 	store.MaxPartSize = 8
 	store.MinPartSize = 4
+	store.PreferredPartSize = 4
 	store.MaxMultipartParts = 10000
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
@@ -772,6 +773,7 @@ func TestWriteChunkWithUnexpectedEOF(t *testing.T) {
 	store := New("bucket", s3obj)
 	store.MaxPartSize = 500
 	store.MinPartSize = 100
+	store.PreferredPartSize = 100
 	store.MaxMultipartParts = 10000
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
@@ -888,6 +890,7 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 	store := New("bucket", s3obj)
 	store.MaxPartSize = 8
 	store.MinPartSize = 4
+	store.PreferredPartSize = 4
 	store.MaxMultipartParts = 10000
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
@@ -956,6 +959,7 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 	store := New("bucket", s3obj)
 	store.MaxPartSize = 8
 	store.MinPartSize = 4
+	store.PreferredPartSize = 4
 	store.MaxMultipartParts = 10000
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 
@@ -1366,6 +1370,7 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	store := New("bucket", s3api)
 	store.MaxPartSize = 10
 	store.MinPartSize = 10
+	store.PreferredPartSize = 10
 	store.MaxMultipartParts = 10000
 	store.MaxObjectSize = 5 * 1024 * 1024 * 1024 * 1024
 	store.TemporaryDirectory = tempDir
