@@ -45,7 +45,7 @@ type memoryLock struct {
 	id     string
 }
 
-// LockUpload tries to obtain the exclusive lock.
+// Lock tries to obtain the exclusive lock.
 func (lock memoryLock) Lock() error {
 	lock.locker.mutex.Lock()
 	defer lock.locker.mutex.Unlock()
@@ -60,7 +60,7 @@ func (lock memoryLock) Lock() error {
 	return nil
 }
 
-// UnlockUpload releases a lock. If no such lock exists, no error will be returned.
+// Unlock releases a lock. If no such lock exists, no error will be returned.
 func (lock memoryLock) Unlock() error {
 	lock.locker.mutex.Lock()
 
