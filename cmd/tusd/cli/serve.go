@@ -1,15 +1,23 @@
 package cli
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/oklog/run"
 	"github.com/tus/tusd/pkg/handler"
 )
 
-// Setups the different components, starts a Listener and give it to
+// Serve sets up the different components, starts a Listener and give it to
 // http.Serve().
 //
 // By default it will bind to the specified host/port, unless a UNIX socket is
@@ -51,8 +59,20 @@ func Serve() {
 
 	SetupPostHooks(handler)
 
+	mux := http.NewServeMux()
+	s := &http.Server{
+		Addr:		address,
+		Handler:        mux,
+		// TODO(rbastic): what to do about these?
+		// ReadTimeout:    5000 * time.Second,
+		// WriteTimeout:   5000 * time.Second,
+		// MaxHeaderBytes: 1 << 20,
+		// END TODO(rbastic)
+	}
+
+
 	if Flags.ExposeMetrics {
-		SetupMetrics(handler)
+		SetupMetrics(mux, handler)
 		SetupHookMetrics()
 	}
 
@@ -61,18 +81,19 @@ func Serve() {
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler
 		// and do not show a greeting.
-		http.Handle("/", http.StripPrefix("/", handler))
+
+		mux.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
-		http.HandleFunc("/", DisplayGreeting)
+		mux.HandleFunc("/", DisplayGreeting)
 
 		// ... and register a route with and without the trailing slash, so we can
 		// handle uploads for /files/ and /files, for example.
 		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
 		basepathWithSlash := basepathWithoutSlash + "/"
 
-		http.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
-		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+		mux.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
+		mux.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
 	}
 
 	var listener net.Listener
@@ -92,7 +113,42 @@ func Serve() {
 		stdout.Printf("You can now upload files to: http://%s%s", address, basepath)
 	}
 
-	if err = http.Serve(listener, nil); err != nil {
-		stderr.Fatalf("Unable to serve: %s", err)
+	var g run.Group
+
+	g.Add(func() error {
+		if err = s.Serve(listener); err != nil {
+			stderr.Fatalf("Unable to serve: %s", err)
+			return err
+		}
+		return nil
+	}, func(error) {
+		// TODO(rbastic): externalize shutdown timeout? for now just 30 mins? i don't know.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*600)
+		defer cancel()
+		stderr.Fatalf("httpserver shutting down %s", s.Shutdown(ctx))
+	})
+
+	cancel := make(chan struct{})
+	g.Add(func() error {
+		return interrupt(cancel)
+	}, func(error) {
+		close(cancel)
+	})
+
+	err = g.Run()
+	if err != nil {
+		stderr.Fatalf("error", err)
+		os.Exit(-1)
+	}
+}
+
+func interrupt(cancel <-chan struct{}) error {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case sig := <-c:
+		return fmt.Errorf("received signal %s", sig)
+	case <-cancel:
+		return errors.New("canceled")
 	}
 }
