@@ -63,11 +63,6 @@ func Serve() {
 	s := &http.Server{
 		Addr:		address,
 		Handler:        mux,
-		// TODO(rbastic): what to do about these?
-		// ReadTimeout:    5000 * time.Second,
-		// WriteTimeout:   5000 * time.Second,
-		// MaxHeaderBytes: 1 << 20,
-		// END TODO(rbastic)
 	}
 
 
