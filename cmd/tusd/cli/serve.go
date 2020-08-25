@@ -118,9 +118,9 @@ func Serve() {
 		return nil
 	}, func(error) {
 		// TODO(rbastic): externalize shutdown timeout? for now just 30 mins? i don't know.
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*600)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(Flags.ShutdownTimeout))
 		defer cancel()
-		stderr.Fatalf("httpserver shutting down %s", s.Shutdown(ctx))
+		stderr.Printf("httpserver shutting down %s\n", s.Shutdown(ctx))
 	})
 
 	cancel := make(chan struct{})

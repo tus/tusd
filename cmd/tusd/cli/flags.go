@@ -40,6 +40,7 @@ var Flags struct {
 	BehindProxy             bool
 	VerboseOutput           bool
 	S3TransferAcceleration  bool
+	ShutdownTimeout         int
 }
 
 func ParseFlags() {
@@ -73,6 +74,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 	flag.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")
+	flag.IntVar(&Flags.ShutdownTimeout, "shutdown-timeout", 30, "Number of seconds before failing a graceful shutdown")
 	flag.Parse()
 
 	SetEnabledHooks()
