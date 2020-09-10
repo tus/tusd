@@ -120,27 +120,25 @@ func Serve() {
 
 	case TLS12:
 		// Ciphersuite selection comes from
-		// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6 and
-		// https://github.com/denji/golang-tls#perfect-ssl-labs-score-with-go
-		// and removes the CBC modes, due to known attacks against CBC modes.
+		// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6
 		// 128-bit AES modes remain as TLSv1.3 is enabled in this mode, and TLSv1.3 compatibility requires an AES-128 ciphersuite.
 		server.TLSConfig = &tls.Config{
 			MinVersion:               tls.VersionTLS12,
 			PreferServerCipherSuites: true,
 			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 			},
 		}
 
 	case TLS12STRONG:
-		// Ciphersuite selection as above, but limited to ECDHE AES-256 and TLSv1.3 disabled.
+		// Ciphersuite selection as above, but intersected with
+		// https://github.com/denji/golang-tls#perfect-ssl-labs-score-with-go
+		// TLSv1.3 is disabled as it requires an AES-128 ciphersuite.
 		server.TLSConfig = &tls.Config{
 			MinVersion:               tls.VersionTLS12,
 			MaxVersion:               tls.VersionTLS12,
