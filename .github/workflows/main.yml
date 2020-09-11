@@ -45,7 +45,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }} 
     - name: Deploy to heroku
-      uses: actions/checkout@v2
       uses: akhileshns/heroku-deploy@v3.4.6
       with:
         heroku_api_key: ${{secrets.HEROKU_API_KEY}}
