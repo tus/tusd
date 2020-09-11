@@ -44,6 +44,13 @@ jobs:
         files: tusd_*.*
       env:
         GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }} 
+    - name: Deploy to heroku
+      uses: actions/checkout@v2
+      uses: akhileshns/heroku-deploy@v3.4.6
+      with:
+        heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+        heroku_app_name: ${{secrets.HEROKU_APP_NAME}}
+        heroku_email: ${{secrets.HEROKU_USER_EMAIL}}
     - uses: azure/docker-login@v1
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
