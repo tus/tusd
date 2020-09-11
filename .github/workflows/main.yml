@@ -57,11 +57,4 @@ jobs:
     - name: Build and push docker image
       run: |
         docker build -t tusproject/tusd:$GITHUB_SHA .
-        docker push tusproject/tusd:$GITHUB_SHA      
-    - name: Deploy to cluster
-      uses: steebchen/kubectl@master
-      env:
-        KUBE_CONFIG_DATA: | 
-          ${{ secrets.KUBECONFIG }}
-      with:
-        args: set image --record deployment/tusd tusd=tusproject/tusd:$GITHUB_SHA -n tus       
+        docker push tusproject/tusd:$GITHUB_SHA           
