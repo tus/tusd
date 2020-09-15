@@ -67,17 +67,23 @@ $ tusd -gcs-bucket=my-test-bucket.com
 [tusd] Using /metrics as the metrics path.
 ```
 
-TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate.  The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`.
+TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate.  The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`.  The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address; note that this certificate is not appropriate for production use.
 
 ```
-$ ./tusd -upload-dir=./data -port=8443 -tls-certificate=xxxx.pem -tls-key=xxxx.key
+$ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost"
+Generating a 4096 bit RSA private key
+........................++
+..........................................++
+writing new private key to 'localhost.key'
+-----
+$ tusd -upload-dir=./data -host=127.0.0.1 -port=8443 -tls-certificate=localhost.pem -tls-key=localhost.key
 [tusd] Using './data' as directory storage.
 [tusd] Using 0.00MB as maximum size.
-[tusd] Using 0.0.0.0:8443 as address to listen.
+[tusd] Using 127.0.0.1:8443 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
 [tusd] Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
-[tusd] You can now upload files to: https://0.0.0.0:8443/files/
+[tusd] You can now upload files to: https://127.0.0.1:8443/files/
 ```
 
 
