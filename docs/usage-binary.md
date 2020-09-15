@@ -67,7 +67,7 @@ $ tusd -gcs-bucket=my-test-bucket.com
 [tusd] Using /metrics as the metrics path.
 ```
 
-TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate.  The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`.  The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address; note that this certificate is not appropriate for production use.
+TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate.  The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`.  The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address; that this certificate is not appropriate for production use.  Note also that the key file must not be encrypted/require a passphrase.
 
 ```
 $ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost"
