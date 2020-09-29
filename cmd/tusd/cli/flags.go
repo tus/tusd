@@ -40,6 +40,9 @@ var Flags struct {
 	BehindProxy             bool
 	VerboseOutput           bool
 	S3TransferAcceleration  bool
+	TLSCertFile             string
+	TLSKeyFile              string
+	TLSMode                 string
 }
 
 func ParseFlags() {
@@ -73,6 +76,9 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 	flag.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")
+	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
+	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
+	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
 	flag.Parse()
 
 	SetEnabledHooks()
