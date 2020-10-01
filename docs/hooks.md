@@ -19,7 +19,7 @@ On the other hand, there are a few *blocking* hooks, such as caused by the `pre-
 
 An exit code of `0` indicates that tusd should continue handling the request as normal. On the other hand, a non-zero exit code tells tusd to reject the request with a `500 Internal Server Error` response containing the process' output from stderr. For the sake of logging, the process' output from stdout will always be piped to tusd's stdout.
 
-### Blocking HTTP Hooks
+### Blocking HTTP(S) Hooks
 
 A successful HTTP response code (i.e. smaller than `400`) indicates that tusd should continue handling the request as normal. On the other hand, an HTTP response code greater than `400` will be forwarded to the client performing the upload, along with the body of the hook response. Only the response code will be logged by tusd.
 
