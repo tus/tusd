@@ -127,9 +127,9 @@ The process of the hook files are provided with information about the event and 
 }
 ```
 
-## HTTP Hooks
+## HTTP(S) Hooks
 
-HTTP Hooks are the second type of hooks supported by tusd. Like the file hooks, it is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an HTTP URL endpoint, which the tusd binary will issue POST requests to:
+HTTP(S) Hooks are the second type of hooks supported by tusd. Like the file hooks, it is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an HTTP(S) URL endpoint, which the tusd binary will issue POST requests to:
 
 ```bash
 $ tusd --hooks-http http://localhost:8081/write
@@ -139,7 +139,7 @@ $ tusd --hooks-http http://localhost:8081/write
 ...
 ```
 
-Note that the URL must include the `http://` prefix!
+Note that the URL must include the  http://  or  https:// ` prefix!
 
 In case of a blocking hook, HTTP Status Code 400 or greater tells tusd to reject the request (in the same way as non-zero exit code for File Hooks). See also [issue #170](https://github.com/tus/tusd/issues/170) regarding further improvements.
 
