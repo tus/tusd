@@ -164,33 +164,27 @@ func TestGetInfo(t *testing.T) {
 		ID:     mockPartial2,
 	}
 
-	var size int64 = 100
-
-	mockTusdInfo.Offset = 300
-	offsetInfoData, err := json.Marshal(mockTusdInfo)
-	assert.Nil(err)
-
-	infoR := bytes.NewReader(offsetInfoData)
-
 	ctx := context.Background()
 	gomock.InOrder(
 		service.EXPECT().ReadObject(ctx, params).Return(r, nil),
 		service.EXPECT().FilterObjects(ctx, filterParams).Return(mockPartials, nil),
 	)
 
+	var size int64 = 100
 	ctxCancel, cancel := context.WithCancel(ctx)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
-	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
-
-	service.EXPECT().WriteObject(ctx, params, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
 	info, err := upload.GetInfo(context.Background())
 	assert.Nil(err)
-	assert.Equal(mockTusdInfo, info)
+
+	expectedTusInfo := mockTusdInfo
+	expectedTusInfo.Offset = 300
+	assert.Equal(expectedTusInfo, info)
 
 	// Cancel the context to avoid getting an error from `go vet`
 	cancel()
@@ -350,14 +344,6 @@ func TestFinishUpload(t *testing.T) {
 		ID:     mockPartial2,
 	}
 
-	var size int64 = 100
-
-	mockTusdInfo.Offset = 300
-	offsetInfoData, err := json.Marshal(mockTusdInfo)
-	assert.Nil(err)
-
-	infoR := bytes.NewReader(offsetInfoData)
-
 	objectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     mockID,
@@ -376,13 +362,13 @@ func TestFinishUpload(t *testing.T) {
 		service.EXPECT().FilterObjects(ctx, filterParams2).Return(mockPartials, nil),
 	)
 
+	var size int64 = 100
 	ctxCancel, cancel := context.WithCancel(ctx)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
-	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
 
-	writeObject := service.EXPECT().WriteObject(ctx, infoParams, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
-	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(writeObject)
+	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
