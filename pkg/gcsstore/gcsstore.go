@@ -54,6 +54,7 @@ func New(bucket string, service GCSAPI) GCSStore {
 func (store GCSStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
+	composer.UseLengthDeferrer(store)
 }
 
 func (store GCSStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
@@ -85,6 +86,10 @@ func (store GCSStore) GetUpload(ctx context.Context, id string) (handler.Upload,
 }
 
 func (store GCSStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+	return upload.(*gcsUpload)
+}
+
+func (store GCSStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
 	return upload.(*gcsUpload)
 }
 
@@ -257,6 +262,19 @@ func (store GCSStore) writeInfo(ctx context.Context, id string, info handler.Fil
 	}
 
 	return nil
+}
+
+func (upload gcsUpload) DeclareLength(ctx context.Context, length int64) error {
+	info, err := upload.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+	info.Size = length
+	info.SizeIsDeferred = false
+
+	store := upload.store
+	err = store.writeInfo(ctx, store.keyWithPrefix(info.ID), info)
+	return err
 }
 
 func (upload gcsUpload) FinishUpload(ctx context.Context) error {
