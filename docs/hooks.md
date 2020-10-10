@@ -19,7 +19,7 @@ On the other hand, there are a few *blocking* hooks, such as caused by the `pre-
 
 An exit code of `0` indicates that tusd should continue handling the request as normal. On the other hand, a non-zero exit code tells tusd to reject the request with a `500 Internal Server Error` response containing the process' output from stderr. For the sake of logging, the process' output from stdout will always be piped to tusd's stdout.
 
-### Blocking HTTP Hooks
+### Blocking HTTP(S) Hooks
 
 A successful HTTP response code (i.e. smaller than `400`) indicates that tusd should continue handling the request as normal. On the other hand, an HTTP response code greater than `400` will be forwarded to the client performing the upload, along with the body of the hook response. Only the response code will be logged by tusd.
 
@@ -127,9 +127,9 @@ The process of the hook files are provided with information about the event and 
 }
 ```
 
-## HTTP Hooks
+## HTTP(S) Hooks
 
-HTTP Hooks are the second type of hooks supported by tusd. Like the file hooks, it is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an HTTP URL endpoint, which the tusd binary will issue POST requests to:
+HTTP(S) Hooks are the second type of hooks supported by tusd. Like the file hooks, it is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an HTTP(S) URL endpoint, which the tusd binary will issue POST requests to:
 
 ```bash
 $ tusd --hooks-http http://localhost:8081/write
@@ -139,7 +139,7 @@ $ tusd --hooks-http http://localhost:8081/write
 ...
 ```
 
-Note that the URL must include the `http://` prefix!
+Note that the URL must include the `http://` or `https://` prefix!
 
 In case of a blocking hook, HTTP Status Code 400 or greater tells tusd to reject the request (in the same way as non-zero exit code for File Hooks). See also [issue #170](https://github.com/tus/tusd/issues/170) regarding further improvements.
 
