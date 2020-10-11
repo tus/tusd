@@ -38,9 +38,8 @@ func TestParseMetadataHeader(t *testing.T) {
 
 // no harm to copy some lines :D
 var (
-	reOriginalForwardedHost = regexp.MustCompile(`host=([^,]+)`) // unrouted_handler.go:24
-	reModifiedForwardedHost = regexp.MustCompile(`host=([^;]+)`)
-	reForwardedProto        = regexp.MustCompile(`proto=(https?)`)
+	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`) // unrouted_handler.go:24
+	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 )
 
 const (
@@ -56,23 +55,10 @@ func TestGetHostAndProto(t *testing.T) {
 		t.Errorf("Error constructing test request : %v", err)
 	}
 
-	host, proto := getHostAndProtocol(r, true, false)
+	host, proto := getHostAndProtocol(r, true)
 	a.Equal(hostToCheck, host)
 	a.Equal(protoToCheck, proto)
 
-}
-
-func TestOriginalHostAndProto(t *testing.T) {
-	a := assert.New(t)
-	r, err := newRequest()
-	if err != nil {
-		t.Errorf("Error constructing test request : %v", err)
-	}
-
-	host, proto := getHostAndProtocol(r, true, true)
-	// a.Equal(hostToCheck, host)
-	a.Equal(protoToCheck, proto)
-	a.NotEqual(hostToCheck, host)
 }
 
 // newRequest creates new test/dummy request
@@ -88,7 +74,7 @@ func newRequest() (*http.Request, error) {
 	return request, nil
 }
 
-func getHostAndProtocol(r *http.Request, allowForwarded bool, shouldFail bool) (host, proto string) {
+func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto string) {
 	if r.TLS != nil {
 		proto = "https"
 	} else {
@@ -110,16 +96,8 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool, shouldFail bool) (
 	}
 
 	if h := r.Header.Get("Forwarded"); h != "" {
-		var hosts []string
-		switch shouldFail {
-		case true:
-			hosts = reOriginalForwardedHost.FindStringSubmatch(h)
-		default:
-			hosts = reModifiedForwardedHost.FindStringSubmatch(h)
-		}
-
-		if len(hosts) == 2 {
-			host = hosts[1]
+		if r := reForwardedHost.FindStringSubmatch(h); len(r) == 2 {
+			host = r[1]
 		}
 
 		if r := reForwardedProto.FindStringSubmatch(h); len(r) == 2 {
