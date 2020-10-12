@@ -310,11 +310,11 @@ func TestPost(t *testing.T) {
 					"Upload-Length":     "300",
 					"X-Forwarded-Host":  "bar.com",
 					"X-Forwarded-Proto": "http",
-					"Forwarded":         "proto=https,host=foo.com",
+					"Forwarded":         "for=192.168.10.112;host=upload.example.tld;proto=https;proto-version=",
 				},
 				Code: http.StatusCreated,
 				ResHeader: map[string]string{
-					"Location": "https://foo.com/files/foo",
+					"Location": "https://upload.example.tld/files/foo",
 				},
 			}).Run(handler, t)
 		})
