@@ -220,20 +220,36 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 	tmpSrcLen := (len(srcs) + MAX_OBJECT_COMPOSITION - 1) / MAX_OBJECT_COMPOSITION
 	tmpSrcs := make([]string, tmpSrcLen)
 
+	sem := make(chan struct{}, 256)
+	grp, gctx := errgroup.WithContext(ctx)
+
 	for i := 0; i < tmpSrcLen; i++ {
-		start := i * MAX_OBJECT_COMPOSITION
-		end := MAX_OBJECT_COMPOSITION * (i + 1)
-		if tmpSrcLen-i == 1 {
-			end = len(srcs)
-		}
+		i := i
+		sem <- struct{}{}
+		grp.Go(func() error {
+			defer func() {
+				<-sem
+			}()
 
-		tmpDst := fmt.Sprintf("%s_tmp_%d_%d", params.Destination, lvl, i)
-		err := service.compose(ctx, params.Bucket, srcs[start:end], tmpDst)
-		if err != nil {
-			return err
-		}
+			start := i * MAX_OBJECT_COMPOSITION
+			end := MAX_OBJECT_COMPOSITION * (i + 1)
+			if tmpSrcLen-i == 1 {
+				end = len(srcs)
+			}
 
-		tmpSrcs[i] = tmpDst
+			tmpDst := fmt.Sprintf("%s_tmp_%d_%d", params.Destination, lvl, i)
+			err := service.compose(gctx, params.Bucket, srcs[start:end], tmpDst)
+			if err != nil {
+				return err
+			}
+
+			tmpSrcs[i] = tmpDst
+			return nil
+		})
+	}
+	err := grp.Wait()
+	if err != nil {
+		return err
 	}
 
 	return service.recursiveCompose(ctx, tmpSrcs, params, lvl+1)
