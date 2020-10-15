@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 
@@ -218,7 +217,7 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 		return nil
 	}
 
-	tmpSrcLen := int(math.Ceil(float64(len(srcs)) / float64(MAX_OBJECT_COMPOSITION)))
+	tmpSrcLen := (len(srcs) + MAX_OBJECT_COMPOSITION - 1) / MAX_OBJECT_COMPOSITION
 	tmpSrcs := make([]string, tmpSrcLen)
 
 	for i := 0; i < tmpSrcLen; i++ {
