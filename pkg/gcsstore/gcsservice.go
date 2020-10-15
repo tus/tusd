@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -109,20 +110,23 @@ func (service *GCSService) DeleteObjectsWithFilter(ctx context.Context, params G
 		return err
 	}
 
-	var objectParams GCSObjectParams
+	sem := make(chan struct{}, 256)
+	grp, gctx := errgroup.WithContext(ctx)
 	for _, name := range names {
-		objectParams = GCSObjectParams{
-			Bucket: params.Bucket,
-			ID:     name,
-		}
-
-		err := service.DeleteObject(ctx, objectParams)
-		if err != nil {
-			return err
-		}
+		name := name
+		sem <- struct{}{}
+		grp.Go(func() error {
+			defer func() {
+				<-sem
+			}()
+			objectParams := GCSObjectParams{
+				Bucket: params.Bucket,
+				ID:     name,
+			}
+			return service.DeleteObject(gctx, objectParams)
+		})
 	}
-
-	return nil
+	return grp.Wait()
 }
 
 const COMPOSE_RETRIES = 3
