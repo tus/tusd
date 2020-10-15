@@ -142,6 +142,7 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 	}
 	objSrcs := make([]*storage.ObjectHandle, len(srcs))
 	var crc uint32
+	var contentType string
 	for i := 0; i < len(srcs); i++ {
 		objSrcs[i] = service.Client.Bucket(bucket).Object(srcs[i])
 		srcAttrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
@@ -152,6 +153,10 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 			return err
 		}
 
+		if contentType == "" && srcAttrs.ContentType != "" {
+			contentType = srcAttrs.ContentType
+		}
+
 		if i == 0 {
 			crc = srcAttrs.CRC32C
 		} else {
@@ -159,16 +164,8 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 		}
 	}
 
-	attrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
-		Bucket: bucket,
-		ID:     srcs[0],
-	})
-	if err != nil {
-		return err
-	}
-
 	for i := 0; i < COMPOSE_RETRIES; i++ {
-		dstCRC, err := service.ComposeFrom(ctx, objSrcs, dstParams, attrs.ContentType)
+		dstCRC, err := service.ComposeFrom(ctx, objSrcs, dstParams, contentType)
 		if err != nil {
 			return err
 		}
@@ -178,7 +175,7 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 		}
 	}
 
-	err = service.DeleteObject(ctx, GCSObjectParams{
+	err := service.DeleteObject(ctx, GCSObjectParams{
 		Bucket: bucket,
 		ID:     dst,
 	})

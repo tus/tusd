@@ -132,13 +132,6 @@ func TestComposeObjects(t *testing.T) {
 		JSON(map[string]string{})
 
 	gock.New("https://www.googleapis.com").
-		Get("/storage/v1/b/test-bucket/o/test1").
-		MatchParam("alt", "json").
-		MatchParam("projection", "full").
-		Reply(200).
-		JSON(map[string]string{})
-
-	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/test-bucket/o/test_all/compose").
 		MatchParam("alt", "json").
 		Reply(200).
