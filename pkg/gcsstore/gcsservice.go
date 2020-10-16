@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"strconv"
 	"strings"
@@ -14,8 +13,6 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-
-	"github.com/vimeo/go-util/crc32combine"
 )
 
 type GCSObjectParams struct {
@@ -128,8 +125,6 @@ func (service *GCSService) DeleteObjectsWithFilter(ctx context.Context, params G
 	return grp.Wait()
 }
 
-const COMPOSE_RETRIES = 3
-
 // Compose takes a bucket name, a list of initial source names, and a destination string to compose multiple GCS objects together
 func (service *GCSService) compose(ctx context.Context, bucket string, srcs []string, dst string) error {
 	if len(srcs) < 1 {
@@ -141,51 +136,27 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 		ID:     dst,
 	}
 	objSrcs := make([]*storage.ObjectHandle, len(srcs))
-	var crc uint32
 	var contentType string
 	for i := 0; i < len(srcs); i++ {
 		objSrcs[i] = service.Client.Bucket(bucket).Object(srcs[i])
-		srcAttrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
-			Bucket: bucket,
-			ID:     srcs[i],
-		})
-		if err != nil {
-			return err
-		}
 
-		if contentType == "" && srcAttrs.ContentType != "" {
-			contentType = srcAttrs.ContentType
-		}
-
-		if i == 0 {
-			crc = srcAttrs.CRC32C
-		} else {
-			crc = crc32combine.CRC32Combine(crc32.Castagnoli, crc, srcAttrs.CRC32C, srcAttrs.Size)
+		if contentType == "" {
+			srcAttrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
+				Bucket: bucket,
+				ID:     srcs[i],
+			})
+			if err == nil && srcAttrs.ContentType != "" {
+				contentType = srcAttrs.ContentType
+			}
 		}
 	}
 
-	for i := 0; i < COMPOSE_RETRIES; i++ {
-		dstCRC, err := service.ComposeFrom(ctx, objSrcs, dstParams, contentType)
-		if err != nil {
-			return err
-		}
-
-		if dstCRC == crc {
-			return nil
-		}
-	}
-
-	err := service.DeleteObject(ctx, GCSObjectParams{
-		Bucket: bucket,
-		ID:     dst,
-	})
-
+	_, err := service.ComposeFrom(ctx, objSrcs, dstParams, contentType)
 	if err != nil {
 		return err
 	}
 
-	err = errors.New("GCS compose failed: Mismatch of CRC32 checksums")
-	return err
+	return nil
 }
 
 // MAX_OBJECT_COMPOSITION specifies the maximum number of objects that
