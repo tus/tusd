@@ -331,12 +331,7 @@ func (service *GCSService) ComposeFrom(ctx context.Context, objSrcs []*storage.O
 	dstObj := service.Client.Bucket(dstParams.Bucket).Object(dstParams.ID)
 	c := dstObj.ComposerFrom(objSrcs...)
 	c.ContentType = contentType
-	_, err := c.Run(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	dstAttrs, err := dstObj.Attrs(ctx)
+	dstAttrs, err := c.Run(ctx)
 	if err != nil {
 		return 0, err
 	}
