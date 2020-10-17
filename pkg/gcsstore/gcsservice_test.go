@@ -3,6 +3,7 @@ package gcsstore_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"
@@ -176,6 +177,88 @@ func TestComposeObjects(t *testing.T) {
 	err = service.ComposeObjects(ctx, GCSComposeParams{
 		Bucket:      "test-bucket",
 		Sources:     []string{"test1", "test2", "test3"},
+		Destination: "test_all",
+	})
+
+	if err != nil {
+		t.Errorf("Error: %v", err)
+		return
+	}
+}
+
+func TestComposeObjectsRecursive(t *testing.T) {
+	defer gock.Off()
+
+	numSources := 50
+	sources := make([]string, 0, numSources)
+	for i := 1; i <= numSources; i++ {
+		source := fmt.Sprintf("test%d", i)
+		sources = append(sources, source)
+		gock.New("https://www.googleapis.com").
+			Get("/storage/v1/b/test-bucket/o/"+source).
+			MatchParam("alt", "json").
+			MatchParam("projection", "full").
+			Reply(200).
+			JSON(map[string]string{})
+	}
+
+	gock.New("https://www.googleapis.com").
+		Post("/storage/v1/b/test-bucket/o/test_all_tmp_0_0/compose").
+		MatchParam("alt", "json").
+		Reply(200).
+		JSON(map[string]string{})
+
+	gock.New("https://www.googleapis.com").
+		Post("/storage/v1/b/test-bucket/o/test_all_tmp_0_1/compose").
+		MatchParam("alt", "json").
+		Reply(200).
+		JSON(map[string]string{})
+
+	gock.New("https://www.googleapis.com").
+		Post("/storage/v1/b/test-bucket/o/test_all/compose").
+		MatchParam("alt", "json").
+		Reply(200).
+		JSON(map[string]string{})
+
+	gock.New("https://www.googleapis.com").
+		Get("/storage/v1/b/test-bucket/o/test_all").
+		MatchParam("alt", "json").
+		Reply(200).
+		JSON(map[string]string{})
+
+	gock.New("https://www.googleapis.com").
+		Get("/storage/v1/b/test-bucket/o").
+		MatchParam("alt", "json").
+		MatchParam("delimiter", "").
+		MatchParam("pageToken", "").
+		MatchParam("prefix", "test_all_tmp").
+		MatchParam("projection", "full").
+		MatchParam("versions", "false").
+		Reply(200).
+		JSON(map[string]string{})
+
+	gock.New("https://accounts.google.com/").
+		Post("/o/oauth2/token").Reply(200).JSON(map[string]string{
+		"access_token":  "H3l5321N123sdI4HLY/RF39FjrCRF39FjrCRF39FjrCRF39FjrC_RF39FjrCRF39FjrC",
+		"token_type":    "Bearer",
+		"refresh_token": "1/smWJksmWJksmWJksmWJksmWJk_smWJksmWJksmWJksmWJksmWJk",
+		"expiry_date":   "1425333671141",
+	})
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	service := GCSService{
+		Client: client,
+	}
+
+	err = service.ComposeObjects(ctx, GCSComposeParams{
+		Bucket:      "test-bucket",
+		Sources:     sources,
 		Destination: "test_all",
 	})
 
