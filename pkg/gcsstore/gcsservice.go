@@ -66,12 +66,21 @@ type GCSAPI interface {
 	FilterObjects(ctx context.Context, params GCSFilterParams) ([]string, error)
 }
 
+// DefaultMaxConcurrency is the default maximum API call concurrency per compose or delete operation.
+const DefaultMaxConcurrency = 256
+
 // GCSService holds the cloud.google.com/go/storage client
 // as well as its associated context.
 // Closures are used as minimal wrappers around the Google Cloud Storage API, since the Storage API cannot be mocked.
 // The usage of these closures allow them to be redefined in the testing package, allowing test to be run against this file.
 type GCSService struct {
 	Client *storage.Client
+
+	// Maximum API call concurrency per ComposeObjects or DeleteObjectsWithFilter operation.
+	// Doing the final GCS object compose and subsequent deletion of temp objects can require many individual API calls,
+	// many of which can be done concurrently. By default, up to DefaultMaxConcurrency concurrent API calls can be done
+	// per single ComposeObjects or DeleteObjectsWithFilter operation.
+	MaxConcurrency int
 }
 
 // NewGCSService returns a GCSService object given a GCloud service account file path.
@@ -106,7 +115,11 @@ func (service *GCSService) DeleteObjectsWithFilter(ctx context.Context, params G
 		return err
 	}
 
-	sem := make(chan struct{}, 256)
+	concurrency := service.MaxConcurrency
+	if concurrency <= 0 {
+		concurrency = DefaultMaxConcurrency
+	}
+	sem := make(chan struct{}, concurrency)
 	grp, gctx := errgroup.WithContext(ctx)
 	for _, name := range names {
 		name := name
@@ -188,7 +201,11 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 	tmpSrcLen := (len(srcs) + MAX_OBJECT_COMPOSITION - 1) / MAX_OBJECT_COMPOSITION
 	tmpSrcs := make([]string, tmpSrcLen)
 
-	sem := make(chan struct{}, 256)
+	concurrency := service.MaxConcurrency
+	if concurrency <= 0 {
+		concurrency = DefaultMaxConcurrency
+	}
+	sem := make(chan struct{}, concurrency)
 	grp, gctx := errgroup.WithContext(ctx)
 
 	for i := 0; i < tmpSrcLen; i++ {
