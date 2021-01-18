@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
     - name: Install Matrix Go
-      uses: actions/setup-go@v2-beta
+      uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
