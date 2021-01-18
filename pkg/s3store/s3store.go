@@ -76,10 +76,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tus/tusd/internal/uid"
 	"github.com/tus/tusd/pkg/handler"
@@ -150,6 +152,12 @@ type S3Store struct {
 	// on disk during the upload. An empty string ("", the default value) will
 	// cause S3Store to use the operating system's default temporary directory.
 	TemporaryDirectory string
+	// DisableContentHashes instructs the S3Store to not calculate the MD5 and SHA256
+	// hashes when uploading data to S3. These hashes are used for file integrity checks
+	// and for authentication. However, these hashes also consume a significant amount of
+	// CPU, so it might be desirable to disable them.
+	// Note that this property is experimental and might be removed in the future!
+	DisableContentHashes bool
 }
 
 type S3API interface {
@@ -163,6 +171,10 @@ type S3API interface {
 	DeleteObjectsWithContext(ctx context.Context, input *s3.DeleteObjectsInput, opt ...request.Option) (*s3.DeleteObjectsOutput, error)
 	CompleteMultipartUploadWithContext(ctx context.Context, input *s3.CompleteMultipartUploadInput, opt ...request.Option) (*s3.CompleteMultipartUploadOutput, error)
 	UploadPartCopyWithContext(ctx context.Context, input *s3.UploadPartCopyInput, opt ...request.Option) (*s3.UploadPartCopyOutput, error)
+}
+
+type s3APIForPresigning interface {
+	UploadPartRequest(input *s3.UploadPartInput) (req *request.Request, output *s3.UploadPartOutput)
 }
 
 // New constructs a new storage using the supplied bucket and service object.
@@ -433,9 +445,8 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 				Key:        store.keyWithPrefix(uploadId),
 				UploadId:   aws.String(multipartId),
 				PartNumber: aws.Int64(nextPartNum),
-				Body:       file,
 			}
-			if err := upload.putPartForUpload(ctx, uploadPartInput, file); err != nil {
+			if err := upload.putPartForUpload(ctx, uploadPartInput, file, n); err != nil {
 				return bytesUploaded, err
 			}
 		} else {
@@ -461,11 +472,54 @@ func cleanUpTempFile(file *os.File) {
 	os.Remove(file.Name())
 }
 
-func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File) error {
+func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File, size int64) error {
 	defer cleanUpTempFile(file)
 
-	_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
-	return err
+	if !upload.store.DisableContentHashes {
+		// By default, use the traditional approach to upload data
+		uploadPartInput.Body = file
+		_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
+		return err
+	} else {
+		// Experimental feature to prevent the AWS SDK from calculating the SHA256 hash
+		// for the parts we upload to S3.
+		// We compute the presigned URL without the body attached and then send the request
+		// on our own. This way, the body is not included in the SHA256 calculation.
+		s3api, ok := upload.store.Service.(s3APIForPresigning)
+		if !ok {
+			return fmt.Errorf("s3store: failed to cast S3 service for presigning")
+		}
+
+		s3Req, _ := s3api.UploadPartRequest(uploadPartInput)
+
+		url, err := s3Req.Presign(15 * time.Minute)
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequest("PUT", url, file)
+		if err != nil {
+			return err
+		}
+
+		// Set the Content-Length manually to prevent the usage of Transfer-Encoding: chunked,
+		// which is not supported by AWS S3.
+		req.ContentLength = size
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		if res.StatusCode != 200 {
+			buf := new(strings.Builder)
+			io.Copy(buf, res.Body)
+			return fmt.Errorf("s3store: unexpected response code %d for presigned upload: %s", res.StatusCode, buf.String())
+		}
+
+		return nil
+	}
 }
 
 func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {

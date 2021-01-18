@@ -2,8 +2,13 @@ package cli
 
 import (
 	"flag"
+	"fmt"
+	"log"
+	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
@@ -20,6 +25,7 @@ var Flags struct {
 	S3ObjectPrefix          string
 	S3Endpoint              string
 	S3PartSize              int64
+	S3DisableContentHashes  bool
 	GCSBucket               string
 	GCSObjectPrefix         string
 	EnabledHooksString      string
@@ -43,6 +49,8 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
+
+	CPUProfile string
 }
 
 func ParseFlags() {
@@ -57,6 +65,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 	flag.Int64Var(&Flags.S3PartSize, "s3-part-size", 50*1024*1024, "Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future)")
+	flag.BoolVar(&Flags.S3DisableContentHashes, "s3-disable-content-hashes", false, "Disable the calculation of MD5 and SHA256 hashes for the content that gets uploaded to S3 for minimized CPU usage (experimental and may be removed in the future)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
 	flag.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
@@ -79,12 +88,28 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
+
+	flag.StringVar(&Flags.CPUProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 
 	SetEnabledHooks()
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
+	}
+
+	if Flags.CPUProfile != "" {
+		f, err := os.Create(Flags.CPUProfile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+
+		go func() {
+			<-time.After(20 * time.Second)
+			pprof.StopCPUProfile()
+			fmt.Println("Stopped CPU profile")
+		}()
 	}
 }
 

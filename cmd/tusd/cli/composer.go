@@ -30,6 +30,12 @@ func CreateComposer() {
 			s3Config = s3Config.WithS3UseAccelerate(true)
 		}
 
+		if Flags.S3DisableContentHashes {
+			// Prevent the S3 service client from automatically
+			// adding the Content-MD5 header to S3 Object Put and Upload API calls.
+			s3Config = s3Config.WithS3DisableContentMD5Validation(true)
+		}
+
 		if Flags.S3Endpoint == "" {
 
 			if Flags.S3TransferAcceleration {
@@ -49,6 +55,7 @@ func CreateComposer() {
 		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
+		store.DisableContentHashes = Flags.S3DisableContentHashes
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
