@@ -15,19 +15,19 @@ import (
 )
 
 type AzureStore struct {
-	Service      *AzService
+	Service      AzService
 	ObjectPrefix string
 	Container    string
 }
 
 type AzureUpload struct {
 	ID          string
-	InfoBlob    FileBlob
-	FileBlob    FileBlob
+	InfoBlob    AzBlob
+	FileBlob    AzBlob
 	InfoHandler *handler.FileInfo
 }
 
-func New(service *AzService) *AzureStore {
+func New(service AzService) *AzureStore {
 	return &AzureStore{
 		Service: service,
 	}
@@ -82,7 +82,7 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		}
 	}
 
-	fileBlob, err := store.Service.NewFileBlob(ctx, id, SetBlobType(blobType))
+	fileBlob, err := store.Service.NewFileBlob(ctx, id, WithBlobType(blobType))
 
 	if err != nil {
 		return nil, err
@@ -235,11 +235,11 @@ func (upload *AzureUpload) Terminate(ctx context.Context) error {
 }
 
 func (store AzureStore) binPath(id string) string {
-	return filepath.Join(store.Service.ContainerURL.String(), id)
+	return filepath.Join(store.Service.ContainerURL(), id)
 }
 
 func (store AzureStore) infoPath(id string) string {
-	return filepath.Join(store.Service.ContainerURL.String(), id+".info")
+	return filepath.Join(store.Service.ContainerURL(), id+".info")
 }
 
 func (upload *AzureUpload) writeInfo(ctx context.Context) (err error) {
