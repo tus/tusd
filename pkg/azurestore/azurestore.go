@@ -22,10 +22,9 @@ type AzureStore struct {
 
 type AzureUpload struct {
 	ID          string
-	InfoBlob    *InfoBlob
-	FileBlob    *FileBlob
+	InfoBlob    FileBlob
+	FileBlob    FileBlob
 	InfoHandler *handler.FileInfo
-	Index       []int
 }
 
 func New(service *AzService) *AzureStore {
@@ -53,37 +52,11 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		id = info.ID
 	}
 
-	var fileBlob *FileBlob
-
-	// Check if file size is greater than append blob max size
-	if info.Size > store.Service.MaxAppendBlobSize {
-		// Check if file size is greater than block blob max size
-		if info.Size > store.Service.MaxBlockBlobSize {
-			return nil, fmt.Errorf("azurestore: max upload of %v bytes exceeded MaxBlockBlobSize of %v bytes",
-				info.Size, store.Service.MaxBlockBlobSize)
-		} else {
-			bb := store.Service.ContainerURL.NewBlockBlobURL(id)
-			fileBlob = &FileBlob{
-				BlockBlob: &bb,
-			}
-		}
-	} else {
-		ab := store.Service.ContainerURL.NewAppendBlobURL(id)
-		fileBlob = &FileBlob{
-			AppendBlob: &ab,
-		}
-		err := fileBlob.Create(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	idInfo := store.infoPath(id)
+
 	// create the info file
-	infoBlob := &InfoBlob{
-		Blob: store.Service.ContainerURL.NewAppendBlobURL(idInfo),
-	}
-	err := infoBlob.Create(ctx)
+	infoBlob, err := store.Service.NewFileBlob(ctx, idInfo)
+
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +67,34 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		"Key":       store.keyWithPrefix(id),
 	}
 
+	var blobType BlobType
+
+	if info.Size > int64(MaxBlockBlobSize) {
+		return nil, fmt.Errorf("azurestore: max upload of %d bytes exceeded MaxAppendBlobSize of %d and"+
+			" MaxBlockBlobSize of"+
+			" %d bytes",
+			info.Size, int64(MaxAppendBlobSize), int64(MaxBlockBlobSize))
+	} else {
+		if info.Size > int64(MaxAppendBlobSize) {
+			blobType = BlockBlobType
+		} else {
+			blobType = AppendBlobType
+		}
+	}
+
+	fileBlob, err := store.Service.NewFileBlob(ctx, id, SetBlobType(blobType))
+
+	if err != nil {
+		return nil, err
+	}
+
 	azureUpload := &AzureUpload{
 		ID:          info.ID,
 		InfoHandler: &info,
 		InfoBlob:    infoBlob,
 		FileBlob:    fileBlob,
 	}
+
 	// write the info file
 	err = azureUpload.writeInfo(ctx)
 	if err != nil {
@@ -114,10 +109,12 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 
 	info := handler.FileInfo{}
 
-	infoHandler := store.infoPath(id)
+	infoFileName := store.infoPath(id)
 
-	infoBlob := &InfoBlob{
-		Blob: store.Service.ContainerURL.NewAppendBlobURL(infoHandler),
+	infoBlob, err := store.Service.NewFileBlob(ctx, infoFileName)
+
+	if err != nil {
+		return nil, err
 	}
 
 	// Download info file from Azure storage
@@ -131,56 +128,27 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 		return nil, err
 	}
 
-	// Get the blob type we assigned to this file upload (depending on its size)
-	var fileBlob *FileBlob
+	fileBlob, err := store.Service.NewFileBlob(ctx, id)
 
-	// Check if file size is greater than append blob max size
-	if info.Size > store.Service.MaxAppendBlobSize {
-		// Check if file size is greater than block blob max size
-		if info.Size > store.Service.MaxBlockBlobSize {
-			return nil, fmt.Errorf("azurestore: max upload of %v bytes exceeded MaxBlockBlobSize of %v bytes",
-				info.Size, store.Service.MaxBlockBlobSize)
-		} else {
-			bb := store.Service.ContainerURL.NewBlockBlobURL(id)
-			fileBlob = &FileBlob{
-				BlockBlob: &bb,
-			}
-
-			indexes, offset, err := fileBlob.GetBlockOffset(ctx)
-
-			if err != nil {
-				return nil, err
-			}
-
-			// Set the offset
-			info.Offset = offset
-
-			return &AzureUpload{
-				ID:          id,
-				InfoBlob:    infoBlob,
-				FileBlob:    fileBlob,
-				InfoHandler: &info,
-				Index:       indexes,
-			}, nil
-		}
-	} else {
-		ab := store.Service.ContainerURL.NewAppendBlobURL(id)
-		fileBlob = &FileBlob{
-			AppendBlob: &ab,
-		}
-		offset, err := fileBlob.GetAppendOffset(ctx)
-		if err != nil {
-			return nil, err
-		}
-		info.Offset = offset
-		return &AzureUpload{
-			ID:          id,
-			InfoBlob:    infoBlob,
-			FileBlob:    fileBlob,
-			InfoHandler: &info,
-		}, nil
+	if err != nil {
+		return nil, err
 	}
 
+	offset, err := fileBlob.Offset(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the offset
+	info.Offset = offset
+
+	return &AzureUpload{
+		ID:          id,
+		InfoBlob:    infoBlob,
+		FileBlob:    fileBlob,
+		InfoHandler: &info,
+	}, nil
 }
 
 func (store AzureStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
@@ -193,12 +161,6 @@ func (store AzureStore) AsLengthDeclarableUpload(upload handler.Upload) handler.
 
 func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 
-	if len(upload.Index) == 0 {
-		upload.Index = append(upload.Index, 0)
-	} else {
-		upload.Index = append(upload.Index, upload.Index[len(upload.Index)-1]+1)
-	}
-
 	r := bufio.NewReader(src)
 	buf := new(bytes.Buffer)
 	n, err := r.WriteTo(buf)
@@ -207,10 +169,7 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 	}
 
 	// Get the max chunk size for this specific blob type (append / block)
-	maxChunkSize, err := upload.FileBlob.MaxChunkSize(ctx)
-	if err != nil {
-		return 0, err
-	}
+	maxChunkSize := upload.FileBlob.MaxChunkSizeLimit()
 
 	chunkSize := int64(binary.Size(buf.Bytes()))
 	if chunkSize > maxChunkSize {
@@ -218,7 +177,7 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 	}
 
 	re := bytes.NewReader(buf.Bytes())
-	err = upload.FileBlob.Upload(ctx, re, upload.Index[len(upload.Index)-1])
+	err = upload.FileBlob.Upload(ctx, re)
 	if err != nil {
 		return 0, err
 	}
@@ -259,7 +218,7 @@ func (upload *AzureUpload) GetReader(ctx context.Context) (io.Reader, error) {
 
 // Finish the file upload
 func (upload *AzureUpload) FinishUpload(ctx context.Context) error {
-	return upload.FileBlob.CommitBlocks(ctx, upload.Index)
+	return upload.FileBlob.Close(ctx)
 }
 
 // Delete files
@@ -290,7 +249,8 @@ func (upload *AzureUpload) writeInfo(ctx context.Context) (err error) {
 	}
 
 	r := bytes.NewReader(data)
-	err = upload.InfoBlob.UploadInfoFile(ctx, r)
+
+	err = upload.InfoBlob.Upload(ctx, r)
 
 	return err
 }
