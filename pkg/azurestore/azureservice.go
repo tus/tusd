@@ -172,9 +172,7 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	getBlock, err := blockBlob.Blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
 	if err != nil {
-		// Check the error response, and see if the error contains ServiceCode=BlobNotFound
-		// This means the blob is not found, so we can say the offset is 0
-		if strings.Contains(err.Error(), "ServiceCode=BlobNotFound") {
+		if err.(azblob.StorageError).ServiceCode() == azblob.ServiceCodeBlobNotFound {
 			return 0, nil
 		}
 
