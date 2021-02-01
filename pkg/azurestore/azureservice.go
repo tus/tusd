@@ -1,8 +1,17 @@
-// Package azurestore provides a Azure BlobStorage based backend
+// Package azurestore provides a Azure Blob Storage based backend
 
-// AzureStore is a storage backend that uses the AzService interface in order to store uploads in Azure BlobStorage.
+// AzureStore is a storage backend that uses the AzService interface in order to store uploads in Azure Blob Storage.
 // It stores the uploads in a container specified in two different BlockBlob: The `[id].info` blobs are used to store the fileinfo in JSON format. The `[id]` blobs without an extension contain the raw binary data uploaded.
 // If the upload is not finished within a week, the uncommited blocks will be discarded.
+
+// Support for setting the default Continaer access type and Blob access tier varies on your Azure Storage Account and its limits.
+// More information about Container access types and limts
+// https://docs.microsoft.com/nb-no/azure/storage/blobs/anonymous-read-access-prevent
+
+// More information about Blob access tiers and limits
+// https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-performance-tiers
+// https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview?toc=/azure/storage/blobs/toc.json#access-tiers-for-block-blob-data
+
 package azurestore
 
 import (
@@ -51,10 +60,15 @@ type AzError struct {
 }
 
 type AzBlob interface {
+	// Delete the blob
 	Delete(ctx context.Context) error
+	// Upload the blob
 	Upload(ctx context.Context, body io.ReadSeeker) error
+	// Download the contents of the blob
 	Download(ctx context.Context) ([]byte, error)
+	// Get the offset of the blob and its indexes
 	GetOffset(ctx context.Context) (int64, error)
+	// Commit the uploaded blocks to the BlockBlob
 	Commit(ctx context.Context) error
 }
 
@@ -80,13 +94,9 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		return nil, err
 	}
 
-	// The pipeline specifies things like retry policies, logging, deserialization of HTTP response payloads, and more.
-	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
-	cURL, _ := url.Parse(fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName))
-
+	// Might be limited by the storage account
+	// "" or default inherits the access type from the Storage Account
 	var containerAccessType azblob.PublicAccessType
-	var blobAccessTierType azblob.AccessTierType
-
 	switch config.ContainerAccessType {
 	case "container":
 		containerAccessType = azblob.PublicAccessContainer
@@ -97,6 +107,8 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		containerAccessType = azblob.PublicAccessNone
 	}
 
+	// Does not support the premium access tiers
+	var blobAccessTierType azblob.AccessTierType
 	switch config.BlobAccessTier {
 	case "archive":
 		blobAccessTierType = azblob.AccessTierArchive
@@ -109,7 +121,9 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		blobAccessTierType = azblob.DefaultAccessTier
 	}
 
-	fmt.Printf("===%+v\n\n", blobAccessTierType)
+	// The pipeline specifies things like retry policies, logging, deserialization of HTTP response payloads, and more.
+	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	cURL, _ := url.Parse(fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName))
 
 	// Get the ContainerURL URL
 	containerURL := azblob.NewContainerURL(*cURL, p)
@@ -123,6 +137,7 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 	}, nil
 }
 
+// Determine if we return a InfoBlob or BlockBlob, based on the name
 func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, error) {
 	var fileBlob AzBlob
 	bb := service.ContainerURL.NewBlockBlobURL(name)
@@ -140,11 +155,13 @@ func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, err
 	return fileBlob, nil
 }
 
+// Delete the blockBlob from Azure Blob Storage
 func (blockBlob *BlockBlob) Delete(ctx context.Context) error {
 	_, err := blockBlob.Blob.Delete(ctx, azblob.DeleteSnapshotsOptionInclude, azblob.BlobAccessConditions{})
 	return err
 }
 
+// Upload a block to Azure Blob Storage and add it to the indexes to be after upload is finished
 func (blockBlob *BlockBlob) Upload(ctx context.Context, body io.ReadSeeker) error {
 	// Keep track of the indexes
 	var index int
@@ -155,23 +172,21 @@ func (blockBlob *BlockBlob) Upload(ctx context.Context, body io.ReadSeeker) erro
 	}
 	blockBlob.Indexes = append(blockBlob.Indexes, index)
 
-	_, err := blockBlob.Blob.StageBlock(ctx, blockIDIntToBase64(index), body,
-		azblob.LeaseAccessConditions{},
-		nil,
-		azblob.ClientProvidedKeyOptions{})
+	_, err := blockBlob.Blob.StageBlock(ctx, blockIDIntToBase64(index), body, azblob.LeaseAccessConditions{}, nil, azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (blockBlob *BlockBlob) Download(ctx context.Context) ([]byte, error) {
+// Download the blockBlob from Azure Blob Storage
+func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err error) {
 	downloadResponse, err := blockBlob.Blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
 
+	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		url := blockBlob.Blob.URL()
 		return nil, &AzError{
-			error:      fmt.Errorf("File %s does not exist", url.String()),
+			error:      fmt.Errorf("File %s does not exist", blockBlob.Blob.ToBlockBlobURL()),
 			StatusCode: downloadResponse.StatusCode(),
 			Status:     downloadResponse.Status(),
 		}
@@ -226,36 +241,39 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 	return offset, nil
 }
 
+// After all the blocks have been uploaded, we commit the unstaged blocks by sending a Block List
 func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
-	// After all the blocks are uploaded, commit them to the blob.
 	base64BlockIDs := make([]string, len(blockBlob.Indexes))
 	for index, id := range blockBlob.Indexes {
 		base64BlockIDs[index] = blockIDIntToBase64(id)
 	}
 
-	fmt.Printf("===%+v\n\n", blockBlob.AccessTier)
-
 	_, err := blockBlob.Blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, blockBlob.AccessTier, nil, azblob.ClientProvidedKeyOptions{})
 	return err
 }
 
+// Delete the infoBlob from Azure Blob Storage
 func (infoBlob *InfoBlob) Delete(ctx context.Context) error {
 	_, err := infoBlob.Blob.Delete(ctx, azblob.DeleteSnapshotsOptionInclude, azblob.BlobAccessConditions{})
 	return err
 }
 
+// Upload the infoBlob to Azure Blob Storage
+// Because the info file is presumed to be smaller than azblob.BlockBlobMaxUploadBlobBytes (256MiB), we can upload it all in one go
+// New uploaded data will create a new, or overwrite the existing block blob
 func (infoBlob *InfoBlob) Upload(ctx context.Context, body io.ReadSeeker) error {
 	_, err := infoBlob.Blob.Upload(ctx, body, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, azblob.DefaultAccessTier, nil, azblob.ClientProvidedKeyOptions{})
 	return err
 }
 
+// Download the infoBlob from Azure Blob Storage
 func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 	downloadResponse, err := infoBlob.Blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
 
+	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		url := infoBlob.Blob.URL()
 		return nil, &AzError{
-			error:      fmt.Errorf("File %s does not exist", url.String()),
+			error:      fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL()),
 			StatusCode: downloadResponse.StatusCode(),
 			Status:     downloadResponse.Status(),
 		}
@@ -275,10 +293,12 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 	return downloadedData.Bytes(), nil
 }
 
+// infoBlob does not utilise offset, so just return 0, nil
 func (infoBlob *InfoBlob) GetOffset(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
+// infoBlob does not have uncommited blocks, so just return nil
 func (infoBlob *InfoBlob) Commit(ctx context.Context) error {
 	return nil
 }

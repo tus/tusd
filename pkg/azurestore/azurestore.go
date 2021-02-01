@@ -186,13 +186,13 @@ func (upload *AzUpload) GetReader(ctx context.Context) (io.Reader, error) {
 	return bytes.NewReader(b), nil
 }
 
-// Finish the file upload
+// Finish the file upload and commit the block list
 func (upload *AzUpload) FinishUpload(ctx context.Context) error {
 	return upload.BlockBlob.Commit(ctx)
 }
 
 func (upload *AzUpload) Terminate(ctx context.Context) error {
-	// Delete infohandler
+	// Delete info file
 	err := upload.InfoBlob.Delete(ctx)
 	if err != nil {
 		return err

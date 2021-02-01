@@ -106,6 +106,8 @@ func CreateComposer() {
 		}
 
 		azureEndpoint := Flags.AzEndpoint
+		// Enables support for using Azurite as a storage emulator without messing with proxies and stuff
+		// e.g. http://127.0.0.1:10000/devstoreaccount1
 		if azureEndpoint == "" {
 			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
 			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
