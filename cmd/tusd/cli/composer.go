@@ -93,7 +93,7 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
-	} else if Flags.AzureStorage != "" {
+	} else if Flags.AzStorage != "" {
 
 		accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
 		if accountName == "" {
@@ -105,7 +105,7 @@ func CreateComposer() {
 			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_STORAGE_KEY environment variable.\n")
 		}
 
-		azureEndpoint := Flags.AzureEndpoint
+		azureEndpoint := Flags.AzEndpoint
 		if azureEndpoint == "" {
 			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
 			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
@@ -115,10 +115,12 @@ func CreateComposer() {
 		}
 
 		azConfig := &azurestore.AzConfig{
-			AccountName:   accountName,
-			AccountKey:    accountKey,
-			ContainerName: Flags.AzureStorage,
-			Endpoint:      azureEndpoint,
+			AccountName:         accountName,
+			AccountKey:          accountKey,
+			ContainerName:       Flags.AzStorage,
+			ContainerAccessType: Flags.AzContainerAccessType,
+			BlobAccessTier:      Flags.AzBlobAccessTier,
+			Endpoint:            azureEndpoint,
 		}
 
 		azService, err := azurestore.NewAzureService(azConfig)
@@ -127,8 +129,8 @@ func CreateComposer() {
 		}
 
 		store := azurestore.New(azService)
-		store.ObjectPrefix = Flags.AzureObjectPrefix
-		store.Container = Flags.AzureStorage
+		store.ObjectPrefix = Flags.AzObjectPrefix
+		store.Container = Flags.AzStorage
 
 		store.UseIn(Composer)
 

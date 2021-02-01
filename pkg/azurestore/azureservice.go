@@ -3,10 +3,6 @@
 // AzureStore is a storage backend that uses the AzService interface in order to store uploads in Azure BlobStorage.
 // It stores the uploads in a container specified in two different BlockBlob: The `[id].info` blobs are used to store the fileinfo in JSON format. The `[id]` blobs without an extension contain the raw binary data uploaded.
 // If the upload is not finished within a week, the uncommited blocks will be discarded.
-
-// Possible future features:
-//  - Set the access tier of the blob
-//  - Change new container access
 package azurestore
 
 import (
@@ -30,8 +26,9 @@ const (
 )
 
 type azService struct {
-	ContainerURL  *azblob.ContainerURL
-	ContainerName string
+	BlobAccessTier azblob.AccessTierType
+	ContainerURL   *azblob.ContainerURL
+	ContainerName  string
 }
 
 type AzService interface {
@@ -39,11 +36,12 @@ type AzService interface {
 }
 
 type AzConfig struct {
-	AccountName      string
-	AccountKey       string
-	ContainerName    string
-	Endpoint         string
-	EndpointProtocol string
+	AccountName         string
+	AccountKey          string
+	BlobAccessTier      string
+	ContainerName       string
+	ContainerAccessType string
+	Endpoint            string
 }
 
 type AzError struct {
@@ -61,8 +59,9 @@ type AzBlob interface {
 }
 
 type BlockBlob struct {
-	Blob    *azblob.BlockBlobURL
-	Indexes []int
+	Blob       *azblob.BlockBlobURL
+	AccessTier azblob.AccessTierType
+	Indexes    []int
 }
 
 type InfoBlob struct {
@@ -85,15 +84,42 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 	cURL, _ := url.Parse(fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName))
 
-	// Instantiate a new ContainerURL, and a new BlobURL object to run operations on container (Create) and blobs (Upload and Download).
+	var containerAccessType azblob.PublicAccessType
+	var blobAccessTierType azblob.AccessTierType
+
+	switch config.ContainerAccessType {
+	case "container":
+		containerAccessType = azblob.PublicAccessContainer
+	case "blob":
+		containerAccessType = azblob.PublicAccessBlob
+	case "":
+	default:
+		containerAccessType = azblob.PublicAccessNone
+	}
+
+	switch config.BlobAccessTier {
+	case "archive":
+		blobAccessTierType = azblob.AccessTierArchive
+	case "cool":
+		blobAccessTierType = azblob.AccessTierCool
+	case "hot":
+		blobAccessTierType = azblob.AccessTierHot
+	case "":
+	default:
+		blobAccessTierType = azblob.DefaultAccessTier
+	}
+
+	fmt.Printf("===%+v\n\n", blobAccessTierType)
+
 	// Get the ContainerURL URL
 	containerURL := azblob.NewContainerURL(*cURL, p)
 	// Do not care about response since it will fail if container exists and create if it does not.
-	_, _ = containerURL.Create(context.Background(), azblob.Metadata{}, azblob.PublicAccessNone)
+	_, _ = containerURL.Create(context.Background(), azblob.Metadata{}, containerAccessType)
 
 	return &azService{
-		ContainerURL:  &containerURL,
-		ContainerName: config.ContainerName,
+		BlobAccessTier: blobAccessTierType,
+		ContainerURL:   &containerURL,
+		ContainerName:  config.ContainerName,
 	}, nil
 }
 
@@ -106,8 +132,9 @@ func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, err
 		}
 	} else {
 		fileBlob = &BlockBlob{
-			Blob:    &bb,
-			Indexes: []int{},
+			Blob:       &bb,
+			Indexes:    []int{},
+			AccessTier: service.BlobAccessTier,
 		}
 	}
 	return fileBlob, nil
@@ -206,7 +233,9 @@ func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
 		base64BlockIDs[index] = blockIDIntToBase64(id)
 	}
 
-	_, err := blockBlob.Blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, azblob.DefaultAccessTier, nil, azblob.ClientProvidedKeyOptions{})
+	fmt.Printf("===%+v\n\n", blockBlob.AccessTier)
+
+	_, err := blockBlob.Blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, blockBlob.AccessTier, nil, azblob.ClientProvidedKeyOptions{})
 	return err
 }
 
