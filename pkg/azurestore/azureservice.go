@@ -53,7 +53,6 @@ type AzError struct {
 }
 
 type AzBlob interface {
-	Create(ctx context.Context) error
 	Delete(ctx context.Context) error
 	Upload(ctx context.Context, body io.ReadSeeker) error
 	Download(ctx context.Context) ([]byte, error)
@@ -112,16 +111,6 @@ func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, err
 		}
 	}
 	return fileBlob, nil
-}
-
-func (blockBlob *BlockBlob) Create(ctx context.Context) error {
-	// We need to create an empty BlockBlob before we can start staging blocks to it
-	_, err := azblob.UploadBufferToBlockBlob(ctx, []byte{}, *blockBlob.Blob, azblob.UploadToBlockBlobOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (blockBlob *BlockBlob) Delete(ctx context.Context) error {
@@ -183,6 +172,12 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	getBlock, err := blockBlob.Blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
 	if err != nil {
+		// Check the error response, and see if the error contains ServiceCode=BlobNotFound
+		// This means the blob is not found, so we can say the offset is 0
+		if strings.Contains(err.Error(), "ServiceCode=BlobNotFound") {
+			return 0, nil
+		}
+
 		return 0, err
 	}
 
@@ -215,10 +210,6 @@ func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
 
 	_, err := blockBlob.Blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, azblob.DefaultAccessTier, nil, azblob.ClientProvidedKeyOptions{})
 	return err
-}
-
-func (infoBlob *InfoBlob) Create(ctx context.Context) error {
-	return nil
 }
 
 func (infoBlob *InfoBlob) Delete(ctx context.Context) error {

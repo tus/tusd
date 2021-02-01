@@ -52,7 +52,6 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	}
 
 	blockBlob, err := store.Service.NewBlob(ctx, store.keyWithPrefix(info.ID))
-	blockBlob.Create(ctx)
 	if err != nil {
 		return nil, err
 	}
