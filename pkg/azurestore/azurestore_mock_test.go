@@ -87,20 +87,6 @@ func (mr *MockAzBlobMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockAzBlob)(nil).Commit), arg0)
 }
 
-// Create mocks base method
-func (m *MockAzBlob) Create(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create
-func (mr *MockAzBlobMockRecorder) Create(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAzBlob)(nil).Create), arg0)
-}
-
 // Delete mocks base method
 func (m *MockAzBlob) Delete(arg0 context.Context) error {
 	m.ctrl.T.Helper()
