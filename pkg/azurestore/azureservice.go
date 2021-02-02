@@ -10,7 +10,7 @@
 
 // More information about Blob access tiers and limits
 // https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-performance-tiers
-// https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview?toc=/azure/storage/blobs/toc.json#access-tiers-for-block-blob-data
+// https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview#access-tiers-for-block-blob-data
 
 package azurestore
 
