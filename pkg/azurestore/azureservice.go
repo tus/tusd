@@ -53,12 +53,6 @@ type AzConfig struct {
 	Endpoint            string
 }
 
-type AzError struct {
-	error      error
-	StatusCode int
-	Status     string
-}
-
 type AzBlob interface {
 	// Delete the blob
 	Delete(ctx context.Context) error
@@ -80,10 +74,6 @@ type BlockBlob struct {
 
 type InfoBlob struct {
 	Blob *azblob.BlockBlobURL
-}
-
-func (a AzError) Error() string {
-	return a.error.Error()
 }
 
 // New Azure service for communication to Azure BlockBlob Storage API
@@ -185,11 +175,7 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err erro
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		return nil, &AzError{
-			error:      fmt.Errorf("File %s does not exist", blockBlob.Blob.ToBlockBlobURL()),
-			StatusCode: downloadResponse.StatusCode(),
-			Status:     downloadResponse.Status(),
-		}
+		return nil, fmt.Errorf("File %s does not exist", blockBlob.Blob.ToBlockBlobURL())
 	}
 	if err != nil {
 		return nil, err
@@ -272,11 +258,7 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		return nil, &AzError{
-			error:      fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL()),
-			StatusCode: downloadResponse.StatusCode(),
-			Status:     downloadResponse.Status(),
-		}
+		return nil, fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL())
 	}
 	if err != nil {
 		return nil, err
