@@ -6,7 +6,7 @@
 
 // Support for setting the default Continaer access type and Blob access tier varies on your Azure Storage Account and its limits.
 // More information about Container access types and limts
-// https://docs.microsoft.com/nb-no/azure/storage/blobs/anonymous-read-access-prevent
+// https://docs.microsoft.com/en-us/azure/storage/blobs/anonymous-read-access-configure?tabs=portal
 
 // More information about Blob access tiers and limits
 // https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-performance-tiers
