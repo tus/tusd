@@ -10,6 +10,7 @@ import (
 	"github.com/tus/tusd/internal/uid"
 	"github.com/tus/tusd/pkg/handler"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 )
@@ -172,17 +173,41 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 	maxChunkSize := upload.FileBlob.MaxChunkSizeLimit()
 
 	chunkSize := int64(binary.Size(buf.Bytes()))
+	chunkData := buf.Bytes()
+
+	var byteChunks [][]byte
+
+	// if the chunk sent is greater than what is supported by azure.
+	// we reduce it into a couple of uploads.
 	if chunkSize > maxChunkSize {
+		chunks := int(math.Ceil(float64(chunkSize / maxChunkSize)))
+		for i := 0; i < chunks; i++ {
+			startChunk := int64(i) * maxChunkSize
+			endChunk := startChunk + maxChunkSize
+
+			if endChunk > chunkSize {
+				endChunk = chunkSize
+			}
+
+			byteChunks = append(byteChunks, chunkData[startChunk:endChunk])
+		}
+
 		return 0, fmt.Errorf("azurestore: Chunk of size %v too large. Max chunk size is %v", chunkSize, maxChunkSize)
+	} else {
+		byteChunks = append(byteChunks, chunkData)
 	}
 
-	re := bytes.NewReader(buf.Bytes())
-	err = upload.FileBlob.Upload(ctx, re)
-	if err != nil {
-		return 0, err
-	}
+    // upload each chunk in sequential order.
+    // if any of the chunks fail, return an error.
+	for i := range byteChunks {
+		re := bytes.NewReader(byteChunks[i])
+		err = upload.FileBlob.Upload(ctx, re)
+		if err != nil {
+			return 0, err
+		}
 
-	upload.InfoHandler.Offset += n
+		upload.InfoHandler.Offset += int64(len(byteChunks[i]))
+	}
 
 	return n, nil
 }
