@@ -11,7 +11,6 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 	"io"
 	"math"
-	"path/filepath"
 	"strings"
 )
 
@@ -83,7 +82,19 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		}
 	}
 
-	fileBlob, err := store.Service.NewFileBlob(ctx, id, WithBlobType(blobType))
+	// Specify the file content type inside the meta information
+	metaContentType, extExists := info.MetaData["contentType"]
+
+	var fileBlobOptions []OptionFileBlob
+	fileBlobOptions = append(fileBlobOptions, WithBlobType(blobType))
+
+	// check if the optional extension meta data was passed
+	// defaults to octet-stream
+	if extExists {
+		fileBlobOptions = append(fileBlobOptions, WithContentType(metaContentType))
+	}
+
+	fileBlob, err := store.Service.NewFileBlob(ctx, id, fileBlobOptions...)
 
 	if err != nil {
 		return nil, err
@@ -164,7 +175,7 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 
 	r := bufio.NewReader(src)
 	buf := new(bytes.Buffer)
-	n, err := r.WriteTo(buf)
+	_, err := r.WriteTo(buf)
 	if err != nil {
 		return 0, err
 	}
@@ -180,7 +191,7 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 	// if the chunk sent is greater than what is supported by azure.
 	// we reduce it into a couple of uploads.
 	if chunkSize > maxChunkSize {
-		chunks := int(math.Ceil(float64(chunkSize / maxChunkSize)))
+		chunks := int(math.Ceil(float64(chunkSize) / float64(maxChunkSize)))
 		for i := 0; i < chunks; i++ {
 			startChunk := int64(i) * maxChunkSize
 			endChunk := startChunk + maxChunkSize
@@ -191,25 +202,27 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 
 			byteChunks = append(byteChunks, chunkData[startChunk:endChunk])
 		}
-
-		return 0, fmt.Errorf("azurestore: Chunk of size %v too large. Max chunk size is %v", chunkSize, maxChunkSize)
 	} else {
 		byteChunks = append(byteChunks, chunkData)
 	}
 
-    // upload each chunk in sequential order.
-    // if any of the chunks fail, return an error.
+	var totalOffset int64
+	// upload each chunk in sequential order.
+	// if any of the chunks fail, return an error.
 	for i := range byteChunks {
 		re := bytes.NewReader(byteChunks[i])
 		err = upload.FileBlob.Upload(ctx, re)
+
 		if err != nil {
-			return 0, err
+			return totalOffset, err
 		}
 
-		upload.InfoHandler.Offset += int64(len(byteChunks[i]))
+		currentOffset := int64(binary.Size(byteChunks[i]))
+		totalOffset += currentOffset
+		upload.InfoHandler.Offset += currentOffset
 	}
 
-	return n, nil
+	return totalOffset, nil
 }
 
 func (upload *AzureUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
@@ -260,11 +273,12 @@ func (upload *AzureUpload) Terminate(ctx context.Context) error {
 }
 
 func (store AzureStore) binPath(id string) string {
-	return filepath.Join(store.Service.ContainerURL(), id)
+	return id
 }
 
 func (store AzureStore) infoPath(id string) string {
-	return filepath.Join(store.Service.ContainerURL(), id+".info")
+	// return filepath.Join(store.Service.ContainerURL(), id+".info")
+	return fmt.Sprintf("%s.info", id)
 }
 
 func (upload *AzureUpload) writeInfo(ctx context.Context) (err error) {

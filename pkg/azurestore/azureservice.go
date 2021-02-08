@@ -141,6 +141,16 @@ func WithBlobType(blobType BlobType) OptionFileBlob {
 	return blobTypeOption(blobType)
 }
 
+type contentTypeOption string
+
+func (c contentTypeOption) apply(opts *fileBlobOptions) {
+	opts.contentType = string(c)
+}
+
+func WithContentType(contentType string) OptionFileBlob {
+	return contentTypeOption(contentType)
+}
+
 type AzureError struct {
 	error      error
 	StatusCode int
@@ -224,13 +234,16 @@ func (service *azService) NewFileBlob(ctx context.Context, name string, opts ...
 	switch options.blobType {
 	case AppendBlobType:
 		ab := service.container.NewAppendBlobURL(name)
-		// TODO: check status code
-		_, err := ab.Create(ctx, azblob.BlobHTTPHeaders{
-			ContentType: options.contentType,
-		}, azblob.Metadata{}, azblob.BlobAccessConditions{}, nil, azblob.ClientProvidedKeyOptions{})
-
+		_, err := ab.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
 		if err != nil {
-			return nil, err
+			// TODO: check status code
+			_, err = ab.Create(ctx, azblob.BlobHTTPHeaders{
+				ContentType: options.contentType,
+			}, azblob.Metadata{}, azblob.BlobAccessConditions{}, nil, azblob.ClientProvidedKeyOptions{})
+
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		fileBlob = &appendBlob{
@@ -278,6 +291,12 @@ func (blockBlob *blockBlob) Download(ctx context.Context) ([]byte, error) {
 	downloadData := bytes.Buffer{}
 
 	_, err = downloadData.ReadFrom(bodyStream)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = bodyStream.Close()
 
 	if err != nil {
 		return nil, err
@@ -434,9 +453,17 @@ func (appendBlob *appendBlob) Download(ctx context.Context) ([]byte, error) {
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
 	downloadData := bytes.Buffer{}
 	_, err = downloadData.ReadFrom(bodyStream)
+
 	if err != nil {
 		return nil, err
 	}
+
+	err = bodyStream.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return downloadData.Bytes(), nil
 }
 
@@ -482,7 +509,7 @@ func (appendBlob *appendBlob) Offset(ctx context.Context) (int64, error) {
 }
 
 func (appendBlob *appendBlob) MaxChunkSizeLimit() int64 {
-	return int64(MaxBlockBlobChunkSize)
+	return int64(MaxAppendBlobChunkSize)
 }
 
 func (appendBlob *appendBlob) MaxSizeLimit() int64 {
