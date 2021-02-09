@@ -61,12 +61,76 @@ func TestNewUpload(t *testing.T) {
 	r := bytes.NewReader(data)
 	assert.Greater(r.Len(), 0)
 
-	service.EXPECT().ContainerURL().Return(storeEndpoint)
+	// service.EXPECT().ContainerURL().Return(storeEndpoint)
 	service.EXPECT().NewFileBlob(ctx, fmt.Sprintf("%s.info", mockTusdInfo.ID)).Return(infoBlob, nil)
 	service.EXPECT().NewFileBlob(ctx, mockTusdInfo.ID, azurestore.WithBlobType(azurestore.AppendBlobType)).Return(fileBlob, nil)
-	infoBlob.EXPECT().Upload(ctx, r).Return(nil)
+	infoBlob.EXPECT().Upload(ctx, gomock.Any()).Return(nil)
 
 	upload, err := store.NewUpload(ctx, mockTusdInfo)
+
+	assert.Nil(err)
+	assert.NotNil(upload)
+}
+
+func TestGetUploadNewFiles(t *testing.T) {
+	ctx := context.Background()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockAzService(mockCtrl)
+
+	store := azurestore.New(service)
+
+	infoBlob := NewMockAzBlob(mockCtrl)
+	fileBlob := NewMockAzBlob(mockCtrl)
+
+	data, err := json.Marshal(mockTusdInfo)
+	assert.Nil(err)
+
+	r := bytes.NewReader(data)
+	assert.Greater(r.Len(), 0)
+	// var offset int64
+	service.EXPECT().GetFileBlob(fmt.Sprintf("%s.info", mockTusdInfo.ID)).Return(infoBlob, nil)
+	infoBlob.EXPECT().Download(ctx).Return(data, nil)
+	service.EXPECT().GetFileBlob(mockTusdInfo.ID).Return(fileBlob, nil)
+	fileBlob.EXPECT().Exists(ctx).Return(false)
+
+	upload, err := store.GetUpload(ctx, mockTusdInfo.ID)
+
+	assert.Nil(err)
+	assert.NotNil(upload)
+}
+
+func TestGetUploadResume(t *testing.T) {
+	ctx := context.Background()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockAzService(mockCtrl)
+
+	store := azurestore.New(service)
+
+	infoBlob := NewMockAzBlob(mockCtrl)
+	fileBlob := NewMockAzBlob(mockCtrl)
+
+	data, err := json.Marshal(mockTusdInfo)
+	assert.Nil(err)
+
+	r := bytes.NewReader(data)
+	assert.Greater(r.Len(), 0)
+
+	service.EXPECT().GetFileBlob(fmt.Sprintf("%s.info", mockTusdInfo.ID)).Return(infoBlob, nil)
+	infoBlob.EXPECT().Download(ctx).Return(data, nil)
+	service.EXPECT().GetFileBlob(mockTusdInfo.ID).Return(fileBlob, nil)
+	fileBlob.EXPECT().Exists(ctx).Return(true)
+
+	var offset int64
+
+	fileBlob.EXPECT().Offset(ctx).Return(offset, nil)
+
+	upload, err := store.GetUpload(ctx, mockTusdInfo.ID)
 
 	assert.Nil(err)
 	assert.NotNil(upload)

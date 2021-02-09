@@ -49,6 +49,21 @@ func (mr *MockAzServiceMockRecorder) ContainerURL() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerURL", reflect.TypeOf((*MockAzService)(nil).ContainerURL))
 }
 
+// GetFileBlob mocks base method
+func (m *MockAzService) GetFileBlob(arg0 string) (azurestore.AzBlob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFileBlob", arg0)
+	ret0, _ := ret[0].(azurestore.AzBlob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFileBlob indicates an expected call of GetFileBlob
+func (mr *MockAzServiceMockRecorder) GetFileBlob(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileBlob", reflect.TypeOf((*MockAzService)(nil).GetFileBlob), arg0)
+}
+
 // NewContainer mocks base method
 func (m *MockAzService) NewContainer(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -147,6 +162,20 @@ func (m *MockAzBlob) Download(arg0 context.Context) ([]byte, error) {
 func (mr *MockAzBlobMockRecorder) Download(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockAzBlob)(nil).Download), arg0)
+}
+
+// Exists mocks base method
+func (m *MockAzBlob) Exists(arg0 context.Context) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Exists", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Exists indicates an expected call of Exists
+func (mr *MockAzBlobMockRecorder) Exists(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockAzBlob)(nil).Exists), arg0)
 }
 
 // MaxChunkSizeLimit mocks base method

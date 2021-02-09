@@ -368,12 +368,6 @@ func (blockBlob *blockBlob) Upload(ctx context.Context, body io.ReadSeeker) erro
 		return err
 	}
 
-	/*err = blockBlob.Close(ctx)
-
-	if err != nil {
-		return err
-	}*/
-
 	return nil
 }
 
