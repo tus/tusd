@@ -73,29 +73,29 @@ func CreateComposer() {
 
 		accountName := os.Getenv("AZURE_ACCOUNT_NAME")
 		if accountName == "" {
-			stderr.Fatalf("No service account name for Azure BlockBlob Storage using the AZURE_ACCOUNT_NAME environment variable.\n")
+			stderr.Fatalf("No service account name for Azure blockBlob Storage using the AZURE_ACCOUNT_NAME environment variable.\n")
 		}
 
 		accountKey := os.Getenv("AZURE_ACCOUNT_KEY")
 		if accountKey == "" {
-			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_ACCOUNT_KEY environment variable.\n")
+			stderr.Fatalf("No service account key for Azure blockBlob Storage using the AZURE_ACCOUNT_KEY environment variable.\n")
 		}
+
+		var azOpts []azurestore.OptionAzureService
 
 		azureEndpoint := Flags.AzureEndpoint
-		if azureEndpoint == "" {
+		if azureEndpoint != "" {
+			stdout.Printf("Using Custom Azure Endpoint\n"+
+				"https://%s.blob.core.windows.net\n", accountName)
+			azOpts = append(azOpts, azurestore.WithEndpoint(azureEndpoint))
+		} else {
 			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
 				"Using endpoint https://%s.blob.core.windows.net\n", accountName)
-			azureEndpoint = "blob.core.windows.net"
 		}
 
-		azureConfig := &azurestore.AzureConfig{
-			AccountName:   accountName,
-			AccountKey:    accountKey,
-			ContainerName: Flags.AzureStorage,
-			Endpoint:      azureEndpoint,
-		}
+		azOpts = append(azOpts, azurestore.WithContainerName(Flags.AzureStorage))
 
-		azservice, err := azurestore.NewAzureService(azureConfig)
+		azservice, err := azurestore.NewAzureService(accountName, accountKey, azOpts...)
 		if err != nil {
 			stderr.Fatalf(err.Error())
 		}

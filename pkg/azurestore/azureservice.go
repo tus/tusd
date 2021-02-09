@@ -3,7 +3,7 @@
 To communicate with the azure REST API for blob creation, uploads, downloads there requires 3 things:
 1. SharedKeyCredentials (load from json)
 2. Pipeline: The pipeline specifies things like retry policies, logging, deserialization of HTTP response payloads, and more.
-3. Instantiate a new ContainerURL, and a new BlobURL object to run operations on container (Create) and blobs (Upload and Download).
+3. Instantiate a new container, and a new BlobURL object to run operations on container (Create) and blobs (Upload and Download).
 
 Limits of Azure storage:
 https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#storage-limits
@@ -11,7 +11,7 @@ https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/azure-s
 There are 3 different types of Blobs on Azure: Block-, Append- and Page Blobs.
 https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
 
-Block BlockBlob:
+Block blockBlob:
  - Can go up to 4.75TB in size (100MB per block X 50,000 blocks)
  - Need to commit blocks to the blob else it's discarded after 1 week.
  - Max 100,000 uncommitted blocks
@@ -20,13 +20,13 @@ Block BlockBlob:
  - Each block can include an MD5 hash to verify the transfer, so you can track upload progress and re-send blocks as needed.
  - You can upload blocks in any order, and determine their sequence in the final block list commitment step
 
-Append BlockBlob
+Append blockBlob
  - Can go up to 195 GB (4 MB X 50,000 blocks)
  - Comprised of blocks and is optimized for append operations
  - When you modify an append blob, blocks are added to the end of the blob only
  - Each block in an append blob can be a different size, up to a maximum of 4 MB
 
-Page BlockBlob
+Page blockBlob
  - A collection of 512-byte pages optimized for random read and write operations
  - To create a page blob, you initialize the page blob and specify the maximum size the page blob will grow
  - The maximum size for a page blob is 8 TB
@@ -39,7 +39,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"io"
@@ -47,14 +46,137 @@ import (
 	"sort"
 )
 
-type AzService struct {
-	ContainerURL           *azblob.ContainerURL
-	ContainerName          string
-	MaxBlockBlobSize       int64
-	MaxBlockBlobChunkSize  int64
-	MaxAppendBlobSize      int64
-	MaxAppendBlobChunkSize int64
-	MaxPageBlobSize        int64
+type BlobType uint
+
+const (
+	// for smaller files (or smaller chunks - 4MB) total 195GB (50,000 blocks)
+	AppendBlobType BlobType = iota
+	// for larger files (or larger chunks - 100MB) total 4.75TB (50,000 blocks)
+	BlockBlobType
+)
+
+type ChunkSize int64
+
+const (
+	MaxAppendBlobChunkSize ChunkSize = azblob.AppendBlobMaxAppendBlockBytes
+	MaxAppendBlobSize      ChunkSize = azblob.AppendBlobMaxAppendBlockBytes * azblob.AppendBlobMaxBlocks
+	MaxBlockBlobChunkSize  ChunkSize = azblob.BlockBlobMaxStageBlockBytes
+	MaxBlockBlobSize       ChunkSize = azblob.BlockBlobMaxBlocks * azblob.BlockBlobMaxStageBlockBytes
+	MaxPageBlobSize        ChunkSize = azblob.PageBlobMaxUploadPagesBytes
+)
+
+// A AzBlob is a wrapper around the azure appendBlob and blockBlob types.
+type AzBlob interface {
+	// Download the contents of the blob
+	Download(ctx context.Context) ([]byte, error)
+	// Upload to the blob
+	Upload(ctx context.Context, body io.ReadSeeker) error
+	// Delete the blob
+	Delete(ctx context.Context) error
+	// Close the blob (when it's blockBlob it will commit all the changes).
+	Close(ctx context.Context) error
+	// Get the file byte offset
+	Offset(ctx context.Context) (int64, error)
+	// Check if this blob exists
+	Exists(ctx context.Context) bool
+	// Get this blob max chunk size
+	MaxChunkSizeLimit() int64
+	// Get this blob max size
+	MaxSizeLimit() int64
+}
+
+type BlockBlob interface {
+	// Download the contents of the blob
+	Download(ctx context.Context) ([]byte, error)
+	// Upload to the blob
+	Upload(ctx context.Context, body io.ReadSeeker) error
+	// Delete the blob
+	Delete(ctx context.Context) error
+	// Close the blob (when it's blockBlob it will commit all the changes).
+	Close(ctx context.Context) error
+	// Get the file byte offset
+	Offset(ctx context.Context) (int64, error)
+	// Check if this blob exists
+	Exists(ctx context.Context) bool
+	// Get this blob max chunk size
+	MaxChunkSizeLimit() int64
+	// Get this blob max size
+	MaxSizeLimit() int64
+	// Set the indexes if known
+	SetIndexes(indexes []int)
+	// Get all the uncommitted indexes
+	GetUncommittedIndexes(ctx context.Context) ([]int, error)
+}
+
+type AppendBlob AzBlob
+
+type AzService interface {
+	NewContainer(ctx context.Context) error
+	NewFileBlob(ctx context.Context, name string, opts ...OptionFileBlob) (AzBlob, error)
+	GetFileBlob(name string) (AzBlob, error)
+	ContainerURL() string
+}
+
+// === Azure Service Options ===
+type OptionAzureService interface {
+	apply(options *azureOptions)
+}
+
+type azureOptions struct {
+	accountName   string
+	accountKey    string
+	containerName string
+	endpoint      string
+}
+
+type containerNameOption string
+
+func (c containerNameOption) apply(opts *azureOptions) {
+	opts.containerName = string(c)
+}
+
+func WithContainerName(name string) OptionAzureService {
+	return containerNameOption(name)
+}
+
+type endpointOption string
+
+func (e endpointOption) apply(opts *azureOptions) {
+	opts.endpoint = string(e)
+}
+
+func WithEndpoint(endpoint string) OptionAzureService {
+	return endpointOption(endpoint)
+}
+
+// === Azure Blob Options ===
+type OptionFileBlob interface {
+	apply(options *fileBlobOptions)
+}
+
+type fileBlobOptions struct {
+	blobType    BlobType
+	contentType string
+}
+
+type blobTypeOption BlobType
+
+func (b blobTypeOption) apply(opts *fileBlobOptions) {
+	opts.blobType = BlobType(b)
+}
+
+func WithBlobType(blobType BlobType) OptionFileBlob {
+	return blobTypeOption(blobType)
+}
+
+type contentTypeOption string
+
+func (c contentTypeOption) apply(opts *fileBlobOptions) {
+	opts.contentType = string(c)
+}
+
+func WithContentType(contentType string) OptionFileBlob {
+	return contentTypeOption(contentType)
 }
 
 type AzureError struct {
@@ -63,162 +185,304 @@ type AzureError struct {
 	Status     string
 }
 
-type AzureConfig struct {
-	AccountName   string
-	AccountKey    string
-	ContainerName string
-	Endpoint      string
+type azService struct {
+	container *azblob.ContainerURL
+	*azureOptions
+	fileBlobs map[string]AzBlob
 }
 
-type FileBlob struct {
-	// for larger files (or larger chunks - 100MB) total 4.75TB (50,000 blocks)
-	BlockBlob *azblob.BlockBlobURL
-	// for smaller files (or smaller chunks - 4MB) total 195GB (50,000 blocks)
-	AppendBlob *azblob.AppendBlobURL
+type blockBlob struct {
+	blob    *azblob.BlockBlobURL
+	indexes []int
 }
 
-type InfoBlob struct {
-	// Just keep this as an append blob since the size of the info file will not exceed 195GB
-	Blob azblob.AppendBlobURL
+type appendBlob struct {
+	blob *azblob.AppendBlobURL
 }
 
 func (a AzureError) Error() string {
 	return a.error.Error()
 }
 
-// New Azure service for communication to Azure BlockBlob Storage API
-func NewAzureService(settings *AzureConfig) (*AzService, error) {
+// New Azure service for communication to Azure blockBlob Storage API
+func NewAzureService(accountName string, accountKey string, opts ...OptionAzureService) (AzService, error) {
+
+	options := &azureOptions{
+		accountName:   accountName,
+		accountKey:    accountKey,
+		containerName: "",
+		endpoint:      "blob.core.windows.net",
+	}
+
+	for _, op := range opts {
+		op.apply(options)
+	}
 
 	// struct to store your credentials.
-	credential, err := azblob.NewSharedKeyCredential(settings.AccountName, settings.AccountKey)
+	credential, err := azblob.NewSharedKeyCredential(options.accountName, options.accountKey)
 	if err != nil {
 		return nil, err
 	}
 
 	// The pipeline specifies things like retry policies, logging, deserialization of HTTP response payloads, and more.
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
-	cURL, _ := url.Parse(fmt.Sprintf("https://%s.%s/%s", settings.AccountName, settings.Endpoint, settings.ContainerName))
+	cURL, _ := url.Parse(fmt.Sprintf("https://%s.%s/%s", options.accountName, options.endpoint,
+		options.containerName))
 
-	//Instantiate a new ContainerURL, and a new BlobURL object to run operations on container (Create) and blobs (Upload and Download).
-	// Get the ContainerURL URL
+	//Instantiate a new container, and a new BlobURL object to run operations on container (Create) and blobs (Upload and Download).
+	// Get the container URL
 	containerURL := azblob.NewContainerURL(*cURL, p)
 	// Do not care about response since it will fail if container exists and create if it does not.
 	_, _ = containerURL.Create(context.Background(), azblob.Metadata{}, azblob.PublicAccessBlob)
 
-	return &AzService{
-		ContainerURL:          &containerURL,
-		MaxAppendBlobSize:     azblob.AppendBlobMaxAppendBlockBytes * azblob.AppendBlobMaxBlocks,
-		MaxBlockBlobChunkSize: azblob.BlockBlobMaxStageBlockBytes,
-		MaxBlockBlobSize:      azblob.BlockBlobMaxBlocks * azblob.BlockBlobMaxStageBlockBytes,
-		MaxPageBlobSize:       azblob.PageBlobMaxUploadPagesBytes,
+	return &azService{
+		container:    &containerURL,
+		azureOptions: options,
+		fileBlobs:    map[string]AzBlob{},
 	}, nil
 }
 
-func (service *AzService) CreateContainer(ctx context.Context) error {
-	_, err := service.ContainerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
+func (service *azService) NewContainer(ctx context.Context) error {
+	_, err := service.container.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
 	return err
+}
+
+// Create a new blob
+// Specify type with WithBlobType() optional parameter
+func (service *azService) NewFileBlob(ctx context.Context, name string, opts ...OptionFileBlob) (AzBlob, error) {
+	options := &fileBlobOptions{
+		blobType:    AppendBlobType,
+		contentType: "application/octet-stream",
+	}
+
+	for _, o := range opts {
+		o.apply(options)
+	}
+
+	var fileBlob AzBlob
+
+	switch options.blobType {
+	case AppendBlobType:
+		ab := service.container.NewAppendBlobURL(name)
+		_, err := ab.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
+		if err != nil {
+			// TODO: check status code
+			_, err = ab.Create(ctx, azblob.BlobHTTPHeaders{
+				ContentType: options.contentType,
+			}, azblob.Metadata{}, azblob.BlobAccessConditions{}, nil, azblob.ClientProvidedKeyOptions{})
+
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		fileBlob = &appendBlob{
+			&ab,
+		}
+		break
+	case BlockBlobType:
+		bb := service.container.NewBlockBlobURL(name)
+		// TODO: check status code
+		fileBlob = &blockBlob{
+			blob:    &bb,
+			indexes: nil,
+		}
+	}
+
+	service.fileBlobs[name] = fileBlob
+
+	return fileBlob, nil
+}
+
+func (service *azService) GetFileBlob(name string) (AzBlob, error) {
+	b, ok := service.fileBlobs[name]
+
+	if !ok {
+		return nil, fmt.Errorf("blob does not exist")
+	}
+
+	return b, nil
+}
+
+func (service *azService) ContainerURL() string {
+	return service.container.String()
 }
 
 // ==== Core Functions ====
 
 // ====== Block Blob Functions =====
-func DownloadBlockBlob(ctx context.Context, blob azblob.BlockBlobURL) (data []byte, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			switch x := r.(type) {
-			case string:
-				err = errors.New(x)
-			case error:
-				err = x
-			default:
-				err = errors.New("unknown panic")
-			}
-			data = nil
-		}
-	}()
+func (blockBlob *blockBlob) Download(ctx context.Context) ([]byte, error) {
+	downloadResponse, err := blockBlob.blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false,
+		azblob.ClientProvidedKeyOptions{})
 
-	downloadResponse, err := blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		u := blob.URL()
+		u := blockBlob.blob.URL()
 		return nil, &AzureError{
 			error:      fmt.Errorf("file %s does not exist", u.String()),
 			StatusCode: downloadResponse.StatusCode(),
 			Status:     downloadResponse.Status(),
 		}
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
 	downloadData := bytes.Buffer{}
+
 	_, err = downloadData.ReadFrom(bodyStream)
+
 	if err != nil {
 		return nil, err
 	}
+
+	err = bodyStream.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return downloadData.Bytes(), nil
 }
 
-func UploadBlockBlob(ctx context.Context, body io.ReadSeeker, index int, blob azblob.BlockBlobURL) (err error) {
-	_, err = blob.StageBlock(ctx, blockIDIntToBase64(index), body, azblob.LeaseAccessConditions{}, nil)
+func (blockBlob *blockBlob) Upload(ctx context.Context, body io.ReadSeeker) error {
+	// Keep track of the indexes
+	var index int
+	index = 1
+	if blockBlob.indexes != nil {
+		if len(blockBlob.indexes) == 0 {
+			index = 0
+		} else {
+			index = blockBlob.indexes[len(blockBlob.indexes)-1] + 1
+		}
+	}
+
+	blockBlob.indexes = append(blockBlob.indexes, index)
+
+	_, err := blockBlob.blob.StageBlock(ctx, blockIDIntToBase64(index), body,
+		azblob.LeaseAccessConditions{},
+		nil,
+		azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		return err
 	}
-	return nil //BlockBlobCommitUpload(ctx, blob, []int{index})
+
+	return nil
 }
 
-func UploadBlockBlobStream(ctx context.Context, body io.ReadSeeker, blob azblob.BlockBlobURL) (err error) {
-	_, err = azblob.UploadStreamToBlockBlob(ctx, body, blob,
-		azblob.UploadStreamToBlockBlobOptions{BufferSize: 2 * 1024 * 1024, MaxBuffers: 3})
-	return err
-}
-
-func DeleteBlockBlob(ctx context.Context, blob azblob.BlockBlobURL) error {
-	_, err := blob.Delete(ctx, azblob.DeleteSnapshotsOptionOnly, azblob.BlobAccessConditions{
+func (blockBlob *blockBlob) Delete(ctx context.Context) error {
+	_, err := blockBlob.blob.Delete(ctx, azblob.DeleteSnapshotsOptionOnly, azblob.BlobAccessConditions{
 		ModifiedAccessConditions: azblob.ModifiedAccessConditions{},
 		LeaseAccessConditions:    azblob.LeaseAccessConditions{},
 	})
 	return err
 }
 
-// After all the blocks are uploaded, atomically commit them to the blob.
-func BlockBlobCommitUpload(ctx context.Context, blob azblob.BlockBlobURL, indexes []int) error {
-	base64BlockIDs := make([]string, len(indexes))
-	for index, id := range indexes {
+func (blockBlob *blockBlob) Close(ctx context.Context) error {
+	// After all the blocks are uploaded, commit them to the blob.
+	base64BlockIDs := make([]string, len(blockBlob.indexes))
+	for index, id := range blockBlob.indexes {
 		base64BlockIDs[index] = blockIDIntToBase64(id)
 	}
 
-	_, err := blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{})
-	return err
+	_, err := blockBlob.blob.CommitBlockList(ctx, base64BlockIDs, azblob.BlobHTTPHeaders{}, azblob.Metadata{},
+		azblob.BlobAccessConditions{}, azblob.DefaultAccessTier, nil, azblob.ClientProvidedKeyOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	blockBlob.indexes = nil
+
+	return nil
+}
+
+func (blockBlob *blockBlob) Offset(ctx context.Context) (int64, error) {
+	// Get the offset of the file from azure storage
+	// For the blob, show each block (ID and size) that is a committed part of it.
+	var uncommittedIndexes []int
+	var offset int64
+
+	/*propertiesResp, err := blockBlob.blob.GetProperties(ctx, azblob.BlobAccessConditions{},
+		azblob.ClientProvidedKeyOptions{})
+
+	if err != nil {
+		return 0, err
+	}
+
+	offset = propertiesResp.ContentLength()*/
+
+	getBlock, err := blockBlob.blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
+	if err != nil {
+		return 0, err
+	}
+
+	// Need committed blocks to be added to offset to know how big the file really is
+	/*for _, block := range getBlock.CommittedBlocks {
+		offset += block.Size
+	}*/
+
+	// Need to get the uncommitted blocks so that we can commit them
+	for _, block := range getBlock.UncommittedBlocks {
+		offset += block.Size
+		uncommittedIndexes = append(uncommittedIndexes, blockIDBase64ToInt(block.Name))
+	}
+
+	// Get the block ids in sorted order ascending
+	sort.Ints(uncommittedIndexes)
+
+	blockBlob.indexes = uncommittedIndexes
+
+	return offset, nil
+}
+
+func (blockBlob *blockBlob) GetUncommittedIndexes(ctx context.Context) ([]int, error) {
+	var uncommittedIndexes []int
+
+	getBlock, err := blockBlob.blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
+	if err != nil {
+		return uncommittedIndexes, err
+	}
+
+	// Need to get the uncommitted blocks so that we can commit them
+	for _, block := range getBlock.UncommittedBlocks {
+		uncommittedIndexes = append(uncommittedIndexes, blockIDBase64ToInt(block.Name))
+	}
+
+	// Get the block ids in sorted order ascending
+	sort.Ints(uncommittedIndexes)
+
+	return uncommittedIndexes, nil
+}
+
+func (blockBlob *blockBlob) MaxChunkSizeLimit() int64 {
+	return int64(MaxBlockBlobChunkSize)
+}
+
+func (blockBlob *blockBlob) MaxSizeLimit() int64 {
+	return int64(MaxBlockBlobSize)
+}
+
+func (blockBlob *blockBlob) Exists(ctx context.Context) bool {
+	_, err := blockBlob.blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (blockBlob *blockBlob) SetIndexes(indexes []int) {
+	blockBlob.indexes = indexes
 }
 
 // ====== Append Blob Functions =====
-func CreateAppendBlob(ctx context.Context, blob azblob.AppendBlobURL) (err error) {
-	_, err = blob.Create(ctx, azblob.BlobHTTPHeaders{
-		ContentType: "application/octet-stream",
-	}, azblob.Metadata{}, azblob.BlobAccessConditions{})
-	return err
-}
-
-func DownloadAppendBlob(ctx context.Context, blob azblob.AppendBlobURL) (data []byte, err error) {
-	/*	defer func() {
-			if r := recover(); r != nil {
-				fmt.Println(fmt.Printf("azstore: caught azure download error: %v", r))
-				switch x := r.(type) {
-				case string:
-					err = errors.New(x)
-				case error:
-					err = x
-				default:
-					err = errors.New("unknown panic")
-				}
-				data = nil
-			}
-		}()
-	*/
-	downloadResponse, err := blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+func (appendBlob *appendBlob) Download(ctx context.Context) ([]byte, error) {
+	downloadResponse, err := appendBlob.blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false,
+		azblob.ClientProvidedKeyOptions{})
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
 		return nil, &AzureError{
-			error:      fmt.Errorf("file %s does not exist", blob.String()),
+			error:      fmt.Errorf("file %s does not exist", appendBlob.blob.String()),
 			StatusCode: downloadResponse.StatusCode(),
 			Status:     downloadResponse.Status(),
 		}
@@ -229,14 +493,23 @@ func DownloadAppendBlob(ctx context.Context, blob azblob.AppendBlobURL) (data []
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
 	downloadData := bytes.Buffer{}
 	_, err = downloadData.ReadFrom(bodyStream)
+
 	if err != nil {
 		return nil, err
 	}
+
+	err = bodyStream.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return downloadData.Bytes(), nil
 }
 
-func UploadAppendBlob(ctx context.Context, body io.ReadSeeker, blob azblob.AppendBlobURL) (err error) {
-	resp, err := blob.AppendBlock(ctx, body, azblob.AppendBlobAccessConditions{}, nil)
+func (appendBlob *appendBlob) Upload(ctx context.Context, body io.ReadSeeker) error {
+	resp, err := appendBlob.blob.AppendBlock(ctx, body, azblob.AppendBlobAccessConditions{}, nil,
+		azblob.ClientProvidedKeyOptions{})
 	if err != nil && resp != nil {
 		return &AzureError{
 			error:      err,
@@ -244,11 +517,12 @@ func UploadAppendBlob(ctx context.Context, body io.ReadSeeker, blob azblob.Appen
 			Status:     resp.Status(),
 		}
 	}
+
 	return err
 }
 
-func DeleteAppendBlob(ctx context.Context, blob azblob.AppendBlobURL) (err error) {
-	resp, err := blob.Delete(ctx, azblob.DeleteSnapshotsOptionOnly, azblob.BlobAccessConditions{
+func (appendBlob *appendBlob) Delete(ctx context.Context) error {
+	resp, err := appendBlob.blob.Delete(ctx, azblob.DeleteSnapshotsOptionOnly, azblob.BlobAccessConditions{
 		ModifiedAccessConditions: azblob.ModifiedAccessConditions{},
 		LeaseAccessConditions:    azblob.LeaseAccessConditions{},
 	})
@@ -262,130 +536,33 @@ func DeleteAppendBlob(ctx context.Context, blob azblob.AppendBlobURL) (err error
 	return err
 }
 
-// ==== Info File Functions ====
-func (infoBlob *InfoBlob) UploadInfoFile(ctx context.Context, body io.ReadSeeker) (err error) {
-	_, err = infoBlob.Blob.AppendBlock(ctx, body, azblob.AppendBlobAccessConditions{}, nil)
-	return err
+func (appendBlob *appendBlob) Close(ctx context.Context) error {
+	return nil
 }
 
-func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
-	return DownloadAppendBlob(ctx, infoBlob.Blob)
-}
-
-func (infoBlob *InfoBlob) Delete(ctx context.Context) error {
-	return DeleteAppendBlob(ctx, infoBlob.Blob)
-}
-
-func (infoBlob *InfoBlob) Create(ctx context.Context) error {
-	return CreateAppendBlob(ctx, infoBlob.Blob)
-}
-
-// ==== File BlockBlob Functions ====
-func (fileBlob *FileBlob) MaxChunkSize(ctx context.Context) (int64, error) {
-	if fileBlob.BlockBlob != nil {
-		return azblob.BlockBlobMaxUploadBlobBytes, nil
-	} else if fileBlob.AppendBlob != nil {
-		return azblob.AppendBlobMaxAppendBlockBytes, nil
-	}
-	return -1, fmt.Errorf("azservice (maxchunksize): FileBlob does not contain any blob instance")
-}
-
-func (fileBlob *FileBlob) Download(ctx context.Context) (data []byte, err error) {
-	// check if block blob exists
-	if fileBlob.BlockBlob != nil {
-		return DownloadBlockBlob(ctx, *fileBlob.BlockBlob)
-	} else if fileBlob.AppendBlob != nil {
-		return DownloadAppendBlob(ctx, *fileBlob.AppendBlob)
-	}
-	return nil, fmt.Errorf("azureservice (download): FileBlob does not contain any blob instance")
-}
-
-// Upload a block to this blob specifying the Block ID and its content (up to 100MB); this block is uncommitted.
-func (fileBlob *FileBlob) Upload(ctx context.Context, body io.ReadSeeker, index int) error {
-	// check if block blob exists
-	if fileBlob.BlockBlob != nil {
-		return UploadBlockBlob(ctx, body, index, *fileBlob.BlockBlob)
-	} else if fileBlob.AppendBlob != nil {
-		return UploadAppendBlob(ctx, body, *fileBlob.AppendBlob)
-	}
-	return fmt.Errorf("azureservice (upload): FileBlob does not contain any blob instance")
-}
-
-func (fileBlob *FileBlob) Delete(ctx context.Context) error {
-	// check if block blob exists
-	if fileBlob.BlockBlob != nil {
-		return DeleteBlockBlob(ctx, *fileBlob.BlockBlob)
-	} else if fileBlob.AppendBlob != nil {
-		return DeleteAppendBlob(ctx, *fileBlob.AppendBlob)
-	}
-
-	return fmt.Errorf("azureservice (delete): FileBlob does not contain any blob instance")
-}
-
-func (fileBlob *FileBlob) GetBlockOffset(ctx context.Context) ([]int, int64, error) {
-	// Get the offset of the file from azure storage
-	// For the blob, show each block (ID and size) that is a committed part of it.
-	var uncommittedIndexes []int
-	var offset int64
-	offset = 0
-
-	//prop, err := fileBlob.BlockBlob.GetProperties(ctx, azblob.BlobAccessConditions{})
-	//// The file does not exist thus just set offset to 0
-	//if prop == nil {
-	//	return uncommittedIndexes, 0, nil
-	//}
-	//
-	//offset := prop.ContentLength()
-
-	getBlock, err := fileBlob.BlockBlob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
+func (appendBlob *appendBlob) Offset(ctx context.Context) (int64, error) {
+	prop, err := appendBlob.blob.GetProperties(ctx, azblob.BlobAccessConditions{},
+		azblob.ClientProvidedKeyOptions{})
 	if err != nil {
-		return uncommittedIndexes, 0, err
+		return 0, err
 	}
-
-	// Need committed blocks to be added to offset to know how big the file really is
-	for _, block := range getBlock.CommittedBlocks {
-		offset += int64(block.Size)
-	}
-
-	// Need to get the uncommitted blocks so that we can commit them
-	for _, block := range getBlock.UncommittedBlocks {
-		offset += int64(block.Size)
-		uncommittedIndexes = append(uncommittedIndexes, blockIDBase64ToInt(block.Name))
-	}
-
-	// Get the block ids in sorted order ascending
-	sort.Ints(uncommittedIndexes)
-
-	return uncommittedIndexes, offset, nil
-
+	return prop.ContentLength(), nil
 }
 
-func (fileBlob *FileBlob) Create(ctx context.Context) error {
-	if fileBlob.AppendBlob != nil {
-		return CreateAppendBlob(ctx, *fileBlob.AppendBlob)
-	}
-	return fmt.Errorf("azureservice (create blob): Append Blob does not exist on FileBlob")
+func (appendBlob *appendBlob) MaxChunkSizeLimit() int64 {
+	return int64(MaxAppendBlobChunkSize)
 }
 
-func (fileBlob *FileBlob) GetAppendOffset(ctx context.Context) (int64, error) {
-	if fileBlob.AppendBlob != nil {
-		prop, err := fileBlob.AppendBlob.GetProperties(ctx, azblob.BlobAccessConditions{})
-		if err != nil {
-			return 0, err
-		}
-		return prop.ContentLength(), nil
-	}
-
-	return 0, fmt.Errorf("azureservice (get offset): Append Blob does not exist on FileBlob")
+func (appendBlob *appendBlob) MaxSizeLimit() int64 {
+	return int64(MaxAppendBlobSize)
 }
 
-func (fileBlob *FileBlob) CommitBlocks(ctx context.Context, indexes []int) error {
-	if fileBlob.BlockBlob != nil {
-		return BlockBlobCommitUpload(ctx, *fileBlob.BlockBlob, indexes)
-	} else if fileBlob.AppendBlob != nil {
-		return nil
+func (appendBlob *appendBlob) Exists(ctx context.Context) bool {
+	_, err := appendBlob.blob.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
+	if err != nil {
+		return false
 	}
-	return fmt.Errorf("azureservice (get offset): Append Blob does not exist on FileBlob")
+	return true
 }
 
 // ==== Helper Functions ====
@@ -396,8 +573,8 @@ func blockIDBinaryToBase64(blockID []byte) string {
 }
 
 func blockIDBase64ToBinary(blockID string) []byte {
-	binary, _ := base64.StdEncoding.DecodeString(blockID)
-	return binary
+	b, _ := base64.StdEncoding.DecodeString(blockID)
+	return b
 }
 
 // These helper functions convert an int block ID to a base-64 string and vice versa
