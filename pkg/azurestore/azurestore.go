@@ -11,6 +11,7 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -61,12 +62,6 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		return nil, err
 	}
 
-	info.Storage = map[string]string{
-		"Type":      "azurestore",
-		"Container": store.Container,
-		"Key":       store.keyWithPrefix(id),
-	}
-
 	var blobType BlobType
 
 	if info.Size > int64(MaxBlockBlobSize) {
@@ -80,6 +75,14 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		} else {
 			blobType = AppendBlobType
 		}
+	}
+
+	info.Storage = map[string]string{
+		"Type":      "azurestore",
+		"Container": store.Container,
+		"Key":       store.keyWithPrefix(id),
+		"BlobType":  strconv.Itoa(int(blobType)),
+		"BlockBlobIndexes": "",
 	}
 
 	// Specify the file content type inside the meta information
@@ -123,10 +126,18 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 
 	infoFileName := store.infoPath(id)
 
-	infoBlob, err := store.Service.NewFileBlob(ctx, infoFileName)
+	var infoBlob AzBlob
+
+	// Get the blob from Service (if it exists)
+	infoBlob, err = store.Service.GetFileBlob(infoFileName)
 
 	if err != nil {
-		return nil, err
+		// blob does not exist in Service - thus create it
+		infoBlob, err = store.Service.NewFileBlob(ctx, infoFileName)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Download info file from Azure storage
@@ -136,20 +147,85 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handle
 		return nil, err
 	}
 
+	// Get the info file back from azure blob
 	if err := json.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}
 
-	fileBlob, err := store.Service.NewFileBlob(ctx, id)
+	// Get the file blob back from service
+	var fileBlob AzBlob
+
+	fileBlob, err = store.Service.GetFileBlob(id)
 
 	if err != nil {
-		return nil, err
+		// file blob does not exist in service and thus needs to be re-created
+		var blobType BlobType
+
+		bType, typeExists := info.Storage["BlobType"]
+
+		if typeExists {
+			b, err := strconv.Atoi(bType)
+			if err != nil {
+				blobType = AppendBlobType
+			} else {
+				blobType = BlobType(b)
+			}
+		}
+
+		var indexes []int
+
+		// indexes will only be used when blob type is blockblob
+		indx, indxExists := info.Storage["BlockBlobIndexes"]
+
+		if indxExists {
+			strIndxs := strings.Split(indx, ",")
+			for i := range strIndxs {
+				t, err := strconv.Atoi(strIndxs[i])
+				if err != nil {
+					return nil, err
+				}
+				indexes = append(indexes, t)
+			}
+		}
+
+		// Specify the file content type inside the meta information
+		metaContentType, metatypeExists := info.MetaData["contentType"]
+
+		var fileBlobOptions []OptionFileBlob
+		fileBlobOptions = append(fileBlobOptions, WithBlobType(blobType))
+
+		// check if the optional extension meta data was passed
+		// defaults to octet-stream
+		if metatypeExists {
+			fileBlobOptions = append(fileBlobOptions, WithContentType(metaContentType))
+		}
+
+		fileBlob, err = store.Service.NewFileBlob(ctx, id, fileBlobOptions...)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if blobType == BlockBlobType {
+			if len(indexes) > 0 {
+				// set the fileblob indexes that are known
+				(fileBlob.(BlockBlob)).SetIndexes(indexes)
+			}
+		}
 	}
 
-	offset, err := fileBlob.Offset(ctx)
+	var offset int64
 
-	if err != nil {
-		return nil, err
+	// Check if the file exists inside the azure store
+	if fileBlob.Exists(ctx) {
+		offset, err = fileBlob.Offset(ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		offset = 0
 	}
 
 	// Set the offset
@@ -220,6 +296,30 @@ func (upload *AzureUpload) WriteChunk(ctx context.Context, offset int64, src io.
 		currentOffset := int64(binary.Size(byteChunks[i]))
 		totalOffset += currentOffset
 		upload.InfoHandler.Offset += currentOffset
+	}
+
+	var blobType BlobType
+
+	bType, typeExists := upload.InfoHandler.Storage["BlobType"]
+
+	if typeExists {
+		b, err := strconv.Atoi(bType)
+		if err != nil {
+			blobType = AppendBlobType
+		} else {
+			blobType = BlobType(b)
+		}
+	}
+
+	if blobType == BlockBlobType {
+		indexes, err := upload.FileBlob.(BlockBlob).GetUncommittedIndexes(ctx)
+		if err == nil {
+			var strIndx []string
+			for i := range indexes {
+				strIndx = append(strIndx, strconv.Itoa(indexes[i]))
+			}
+			upload.InfoHandler.Storage["BlockBlobIndexes"] = strings.Join(strIndx, ",")
+		}
 	}
 
 	return totalOffset, nil

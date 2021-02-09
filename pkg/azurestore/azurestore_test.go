@@ -62,7 +62,7 @@ func TestNewUpload(t *testing.T) {
 	assert.Greater(r.Len(), 0)
 
 	service.EXPECT().ContainerURL().Return(storeEndpoint)
-	service.EXPECT().NewFileBlob(ctx, fmt.Sprintf("%s/%s.info", storeEndpoint, mockTusdInfo.ID)).Return(infoBlob, nil)
+	service.EXPECT().NewFileBlob(ctx, fmt.Sprintf("%s.info", mockTusdInfo.ID)).Return(infoBlob, nil)
 	service.EXPECT().NewFileBlob(ctx, mockTusdInfo.ID, azurestore.WithBlobType(azurestore.AppendBlobType)).Return(fileBlob, nil)
 	infoBlob.EXPECT().Upload(ctx, r).Return(nil)
 
