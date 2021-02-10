@@ -351,6 +351,16 @@ func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 		err = nil
 	}
 
+	// In some cases, the HTTP connection gets reset by the other peer. This is not
+	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
+	// is known to reset the connection to tusd, when the tus client closes the connection.
+	// To avoid erroring out in this case and loosing the uploaded data, we can ignore
+	// the error here without causing harm.
+	// TODO: Move this into unrouted_handler.go, so other stores can also take advantage of this.
+	if err != nil && strings.Contains(err.Error(), "read: connection reset by peer") {
+		err = nil
+	}
+
 	if err != nil {
 		return nil, err
 	}
