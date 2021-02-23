@@ -1,19 +1,19 @@
 // Package filestore provide a storage backend based on the local file system.
 //
 // FileStore is a storage backend used as a handler.DataStore in handler.NewHandler.
-// It stores the uploads in a directory specified in two different files: The
+// By default it stores the uploads in a directory specified in two different files: The
 // `[id].info` files are used to store the fileinfo in JSON format. The
 // `[id]` files without an extension contain the raw binary data uploaded.
+// An alternative InfoStore object may be used to manage the storage and retrieval of
+// fileinfo data, see NewWithInfoStore().
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
 package filestore
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -29,14 +29,34 @@ type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
 	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
+	// Information storage engine
+	InfoStore InfoStore
 }
 
-// New creates a new file based storage backend. The directory specified will
-// be used as the only storage entry. This method does not check
+// New creates a new file based storage backend with the default file based information storage engine.
+// The directory specified will be used as the only storage entry. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
 // In addition, a locking mechanism is provided.
 func New(path string) FileStore {
-	return FileStore{path}
+	return FileStore{
+		Path:      path,
+		InfoStore: NewFileInfoStore(path),
+	}
+}
+
+// NewWithInfoStore creates a new file based storage backend, optionally
+// replacing the default file based information storage engine.
+// The directory specified will be used as the only storage entry.
+// This method does not check whether the path exists, use os.MkdirAll to ensure.
+// In addition, a locking mechanism is provided.
+func NewWithInfoStore(path string, store InfoStore) FileStore {
+	if store == nil {
+		store = NewFileInfoStore(path)
+	}
+	return FileStore{
+		Path:      path,
+		InfoStore: store,
+	}
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
@@ -70,14 +90,19 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 		return nil, err
 	}
 
+	// ensure we have an information storage engine
+	if store.InfoStore == nil {
+		store.InfoStore = NewFileInfoStore(store.Path)
+	}
+
 	upload := &fileUpload{
-		info:     info,
-		infoPath: store.infoPath(id),
-		binPath:  store.binPath(id),
+		info:      info,
+		infoStore: store.InfoStore,
+		binPath:   store.binPath(id),
 	}
 
 	// writeInfo creates the file by itself if necessary
-	err = upload.writeInfo()
+	err = upload.infoStore.StoreFileInfo(upload.info)
 	if err != nil {
 		return nil, err
 	}
@@ -86,17 +111,17 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 }
 
 func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	info := handler.FileInfo{}
-	data, err := ioutil.ReadFile(store.infoPath(id))
-	if err != nil {
-		return nil, err
+	// ensure we have an information storage engine
+	if store.InfoStore == nil {
+		store.InfoStore = NewFileInfoStore(store.Path)
 	}
-	if err := json.Unmarshal(data, &info); err != nil {
+
+	info, err := store.InfoStore.RetrieveFileInfo(id)
+	if err != nil {
 		return nil, err
 	}
 
 	binPath := store.binPath(id)
-	infoPath := store.infoPath(id)
 	stat, err := os.Stat(binPath)
 	if err != nil {
 		return nil, err
@@ -105,9 +130,9 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	info.Offset = stat.Size()
 
 	return &fileUpload{
-		info:     info,
-		binPath:  binPath,
-		infoPath: infoPath,
+		info:      *info,
+		binPath:   binPath,
+		infoStore: store.InfoStore,
 	}, nil
 }
 
@@ -128,16 +153,11 @@ func (store FileStore) binPath(id string) string {
 	return filepath.Join(store.Path, id)
 }
 
-// infoPath returns the path to the .info file storing the file's info.
-func (store FileStore) infoPath(id string) string {
-	return filepath.Join(store.Path, id+".info")
-}
-
 type fileUpload struct {
 	// info stores the current information about the upload
 	info handler.FileInfo
-	// infoPath is the path to the .info file
-	infoPath string
+	// file information storage engine
+	infoStore InfoStore
 	// binPath is the path to the binary file (which has no extension)
 	binPath string
 }
@@ -173,7 +193,7 @@ func (upload *fileUpload) GetReader(ctx context.Context) (io.Reader, error) {
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
-	if err := os.Remove(upload.infoPath); err != nil {
+	if err := upload.infoStore.DeleteFileInfo(upload.info.ID); err != nil {
 		return err
 	}
 	if err := os.Remove(upload.binPath); err != nil {
@@ -208,16 +228,7 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 func (upload *fileUpload) DeclareLength(ctx context.Context, length int64) error {
 	upload.info.Size = length
 	upload.info.SizeIsDeferred = false
-	return upload.writeInfo()
-}
-
-// writeInfo updates the entire information. Everything will be overwritten.
-func (upload *fileUpload) writeInfo() error {
-	data, err := json.Marshal(upload.info)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(upload.infoPath, data, defaultFilePerm)
+	return upload.infoStore.StoreFileInfo(upload.info)
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {
