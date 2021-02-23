@@ -97,7 +97,7 @@ func CreateComposer() {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
 
-		store := filestore.New(dir)
+		store := filestore.NewFileStore(dir)
 		store.UseIn(Composer)
 
 		locker := filelocker.New(dir)

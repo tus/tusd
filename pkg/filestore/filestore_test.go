@@ -14,10 +14,10 @@ import (
 )
 
 // Test interface implementation of Filestore
-var _ handler.DataStore = FileStore{}
-var _ handler.TerminaterDataStore = FileStore{}
-var _ handler.ConcaterDataStore = FileStore{}
-var _ handler.LengthDeferrerDataStore = FileStore{}
+var _ handler.DataStore = fileStore{}
+var _ handler.TerminaterDataStore = fileStore{}
+var _ handler.ConcaterDataStore = fileStore{}
+var _ handler.LengthDeferrerDataStore = fileStore{}
 
 func TestFilestore(t *testing.T) {
 	a := assert.New(t)
@@ -25,7 +25,7 @@ func TestFilestore(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := NewFileStore(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -80,7 +80,7 @@ func TestFilestore(t *testing.T) {
 func TestMissingPath(t *testing.T) {
 	a := assert.New(t)
 
-	store := FileStore{"./path-that-does-not-exist"}
+	store := NewFileStore("./path-that-does-not-exist")
 	ctx := context.Background()
 
 	upload, err := store.NewUpload(ctx, handler.FileInfo{})
@@ -95,7 +95,7 @@ func TestConcatUploads(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-concat-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := NewFileStore(tmp)
 	ctx := context.Background()
 
 	// Create new upload to hold concatenated upload
@@ -153,7 +153,7 @@ func TestDeclareLength(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "tusd-filestore-declare-length-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := NewFileStore(tmp)
 	ctx := context.Background()
 
 	upload, err := store.NewUpload(ctx, handler.FileInfo{

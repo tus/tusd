@@ -15,7 +15,11 @@ func main() {
 	// If you want to save them on a different medium, for example
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
-	store := filestore.New("./uploads")
+	// Optionally an InfoStore may be provided for an alternative information storage
+	// engine implementation to the default, eg.
+	//    infoStore := NewAltInfoStore(...)
+	//    store := filestore.NewWithInfoStore("./uploads", infoStore)
+	store := filestore.NewFileStore("./uploads")
 
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a

@@ -1,6 +1,6 @@
 // Package filestore provide a storage backend based on the local file system.
 //
-// FileStore is a storage backend used as a handler.DataStore in handler.NewHandler.
+// fileStore is a storage backend used as a handler.DataStore in handler.NewHandler.
 // By default it stores the uploads in a directory specified in two different files: The
 // `[id].info` files are used to store the fileinfo in JSON format. The
 // `[id]` files without an extension contain the raw binary data uploaded.
@@ -21,26 +21,34 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 )
 
+type FileStore interface {
+	handler.DataStore
+	handler.TerminaterDataStore
+	handler.ConcaterDataStore
+	handler.LengthDeferrerDataStore
+	UseIn(composer *handler.StoreComposer)
+}
+
 var defaultFilePerm = os.FileMode(0664)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
-type FileStore struct {
-	// Relative or absolute path to store files in. FileStore does not check
+type fileStore struct {
+	// Relative or absolute path to store files in. fileStore does not check
 	// whether the path exists, use os.MkdirAll in this case on your own.
-	Path string
+	path string
 	// Information storage engine
-	InfoStore InfoStore
+	infoStore InfoStore
 }
 
-// New creates a new file based storage backend with the default file based information storage engine.
+// NewFileStore creates a new file based storage backend with the default file based information storage engine.
 // The directory specified will be used as the only storage entry. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
 // In addition, a locking mechanism is provided.
-func New(path string) FileStore {
-	return FileStore{
-		Path:      path,
-		InfoStore: NewFileInfoStore(path),
+func NewFileStore(path string) FileStore {
+	return &fileStore{
+		path:      path,
+		infoStore: NewFileInfoStore(path),
 	}
 }
 
@@ -53,22 +61,22 @@ func NewWithInfoStore(path string, store InfoStore) FileStore {
 	if store == nil {
 		store = NewFileInfoStore(path)
 	}
-	return FileStore{
-		Path:      path,
-		InfoStore: store,
+	return &fileStore{
+		path:      path,
+		infoStore: store,
 	}
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
 // all possible extension to it.
-func (store FileStore) UseIn(composer *handler.StoreComposer) {
+func (store fileStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
 }
 
-func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
+func (store fileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	id := uid.Uid()
 	binPath := store.binPath(id)
 	info.ID = id
@@ -81,7 +89,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	file, err := os.OpenFile(binPath, os.O_CREATE|os.O_WRONLY, defaultFilePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = fmt.Errorf("upload directory does not exist: %s", store.Path)
+			err = fmt.Errorf("upload directory does not exist: %s", store.path)
 		}
 		return nil, err
 	}
@@ -91,13 +99,13 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	// ensure we have an information storage engine
-	if store.InfoStore == nil {
-		store.InfoStore = NewFileInfoStore(store.Path)
+	if store.infoStore == nil {
+		store.infoStore = NewFileInfoStore(store.path)
 	}
 
 	upload := &fileUpload{
 		info:      info,
-		infoStore: store.InfoStore,
+		infoStore: store.infoStore,
 		binPath:   store.binPath(id),
 	}
 
@@ -110,13 +118,13 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	return upload, nil
 }
 
-func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
+func (store fileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	// ensure we have an information storage engine
-	if store.InfoStore == nil {
-		store.InfoStore = NewFileInfoStore(store.Path)
+	if store.infoStore == nil {
+		store.infoStore = NewFileInfoStore(store.path)
 	}
 
-	info, err := store.InfoStore.RetrieveFileInfo(id)
+	info, err := store.infoStore.RetrieveFileInfo(id)
 	if err != nil {
 		return nil, err
 	}
@@ -132,25 +140,25 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	return &fileUpload{
 		info:      *info,
 		binPath:   binPath,
-		infoStore: store.InfoStore,
+		infoStore: store.infoStore,
 	}, nil
 }
 
-func (store FileStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+func (store fileStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
 	return upload.(*fileUpload)
 }
 
-func (store FileStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
+func (store fileStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
 	return upload.(*fileUpload)
 }
 
-func (store FileStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
+func (store fileStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
 	return upload.(*fileUpload)
 }
 
 // binPath returns the path to the file storing the binary data.
-func (store FileStore) binPath(id string) string {
-	return filepath.Join(store.Path, id)
+func (store fileStore) binPath(id string) string {
+	return filepath.Join(store.path, id)
 }
 
 type fileUpload struct {
@@ -177,7 +185,7 @@ func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.R
 
 	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
 	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
-	// However, for FileStore it's not important whether the stream has ended
+	// However, for fileStore it's not important whether the stream has ended
 	// on purpose or accidentally.
 	if err == io.ErrUnexpectedEOF {
 		err = nil
