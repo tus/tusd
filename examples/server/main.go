@@ -15,6 +15,7 @@ func main() {
 	// If you want to save them on a different medium, for example
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
+	//
 	// Optionally an InfoStore may be provided for an alternative information storage
 	// engine implementation to the default, eg.
 	//    infoStore := NewAltInfoStore(...)
