@@ -21,7 +21,7 @@ const UploadLengthDeferred = "1"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
-	reForwardedHost  = regexp.MustCompile(`host=([^,]+)`)
+	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
@@ -1120,19 +1120,27 @@ func ParseMetadataHeader(header string) map[string]string {
 
 		parts := strings.Split(element, " ")
 
-		// Do not continue with this element if no key and value or presented
-		if len(parts) != 2 {
+		if len(parts) > 2 {
 			continue
 		}
 
-		// Ignore corrent element if the value is no valid base64
 		key := parts[0]
-		value, err := base64.StdEncoding.DecodeString(parts[1])
-		if err != nil {
+		if key == "" {
 			continue
 		}
 
-		meta[key] = string(value)
+		value := ""
+		if len(parts) == 2 {
+			// Ignore current element if the value is no valid base64
+			dec, err := base64.StdEncoding.DecodeString(parts[1])
+			if err != nil {
+				continue
+			}
+
+			value = string(dec)
+		}
+
+		meta[key] = value
 	}
 
 	return meta

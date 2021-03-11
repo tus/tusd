@@ -76,10 +76,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tus/tusd/internal/uid"
 	"github.com/tus/tusd/pkg/handler"
@@ -128,6 +130,12 @@ type S3Store struct {
 	// in bytes. This number needs to match with the underlying S3 backend or else
 	// uploaded parts will be reject. AWS S3, for example, uses 5MB for this value.
 	MinPartSize int64
+	// PreferredPartSize specifies the preferred size of a single part uploaded to
+	// S3. S3Store will attempt to slice the incoming data into parts with this
+	// size whenever possible. In some cases, smaller parts are necessary, so
+	// not every part may reach this value. The PreferredPartSize must be inside the
+	// range of MinPartSize to MaxPartSize.
+	PreferredPartSize int64
 	// MaxMultipartParts is the maximum number of parts an S3 multipart upload is
 	// allowed to have according to AWS S3 API specifications.
 	// See: http://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
@@ -135,6 +143,21 @@ type S3Store struct {
 	// MaxObjectSize is the maximum size an S3 Object can have according to S3
 	// API specifications. See link above.
 	MaxObjectSize int64
+	// MaxBufferedParts is the number of additional parts that can be received from
+	// the client and stored on disk while a part is being uploaded to S3. This
+	// can help improve throughput by not blocking the client while tusd is
+	// communicating with the S3 API, which can have unpredictable latency.
+	MaxBufferedParts int64
+	// TemporaryDirectory is the path where S3Store will create temporary files
+	// on disk during the upload. An empty string ("", the default value) will
+	// cause S3Store to use the operating system's default temporary directory.
+	TemporaryDirectory string
+	// DisableContentHashes instructs the S3Store to not calculate the MD5 and SHA256
+	// hashes when uploading data to S3. These hashes are used for file integrity checks
+	// and for authentication. However, these hashes also consume a significant amount of
+	// CPU, so it might be desirable to disable them.
+	// Note that this property is experimental and might be removed in the future!
+	DisableContentHashes bool
 }
 
 type S3API interface {
@@ -150,15 +173,22 @@ type S3API interface {
 	UploadPartCopyWithContext(ctx context.Context, input *s3.UploadPartCopyInput, opt ...request.Option) (*s3.UploadPartCopyOutput, error)
 }
 
+type s3APIForPresigning interface {
+	UploadPartRequest(input *s3.UploadPartInput) (req *request.Request, output *s3.UploadPartOutput)
+}
+
 // New constructs a new storage using the supplied bucket and service object.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
-		Bucket:            bucket,
-		Service:           service,
-		MaxPartSize:       5 * 1024 * 1024 * 1024,
-		MinPartSize:       5 * 1024 * 1024,
-		MaxMultipartParts: 10000,
-		MaxObjectSize:     5 * 1024 * 1024 * 1024 * 1024,
+		Bucket:             bucket,
+		Service:            service,
+		MaxPartSize:        5 * 1024 * 1024 * 1024,
+		MinPartSize:        5 * 1024 * 1024,
+		PreferredPartSize:  50 * 1024 * 1024,
+		MaxMultipartParts:  10000,
+		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:   20,
+		TemporaryDirectory: "",
 	}
 }
 
@@ -272,6 +302,83 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	return err
 }
 
+// s3PartProducer converts a stream of bytes from the reader into a stream of files on disk
+type s3PartProducer struct {
+	store *S3Store
+	files chan<- *os.File
+	done  chan struct{}
+	err   error
+	r     io.Reader
+}
+
+func (spp *s3PartProducer) produce(partSize int64) {
+	for {
+		file, err := spp.nextPart(partSize)
+		if err != nil {
+			spp.err = err
+			close(spp.files)
+			return
+		}
+		if file == nil {
+			close(spp.files)
+			return
+		}
+		select {
+		case spp.files <- file:
+		case <-spp.done:
+			close(spp.files)
+			return
+		}
+	}
+}
+
+func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
+	// Create a temporary file to store the part
+	file, err := ioutil.TempFile(spp.store.TemporaryDirectory, "tusd-s3-tmp-")
+	if err != nil {
+		return nil, err
+	}
+
+	limitedReader := io.LimitReader(spp.r, size)
+	n, err := io.Copy(file, limitedReader)
+
+	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
+	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
+	// However, for S3Store it's not important whether the stream has ended
+	// on purpose or accidentally. Therefore, we ignore this error to not
+	// prevent the remaining chunk to be stored on S3.
+	if err == io.ErrUnexpectedEOF {
+		err = nil
+	}
+
+	// In some cases, the HTTP connection gets reset by the other peer. This is not
+	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
+	// is known to reset the connection to tusd, when the tus client closes the connection.
+	// To avoid erroring out in this case and loosing the uploaded data, we can ignore
+	// the error here without causing harm.
+	// TODO: Move this into unrouted_handler.go, so other stores can also take advantage of this.
+	if err != nil && strings.Contains(err.Error(), "read: connection reset by peer") {
+		err = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// If the entire request body is read and no more data is available,
+	// io.Copy returns 0 since it is unable to read any bytes. In that
+	// case, we can close the s3PartProducer.
+	if n == 0 {
+		cleanUpTempFile(file)
+		return nil, nil
+	}
+
+	// Seek to the beginning of the file
+	file.Seek(0, 0)
+
+	return file, nil
+}
+
 func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	id := upload.id
 	store := upload.store
@@ -305,8 +412,7 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		return 0, err
 	}
 	if incompletePartFile != nil {
-		defer os.Remove(incompletePartFile.Name())
-		defer incompletePartFile.Close()
+		defer cleanUpTempFile(incompletePartFile)
 
 		if err := store.deleteIncompletePartForUpload(ctx, uploadId); err != nil {
 			return 0, err
@@ -315,49 +421,42 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		src = io.MultiReader(incompletePartFile, src)
 	}
 
-	for {
-		// Create a temporary file to store the part in it
-		file, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	fileChan := make(chan *os.File, store.MaxBufferedParts)
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+
+	// If we panic or return while there are still files in the channel, then
+	// we may leak file descriptors. Let's ensure that those are cleaned up.
+	defer func() {
+		for file := range fileChan {
+			cleanUpTempFile(file)
+		}
+	}()
+
+	partProducer := s3PartProducer{
+		store: store,
+		done:  doneChan,
+		files: fileChan,
+		r:     src,
+	}
+	go partProducer.produce(optimalPartSize)
+
+	for file := range fileChan {
+		stat, err := file.Stat()
 		if err != nil {
-			return bytesUploaded, err
+			return 0, err
 		}
-		defer os.Remove(file.Name())
-		defer file.Close()
-
-		limitedReader := io.LimitReader(src, optimalPartSize)
-		n, err := io.Copy(file, limitedReader)
-
-		// If the HTTP PATCH request gets interrupted in the middle (e.g. because
-		// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
-		// However, for S3Store it's not important whether the stream has ended
-		// on purpose or accidentally. Therefore, we ignore this error to not
-		// prevent the remaining chunk to be stored on S3.
-		if err == io.ErrUnexpectedEOF {
-			err = nil
-		}
-
-		// io.Copy does not return io.EOF, so we not have to handle it differently.
-		if err != nil {
-			return bytesUploaded, err
-		}
-		// If io.Copy is finished reading, it will always return (0, nil).
-		if n == 0 {
-			return (bytesUploaded - incompletePartSize), nil
-		}
-
-		// Seek to the beginning of the file
-		file.Seek(0, 0)
+		n := stat.Size()
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
-			_, err = store.Service.UploadPartWithContext(ctx, &s3.UploadPartInput{
+			uploadPartInput := &s3.UploadPartInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(uploadId),
 				UploadId:   aws.String(multipartId),
 				PartNumber: aws.Int64(nextPartNum),
-				Body:       file,
-			})
-			if err != nil {
+			}
+			if err := upload.putPartForUpload(ctx, uploadPartInput, file, n); err != nil {
 				return bytesUploaded, err
 			}
 		} else {
@@ -373,6 +472,63 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		offset += n
 		bytesUploaded += n
 		nextPartNum += 1
+	}
+
+	return bytesUploaded - incompletePartSize, partProducer.err
+}
+
+func cleanUpTempFile(file *os.File) {
+	file.Close()
+	os.Remove(file.Name())
+}
+
+func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File, size int64) error {
+	defer cleanUpTempFile(file)
+
+	if !upload.store.DisableContentHashes {
+		// By default, use the traditional approach to upload data
+		uploadPartInput.Body = file
+		_, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
+		return err
+	} else {
+		// Experimental feature to prevent the AWS SDK from calculating the SHA256 hash
+		// for the parts we upload to S3.
+		// We compute the presigned URL without the body attached and then send the request
+		// on our own. This way, the body is not included in the SHA256 calculation.
+		s3api, ok := upload.store.Service.(s3APIForPresigning)
+		if !ok {
+			return fmt.Errorf("s3store: failed to cast S3 service for presigning")
+		}
+
+		s3Req, _ := s3api.UploadPartRequest(uploadPartInput)
+
+		url, err := s3Req.Presign(15 * time.Minute)
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequest("PUT", url, file)
+		if err != nil {
+			return err
+		}
+
+		// Set the Content-Length manually to prevent the usage of Transfer-Encoding: chunked,
+		// which is not supported by AWS S3.
+		req.ContentLength = size
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		if res.StatusCode != 200 {
+			buf := new(strings.Builder)
+			io.Copy(buf, res.Body)
+			return fmt.Errorf("s3store: unexpected response code %d for presigned upload: %s", res.StatusCode, buf.String())
+		}
+
+		return nil
 	}
 }
 
@@ -643,13 +799,11 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	uploadId, multipartId := splitIds(id)
 
 	// Create a temporary file for holding the concatenated data
-	file, err := ioutil.TempFile("", "tusd-s3-concat-tmp-")
+	file, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-concat-tmp-")
 	if err != nil {
 		return err
 	}
-	fmt.Println(file.Name())
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer cleanUpTempFile(file)
 
 	// Download each part and append it to the temporary file
 	for _, partialUpload := range partialUploads {
@@ -741,7 +895,7 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 	return upload.FinishUpload(ctx)
 }
 
-func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
+func (upload *s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
@@ -790,7 +944,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 	}
 	defer incompleteUploadObject.Body.Close()
 
-	partFile, err := ioutil.TempFile("", "tusd-s3-tmp-")
+	partFile, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-tmp-")
 	if err != nil {
 		return nil, 0, err
 	}
@@ -824,11 +978,13 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 	return obj, err
 }
 
-func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, r io.ReadSeeker) error {
+func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file *os.File) error {
+	defer cleanUpTempFile(file)
+
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
-		Body:   r,
+		Body:   file,
 	})
 	return err
 }
@@ -863,12 +1019,12 @@ func isAwsError(err error, code string) bool {
 
 func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err error) {
 	switch {
-	// When upload is smaller or equal MinPartSize, we upload in just one part.
-	case size <= store.MinPartSize:
-		optimalPartSize = store.MinPartSize
-	// Does the upload fit in MaxMultipartParts parts or less with MinPartSize.
-	case size <= store.MinPartSize*store.MaxMultipartParts:
-		optimalPartSize = store.MinPartSize
+	// When upload is smaller or equal to PreferredPartSize, we upload in just one part.
+	case size <= store.PreferredPartSize:
+		optimalPartSize = store.PreferredPartSize
+	// Does the upload fit in MaxMultipartParts parts or less with PreferredPartSize.
+	case size <= store.PreferredPartSize*store.MaxMultipartParts:
+		optimalPartSize = store.PreferredPartSize
 	// Prerequisite: Be aware, that the result of an integer division (x/y) is
 	// ALWAYS rounded DOWN, as there are no digits behind the comma.
 	// In order to find out, whether we have an exact result or a rounded down

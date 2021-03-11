@@ -23,16 +23,18 @@ func TestPost(t *testing.T) {
 			store.EXPECT().NewUpload(context.Background(), FileInfo{
 				Size: 300,
 				MetaData: map[string]string{
-					"foo": "hello",
-					"bar": "world",
+					"foo":   "hello",
+					"bar":   "world",
+					"empty": "",
 				},
 			}).Return(upload, nil),
 			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
 				ID:   "foo",
 				Size: 300,
 				MetaData: map[string]string{
-					"foo": "hello",
-					"bar": "world",
+					"foo":   "hello",
+					"bar":   "world",
+					"empty": "",
 				},
 			}, nil),
 		)
@@ -52,7 +54,7 @@ func TestPost(t *testing.T) {
 				"Tus-Resumable": "1.0.0",
 				"Upload-Length": "300",
 				// Invalid Base64-encoded values should be ignored
-				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID",
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID, empty",
 			},
 			Code: http.StatusCreated,
 			ResHeader: map[string]string{
@@ -308,11 +310,11 @@ func TestPost(t *testing.T) {
 					"Upload-Length":     "300",
 					"X-Forwarded-Host":  "bar.com",
 					"X-Forwarded-Proto": "http",
-					"Forwarded":         "proto=https,host=foo.com",
+					"Forwarded":         "for=192.168.10.112;host=upload.example.tld;proto=https;proto-version=",
 				},
 				Code: http.StatusCreated,
 				ResHeader: map[string]string{
-					"Location": "https://foo.com/files/foo",
+					"Location": "https://upload.example.tld/files/foo",
 				},
 			}).Run(handler, t)
 		})

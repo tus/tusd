@@ -46,6 +46,7 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	/*
 		store.MinPartSize = 2
 		store.MaxPartSize = 10
+		store.PreferredPartSize = 5
 		store.MaxMultipartParts = 20
 		store.MaxObjectSize = 200
 	*/
@@ -67,6 +68,11 @@ func TestCalcOptimalPartSize(t *testing.T) {
 	testcases := []int64{
 		0,
 		1,
+
+		store.PreferredPartSize - 1,
+		store.PreferredPartSize,
+		store.PreferredPartSize + 1,
+
 		store.MinPartSize - 1,
 		store.MinPartSize,
 		store.MinPartSize + 1,
@@ -136,6 +142,7 @@ func TestCalcOptimalPartSize_AllUploadSizes(t *testing.T) {
 
 	store.MinPartSize = 5
 	store.MaxPartSize = 5 * 1024
+	store.PreferredPartSize = 10
 	store.MaxMultipartParts = 1000
 	store.MaxObjectSize = store.MaxPartSize * store.MaxMultipartParts
 

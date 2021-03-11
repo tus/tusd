@@ -2,8 +2,13 @@ package cli
 
 import (
 	"flag"
+	"fmt"
+	"log"
+	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
@@ -19,6 +24,8 @@ var Flags struct {
 	S3Bucket                string
 	S3ObjectPrefix          string
 	S3Endpoint              string
+	S3PartSize              int64
+	S3DisableContentHashes  bool
 	GCSBucket               string
 	GCSObjectPrefix         string
 	AzureStorage            string
@@ -41,6 +48,12 @@ var Flags struct {
 	MetricsPath             string
 	BehindProxy             bool
 	VerboseOutput           bool
+	S3TransferAcceleration  bool
+	TLSCertFile             string
+	TLSKeyFile              string
+	TLSMode                 string
+
+	CPUProfile string
 }
 
 func ParseFlags() {
@@ -54,6 +67,8 @@ func ParseFlags() {
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 	flag.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
 	flag.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
+	flag.Int64Var(&Flags.S3PartSize, "s3-part-size", 50*1024*1024, "Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future)")
+	flag.BoolVar(&Flags.S3DisableContentHashes, "s3-disable-content-hashes", false, "Disable the calculation of MD5 and SHA256 hashes for the content that gets uploaded to S3 for minimized CPU usage (experimental and may be removed in the future)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
 	flag.StringVar(&Flags.AzureStorage, "azure-storage", "", "Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variable to be set)")
@@ -75,12 +90,32 @@ func ParseFlags() {
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
+	flag.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")
+	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
+	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
+	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
+
+	flag.StringVar(&Flags.CPUProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 
 	SetEnabledHooks()
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
+	}
+
+	if Flags.CPUProfile != "" {
+		f, err := os.Create(Flags.CPUProfile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+
+		go func() {
+			<-time.After(20 * time.Second)
+			pprof.StopCPUProfile()
+			fmt.Println("Stopped CPU profile")
+		}()
 	}
 }
 
