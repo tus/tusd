@@ -605,6 +605,9 @@ func TestDeclareLength(t *testing.T) {
 
 	err = store.AsLengthDeclarableUpload(upload).DeclareLength(context.Background(), 500)
 	assert.Nil(err)
+	info, err := upload.GetInfo(context.Background())
+	assert.Nil(err)
+	assert.Equal(int64(500), info.Size)
 }
 
 func TestFinishUpload(t *testing.T) {
