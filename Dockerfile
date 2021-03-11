@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine AS builder
+FROM golang:1.16-alpine AS builder
 
 # Copy in the git repo from the build context
 COPY . /go/src/github.com/tus/tusd/
