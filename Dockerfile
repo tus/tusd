@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine AS builder
+FROM golang:1.16-alpine3.13 AS builder
 
 # Copy in the git repo from the build context
 COPY . /go/src/github.com/tus/tusd/
@@ -18,7 +18,7 @@ RUN apk add --no-cache \
     && apk del git
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.9
+FROM alpine:3.13
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
