@@ -895,7 +895,7 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 	return upload.FinishUpload(ctx)
 }
 
-func (upload s3Upload) DeclareLength(ctx context.Context, length int64) error {
+func (upload *s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
