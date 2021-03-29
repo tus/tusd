@@ -36,6 +36,11 @@ func CreateComposer() {
 			s3Config = s3Config.WithS3DisableContentMD5Validation(true)
 		}
 
+		if Flags.S3DisableSSL {
+			// Disable HTTPS and only use HTTP (helpful for debugging requests).
+			s3Config = s3Config.WithDisableSSL(true)
+		}
+
 		if Flags.S3Endpoint == "" {
 
 			if Flags.S3TransferAcceleration {
