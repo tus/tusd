@@ -9,7 +9,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -896,11 +895,6 @@ func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Uplo
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request, err error) {
-	// Interpret os.ErrNotExist as 404 Not Found
-	if os.IsNotExist(err) {
-		err = ErrNotFound
-	}
-
 	// Errors for read timeouts contain too much information which is not
 	// necessary for us and makes grouping for the metrics harder. The error
 	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout

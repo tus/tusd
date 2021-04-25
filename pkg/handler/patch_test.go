@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -141,7 +140,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, os.ErrNotExist)
+		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, ErrNotFound)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,

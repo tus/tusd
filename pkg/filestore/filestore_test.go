@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -74,7 +73,7 @@ func TestFilestore(t *testing.T) {
 	// Test if upload is deleted
 	upload, err = store.GetUpload(ctx, info.ID)
 	a.Equal(nil, upload)
-	a.True(os.IsNotExist(err))
+	a.Equal(handler.ErrNotFound, err)
 }
 
 func TestMissingPath(t *testing.T) {
@@ -86,6 +85,18 @@ func TestMissingPath(t *testing.T) {
 	upload, err := store.NewUpload(ctx, handler.FileInfo{})
 	a.Error(err)
 	a.Equal("upload directory does not exist: ./path-that-does-not-exist", err.Error())
+	a.Equal(nil, upload)
+}
+
+func TestNotFound(t *testing.T) {
+	a := assert.New(t)
+
+	store := FileStore{"./path"}
+	ctx := context.Background()
+
+	upload, err := store.GetUpload(ctx, "upload-that-does-not-exist")
+	a.Error(err)
+	a.Equal(handler.ErrNotFound, err)
 	a.Equal(nil, upload)
 }
 

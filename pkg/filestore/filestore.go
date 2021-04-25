@@ -89,6 +89,10 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	info := handler.FileInfo{}
 	data, err := ioutil.ReadFile(store.infoPath(id))
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Interpret os.ErrNotExist as 404 Not Found
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 	if err := json.Unmarshal(data, &info); err != nil {
@@ -99,6 +103,10 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	infoPath := store.infoPath(id)
 	stat, err := os.Stat(binPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Interpret os.ErrNotExist as 404 Not Found
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 
