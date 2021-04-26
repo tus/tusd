@@ -341,26 +341,6 @@ func (spp *s3PartProducer) nextPart(size int64) (*os.File, error) {
 
 	limitedReader := io.LimitReader(spp.r, size)
 	n, err := io.Copy(file, limitedReader)
-
-	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
-	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
-	// However, for S3Store it's not important whether the stream has ended
-	// on purpose or accidentally. Therefore, we ignore this error to not
-	// prevent the remaining chunk to be stored on S3.
-	if err == io.ErrUnexpectedEOF {
-		err = nil
-	}
-
-	// In some cases, the HTTP connection gets reset by the other peer. This is not
-	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
-	// is known to reset the connection to tusd, when the tus client closes the connection.
-	// To avoid erroring out in this case and loosing the uploaded data, we can ignore
-	// the error here without causing harm.
-	// TODO: Move this into unrouted_handler.go, so other stores can also take advantage of this.
-	if err != nil && strings.Contains(err.Error(), "read: connection reset by peer") {
-		err = nil
-	}
-
 	if err != nil {
 		return nil, err
 	}

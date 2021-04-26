@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -71,6 +70,9 @@ var (
 	ErrUploadLengthAndUploadDeferLength = NewHTTPError(errors.New("provided both Upload-Length and Upload-Defer-Length"), http.StatusBadRequest)
 	ErrInvalidUploadDeferLength         = NewHTTPError(errors.New("invalid Upload-Defer-Length header"), http.StatusBadRequest)
 	ErrUploadStoppedByServer            = NewHTTPError(errors.New("upload has been stopped by server"), http.StatusBadRequest)
+
+	errReadTimeout     = errors.New("read tcp: i/o timeout")
+	errConnectionReset = errors.New("read tcp: connection reset by peer")
 )
 
 // HTTPRequest contains basic details of an incoming HTTP request.
@@ -608,11 +610,12 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	handler.log("ChunkWriteStart", "id", id, "maxSize", i64toa(maxSize), "offset", i64toa(offset))
 
 	var bytesWritten int64
+	var err error
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
 	if r.Body != nil {
 		// Limit the data read from the request's body to the allowed maximum
-		reader := io.LimitReader(r.Body, maxSize)
+		reader := newBodyReader(io.LimitReader(r.Body, maxSize))
 
 		// We use a context object to allow the hook system to cancel an upload
 		uploadCtx, stopUpload := context.WithCancel(context.Background())
@@ -632,12 +635,10 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			var stopProgressEvents chan<- struct{}
-			reader, stopProgressEvents = handler.sendProgressMessages(newHookEvent(info, r), reader)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), reader)
 			defer close(stopProgressEvents)
 		}
 
-		var err error
 		bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
 		if terminateUpload && handler.composer.UsesTerminater {
 			if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
@@ -647,19 +648,27 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 			}
 		}
 
-		// The error "http: invalid Read on closed Body" is returned if we stop the upload
-		// while the data store is still reading. Since this is an implementation detail,
-		// we replace this error with a message saying that the upload has been stopped.
-		if err == http.ErrBodyReadAfterClose {
-			err = ErrUploadStoppedByServer
+		// If we encountered an error while reading the body from the HTTP request, log it, but only include
+		// it in the response, if the store did not also return an error.
+		if bodyErr := reader.hasError(); bodyErr != nil {
+			handler.log("BodyReadError", "id", id, "error", bodyErr.Error())
+			if err == nil {
+				err = bodyErr
+			}
 		}
 
-		if err != nil {
-			return err
+		// If the upload was stopped by the server, send an error response indicating this.
+		// TODO: Include a custom reason for the end user why the upload was stopped.
+		if terminateUpload {
+			err = ErrUploadStoppedByServer
 		}
 	}
 
 	handler.log("ChunkWriteComplete", "id", id, "bytesWritten", i64toa(bytesWritten))
+
+	if err != nil {
+		return err
+	}
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
@@ -900,15 +909,34 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
 	// Therefore, we use a common error message for all of them.
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-		err = errors.New("read tcp: i/o timeout")
+		err = errReadTimeout
 	}
 
 	// Errors for connnection resets also contain TCP details, we don't need, e.g:
 	// read tcp 127.0.0.1:1080->127.0.0.1:10023: read: connection reset by peer
 	// Therefore, we also trim those down.
 	if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
-		err = errors.New("read tcp: connection reset by peer")
+		err = errConnectionReset
 	}
+
+	// TODO: Decide if we should handle this in here, in body_reader or not at all.
+	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
+	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
+	// However, for the handler it's not important whether the stream has ended
+	// on purpose or accidentally.
+	//if err == io.ErrUnexpectedEOF {
+	//	err = nil
+	//}
+
+	// TODO: Decide if we want to ignore connection reset errors all together.
+	// In some cases, the HTTP connection gets reset by the other peer. This is not
+	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
+	// is known to reset the connection to tusd, when the tus client closes the connection.
+	// To avoid erroring out in this case and loosing the uploaded data, we can ignore
+	// the error here without causing harm.
+	//if strings.Contains(err.Error(), "read: connection reset by peer") {
+	//	err = nil
+	//}
 
 	statusErr, ok := err.(HTTPError)
 	if !ok {
@@ -952,39 +980,26 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 	return url
 }
 
-type progressWriter struct {
-	Offset int64
-}
-
-func (w *progressWriter) Write(b []byte) (int, error) {
-	atomic.AddInt64(&w.Offset, int64(len(b)))
-	return len(b), nil
-}
-
 // sendProgressMessage will send a notification over the UploadProgress channel
 // every second, indicating how much data has been transfered to the server.
 // It will stop sending these instances once the returned channel has been
-// closed. The returned reader should be used to read the request body.
-func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader io.Reader) (io.Reader, chan<- struct{}) {
+// closed.
+func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bodyReader) chan<- struct{} {
 	previousOffset := int64(0)
-	progress := &progressWriter{
-		Offset: hook.Upload.Offset,
-	}
 	stop := make(chan struct{}, 1)
-	reader = io.TeeReader(reader, progress)
 
 	go func() {
 		for {
 			select {
 			case <-stop:
-				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
+				hook.Upload.Offset = reader.bytesRead()
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
 					previousOffset = hook.Upload.Offset
 				}
 				return
 			case <-time.After(1 * time.Second):
-				hook.Upload.Offset = atomic.LoadInt64(&progress.Offset)
+				hook.Upload.Offset = reader.bytesRead()
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
 					previousOffset = hook.Upload.Offset
@@ -993,7 +1008,7 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader io.R
 		}
 	}()
 
-	return reader, stop
+	return stop
 }
 
 // getHostAndProtocol extracts the host and used protocol (either HTTP or HTTPS)

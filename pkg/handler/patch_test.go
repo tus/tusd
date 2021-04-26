@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -577,7 +578,7 @@ func TestPatch(t *testing.T) {
 				Offset: 0,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), http.ErrBodyReadAfterClose),
+			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
 			upload.EXPECT().Terminate(context.Background()),
 		)
@@ -626,9 +627,58 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
 			},
+			ResBody: "upload has been stopped by server\n",
 		}).Run(handler, t)
 
 		_, more := <-c
 		a.False(more)
+	})
+
+	SubTest(t, "BodyReadError", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// This test ensure that error that occurr from reading the request body are not forwarded to the
+		// storage backend but are still causing an
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   100,
+			}, nil),
+			// The reader for WriteChunk must not return an error.
+			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		reader, writer := io.Pipe()
+		a := assert.New(t)
+
+		go func() {
+			writer.Write([]byte("first "))
+			err := writer.CloseWithError(errors.New("an error while reading the body"))
+			a.NoError(err)
+		}()
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusInternalServerError,
+			ResHeader: map[string]string{
+				"Upload-Offset": "",
+			},
+			ResBody: "an error while reading the body\n",
+		}).Run(handler, t)
 	})
 }
