@@ -159,6 +159,8 @@ type S3Store struct {
 	// CPU, so it might be desirable to disable them.
 	// Note that this property is experimental and might be removed in the future!
 	DisableContentHashes bool
+
+	uploadQueue *s3UploadQueue
 }
 
 type S3API interface {
@@ -177,15 +179,16 @@ type S3API interface {
 // New constructs a new storage using the supplied bucket and service object.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
-		Bucket:             bucket,
-		Service:            service,
-		MaxPartSize:        5 * 1024 * 1024 * 1024,
-		MinPartSize:        5 * 1024 * 1024,
-		PreferredPartSize:  50 * 1024 * 1024,
-		MaxMultipartParts:  10000,
-		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
-		MaxBufferedParts:   20,
-		TemporaryDirectory: "",
+		Bucket:                bucket,
+		Service:               service,
+		MaxPartSize:           5 * 1024 * 1024 * 1024,
+		MinPartSize:           5 * 1024 * 1024,
+		PreferredPartSize:     50 * 1024 * 1024,
+		MaxMultipartParts:     10000,
+		MaxObjectSize:         5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:      20,
+		ConcurrentPartUploads: 8,
+		TemporaryDirectory:    "",
 	}
 
 	// TODO: Start goroutine
@@ -328,6 +331,10 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		return 0, err
 	}
 
+	if store.uploadQueue == nil {
+		store.uploadQueue = newS3UploadQueue(store.Service, store.ConcurrentPartUploads, store.MaxBufferedParts, store.DisableContentHashes)
+	}
+
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
@@ -357,6 +364,27 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		}
 	}()
 
+	resultChannel := make(chan *s3UploadJob)
+	var wg sync.WaitGroup
+	var uploadErr error
+	defer close(resultChannel)
+	go func() {
+		for {
+			job, more := <-resultChannel
+			if !more {
+				break
+			}
+
+			wg.Done()
+			fmt.Println("Job completed", *job.uploadPartInput.PartNumber, job.err)
+			if job.err != nil {
+				uploadErr = job.err
+			} else {
+				bytesUploaded += job.size
+			}
+		}
+	}()
+
 	partProducer := s3PartProducer{
 		store: store,
 		done:  doneChan,
@@ -380,10 +408,27 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 				UploadId:   aws.String(multipartId),
 				PartNumber: aws.Int64(nextPartNum),
 			}
-			if err := upload.putPartForUpload(ctx, uploadPartInput, file, n); err != nil {
-				return bytesUploaded, err
-			}
+			store.uploadQueue.push(&s3UploadJob{
+				ctx:             ctx,
+				uploadPartInput: uploadPartInput,
+				file:            file,
+				size:            n,
+				resultChannel:   resultChannel,
+			})
+			wg.Add(1)
+			//if err := upload.putPartForUpload(ctx, uploadPartInput, file, n); err != nil {
+			//	return bytesUploaded, err
+			//}
 		} else {
+			wg.Wait()
+
+			if uploadErr != nil {
+				cleanUpTempFile(file)
+				return bytesUploaded, uploadErr
+			}
+
+			fmt.Println("putIncompletePartForUpload", n >= store.MinPartSize, isFinalChunk)
+
 			if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
 				return bytesUploaded, err
 			}
@@ -394,9 +439,10 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 		}
 
 		offset += n
-		bytesUploaded += n
 		nextPartNum += 1
 	}
+
+	wg.Wait()
 
 	return bytesUploaded - incompletePartSize, partProducer.err
 }

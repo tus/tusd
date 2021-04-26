@@ -44,7 +44,7 @@ func newS3UploadQueue(service S3API, concurrency int64, maxBufferedParts int64, 
 		disableContentHashes: disableContentHashes,
 	}
 
-	for i := 0; i < concurrency; i++ {
+	for i := 0; i < int(concurrency); i++ {
 		go s.uploadLoop()
 	}
 
@@ -58,6 +58,7 @@ func (s s3UploadQueue) queueLength() int {
 
 // push appends another item to the queue and returns immediately.
 func (s s3UploadQueue) push(job *s3UploadJob) {
+	// TODO: Handle closed channel
 	s.queue <- job
 }
 
@@ -75,6 +76,7 @@ func (s s3UploadQueue) uploadLoop() {
 		}
 
 		job.etag, job.err = s.putPartForUpload(job.ctx, job.uploadPartInput, job.file, job.size)
+		// TODO: Handle closed channel
 		job.resultChannel <- job
 	}
 }
@@ -82,23 +84,24 @@ func (s s3UploadQueue) uploadLoop() {
 func (s s3UploadQueue) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File, size int64) (etag string, err error) {
 	// TODO: Move this back into s3store where the file is created
 	defer cleanUpTempFile(file)
+	fmt.Println("Job started", *uploadPartInput.PartNumber)
 
 	if !s.disableContentHashes {
 		// By default, use the traditional approach to upload data
 		uploadPartInput.Body = file
-		res, err := s.service.UploadPartWithContext(ctx, uploadPartInput)
-		if res.ETag != nil {
-			etag = *res.ETag
-		}
+		_, err = s.service.UploadPartWithContext(ctx, uploadPartInput)
+		//if res.ETag != nil {
+		//etag = *res.ETag
+		//}
 		return etag, err
 	} else {
 		// Experimental feature to prevent the AWS SDK from calculating the SHA256 hash
 		// for the parts we upload to S3.
 		// We compute the presigned URL without the body attached and then send the request
 		// on our own. This way, the body is not included in the SHA256 calculation.
-		s3api, ok := s.service.Service.(s3APIForPresigning)
+		s3api, ok := s.service.(s3APIForPresigning)
 		if !ok {
-			return fmt.Errorf("s3store: failed to cast S3 service for presigning")
+			return "", fmt.Errorf("s3store: failed to cast S3 service for presigning")
 		}
 
 		s3Req, _ := s3api.UploadPartRequest(uploadPartInput)
