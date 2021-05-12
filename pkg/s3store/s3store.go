@@ -147,8 +147,7 @@ type S3Store struct {
 	// the client and stored on disk while a part is being uploaded to S3. This
 	// can help improve throughput by not blocking the client while tusd is
 	// communicating with the S3 API, which can have unpredictable latency.
-	MaxBufferedParts      int64
-	ConcurrentPartUploads int64
+	MaxBufferedParts int64
 	// TemporaryDirectory is the path where S3Store will create temporary files
 	// on disk during the upload. An empty string ("", the default value) will
 	// cause S3Store to use the operating system's default temporary directory.
@@ -176,6 +175,10 @@ type S3API interface {
 	UploadPartCopyWithContext(ctx context.Context, input *s3.UploadPartCopyInput, opt ...request.Option) (*s3.UploadPartCopyOutput, error)
 }
 
+type s3APIForPresigning interface {
+	UploadPartRequest(input *s3.UploadPartInput) (req *request.Request, output *s3.UploadPartOutput)
+}
+
 // New constructs a new storage using the supplied bucket and service object.
 func New(bucket string, service S3API) S3Store {
 	return S3Store{
@@ -190,8 +193,6 @@ func New(bucket string, service S3API) S3Store {
 		ConcurrentPartUploads: 8,
 		TemporaryDirectory:    "",
 	}
-
-	// TODO: Start goroutine
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
@@ -324,8 +325,6 @@ func (upload s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Read
 	}
 
 	// Get number of parts to generate next number
-	// TODO: Remove redudant call to listAllParts and use result from GetInfo, which already
-	// calls listAllParts.
 	parts, err := store.listAllParts(ctx, id)
 	if err != nil {
 		return 0, err
