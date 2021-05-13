@@ -503,52 +503,77 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 	store := upload.store
 	uploadId, _ := splitIds(id)
 
-	// Get file info stored in separate object
-	res, err := store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(store.Bucket),
-		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
-	})
-	if err != nil {
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	// We store all errors in here and handle them all together once the wait
+	// group is done.
+	var infoErr error
+	var partsErr error
+	var incompletePartSizeErr error
+
+	go func() {
+		defer wg.Done()
+
+		// Get file info stored in separate object
+		var res *s3.GetObjectOutput
+		res, infoErr = store.Service.GetObjectWithContext(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(store.Bucket),
+			Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
+		})
+		if infoErr == nil {
+			infoErr = json.NewDecoder(res.Body).Decode(&info)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Get uploaded parts and their offset
+		parts, partsErr = store.listAllParts(ctx, id)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Get size of optional incomplete part file.
+		incompletePartSize, incompletePartSizeErr = store.headIncompletePartForUpload(ctx, uploadId)
+	}()
+
+	wg.Wait()
+
+	// Finally, after all requests are complete, let's handle the errors
+	if infoErr != nil {
+		err = infoErr
+		// If the info file is not found, we consider the upload to be non-existant
 		if isAwsError(err, "NoSuchKey") {
 			err = handler.ErrNotFound
-			return
 		}
-
 		return
 	}
 
-	err = json.NewDecoder(res.Body).Decode(&info)
-	if err != nil {
-		return
-	}
-
-	// Get uploaded parts and their offset
-	parts, err = store.listAllParts(ctx, id)
-	if err != nil {
-		// Check if the error is caused by the upload not being found. This happens
+	if partsErr != nil {
+		err = partsErr
+		// Check if the error is caused by the multipart upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
 		if isAwsError(err, "NoSuchUpload") {
 			info.Offset = info.Size
 			err = nil
-			return
-		} else {
-			return
 		}
+		return
 	}
 
-	offset := int64(0)
+	if incompletePartSizeErr != nil {
+		err = incompletePartSizeErr
+		return
+	}
 
+	// The offset is the sum of all part sizes and the size of the incomplete part file.
+	offset := incompletePartSize
 	for _, part := range parts {
 		offset += part.size
-	}
-
-	incompletePartSize, err = store.headIncompletePartForUpload(ctx, uploadId)
-	if err != nil {
-		return
-	} else {
-		offset += incompletePartSize
 	}
 
 	info.Offset = offset
