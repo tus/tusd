@@ -675,8 +675,6 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println(parts)
-
 	if len(parts) == 0 {
 		// AWS expects at least one part to be present when completing the multipart
 		// upload. So if the tus upload has a size of 0, we create an empty part
