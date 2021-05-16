@@ -83,6 +83,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tus/tusd/internal/semaphore"
 	"github.com/tus/tusd/internal/uid"
 	"github.com/tus/tusd/pkg/handler"
 
@@ -158,6 +159,8 @@ type S3Store struct {
 	// CPU, so it might be desirable to disable them.
 	// Note that this property is experimental and might be removed in the future!
 	DisableContentHashes bool
+
+	uploadSemaphore semaphore.Semaphore
 }
 
 type S3API interface {
@@ -190,6 +193,7 @@ func New(bucket string, service S3API) S3Store {
 		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
 		MaxBufferedParts:   20,
 		TemporaryDirectory: "",
+		uploadSemaphore:    semaphore.New(4),
 	}
 }
 
@@ -212,7 +216,7 @@ type s3Upload struct {
 	info *handler.FileInfo
 
 	// parts collects all parts for this upload. It will be nil if info is nil as well.
-	parts []s3Part
+	parts []*s3Part
 	// incompletePartSize is the size of an incomplete part object, if one exists. It will be 0 if info is nil as well.
 	incompletePartSize int64
 }
@@ -266,7 +270,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		"Key":    *store.keyWithPrefix(uploadId),
 	}
 
-	upload := &s3Upload{id, &store, nil, []s3Part{}, 0}
+	upload := &s3Upload{id, &store, nil, []*s3Part{}, 0}
 	err = upload.writeInfo(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create info file:\n%s", err)
@@ -276,7 +280,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 }
 
 func (store S3Store) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	return &s3Upload{id, &store, nil, []s3Part{}, 0}, nil
+	return &s3Upload{id, &store, nil, []*s3Part{}, 0}, nil
 }
 
 func (store S3Store) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
@@ -367,6 +371,7 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		}
 	}()
 
+	// TODO: Do we still need the parts producer in a separate goroutine?
 	partProducer := s3PartProducer{
 		store: store,
 		done:  doneChan,
@@ -374,6 +379,9 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		r:     src,
 	}
 	go partProducer.produce(optimalPartSize)
+
+	var wg sync.WaitGroup
+	var uploadErr error
 
 	for file := range fileChan {
 		stat, err := file.Stat()
@@ -384,36 +392,54 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {
-			uploadPartInput := &s3.UploadPartInput{
-				Bucket:     aws.String(store.Bucket),
-				Key:        store.keyWithPrefix(uploadId),
-				UploadId:   aws.String(multipartId),
-				PartNumber: aws.Int64(nextPartNum),
-			}
-			etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, n)
-			if err != nil {
-				return bytesUploaded, err
-			}
-			upload.parts = append(upload.parts, s3Part{
-				etag:   etag,
+			part := &s3Part{
+				etag:   "",
 				size:   n,
 				number: nextPartNum,
-			})
+			}
+			upload.parts = append(upload.parts, part)
+
+			wg.Add(1)
+			go func(file *os.File, partNum int64, filesize int64, part *s3Part) {
+				upload.store.uploadSemaphore.Acquire()
+				defer upload.store.uploadSemaphore.Release()
+				defer wg.Done()
+
+				fmt.Println("Starting", partNum)
+				uploadPartInput := &s3.UploadPartInput{
+					Bucket:     aws.String(store.Bucket),
+					Key:        store.keyWithPrefix(uploadId),
+					UploadId:   aws.String(multipartId),
+					PartNumber: aws.Int64(partNum),
+				}
+				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, filesize)
+				if err != nil {
+					uploadErr = err
+				} else {
+					part.etag = etag
+				}
+
+				fmt.Println("Done with", partNum)
+			}(file, nextPartNum, n, part)
+
 		} else {
+			// TODO: This can also be executed in parallel
 			if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
 				return bytesUploaded, err
 			}
 			upload.incompletePartSize = n
-
-			bytesUploaded += n
-
-			return (bytesUploaded - incompletePartSize), nil
 		}
 
 		offset += n
 		bytesUploaded += n
 		nextPartNum += 1
 		upload.info.Offset = offset
+	}
+
+	wg.Wait()
+
+	if uploadErr != nil {
+		return 0, uploadErr
 	}
 
 	return bytesUploaded - incompletePartSize, partProducer.err
@@ -482,7 +508,7 @@ func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err
 	return info, err
 }
 
-func (upload *s3Upload) getInternalInfo(ctx context.Context) (info handler.FileInfo, parts []s3Part, incompletePartSize int64, err error) {
+func (upload *s3Upload) getInternalInfo(ctx context.Context) (info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
 	if upload.info != nil {
 		return *upload.info, upload.parts, upload.incompletePartSize, nil
 	}
@@ -498,7 +524,7 @@ func (upload *s3Upload) getInternalInfo(ctx context.Context) (info handler.FileI
 	return info, parts, incompletePartSize, nil
 }
 
-func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, parts []s3Part, incompletePartSize int64, err error) {
+func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
 	id := upload.id
 	store := upload.store
 	uploadId, _ := splitIds(id)
@@ -715,8 +741,8 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 			return err
 		}
 
-		parts = []s3Part{
-			s3Part{
+		parts = []*s3Part{
+			&s3Part{
 				etag:   *res.ETag,
 				number: 1,
 				size:   0,
@@ -846,7 +872,7 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 		partialS3Upload := partialUpload.(*s3Upload)
 		partialId, _ := splitIds(partialS3Upload.id)
 
-		upload.parts = append(upload.parts, s3Part{
+		upload.parts = append(upload.parts, &s3Part{
 			number: int64(i + 1),
 			size:   -1,
 			etag:   "",
@@ -893,7 +919,7 @@ func (upload *s3Upload) DeclareLength(ctx context.Context, length int64) error {
 	return upload.writeInfo(ctx, info)
 }
 
-func (store S3Store) listAllParts(ctx context.Context, id string) (parts []s3Part, err error) {
+func (store S3Store) listAllParts(ctx context.Context, id string) (parts []*s3Part, err error) {
 	uploadId, multipartId := splitIds(id)
 
 	partMarker := int64(0)
@@ -911,7 +937,7 @@ func (store S3Store) listAllParts(ctx context.Context, id string) (parts []s3Par
 
 		// TODO: Find more efficient way when appending many elements
 		for _, part := range (*listPtr).Parts {
-			parts = append(parts, s3Part{
+			parts = append(parts, &s3Part{
 				number: *part.PartNumber,
 				size:   *part.Size,
 				etag:   *part.ETag,
