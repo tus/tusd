@@ -324,11 +324,56 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 	id := upload.id
 	store := upload.store
 
-	uploadId, multipartId := splitIds(id)
+	uploadId, _ := splitIds(id)
 
 	// Get the total size of the current upload, number of parts to generate next number and whether
 	// an incomplete part exists
-	info, parts, incompletePartSize, err := upload.getInternalInfo(ctx)
+	_, _, incompletePartSize, err := upload.getInternalInfo(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	if incompletePartSize > 0 {
+		incompletePartFile, err := store.downloadIncompletePartForUpload(ctx, uploadId)
+		if err != nil {
+			return 0, err
+		}
+		if incompletePartFile == nil {
+			return 0, fmt.Errorf("s3store: Expected an incomplete part file but did not get any")
+		}
+		defer cleanUpTempFile(incompletePartFile)
+
+		if err := store.deleteIncompletePartForUpload(ctx, uploadId); err != nil {
+			return 0, err
+		}
+
+		// Prepend an incomplete part, if necessary and adapt the offset
+		src = io.MultiReader(incompletePartFile, src)
+		offset = offset - incompletePartSize
+	}
+
+	bytesUploaded, err := upload.uploadParts(ctx, offset, src)
+
+	// The size of the incomplete part should not be counted, because the
+	// process of the incomplete part should be fully transparent to the user.
+	bytesUploaded = bytesUploaded - incompletePartSize
+	if bytesUploaded < 0 {
+		bytesUploaded = 0
+	}
+
+	upload.info.Offset += bytesUploaded
+
+	return bytesUploaded, err
+}
+
+func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Reader) (int64, error) {
+	id := upload.id
+	store := upload.store
+
+	uploadId, multipartId := splitIds(id)
+
+	// Get the total size of the current upload and number of parts to generate next number
+	info, parts, _, err := upload.getInternalInfo(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -343,22 +388,6 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
-	if incompletePartSize > 0 {
-		incompletePartFile, _, err := store.downloadIncompletePartForUpload(ctx, uploadId)
-		if err != nil {
-			return 0, err
-		}
-		if incompletePartFile != nil {
-			defer cleanUpTempFile(incompletePartFile)
-
-			if err := store.deleteIncompletePartForUpload(ctx, uploadId); err != nil {
-				return 0, err
-			}
-
-			src = io.MultiReader(incompletePartFile, src)
-		}
-	}
-
 	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory)
 	defer partProducer.stop()
 	go partProducer.produce(optimalPartSize)
@@ -367,53 +396,53 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 	var uploadErr error
 
 	for fileChunk := range fileChan {
-		file := fileChunk.file
-		n := fileChunk.size
+		partfile := fileChunk.file
+		partsize := fileChunk.size
 
-		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
-		if n >= store.MinPartSize || isFinalChunk {
+		isFinalChunk := !info.SizeIsDeferred && (size == offset+bytesUploaded+partsize)
+		if partsize >= store.MinPartSize || isFinalChunk {
 			part := &s3Part{
 				etag:   "",
-				size:   n,
+				size:   partsize,
 				number: nextPartNum,
 			}
 			upload.parts = append(upload.parts, part)
 
 			wg.Add(1)
-			go func(file *os.File, partNum int64, filesize int64, part *s3Part) {
+			go func(file *os.File, part *s3Part) {
 				upload.store.uploadSemaphore.Acquire()
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
 
-				fmt.Println("Starting", partNum)
 				uploadPartInput := &s3.UploadPartInput{
 					Bucket:     aws.String(store.Bucket),
 					Key:        store.keyWithPrefix(uploadId),
 					UploadId:   aws.String(multipartId),
-					PartNumber: aws.Int64(partNum),
+					PartNumber: aws.Int64(part.number),
 				}
-				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, filesize)
+				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, part.size)
 				if err != nil {
 					uploadErr = err
 				} else {
 					part.etag = etag
 				}
-
-				fmt.Println("Done with", partNum)
-			}(file, nextPartNum, n, part)
-
+			}(partfile, part)
 		} else {
-			// TODO: This can also be executed in parallel
-			if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
-				return bytesUploaded, err
-			}
-			upload.incompletePartSize = n
+			wg.Add(1)
+			go func(file *os.File) {
+				upload.store.uploadSemaphore.Acquire()
+				defer upload.store.uploadSemaphore.Release()
+				defer wg.Done()
+
+				if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
+					uploadErr = err
+				}
+				upload.incompletePartSize = partsize
+			}(partfile)
 		}
 
-		offset += n
-		bytesUploaded += n
+		bytesUploaded += partsize
 		nextPartNum += 1
-		upload.info.Offset = offset
 	}
 
 	wg.Wait()
@@ -422,7 +451,7 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		return 0, uploadErr
 	}
 
-	return bytesUploaded - incompletePartSize, partProducer.err
+	return bytesUploaded, partProducer.err
 }
 
 func cleanUpTempFile(file *os.File) {
@@ -933,36 +962,36 @@ func (store S3Store) listAllParts(ctx context.Context, id string) (parts []*s3Pa
 	return parts, nil
 }
 
-func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, uploadId string) (*os.File, int64, error) {
+func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, uploadId string) (*os.File, error) {
 	incompleteUploadObject, err := store.getIncompletePartForUpload(ctx, uploadId)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if incompleteUploadObject == nil {
 		// We did not find an incomplete upload
-		return nil, 0, nil
+		return nil, nil
 	}
 	defer incompleteUploadObject.Body.Close()
 
 	partFile, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-tmp-")
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	n, err := io.Copy(partFile, incompleteUploadObject.Body)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if n < *incompleteUploadObject.ContentLength {
-		return nil, 0, errors.New("short read of incomplete upload")
+		return nil, errors.New("short read of incomplete upload")
 	}
 
 	_, err = partFile.Seek(0, 0)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return partFile, n, nil
+	return partFile, nil
 }
 
 func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId string) (*s3.GetObjectOutput, error) {
