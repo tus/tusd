@@ -359,36 +359,16 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		}
 	}
 
-	fileChan := make(chan *os.File, store.MaxBufferedParts)
-	doneChan := make(chan struct{})
-	defer close(doneChan)
-
-	// If we panic or return while there are still files in the channel, then
-	// we may leak file descriptors. Let's ensure that those are cleaned up.
-	defer func() {
-		for file := range fileChan {
-			cleanUpTempFile(file)
-		}
-	}()
-
-	// TODO: Do we still need the parts producer in a separate goroutine?
-	partProducer := s3PartProducer{
-		store: store,
-		done:  doneChan,
-		files: fileChan,
-		r:     src,
-	}
+	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory)
+	defer partProducer.stop()
 	go partProducer.produce(optimalPartSize)
 
 	var wg sync.WaitGroup
 	var uploadErr error
 
-	for file := range fileChan {
-		stat, err := file.Stat()
-		if err != nil {
-			return 0, err
-		}
-		n := stat.Size()
+	for fileChunk := range fileChan {
+		file := fileChunk.file
+		n := fileChunk.size
 
 		isFinalChunk := !info.SizeIsDeferred && (size == (offset-incompletePartSize)+n)
 		if n >= store.MinPartSize || isFinalChunk {

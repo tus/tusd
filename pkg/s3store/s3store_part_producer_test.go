@@ -22,32 +22,28 @@ func (ErrorReader) Read(b []byte) (int, error) {
 }
 
 func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
-	fileChan := make(chan *os.File)
-	doneChan := make(chan struct{})
 	expectedStr := "test"
 	r := strings.NewReader(expectedStr)
-	pp := s3PartProducer{
-		store: &S3Store{},
-		done:  doneChan,
-		files: fileChan,
-		r:     r,
-	}
+	pp, fileChan := newS3PartProducer(r, 0, "")
 	go pp.produce(1)
 
 	actualStr := ""
 	b := make([]byte, 1)
-	for f := range fileChan {
-		n, err := f.Read(b)
+	for chunk := range fileChan {
+		n, err := chunk.file.Read(b)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
 		if n != 1 {
 			t.Fatalf("incorrect number of bytes read: wanted %d, got %d", 1, n)
 		}
+		if chunk.size != 1 {
+			t.Fatalf("incorrect number of bytes in struct: wanted %d, got %d", 1, chunk.size)
+		}
 		actualStr += string(b)
 
-		os.Remove(f.Name())
-		f.Close()
+		os.Remove(chunk.file.Name())
+		chunk.file.Close()
 	}
 
 	if actualStr != expectedStr {
@@ -59,15 +55,8 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	}
 }
 
-func TestPartProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
-	fileChan := make(chan *os.File)
-	doneChan := make(chan struct{})
-	pp := s3PartProducer{
-		store: &S3Store{},
-		done:  doneChan,
-		files: fileChan,
-		r:     InfiniteZeroReader{},
-	}
+func TestPartProducerExitsWhenProducerIsStopped(t *testing.T) {
+	pp, fileChan := newS3PartProducer(InfiniteZeroReader{}, 0, "")
 
 	completedChan := make(chan struct{})
 	go func() {
@@ -75,35 +64,7 @@ func TestPartProducerExitsWhenDoneChannelIsClosed(t *testing.T) {
 		completedChan <- struct{}{}
 	}()
 
-	close(doneChan)
-
-	select {
-	case <-completedChan:
-		// producer exited cleanly
-	case <-time.After(2 * time.Second):
-		t.Error("timed out waiting for producer to exit")
-	}
-
-	safelyDrainChannelOrFail(fileChan, t)
-}
-
-func TestPartProducerExitsWhenDoneChannelIsClosedBeforeAnyPartIsSent(t *testing.T) {
-	fileChan := make(chan *os.File)
-	doneChan := make(chan struct{})
-	pp := s3PartProducer{
-		store: &S3Store{},
-		done:  doneChan,
-		files: fileChan,
-		r:     InfiniteZeroReader{},
-	}
-
-	close(doneChan)
-
-	completedChan := make(chan struct{})
-	go func() {
-		pp.produce(10)
-		completedChan <- struct{}{}
-	}()
+	pp.stop()
 
 	select {
 	case <-completedChan:
@@ -116,14 +77,7 @@ func TestPartProducerExitsWhenDoneChannelIsClosedBeforeAnyPartIsSent(t *testing.
 }
 
 func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
-	fileChan := make(chan *os.File)
-	doneChan := make(chan struct{})
-	pp := s3PartProducer{
-		store: &S3Store{},
-		done:  doneChan,
-		files: fileChan,
-		r:     ErrorReader{},
-	}
+	pp, fileChan := newS3PartProducer(ErrorReader{}, 0, "")
 
 	completedChan := make(chan struct{})
 	go func() {
@@ -145,12 +99,12 @@ func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 	}
 }
 
-func safelyDrainChannelOrFail(c chan *os.File, t *testing.T) {
+func safelyDrainChannelOrFail(c <-chan fileChunk, t *testing.T) {
 	// At this point, we've signaled that the producer should exit, but it may write a few files
 	// into the channel before closing it and exiting. Make sure that we get a nil value
 	// eventually.
 	for i := 0; i < 100; i++ {
-		if f := <-c; f == nil {
+		if _, more := <-c; !more {
 			return
 		}
 	}
