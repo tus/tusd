@@ -319,7 +319,6 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	return err
 }
 
-// TODO: Refactor this method to be easier, e.g. move loop into own function
 func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	id := upload.id
 	store := upload.store
