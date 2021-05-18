@@ -193,8 +193,13 @@ func New(bucket string, service S3API) S3Store {
 		MaxObjectSize:      5 * 1024 * 1024 * 1024 * 1024,
 		MaxBufferedParts:   20,
 		TemporaryDirectory: "",
-		uploadSemaphore:    semaphore.New(4),
+		uploadSemaphore:    semaphore.New(10),
 	}
+}
+
+// S3ConcurrentPartUploads changes the limit on how many concurrent part uploads to S3 are allowed.
+func (store *S3Store) S3ConcurrentPartUploads(limit int) {
+	store.uploadSemaphore = semaphore.New(limit)
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
