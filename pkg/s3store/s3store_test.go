@@ -1318,7 +1318,7 @@ type s3APIWithTempFileAssertion struct {
 
 func (s s3APIWithTempFileAssertion) UploadPartWithContext(context.Context, *s3.UploadPartInput, ...request.Option) (*s3.UploadPartOutput, error) {
 	assert := s.assert
-	println("UploadPart")
+
 	// Make sure that there are temporary files from tusd in here.
 	files, err := ioutil.ReadDir(s.tempDir)
 	assert.Nil(err)

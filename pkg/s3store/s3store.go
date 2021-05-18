@@ -408,8 +408,10 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			upload.parts = append(upload.parts, part)
 
 			wg.Add(1)
+			// We acquire the semaphore before starting the goroutine to avoid
+			// starting many goroutines, most of which are just waiting for the lock.
+			upload.store.uploadSemaphore.Acquire()
 			go func(file *os.File, part *s3Part) {
-				upload.store.uploadSemaphore.Acquire()
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
 
@@ -428,8 +430,10 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			}(partfile, part)
 		} else {
 			wg.Add(1)
+			// We acquire the semaphore before starting the goroutine to avoid
+			// starting many goroutines, most of which are just waiting for the lock.
+			upload.store.uploadSemaphore.Acquire()
 			go func(file *os.File) {
-				upload.store.uploadSemaphore.Acquire()
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
 
