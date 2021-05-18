@@ -6,10 +6,11 @@ package s3store
 
 import (
 	context "context"
+	reflect "reflect"
+
 	request "github.com/aws/aws-sdk-go/aws/request"
 	s3 "github.com/aws/aws-sdk-go/service/s3"
 	gomock "github.com/golang/mock/gomock"
-	reflect "reflect"
 )
 
 // MockS3API is a mock of S3API interface
@@ -153,6 +154,26 @@ func (mr *MockS3APIMockRecorder) GetObjectWithContext(arg0, arg1 interface{}, ar
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectWithContext", reflect.TypeOf((*MockS3API)(nil).GetObjectWithContext), varargs...)
+}
+
+// HeadObjectWithContext mocks base method
+func (m *MockS3API) HeadObjectWithContext(arg0 context.Context, arg1 *s3.HeadObjectInput, arg2 ...request.Option) (*s3.HeadObjectOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "HeadObjectWithContext", varargs...)
+	ret0, _ := ret[0].(*s3.HeadObjectOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HeadObjectWithContext indicates an expected call of HeadObjectWithContext
+func (mr *MockS3APIMockRecorder) HeadObjectWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadObjectWithContext", reflect.TypeOf((*MockS3API)(nil).HeadObjectWithContext), varargs...)
 }
 
 // ListPartsWithContext mocks base method
