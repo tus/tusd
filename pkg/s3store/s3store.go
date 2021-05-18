@@ -160,6 +160,7 @@ type S3Store struct {
 	// Note that this property is experimental and might be removed in the future!
 	DisableContentHashes bool
 
+	// uploadSemaphore limits the number of concurrent multipart part uploads to S3.
 	uploadSemaphore semaphore.Semaphore
 }
 
