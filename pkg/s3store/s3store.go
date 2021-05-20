@@ -614,8 +614,39 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 		})
 
 		if err != nil {
-			errs = append(errs, err)
-			return
+			if reqErr, ok := err.(awserr.RequestFailure); ok && reqErr.StatusCode() == 400 {
+				// this might be a call to something like Google Cloud Storage, which does not
+				// support multi-delete https://cloud.google.com/storage/docs/migrating#methods-comparison and would
+				// return a Bad Request error in this case.
+				// in such case(s) try falling back to single deletes...
+				var singleDeletesWG sync.WaitGroup
+				singleDeletesWG.Add(3)
+
+				deleteObjectWithKey := func(key *string) {
+					defer singleDeletesWG.Done()
+
+					_, err := store.Service.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+						Bucket: aws.String(store.Bucket),
+						Key:    key,
+					})
+
+					if err != nil {
+						if fallbackErr, ok := err.(awserr.RequestFailure); !ok || fallbackErr.Code() != "NoSuchKey" {
+							errs = append(errs, err)
+							return
+						}
+					}
+				}
+
+				go deleteObjectWithKey(store.keyWithPrefix(uploadId))
+				go deleteObjectWithKey(store.metadataKeyWithPrefix(uploadId + ".part"))
+				go deleteObjectWithKey(store.metadataKeyWithPrefix(uploadId + ".info"))
+
+				singleDeletesWG.Wait()
+			} else {
+				errs = append(errs, err)
+				return
+			}
 		}
 
 		for _, s3Err := range res.Errors {
