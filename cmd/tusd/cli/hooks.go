@@ -50,6 +50,12 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPostFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPostTerminate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPostReceive)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPostCreate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(hooks.HookPreFinish)).Add(0)
 }
 
 func SetupPreHooks(config *handler.Config) error {
@@ -131,6 +137,8 @@ func invokeHookSync(typ hooks.HookType, info handler.HookEvent, captureOutput bo
 	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
 		return nil, nil
 	}
+
+	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
 
 	id := info.Upload.ID
 	size := info.Upload.Size

@@ -23,9 +23,18 @@ var MetricsHookErrorsTotal = prometheus.NewCounterVec(
 	[]string{"hooktype"},
 )
 
+var MetricsHookInvocationsTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "tusd_hook_invocations_total",
+		Help: "Total number of invocations per hook type.",
+	},
+	[]string{"hooktype"},
+)
+
 func SetupMetrics(handler *handler.Handler) {
 	prometheus.MustRegister(MetricsOpenConnections)
 	prometheus.MustRegister(MetricsHookErrorsTotal)
+	prometheus.MustRegister(MetricsHookInvocationsTotal)
 	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
 
 	stdout.Printf("Using %s as the metrics path.\n", Flags.MetricsPath)
