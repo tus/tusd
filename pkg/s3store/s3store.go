@@ -198,8 +198,8 @@ func New(bucket string, service S3API) S3Store {
 	}
 }
 
-// S3ConcurrentPartUploads changes the limit on how many concurrent part uploads to S3 are allowed.
-func (store *S3Store) S3ConcurrentPartUploads(limit int) {
+// SetConcurrentPartUploads changes the limit on how many concurrent part uploads to S3 are allowed.
+func (store *S3Store) SetConcurrentPartUploads(limit int) {
 	store.uploadSemaphore = semaphore.New(limit)
 }
 

@@ -42,13 +42,11 @@ func CreateComposer() {
 		}
 
 		if Flags.S3Endpoint == "" {
-
 			if Flags.S3TransferAcceleration {
 				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
 			} else {
 				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
 			}
-
 		} else {
 			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
 
@@ -61,6 +59,7 @@ func CreateComposer() {
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
 		store.DisableContentHashes = Flags.S3DisableContentHashes
+		store.SetConcurrentPartUploads(Flags.S3ConcurrentPartUploads)
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
