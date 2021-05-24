@@ -207,8 +207,6 @@ func New(bucket string, service S3API) S3Store {
 		Help:       "Duration of requests sent to S3 in milliseconds per operation",
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"operation"})
-	// TODO: Do not register them globally but to a specific prometheus handler
-	prometheus.MustRegister(requestDurationMetric)
 
 	return S3Store{
 		Bucket:                bucket,
@@ -237,6 +235,10 @@ func (store S3Store) UseIn(composer *handler.StoreComposer) {
 	composer.UseTerminater(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
+}
+
+func (store S3Store) RegisterMetrics(registry prometheus.Registerer) {
+	registry.MustRegister(store.requestDurationMetric)
 }
 
 func (store S3Store) observeRequestDuration(start time.Time, label string) {

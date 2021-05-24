@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tus/tusd/pkg/filelocker"
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/gcsstore"
@@ -64,6 +65,10 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+
+		// Attach the metrics from S3 store to the global Prometheus registry
+		// TODO: Do not use the global registry here.
+		store.RegisterMetrics(prometheus.DefaultRegisterer)
 	} else if Flags.GCSBucket != "" {
 		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
 			stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
