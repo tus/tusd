@@ -43,6 +43,10 @@ func preFinishCallback(info handler.HookEvent) error {
 	return hookCallback(hooks.HookPreFinish, info)
 }
 
+func preGetCallback(info handler.HookEvent) error {
+	return hookCallback(hooks.HookPreGet, info)
+}
+
 func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostFinish)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostTerminate)).Add(0)
@@ -50,6 +54,7 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(hooks.HookPreGet)).Add(0)
 }
 
 func SetupPreHooks(config *handler.Config) error {
@@ -99,6 +104,7 @@ func SetupPreHooks(config *handler.Config) error {
 
 	config.PreUploadCreateCallback = preCreateCallback
 	config.PreFinishResponseCallback = preFinishCallback
+	config.PreGetResponseCallback = preGetCallback
 
 	return nil
 }
@@ -115,6 +121,8 @@ func SetupPostHooks(handler *handler.Handler) {
 				invokeHookAsync(hooks.HookPostReceive, info)
 			case info := <-handler.CreatedUploads:
 				invokeHookAsync(hooks.HookPostCreate, info)
+			case info := <-handler.GetUploads:
+				invokeHookAsync(hooks.HookPreGet, info)
 			}
 		}
 	}()
