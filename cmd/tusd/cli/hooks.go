@@ -121,8 +121,6 @@ func SetupPostHooks(handler *handler.Handler) {
 				invokeHookAsync(hooks.HookPostReceive, info)
 			case info := <-handler.CreatedUploads:
 				invokeHookAsync(hooks.HookPostCreate, info)
-			case info := <-handler.GetUploads:
-				invokeHookAsync(hooks.HookPreGet, info)
 			}
 		}
 	}()
