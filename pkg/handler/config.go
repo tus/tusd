@@ -40,6 +40,11 @@ type Config struct {
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
 	RespectForwardedHeaders bool
+	// PreGetCallback will be invoked before an upload is read, if the
+	// property is supplied. If the callback returns nil, the upload will be sent.
+	// Otherwise the HTTP request will be aborted. This can be used to implement
+	// accesss limits.
+	PreGetCallback func(hook HookEvent) error
 	// PreUploadCreateCallback will be invoked before a new upload is created, if the
 	// property is supplied. If the callback returns nil, the upload will be created.
 	// Otherwise the HTTP request will be aborted. This can be used to implement
