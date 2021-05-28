@@ -58,28 +58,33 @@ func Serve() {
 
 	SetupPostHooks(handler)
 
-	if Flags.ExposeMetrics {
-		SetupMetrics(handler)
-		SetupHookMetrics()
-	}
-
 	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
+	mux := http.NewServeMux()
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler
 		// and do not show a greeting.
-		http.Handle("/", http.StripPrefix("/", handler))
+		mux.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
-		http.HandleFunc("/", DisplayGreeting)
+		mux.HandleFunc("/", DisplayGreeting)
 
 		// ... and register a route with and without the trailing slash, so we can
 		// handle uploads for /files/ and /files, for example.
 		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
 		basepathWithSlash := basepathWithoutSlash + "/"
 
-		http.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
-		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+		mux.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
+		mux.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+	}
+
+	if Flags.ExposeMetrics {
+		SetupMetrics(mux, handler)
+		SetupHookMetrics()
+	}
+
+	if Flags.ExposePprof {
+		SetupPprof(mux)
 	}
 
 	var listener net.Listener
@@ -106,14 +111,17 @@ func Serve() {
 
 	// If we're not using TLS just start the server and, if http.Serve() returns, just return.
 	if protocol == "http" {
-		if err = http.Serve(listener, nil); err != nil {
+		if err = http.Serve(listener, mux); err != nil {
 			stderr.Fatalf("Unable to serve: %s", err)
 		}
 		return
 	}
 
+	// TODO: Move TLS handling into own file.
 	// Fall-through for TLS mode.
-	server := &http.Server{}
+	server := &http.Server{
+		Handler: mux,
+	}
 	switch Flags.TLSMode {
 	case TLS13:
 		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13}

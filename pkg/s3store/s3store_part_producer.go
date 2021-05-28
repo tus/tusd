@@ -4,15 +4,19 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // s3PartProducer converts a stream of bytes from the reader into a stream of files on disk
 type s3PartProducer struct {
-	tmpDir string
-	files  chan fileChunk
-	done   chan struct{}
-	err    error
-	r      io.Reader
+	tmpDir                  string
+	files                   chan fileChunk
+	done                    chan struct{}
+	err                     error
+	r                       io.Reader
+	diskWriteDurationMetric prometheus.Summary
 }
 
 type fileChunk struct {
@@ -20,15 +24,16 @@ type fileChunk struct {
 	size int64
 }
 
-func newS3PartProducer(source io.Reader, backlog int64, tmpDir string) (s3PartProducer, <-chan fileChunk) {
+func newS3PartProducer(source io.Reader, backlog int64, tmpDir string, diskWriteDurationMetric prometheus.Summary) (s3PartProducer, <-chan fileChunk) {
 	fileChan := make(chan fileChunk, backlog)
 	doneChan := make(chan struct{})
 
 	partProducer := s3PartProducer{
-		tmpDir: tmpDir,
-		done:   doneChan,
-		files:  fileChan,
-		r:      source,
+		tmpDir:                  tmpDir,
+		done:                    doneChan,
+		files:                   fileChan,
+		r:                       source,
+		diskWriteDurationMetric: diskWriteDurationMetric,
 	}
 
 	return partProducer, fileChan
@@ -78,6 +83,8 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 	}
 
 	limitedReader := io.LimitReader(spp.r, size)
+	start := time.Now()
+
 	n, err := io.Copy(file, limitedReader)
 	if err != nil {
 		return fileChunk{}, false, err
@@ -90,6 +97,10 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 		cleanUpTempFile(file)
 		return fileChunk{}, false, nil
 	}
+
+	elapsed := time.Now().Sub(start)
+	ms := float64(elapsed.Nanoseconds() / int64(time.Millisecond))
+	spp.diskWriteDurationMetric.Observe(ms)
 
 	// Seek to the beginning of the file
 	file.Seek(0, 0)

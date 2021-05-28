@@ -45,6 +45,10 @@ var Flags struct {
 	ShowVersion             bool
 	ExposeMetrics           bool
 	MetricsPath             string
+	ExposePprof             bool
+	PprofPath               string
+	PprofBlockProfileRate   int
+	PprofMutexProfileRate   int
 	BehindProxy             bool
 	VerboseOutput           bool
 	S3TransferAcceleration  bool
@@ -86,6 +90,10 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
+	flag.BoolVar(&Flags.ExposePprof, "expose-pprof", false, "Expose the pprof interface over HTTP for profiling tusd")
+	flag.StringVar(&Flags.PprofPath, "pprof-path", "/debug/pprof/", "Path under which the pprof endpoint will be accessible")
+	flag.IntVar(&Flags.PprofBlockProfileRate, "pprof-block-profile-rate", 0, "Fraction of goroutine blocking events that are reported in the blocking profile")
+	flag.IntVar(&Flags.PprofMutexProfileRate, "pprof-mutex-profile-rate", 0, "Fraction of mutex contention events that are reported in the mutex profile")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 	flag.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")

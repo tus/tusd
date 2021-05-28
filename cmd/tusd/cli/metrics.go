@@ -31,12 +31,12 @@ var MetricsHookInvocationsTotal = prometheus.NewCounterVec(
 	[]string{"hooktype"},
 )
 
-func SetupMetrics(handler *handler.Handler) {
+func SetupMetrics(mux *http.ServeMux, handler *handler.Handler) {
 	prometheus.MustRegister(MetricsOpenConnections)
 	prometheus.MustRegister(MetricsHookErrorsTotal)
 	prometheus.MustRegister(MetricsHookInvocationsTotal)
 	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
 
 	stdout.Printf("Using %s as the metrics path.\n", Flags.MetricsPath)
-	http.Handle(Flags.MetricsPath, promhttp.Handler())
+	mux.Handle(Flags.MetricsPath, promhttp.Handler())
 }

@@ -166,6 +166,9 @@ type S3Store struct {
 
 	// requestDurationMetric holds the prometheus instance for storing the request durations.
 	requestDurationMetric *prometheus.SummaryVec
+
+	// diskWriteDurationMetric holds the prometheus instance for storing the time it takes to write chunks to disk.
+	diskWriteDurationMetric prometheus.Summary
 }
 
 // The labels to use for observing and storing request duration. One label per operation.
@@ -208,18 +211,25 @@ func New(bucket string, service S3API) S3Store {
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	}, []string{"operation"})
 
+	diskWriteDurationMetric := prometheus.NewSummary(prometheus.SummaryOpts{
+		Name:       "tusd_s3_disk_write_duration_ms",
+		Help:       "Duration of chunk writes to disk in milliseconds",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	})
+
 	return S3Store{
-		Bucket:                bucket,
-		Service:               service,
-		MaxPartSize:           5 * 1024 * 1024 * 1024,
-		MinPartSize:           5 * 1024 * 1024,
-		PreferredPartSize:     50 * 1024 * 1024,
-		MaxMultipartParts:     10000,
-		MaxObjectSize:         5 * 1024 * 1024 * 1024 * 1024,
-		MaxBufferedParts:      20,
-		TemporaryDirectory:    "",
-		uploadSemaphore:       semaphore.New(10),
-		requestDurationMetric: requestDurationMetric,
+		Bucket:                  bucket,
+		Service:                 service,
+		MaxPartSize:             5 * 1024 * 1024 * 1024,
+		MinPartSize:             5 * 1024 * 1024,
+		PreferredPartSize:       50 * 1024 * 1024,
+		MaxMultipartParts:       10000,
+		MaxObjectSize:           5 * 1024 * 1024 * 1024 * 1024,
+		MaxBufferedParts:        20,
+		TemporaryDirectory:      "",
+		uploadSemaphore:         semaphore.New(10),
+		requestDurationMetric:   requestDurationMetric,
+		diskWriteDurationMetric: diskWriteDurationMetric,
 	}
 }
 
@@ -239,6 +249,7 @@ func (store S3Store) UseIn(composer *handler.StoreComposer) {
 
 func (store S3Store) RegisterMetrics(registry prometheus.Registerer) {
 	registry.MustRegister(store.requestDurationMetric)
+	registry.MustRegister(store.diskWriteDurationMetric)
 }
 
 func (store S3Store) observeRequestDuration(start time.Time, label string) {
@@ -433,7 +444,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	numParts := len(parts)
 	nextPartNum := int64(numParts + 1)
 
-	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory)
+	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory, store.diskWriteDurationMetric)
 	defer partProducer.stop()
 	go partProducer.produce(optimalPartSize)
 
