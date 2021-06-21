@@ -451,7 +451,18 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	var wg sync.WaitGroup
 	var uploadErr error
 
-	for fileChunk := range fileChan {
+	for {
+		// We acquire the semaphore before starting the goroutine to avoid
+		// starting many goroutines, most of which are just waiting for the lock.
+		// We also acquire the semaphore before reading from the channel to reduce
+		// the number of part files are laying around on disk without being used.
+		upload.store.uploadSemaphore.Acquire()
+		fileChunk, more := <-fileChan
+		if !more {
+			upload.store.uploadSemaphore.Release()
+			break
+		}
+
 		partfile := fileChunk.file
 		partsize := fileChunk.size
 
@@ -465,9 +476,6 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			upload.parts = append(upload.parts, part)
 
 			wg.Add(1)
-			// We acquire the semaphore before starting the goroutine to avoid
-			// starting many goroutines, most of which are just waiting for the lock.
-			upload.store.uploadSemaphore.Acquire()
 			go func(file *os.File, part *s3Part) {
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
@@ -489,9 +497,6 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			}(partfile, part)
 		} else {
 			wg.Add(1)
-			// We acquire the semaphore before starting the goroutine to avoid
-			// starting many goroutines, most of which are just waiting for the lock.
-			upload.store.uploadSemaphore.Acquire()
 			go func(file *os.File) {
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
