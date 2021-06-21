@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type InfiniteZeroReader struct{}
@@ -21,10 +23,12 @@ func (ErrorReader) Read(b []byte) (int, error) {
 	return 0, errors.New("error from ErrorReader")
 }
 
+var testSummary = prometheus.NewSummary(prometheus.SummaryOpts{})
+
 func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	expectedStr := "test"
 	r := strings.NewReader(expectedStr)
-	pp, fileChan := newS3PartProducer(r, 0, "")
+	pp, fileChan := newS3PartProducer(r, 0, "", testSummary)
 	go pp.produce(1)
 
 	actualStr := ""
@@ -56,7 +60,7 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 }
 
 func TestPartProducerExitsWhenProducerIsStopped(t *testing.T) {
-	pp, fileChan := newS3PartProducer(InfiniteZeroReader{}, 0, "")
+	pp, fileChan := newS3PartProducer(InfiniteZeroReader{}, 0, "", testSummary)
 
 	completedChan := make(chan struct{})
 	go func() {
@@ -77,7 +81,7 @@ func TestPartProducerExitsWhenProducerIsStopped(t *testing.T) {
 }
 
 func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
-	pp, fileChan := newS3PartProducer(ErrorReader{}, 0, "")
+	pp, fileChan := newS3PartProducer(ErrorReader{}, 0, "", testSummary)
 
 	completedChan := make(chan struct{})
 	go func() {
