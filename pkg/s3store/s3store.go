@@ -558,7 +558,7 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.Reader, error) {
 	})
 	if err == nil {
 		// The multipart upload still exists, which means we cannot download it yet
-		return nil, errors.New("cannot stream non-finished upload")
+		return nil, handler.NewHTTPError(errors.New("cannot stream non-finished upload"), http.StatusBadRequest)
 	}
 
 	if isAwsError(err, "NoSuchUpload") {
