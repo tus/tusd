@@ -351,7 +351,11 @@ loop:
 		if strings.HasSuffix(objAttrs.Name, "info") {
 			continue
 		}
-		split := strings.Split(objAttrs.Name, "_")
+
+		fileNameParts := strings.Split(objAttrs.Name, "/")
+		fileName := fileNameParts[len(fileNameParts)-1]
+
+		split := strings.Split(fileName, "_")
 
 		// If the object name does not split on "_", we have a composed object.
 		// If the object name splits on "_" in to four pieces we
