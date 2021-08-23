@@ -447,7 +447,7 @@ func TestFilterObject(t *testing.T) {
 	defer gock.Off()
 
 	resp := googleBucketResponse{[]googleObjectResponse{
-		googleObjectResponse{Name: "test-prefix_1"},
+		googleObjectResponse{Name: "test_directory/test-prefix_1"},
 	}}
 
 	gock.New("https://www.googleapis.com").
