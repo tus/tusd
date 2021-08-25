@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/tus/tusd/pkg/azurestore"
 	"github.com/tus/tusd/pkg/filelocker"
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/gcsstore"
@@ -91,6 +93,49 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+	} else if Flags.AzStorage != "" {
+
+		accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
+		if accountName == "" {
+			stderr.Fatalf("No service account name for Azure BlockBlob Storage using the AZURE_STORAGE_ACCOUNT environment variable.\n")
+		}
+
+		accountKey := os.Getenv("AZURE_STORAGE_KEY")
+		if accountKey == "" {
+			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_STORAGE_KEY environment variable.\n")
+		}
+
+		azureEndpoint := Flags.AzEndpoint
+		// Enables support for using Azurite as a storage emulator without messing with proxies and stuff
+		// e.g. http://127.0.0.1:10000/devstoreaccount1
+		if azureEndpoint == "" {
+			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
+			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
+				"Using endpoint %s\n", azureEndpoint)
+		} else {
+			stdout.Printf("Using Azure endpoint %s\n", azureEndpoint)
+		}
+
+		azConfig := &azurestore.AzConfig{
+			AccountName:         accountName,
+			AccountKey:          accountKey,
+			ContainerName:       Flags.AzStorage,
+			ContainerAccessType: Flags.AzContainerAccessType,
+			BlobAccessTier:      Flags.AzBlobAccessTier,
+			Endpoint:            azureEndpoint,
+		}
+
+		azService, err := azurestore.NewAzureService(azConfig)
+		if err != nil {
+			stderr.Fatalf(err.Error())
+		}
+
+		store := azurestore.New(azService)
+		store.ObjectPrefix = Flags.AzObjectPrefix
+		store.Container = Flags.AzStorage
+
+		store.UseIn(Composer)
+
 	} else {
 		dir, err := filepath.Abs(Flags.UploadDir)
 		if err != nil {
