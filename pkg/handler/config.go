@@ -49,6 +49,10 @@ type Config struct {
 	NotifyCreatedUploads bool
 	// Logger is the logger to use internally, mostly for printing requests.
 	Logger *log.Logger
+	// Explicitly set Access-Control-Allow-Origin in cases where RespectForwardedHeaders
+	// doesn't give you the desired result. This can be the case with some reverse proxies
+	// or a kubernetes setup with complex network routing rules
+	CorsOrigin string
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
@@ -93,6 +97,13 @@ func (config *Config) validate() error {
 
 	if config.StoreComposer.Core == nil {
 		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
+	}
+
+	if config.CorsOrigin != "" && config.CorsOrigin != "*" && config.CorsOrigin != "null" {
+		_, err := url.ParseRequestURI(config.CorsOrigin)
+		if err != nil {
+			errors.New("tusd: CorsOrigin is not a valid URL")
+		}
 	}
 
 	return nil

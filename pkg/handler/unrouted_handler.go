@@ -226,7 +226,12 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		header := w.Header()
 
 		if origin := r.Header.Get("Origin"); !handler.config.DisableCors && origin != "" {
+			var configuredOrigin = handler.config.CorsOrigin
+			if configuredOrigin != "" {
+				origin = configuredOrigin
+			}
 			header.Set("Access-Control-Allow-Origin", origin)
+			header.Set("Vary", "Origin")
 
 			if r.Method == "OPTIONS" {
 				allowedMethods := "POST, HEAD, PATCH, OPTIONS"
