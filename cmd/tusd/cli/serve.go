@@ -101,9 +101,9 @@ func Serve() {
 		protocol = "https"
 	}
 
-        if Flags.CorsOrigin != "" {
-                stdout.Printf("CORS origin header is %s", Flags.CorsOrigin)
-        }
+	if Flags.CorsOrigin != "" {
+		stdout.Printf("CORS origin header is %s", Flags.CorsOrigin)
+	}
 
 	if Flags.HttpSock == "" {
 		stdout.Printf("You can now upload files to: %s://%s%s", protocol, address, basepath)
