@@ -49,6 +49,7 @@ var Flags struct {
 	ShowVersion             bool
 	ExposeMetrics           bool
 	MetricsPath             string
+	CorsOrigin              string
 	BehindProxy             bool
 	VerboseOutput           bool
 	S3TransferAcceleration  bool
@@ -94,6 +95,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
+	flag.StringVar(&Flags.CorsOrigin, "cors-origin", "", "Explicitly set Access-Control-Allow-Origin header")
 	flag.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 	flag.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")

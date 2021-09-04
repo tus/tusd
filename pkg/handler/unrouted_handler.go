@@ -217,8 +217,15 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		header := w.Header()
 
-		if origin := r.Header.Get("Origin"); origin != "" {
-			header.Set("Access-Control-Allow-Origin", origin)
+                var origin = handler.config.CorsOrigin
+                if origin == "" {
+                        origin = r.Header.Get("Origin")
+                }
+
+                if origin != "" {
+
+                        header.Set("Access-Control-Allow-Origin", origin)
+                        header.Set("Vary", "Origin")
 
 			if r.Method == "OPTIONS" {
 				// Preflight request

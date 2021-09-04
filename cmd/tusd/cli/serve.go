@@ -26,6 +26,7 @@ func Serve() {
 	config := handler.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
+		CorsOrigin:              Flags.CorsOrigin,
 		RespectForwardedHeaders: Flags.BehindProxy,
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
@@ -99,6 +100,10 @@ func Serve() {
 	if Flags.TLSCertFile != "" && Flags.TLSKeyFile != "" {
 		protocol = "https"
 	}
+
+        if Flags.CorsOrigin != "" {
+                stdout.Printf("CORS origin header is %s", Flags.CorsOrigin)
+        }
 
 	if Flags.HttpSock == "" {
 		stdout.Printf("You can now upload files to: %s://%s%s", protocol, address, basepath)
