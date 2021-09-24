@@ -481,7 +481,6 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
 	})
 	if err != nil {
-		log.Println("EEEERRRR1", err)
 		if isAwsError(err, "NoSuchKey") {
 			return info, handler.ErrNotFound
 		}
