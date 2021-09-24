@@ -76,6 +76,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -480,6 +481,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
 	})
 	if err != nil {
+		log.Println("EEEERRRR1", err)
 		if isAwsError(err, "NoSuchKey") {
 			return info, handler.ErrNotFound
 		}
@@ -498,7 +500,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
-		if isAwsError(err, "NoSuchUpload") {
+		if isAwsError(err, "NoSuchUpload") || (isAwsError(err, "NoSuchKey") && info.Size > 0) {
 			info.Offset = info.Size
 			return info, nil
 		} else {
