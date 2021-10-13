@@ -1,6 +1,6 @@
 module github.com/tus/tusd
 
-go 1.12
+go 1.16
 
 require (
 	cloud.google.com/go v0.40.0
