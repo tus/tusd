@@ -498,7 +498,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, er
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
 		// completed and therefore can ensure the the offset is the size.
-		if isAwsError(err, "NoSuchUpload") || (isAwsError(err, "NoSuchKey") && info.Size > 0) {
+		if isAwsError(err, "NoSuchUpload") || isAwsError(err, "NoSuchKey") {
 			info.Offset = info.Size
 			return info, nil
 		} else {
