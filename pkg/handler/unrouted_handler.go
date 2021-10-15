@@ -986,20 +986,21 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 // closed.
 func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bodyReader) chan<- struct{} {
 	previousOffset := int64(0)
+	originalOffset := hook.Upload.Offset
 	stop := make(chan struct{}, 1)
 
 	go func() {
 		for {
 			select {
 			case <-stop:
-				hook.Upload.Offset = reader.bytesRead()
+				hook.Upload.Offset = originalOffset + reader.bytesRead()
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
 					previousOffset = hook.Upload.Offset
 				}
 				return
 			case <-time.After(1 * time.Second):
-				hook.Upload.Offset = reader.bytesRead()
+				hook.Upload.Offset = originalOffset + reader.bytesRead()
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
 					previousOffset = hook.Upload.Offset

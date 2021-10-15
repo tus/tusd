@@ -1,9 +1,13 @@
 module github.com/tus/tusd
 
-go 1.12
+// Specify the Go version needed for the Heroku deployment
+// See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
+// +heroku goVersion go1.16
+go 1.16
 
 require (
 	cloud.google.com/go v0.40.0
+	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/aws/aws-sdk-go v1.20.1
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/golang/mock v1.3.1

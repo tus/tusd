@@ -497,14 +497,16 @@ func TestPatch(t *testing.T) {
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
+		// We simulate that the upload has already an offset of 10 bytes. Therefore, the progress notifications
+		// must be the sum of the exisiting offset and the newly read bytes.
 		gomock.InOrder(
 			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
 			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
 				ID:     "yes",
-				Offset: 0,
+				Offset: 10,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first second third")).Return(int64(18), nil),
+			upload.EXPECT().WriteChunk(context.Background(), int64(10), NewReaderMatcher("first second third")).Return(int64(18), nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -525,7 +527,7 @@ func TestPatch(t *testing.T) {
 			info := event.Upload
 			a.Equal("yes", info.ID)
 			a.Equal(int64(100), info.Size)
-			a.Equal(int64(6), info.Offset)
+			a.Equal(int64(16), info.Offset)
 
 			writer.Write([]byte("second "))
 			writer.Write([]byte("third"))
@@ -534,7 +536,7 @@ func TestPatch(t *testing.T) {
 			info = event.Upload
 			a.Equal("yes", info.ID)
 			a.Equal(int64(100), info.Size)
-			a.Equal(int64(18), info.Offset)
+			a.Equal(int64(28), info.Offset)
 
 			writer.Close()
 
@@ -548,12 +550,12 @@ func TestPatch(t *testing.T) {
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
 				"Content-Type":  "application/offset+octet-stream",
-				"Upload-Offset": "0",
+				"Upload-Offset": "10",
 			},
 			ReqBody: reader,
 			Code:    http.StatusNoContent,
 			ResHeader: map[string]string{
-				"Upload-Offset": "18",
+				"Upload-Offset": "28",
 			},
 		}).Run(handler, t)
 
