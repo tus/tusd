@@ -48,9 +48,10 @@ func TestHead(t *testing.T) {
 			},
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Upload-Offset": "11",
-				"Upload-Length": "44",
-				"Cache-Control": "no-store",
+				"Upload-Offset":  "11",
+				"Upload-Length":  "44",
+				"Content-Length": "44",
+				"Cache-Control":  "no-store",
 			},
 		}).Run(handler, t)
 
