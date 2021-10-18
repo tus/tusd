@@ -9,14 +9,11 @@ WORKDIR /go/src/github.com/tus/tusd
 ARG GIT_VERSION
 ARG GIT_COMMIT
 
-RUN apk add --no-cache \
-        git gcc libc-dev \
+RUN apk add --no-cache gcc libc-dev \
     && go get -d -v ./... \
     && GOOS=linux GOARCH=amd64 go build \
         -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
-        -o "/go/bin/tusd" ./cmd/tusd/main.go \
-    && rm -r /go/src/* \
-    && apk del git
+        -o "/go/bin/tusd" ./cmd/tusd/main.go
 
 # start a new stage that copies in the binary built in the previous stage
 FROM alpine:3.13
