@@ -28,11 +28,10 @@ RUN set -xe \
 FROM alpine:3.14.2
 WORKDIR /srv/tusd-data
 
-RUN apk add --no-cache ca-certificates jq gcc \
+RUN apk add --no-cache ca-certificates jq \
     && addgroup -g 1000 tusd \
     && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
     && mkdir -p /srv/tusd-hooks \
-    && mkdir -p /srv/tusd-data \
     && chown tusd:tusd /srv/tusd-data
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
