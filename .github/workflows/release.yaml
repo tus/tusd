@@ -62,7 +62,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          # platforms: linux/amd64,linux/arm64
           builder: ${{ steps.buildx.outputs.name }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -97,3 +96,18 @@ jobs:
         uses: softprops/action-gh-release@v0.1.13
         with:
           files: tusd_*.*
+
+  deploy-heroku:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@v2.3.5
+
+      -
+        name: Deploy to heroku
+        uses: akhileshns/heroku-deploy@v3.4.6
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: ${{secrets.HEROKU_APP_NAME}}
+          heroku_email: ${{secrets.HEROKU_USER_EMAIL}}
