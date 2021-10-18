@@ -751,6 +751,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if handler.config.PreGetCallback != nil {
+		if err := handler.config.PreGetCallback(newHookEvent(info, r)); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
 	// Set headers before sending responses
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
 
