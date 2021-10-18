@@ -1,0 +1,67 @@
+name: release
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2.3.5
+
+      -
+        name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v3.5.0
+        with:
+          images: |
+            ghcr.io/tus/tusd
+            tusproject/tusd
+          flavor: |
+            latest=${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: |
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1.6.0
+        with:
+          install: true
+
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1.10.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      # -
+      #   name: Login to Docker Container Registry
+      #   uses: docker/login-action@v1.10.0
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # -
+      #   name: Build and push
+      #   id: build
+      #   uses: docker/build-push-action@v2
+      #   with:
+      #     push: true
+      #     platforms: linux/amd64,linux/arm64
+      #     file: Dockerfile.${{ matrix.flavor }}
+      #     builder: ${{ steps.buildx.outputs.name }}
+      #     tags: ${{ steps.docker_meta.outputs.tags }}
+      #     labels: ${{ steps.docker_meta.outputs.labels }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha
