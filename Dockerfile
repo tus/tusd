@@ -6,13 +6,14 @@ COPY . /go/src/github.com/tus/tusd/
 # Create app directory
 WORKDIR /go/src/github.com/tus/tusd
 
+ARG GIT_VERSION
+ARG GIT_COMMIT
+
 RUN apk add --no-cache \
         git gcc libc-dev \
     && go get -d -v ./... \
-    && version="$(git tag -l --points-at HEAD)" \
-    && commit=$(git log --format="%H" -n 1) \
     && GOOS=linux GOARCH=amd64 go build \
-        -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
+        -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o "/go/bin/tusd" ./cmd/tusd/main.go \
     && rm -r /go/src/* \
     && apk del git
