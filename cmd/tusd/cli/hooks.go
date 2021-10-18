@@ -104,7 +104,7 @@ func SetupPreHooks(config *handler.Config) error {
 
 	config.PreUploadCreateCallback = preCreateCallback
 	config.PreFinishResponseCallback = preFinishCallback
-	config.PreGetResponseCallback = preGetCallback
+	config.PreGetCallback = preGetCallback
 
 	return nil
 }
@@ -146,6 +146,8 @@ func invokeHookSync(typ hooks.HookType, info handler.HookEvent, captureOutput bo
 		logEv(stdout, "UploadFinished", "id", id, "size", strconv.FormatInt(size, 10))
 	case hooks.HookPostTerminate:
 		logEv(stdout, "UploadTerminated", "id", id)
+	case hooks.HookPreGet:
+		logEv(stdout, "PreGet", "id", id)
 	}
 
 	if hookHandler == nil {
