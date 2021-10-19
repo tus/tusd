@@ -82,7 +82,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.S3DisableSSL, "s3-disable-ssl", false, "Disable SSL and only use HTTP for communication with S3 (experimental and may be removed in the future)")
 	flag.IntVar(&Flags.S3ConcurrentPartUploads, "s3-concurrent-part-uploads", 10, "Number of concurrent part uploads to S3 (experimental and may be removed in the future)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
-	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names (can't contain underscore character)")
+	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names")
 	flag.StringVar(&Flags.AzStorage, "azure-storage", "", "Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variable to be set)")
 	flag.StringVar(&Flags.AzContainerAccessType, "azure-container-access-type", "", "Access type when creating a new container if it does not exist (possible values: blob, container, '')")
 	flag.StringVar(&Flags.AzBlobAccessTier, "azure-blob-access-tier", "", "Blob access tier when uploading new files (possible values: archive, cool, hot, '')")
