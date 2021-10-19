@@ -82,12 +82,6 @@ func SetupPreHooks(config *handler.Config) error {
 			MaxRetries: Flags.GrpcHooksRetry,
 			Backoff:    Flags.GrpcHooksBackoff,
 		}
-	} else if Flags.PluginHookPath != "" {
-		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
-
-		hookHandler = &hooks.PluginHook{
-			Path: Flags.PluginHookPath,
-		}
 	} else {
 		return nil
 	}
