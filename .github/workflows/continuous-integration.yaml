@@ -13,17 +13,20 @@ jobs:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-    - name: Install Matrix Go
-      uses: actions/setup-go@v2.1.4
-      with:
-        go-version: ${{ matrix.go-version }}
+      -
+        name: Checkout code
+        uses: actions/checkout@v2.3.5
 
-    - name: Checkout code
-      uses: actions/checkout@v2.3.5
+      -
+        name: Install Go
+        uses: actions/setup-go@v2.1.4
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Test code
-      env:
-        GO111MODULE: on
-      run: |
-        go test ./pkg/...
-        go vet ./pkg/...
+      -
+        name: Test code
+        env:
+          GO111MODULE: on
+        run: |
+          go test ./pkg/...
+          go vet ./pkg/...
