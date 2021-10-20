@@ -21,6 +21,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2.3.5
 
+    - name: Get cache paths
+      id: get-cache-paths
+      run: |
+        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+
+    - name: Cache Go modules
+      uses: actions/cache@v2
+      with:
+        path: |
+          ${{ steps.get-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-${{ matrix.platform }}-${{ matrix.go-version }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.go-version }}-go-
+          ${{ runner.os }}-${{ matrix.go-version }}-
+
     - name: Test code
       env:
         GO111MODULE: on
