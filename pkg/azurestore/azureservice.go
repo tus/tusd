@@ -209,13 +209,13 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	// Need committed blocks to be added to offset to know how big the file really is
 	for _, block := range getBlock.CommittedBlocks {
-		offset += block.Size
+		offset += int64(block.Size)
 		indexes = append(indexes, blockIDBase64ToInt(block.Name))
 	}
 
 	// Need to get the uncommitted blocks so that we can commit them
 	for _, block := range getBlock.UncommittedBlocks {
-		offset += block.Size
+		offset += int64(block.Size)
 		indexes = append(indexes, blockIDBase64ToInt(block.Name))
 	}
 
