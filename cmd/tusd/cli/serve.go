@@ -26,6 +26,7 @@ func Serve() {
 	config := handler.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
+		ShowGreeting:            Flags.ShowGreeting,
 		RespectForwardedHeaders: Flags.BehindProxy,
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
@@ -71,7 +72,9 @@ func Serve() {
 		http.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
-		http.HandleFunc("/", DisplayGreeting)
+		if config.ShowGreeting {
+			http.HandleFunc("/", DisplayGreeting)
+		}
 
 		// ... and register a route with and without the trailing slash, so we can
 		// handle uploads for /files/ and /files, for example.
