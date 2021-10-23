@@ -1275,7 +1275,8 @@ func (s s3APIWithTempFileAssertion) UploadPartWithContext(context.Context, *s3.U
 	for _, file := range files {
 		assert.True(strings.HasPrefix(file.Name(), "tusd-s3-tmp-"))
 	}
-	assert.Equal(len(files), 2)
+	assert.GreaterOrEqual(len(files), 1)
+	assert.LessOrEqual(len(files), 3)
 
 	return nil, fmt.Errorf("not now")
 }
