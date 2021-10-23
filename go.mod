@@ -20,5 +20,5 @@ require (
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.29.1
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
-	gopkg.in/h2non/gock.v1 v1.0.14
+	gopkg.in/h2non/gock.v1 v1.1.2
 )
