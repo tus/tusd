@@ -22,9 +22,6 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
-	// ShowGreeting indicates whether the handler should send a greeting to the
-	// client or not.
-	ShowGreeting bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

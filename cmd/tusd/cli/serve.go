@@ -26,7 +26,6 @@ func Serve() {
 	config := handler.Config{
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
-		ShowGreeting:            Flags.ShowGreeting,
 		RespectForwardedHeaders: Flags.BehindProxy,
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
@@ -72,7 +71,7 @@ func Serve() {
 		http.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
-		if config.ShowGreeting {
+		if Flags.ShowGreeting {
 			http.HandleFunc("/", DisplayGreeting)
 		}
 
