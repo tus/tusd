@@ -15,7 +15,7 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 )
 
-// go:generate mockgen -destination=./gcsstore_mock_test.go -package=gcsstore_test github.com/tus/tusd/pkg/gcsstore GCSReader,GCSAPI
+//go:generate mockgen -destination=./gcsstore_mock_test.go -package=gcsstore_test github.com/tus/tusd/pkg/gcsstore GCSReader,GCSAPI
 
 const mockID = "123456789abcdefghijklmnopqrstuvwxyz"
 const mockBucket = "bucket"
