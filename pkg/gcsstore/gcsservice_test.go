@@ -3,6 +3,7 @@ package gcsstore_test
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"
@@ -23,7 +24,7 @@ type googleBucketResponse struct {
 func TestGetObjectSize(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test-name").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
@@ -39,7 +40,9 @@ func TestGetObjectSize(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	// We need to explicit configure the GCS client to use the default HTTP client
+	// or otherwise gock cannot intercept the HTTP requests.
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -67,7 +70,7 @@ func TestGetObjectSize(t *testing.T) {
 func TestDeleteObjectWithFilter(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
 		MatchParam("pageToken", "").
@@ -85,7 +88,7 @@ func TestDeleteObjectWithFilter(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -110,47 +113,47 @@ func TestDeleteObjectWithFilter(t *testing.T) {
 func TestComposeObjects(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test1").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test2").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test3").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test1").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Post("/storage/v1/b/test-bucket/o/test_all/compose").
 		MatchParam("alt", "json").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test_all").
 		MatchParam("alt", "json").
 		Reply(200).
 		JSON(map[string]string{})
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
 		MatchParam("delimiter", "").
@@ -170,7 +173,7 @@ func TestComposeObjects(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -195,7 +198,7 @@ func TestComposeObjects(t *testing.T) {
 func TestGetObjectAttrs(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o/test-name").
 		MatchParam("alt", "json").
 		MatchParam("projection", "full").
@@ -211,7 +214,7 @@ func TestGetObjectAttrs(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -254,7 +257,7 @@ func TestReadObject(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -291,7 +294,7 @@ func TestSetObjectMetadata(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -329,7 +332,7 @@ func TestDeleteObject(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -360,15 +363,15 @@ func TestWriteObject(t *testing.T) {
 		"expiry_date":   "1425333671141",
 	})
 
-	gock.New("https://googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Post("/upload/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
-		MatchParam("key", "foo").
+		MatchParam("name", "test-name").
 		Reply(200).
 		JSON(map[string]string{})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -419,7 +422,7 @@ func TestComposeFrom(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -450,7 +453,7 @@ func TestFilterObject(t *testing.T) {
 		googleObjectResponse{Name: "test_directory/test-prefix_1"},
 	}}
 
-	gock.New("https://www.googleapis.com").
+	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
 		MatchParam("pageToken", "").
@@ -468,7 +471,7 @@ func TestFilterObject(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithAPIKey("foo"))
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
 	if err != nil {
 		t.Fatal(err)
 		return
