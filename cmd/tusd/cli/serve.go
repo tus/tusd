@@ -67,7 +67,9 @@ func Serve() {
 		mux.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
-		mux.HandleFunc("/", DisplayGreeting)
+		if Flags.ShowGreeting {
+			mux.HandleFunc("/", DisplayGreeting)
+		}
 
 		// ... and register a route with and without the trailing slash, so we can
 		// handle uploads for /files/ and /files, for example.

@@ -35,7 +35,8 @@ breaking changes have been introduced, please look at the [0.14.0 tag](https://g
 
 ## Build status
 
-![Build Status](https://github.com/tus/tusd/workflows/Test/badge.svg)
+[![release](https://github.com/tus/tusd/actions/workflows/release.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/release.yaml)
+[![continuous-integration](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml)
 
 ## License
 
