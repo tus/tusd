@@ -629,7 +629,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
 			},
-			ResBody: "upload has been stopped by server\n",
+			ResBody: "ERR_UPLOAD_STOPPED: upload has been stopped by server\n",
 		}).Run(handler, t)
 
 		_, more := <-c
@@ -680,7 +680,7 @@ func TestPatch(t *testing.T) {
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
 			},
-			ResBody: "an error while reading the body\n",
+			ResBody: "ERR_INTERNAL_SERVER_ERROR: an error while reading the body\n",
 		}).Run(handler, t)
 	})
 }

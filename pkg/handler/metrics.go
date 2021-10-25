@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 )
@@ -78,23 +77,16 @@ func newMetrics() Metrics {
 // ErrorsTotalMap stores the counters for the different HTTP errors.
 type ErrorsTotalMap struct {
 	lock    sync.RWMutex
-	counter map[simpleHTTPError]*uint64
+	counter map[ErrorsTotalMapEntry]*uint64
 }
 
-type simpleHTTPError struct {
-	Message    string
+type ErrorsTotalMapEntry struct {
+	ErrorCode  string
 	StatusCode int
 }
 
-func simplifyHTTPError(err HTTPError) simpleHTTPError {
-	return simpleHTTPError{
-		Message:    err.Error(),
-		StatusCode: err.StatusCode(),
-	}
-}
-
 func newErrorsTotalMap() *ErrorsTotalMap {
-	m := make(map[simpleHTTPError]*uint64, 20)
+	m := make(map[ErrorsTotalMapEntry]*uint64, 20)
 	return &ErrorsTotalMap{
 		counter: m,
 	}
@@ -103,7 +95,11 @@ func newErrorsTotalMap() *ErrorsTotalMap {
 // retrievePointerFor returns (after creating it if necessary) the pointer to
 // the counter for the error.
 func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
-	serr := simplifyHTTPError(err)
+	serr := ErrorsTotalMapEntry{
+		ErrorCode:  err.ErrorCode(),
+		StatusCode: err.StatusCode(),
+	}
+
 	e.lock.RLock()
 	ptr, ok := e.counter[serr]
 	e.lock.RUnlock()
@@ -124,12 +120,11 @@ func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
 }
 
 // Load retrieves the map of the counter pointers atomically
-func (e *ErrorsTotalMap) Load() map[HTTPError]*uint64 {
-	m := make(map[HTTPError]*uint64, len(e.counter))
+func (e *ErrorsTotalMap) Load() map[ErrorsTotalMapEntry]*uint64 {
+	m := make(map[ErrorsTotalMapEntry]*uint64, len(e.counter))
 	e.lock.RLock()
 	for err, ptr := range e.counter {
-		httpErr := NewHTTPError(errors.New(err.Message), err.StatusCode)
-		m[httpErr] = ptr
+		m[err] = ptr
 	}
 	e.lock.RUnlock()
 
