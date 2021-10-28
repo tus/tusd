@@ -30,6 +30,7 @@ function makezip {
 
   local dir="tusd_${os}_${arch}"
   zip "$dir.zip" "$dir/tusd$ext" LICENSE.txt README.md
+  sha256sum "$dir.zip" > "$dir.zip.sha256"
 }
 
 function maketar {
@@ -40,6 +41,7 @@ function maketar {
 
   local dir="tusd_${os}_${arch}"
   tar -czf "$dir.tar.gz" "$dir/tusd" LICENSE.txt README.md
+  sha256sum "$dir.tar.gz" > "$dir.tar.gz.sha256"
 }
 
 function makedep {
