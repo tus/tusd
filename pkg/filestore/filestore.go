@@ -49,9 +49,11 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 }
 
 func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
-	id := uid.Uid()
+	if info.ID == "" {
+		info.ID = uid.Uid()
+	}
+	id := info.ID
 	binPath := store.binPath(id)
-	info.ID = id
 	info.Storage = map[string]string{
 		"Type": "filestore",
 		"Path": binPath,

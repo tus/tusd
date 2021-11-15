@@ -275,6 +275,11 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
+	if isTusV2Request(r) {
+		handler.PostFileV2(w, r)
+		return
+	}
+
 	ctx := context.Background()
 
 	// Check for presence of application/offset+octet-stream. If another content
@@ -416,11 +421,123 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.sendResp(w, r, http.StatusCreated)
 }
 
+// PostFile creates a new file upload using the datastore after validating the
+// length and parsing the metadata.
+func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	// TODO: Check that upload length deferring is supported
+
+	// Parse headers
+	// TODO: Make parsing of Upload-Offset optional
+	// TODO: What is the correct valud for Upload-Incomplete
+	// TODO: Also consider Content-Type and Content-Disposition (using https://play.golang.org/p/AjWbJB8vUk)
+	token := r.Header.Get("Upload-Token")
+	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
+	if err != nil || offset < 0 {
+		handler.sendError(w, r, ErrInvalidOffset)
+		return
+	}
+	isIncomplete := r.Header.Get("Upload-Incomplete") == "1"
+
+	// 1. Get or create upload resource
+	// TODO: Create consistent ID from token? e.g. using SHA256
+	id := token
+	upload, err := handler.composer.Core.GetUpload(ctx, id)
+	if err == ErrNotFound {
+		info := FileInfo{
+			ID:             id,
+			SizeIsDeferred: true,
+			// TODO: Set metadata?
+			// MetaData:       meta,
+		}
+
+		if handler.config.PreUploadCreateCallback != nil {
+			if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+				handler.sendError(w, r, err)
+				return
+			}
+		}
+
+		upload, err = handler.composer.Core.NewUpload(ctx, info)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		handler.Metrics.incUploadsCreated()
+		handler.log("UploadCreated", "id", id, "size", "n/a", "url", "n/a")
+
+		if handler.config.NotifyCreatedUploads {
+			handler.CreatedUploads <- newHookEvent(info, r)
+		}
+	} else if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	// 2. Verify offset
+	if handler.composer.UsesLocker {
+		lock, err := handler.lockUpload(id)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		defer lock.Unlock()
+	}
+
+	info, err := upload.GetInfo(ctx)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	if offset != info.Offset {
+		handler.sendError(w, r, ErrMismatchOffset)
+		return
+	}
+
+	// 3. Write chunk
+	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	// 4. Finish upload, if necessary
+	if !isIncomplete {
+		info, err = upload.GetInfo(ctx)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		uploadLength := info.Offset
+
+		lengthDeclarableUpload := handler.composer.LengthDeferrer.AsLengthDeclarableUpload(upload)
+		if err := lengthDeclarableUpload.DeclareLength(ctx, uploadLength); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		info.Size = uploadLength
+		info.SizeIsDeferred = false
+
+		if err := handler.finishUploadIfComplete(ctx, upload, info, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+	}
+
+	handler.sendResp(w, r, http.StatusCreated)
+}
+
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractUploadID(r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -464,15 +581,23 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Upload-Concat", v)
 	}
 
-	if len(info.MetaData) != 0 {
-		w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
-	}
+	if !isTusV2Request(r) {
+		if len(info.MetaData) != 0 {
+			w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
+		}
 
-	if info.SizeIsDeferred {
-		w.Header().Set("Upload-Defer-Length", UploadLengthDeferred)
+		if info.SizeIsDeferred {
+			w.Header().Set("Upload-Defer-Length", UploadLengthDeferred)
+		} else {
+			w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
+			w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
+		}
 	} else {
-		w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
-		w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
+		if info.SizeIsDeferred {
+			w.Header().Set("Upload-Incomplete", "1")
+		} else {
+			w.Header().Set("Upload-Incomplete", "0")
+		}
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
@@ -840,7 +965,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractUploadID(r)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -1011,6 +1136,14 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bod
 	}()
 
 	return stop
+}
+
+func (handler *UnroutedHandler) extractUploadID(r *http.Request) (string, error) {
+	if isTusV2Request(r) {
+		return r.Header.Get("Upload-Token"), nil
+	}
+
+	return extractIDFromPath(r.URL.Path)
 }
 
 // getHostAndProtocol extracts the host and used protocol (either HTTP or HTTPS)
@@ -1246,4 +1379,10 @@ func getRequestId(r *http.Request) string {
 	}
 
 	return reqId
+}
+
+// isTusV2Request returns whether a HTTP request includes a sign that it is
+// related to tus v2 (instead of tus v1)
+func isTusV2Request(r *http.Request) bool {
+	return r.Header.Get("Upload-Token") != ""
 }
