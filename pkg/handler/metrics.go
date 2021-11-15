@@ -29,6 +29,7 @@ func (m Metrics) incRequestsTotal(method string) {
 	}
 }
 
+// TODO: Rework to only store error code
 // incErrorsTotal increases the counter for this error atomically by one.
 func (m Metrics) incErrorsTotal(err HTTPError) {
 	ptr := m.ErrorsTotal.retrievePointerFor(err)
