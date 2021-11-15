@@ -27,6 +27,7 @@ func Serve() {
 		MaxSize:                 Flags.MaxSize,
 		BasePath:                Flags.Basepath,
 		RespectForwardedHeaders: Flags.BehindProxy,
+		EnableTusV2:             Flags.TusV2,
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,

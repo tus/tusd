@@ -22,6 +22,9 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
+	// EnableTusV2 controls whether the new and experimental tus v2 protocol is
+	// accepted, next to the current tus v1 protocol.
+	EnableTusV2 bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

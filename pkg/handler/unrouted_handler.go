@@ -262,7 +262,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Test if the version sent by the client is supported
 		// GET and HEAD methods are not checked since a browser may visit this URL and does
 		// not include this header. GET requests are not part of the specification.
-		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" {
+		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && !handler.config.EnableTusV2 {
 			handler.sendError(w, r, ErrUnsupportedVersion)
 			return
 		}
