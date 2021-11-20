@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"io"
 	"log"
 	"math"
@@ -29,17 +28,27 @@ var (
 // See the net/http package for standardized status codes.
 type HTTPError interface {
 	error
+	ErrorCode() string
 	StatusCode() int
 	Body() []byte
 }
 
 type httpError struct {
-	error
+	errorCode  string
+	message    string
 	statusCode int
+}
+
+func (err httpError) Error() string {
+	return err.errorCode + ": " + err.message
 }
 
 func (err httpError) StatusCode() int {
 	return err.statusCode
+}
+
+func (err httpError) ErrorCode() string {
+	return err.errorCode
 }
 
 func (err httpError) Body() []byte {
@@ -49,30 +58,32 @@ func (err httpError) Body() []byte {
 // NewHTTPError adds the given status code to the provided error and returns
 // the new error instance. The status code may be used in corresponding HTTP
 // responses. See the net/http package for standardized status codes.
-func NewHTTPError(err error, statusCode int) HTTPError {
-	return httpError{err, statusCode}
+func NewHTTPError(errCode string, message string, statusCode int) HTTPError {
+	return httpError{errCode, message, statusCode}
 }
 
 var (
-	ErrUnsupportedVersion               = NewHTTPError(errors.New("unsupported version"), http.StatusPreconditionFailed)
-	ErrMaxSizeExceeded                  = NewHTTPError(errors.New("maximum size exceeded"), http.StatusRequestEntityTooLarge)
-	ErrInvalidContentType               = NewHTTPError(errors.New("missing or invalid Content-Type header"), http.StatusBadRequest)
-	ErrInvalidUploadLength              = NewHTTPError(errors.New("missing or invalid Upload-Length header"), http.StatusBadRequest)
-	ErrInvalidOffset                    = NewHTTPError(errors.New("missing or invalid Upload-Offset header"), http.StatusBadRequest)
-	ErrNotFound                         = NewHTTPError(errors.New("upload not found"), http.StatusNotFound)
-	ErrFileLocked                       = NewHTTPError(errors.New("file currently locked"), 423) // Locked (WebDAV) (RFC 4918)
-	ErrMismatchOffset                   = NewHTTPError(errors.New("mismatched offset"), http.StatusConflict)
-	ErrSizeExceeded                     = NewHTTPError(errors.New("resource's size exceeded"), http.StatusRequestEntityTooLarge)
-	ErrNotImplemented                   = NewHTTPError(errors.New("feature not implemented"), http.StatusNotImplemented)
-	ErrUploadNotFinished                = NewHTTPError(errors.New("one of the partial uploads is not finished"), http.StatusBadRequest)
-	ErrInvalidConcat                    = NewHTTPError(errors.New("invalid Upload-Concat header"), http.StatusBadRequest)
-	ErrModifyFinal                      = NewHTTPError(errors.New("modifying a final upload is not allowed"), http.StatusForbidden)
-	ErrUploadLengthAndUploadDeferLength = NewHTTPError(errors.New("provided both Upload-Length and Upload-Defer-Length"), http.StatusBadRequest)
-	ErrInvalidUploadDeferLength         = NewHTTPError(errors.New("invalid Upload-Defer-Length header"), http.StatusBadRequest)
-	ErrUploadStoppedByServer            = NewHTTPError(errors.New("upload has been stopped by server"), http.StatusBadRequest)
+	ErrUnsupportedVersion               = NewHTTPError("ERR_UNSUPPORTED_VERSION", "missing, invalid or unsupported Tus-Resumable header", http.StatusPreconditionFailed)
+	ErrMaxSizeExceeded                  = NewHTTPError("ERR_MAX_SIZE_EXCEEDED", "maximum size exceeded", http.StatusRequestEntityTooLarge)
+	ErrInvalidContentType               = NewHTTPError("ERR_INVALID_CONTENT_TYPE", "missing or invalid Content-Type header", http.StatusBadRequest)
+	ErrInvalidUploadLength              = NewHTTPError("ERR_INVALID_UPLOAD_LENGTH", "missing or invalid Upload-Length header", http.StatusBadRequest)
+	ErrInvalidOffset                    = NewHTTPError("ERR_INVALID_OFFSET", "missing or invalid Upload-Offset header", http.StatusBadRequest)
+	ErrNotFound                         = NewHTTPError("ERR_UPLOAD_NOT_FOUND", "upload not found", http.StatusNotFound)
+	ErrFileLocked                       = NewHTTPError("ERR_UPLOAD_LOCKED", "file currently locked", http.StatusLocked)
+	ErrMismatchOffset                   = NewHTTPError("ERR_MISMATCHED_OFFSET", "mismatched offset", http.StatusConflict)
+	ErrSizeExceeded                     = NewHTTPError("ERR_UPLOAD_SIZE_EXCEEDED", "upload's size exceeded", http.StatusRequestEntityTooLarge)
+	ErrNotImplemented                   = NewHTTPError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
+	ErrUploadNotFinished                = NewHTTPError("ERR_UPLOAD_NOT_FINISHED", "one of the partial uploads is not finished", http.StatusBadRequest)
+	ErrInvalidConcat                    = NewHTTPError("ERR_INVALID_CONCAT", "invalid Upload-Concat header", http.StatusBadRequest)
+	ErrModifyFinal                      = NewHTTPError("ERR_MODIFY_FINAL", "modifying a final upload is not allowed", http.StatusForbidden)
+	ErrUploadLengthAndUploadDeferLength = NewHTTPError("ERR_AMBIGUOUS_UPLOAD_LENGTH", "provided both Upload-Length and Upload-Defer-Length", http.StatusBadRequest)
+	ErrInvalidUploadDeferLength         = NewHTTPError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
+	ErrUploadStoppedByServer            = NewHTTPError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 
-	errReadTimeout     = errors.New("read tcp: i/o timeout")
-	errConnectionReset = errors.New("read tcp: connection reset by peer")
+	// TODO: These two responses are 500 for backwards compatability. We should discuss
+	// whether it is better to more them to 4XX status codes.
+	ErrReadTimeout     = NewHTTPError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
+	ErrConnectionReset = NewHTTPError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
 )
 
 // HTTPRequest contains basic details of an incoming HTTP request.
@@ -910,14 +921,14 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
 	// Therefore, we use a common error message for all of them.
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-		err = errReadTimeout
+		err = ErrReadTimeout
 	}
 
 	// Errors for connnection resets also contain TCP details, we don't need, e.g:
 	// read tcp 127.0.0.1:1080->127.0.0.1:10023: read: connection reset by peer
 	// Therefore, we also trim those down.
 	if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
-		err = errConnectionReset
+		err = ErrConnectionReset
 	}
 
 	// TODO: Decide if we should handle this in here, in body_reader or not at all.
@@ -941,7 +952,8 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 
 	statusErr, ok := err.(HTTPError)
 	if !ok {
-		statusErr = NewHTTPError(err, http.StatusInternalServerError)
+		handler.log("InternalServerError", "message", err.Error(), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+		statusErr = NewHTTPError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
 	reason := append(statusErr.Body(), '\n')
@@ -949,12 +961,13 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		reason = nil
 	}
 
+	// TODO: Allow JSON response
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
 	w.WriteHeader(statusErr.StatusCode())
 	w.Write(reason)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", err.Error(), "requestId", getRequestId(r))
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", statusErr.ErrorCode(), "requestId", getRequestId(r))
 
 	handler.Metrics.incErrorsTotal(statusErr)
 }
