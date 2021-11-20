@@ -438,7 +438,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 		handler.sendError(w, r, ErrInvalidOffset)
 		return
 	}
-	isIncomplete := r.Header.Get("Upload-Incomplete") == "1"
+	isIncomplete := r.Header.Get("Upload-Incomplete") == "?1"
 
 	// 1. Get or create upload resource
 	// TODO: Create consistent ID from token? e.g. using SHA256
@@ -594,9 +594,9 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		}
 	} else {
 		if info.SizeIsDeferred {
-			w.Header().Set("Upload-Incomplete", "1")
+			w.Header().Set("Upload-Incomplete", "?1")
 		} else {
-			w.Header().Set("Upload-Incomplete", "0")
+			w.Header().Set("Upload-Incomplete", "?0")
 		}
 	}
 
