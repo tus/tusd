@@ -23,69 +23,60 @@ var (
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
 
-// HTTPError represents an error with an additional status code attached
-// which may be used when this error is sent in a HTTP response.
-// See the net/http package for standardized status codes.
-type HTTPError interface {
-	error
-	ErrorCode() string
-	StatusCode() int
-	Body() []byte
+// TODO: Move in own file
+// ErrorWithResponse represents an error with an additional HTTP response
+// attached, which can hold a status code, body and headers.
+type Error struct {
+	ErrorCode    string
+	Message      string
+	HTTPResponse HTTPResponse
 }
 
-type httpError struct {
-	errorCode  string
-	message    string
-	statusCode int
+func (e Error) Error() string {
+	return e.ErrorCode + ": " + e.Message
 }
 
-func (err httpError) Error() string {
-	return err.errorCode + ": " + err.message
-}
-
-func (err httpError) StatusCode() int {
-	return err.statusCode
-}
-
-func (err httpError) ErrorCode() string {
-	return err.errorCode
-}
-
-func (err httpError) Body() []byte {
-	return []byte(err.Error())
-}
-
-// NewHTTPError adds the given status code to the provided error and returns
+// TODO: Rename comment
+// NewError adds the given status code to the provided error and returns
 // the new error instance. The status code may be used in corresponding HTTP
 // responses. See the net/http package for standardized status codes.
-func NewHTTPError(errCode string, message string, statusCode int) HTTPError {
-	return httpError{errCode, message, statusCode}
+func NewError(errCode string, message string, statusCode int) Error {
+	return Error{
+		ErrorCode: errCode,
+		Message:   message,
+		HTTPResponse: HTTPResponse{
+			StatusCode: statusCode,
+			Body:       []byte(errCode + ": " + message),
+		},
+	}
 }
 
 var (
-	ErrUnsupportedVersion               = NewHTTPError("ERR_UNSUPPORTED_VERSION", "missing, invalid or unsupported Tus-Resumable header", http.StatusPreconditionFailed)
-	ErrMaxSizeExceeded                  = NewHTTPError("ERR_MAX_SIZE_EXCEEDED", "maximum size exceeded", http.StatusRequestEntityTooLarge)
-	ErrInvalidContentType               = NewHTTPError("ERR_INVALID_CONTENT_TYPE", "missing or invalid Content-Type header", http.StatusBadRequest)
-	ErrInvalidUploadLength              = NewHTTPError("ERR_INVALID_UPLOAD_LENGTH", "missing or invalid Upload-Length header", http.StatusBadRequest)
-	ErrInvalidOffset                    = NewHTTPError("ERR_INVALID_OFFSET", "missing or invalid Upload-Offset header", http.StatusBadRequest)
-	ErrNotFound                         = NewHTTPError("ERR_UPLOAD_NOT_FOUND", "upload not found", http.StatusNotFound)
-	ErrFileLocked                       = NewHTTPError("ERR_UPLOAD_LOCKED", "file currently locked", http.StatusLocked)
-	ErrMismatchOffset                   = NewHTTPError("ERR_MISMATCHED_OFFSET", "mismatched offset", http.StatusConflict)
-	ErrSizeExceeded                     = NewHTTPError("ERR_UPLOAD_SIZE_EXCEEDED", "upload's size exceeded", http.StatusRequestEntityTooLarge)
-	ErrNotImplemented                   = NewHTTPError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
-	ErrUploadNotFinished                = NewHTTPError("ERR_UPLOAD_NOT_FINISHED", "one of the partial uploads is not finished", http.StatusBadRequest)
-	ErrInvalidConcat                    = NewHTTPError("ERR_INVALID_CONCAT", "invalid Upload-Concat header", http.StatusBadRequest)
-	ErrModifyFinal                      = NewHTTPError("ERR_MODIFY_FINAL", "modifying a final upload is not allowed", http.StatusForbidden)
-	ErrUploadLengthAndUploadDeferLength = NewHTTPError("ERR_AMBIGUOUS_UPLOAD_LENGTH", "provided both Upload-Length and Upload-Defer-Length", http.StatusBadRequest)
-	ErrInvalidUploadDeferLength         = NewHTTPError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
-	ErrUploadStoppedByServer            = NewHTTPError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
+	ErrUnsupportedVersion               = NewError("ERR_UNSUPPORTED_VERSION", "missing, invalid or unsupported Tus-Resumable header", http.StatusPreconditionFailed)
+	ErrMaxSizeExceeded                  = NewError("ERR_MAX_SIZE_EXCEEDED", "maximum size exceeded", http.StatusRequestEntityTooLarge)
+	ErrInvalidContentType               = NewError("ERR_INVALID_CONTENT_TYPE", "missing or invalid Content-Type header", http.StatusBadRequest)
+	ErrInvalidUploadLength              = NewError("ERR_INVALID_UPLOAD_LENGTH", "missing or invalid Upload-Length header", http.StatusBadRequest)
+	ErrInvalidOffset                    = NewError("ERR_INVALID_OFFSET", "missing or invalid Upload-Offset header", http.StatusBadRequest)
+	ErrNotFound                         = NewError("ERR_UPLOAD_NOT_FOUND", "upload not found", http.StatusNotFound)
+	ErrFileLocked                       = NewError("ERR_UPLOAD_LOCKED", "file currently locked", http.StatusLocked)
+	ErrMismatchOffset                   = NewError("ERR_MISMATCHED_OFFSET", "mismatched offset", http.StatusConflict)
+	ErrSizeExceeded                     = NewError("ERR_UPLOAD_SIZE_EXCEEDED", "upload's size exceeded", http.StatusRequestEntityTooLarge)
+	ErrNotImplemented                   = NewError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
+	ErrUploadNotFinished                = NewError("ERR_UPLOAD_NOT_FINISHED", "one of the partial uploads is not finished", http.StatusBadRequest)
+	ErrInvalidConcat                    = NewError("ERR_INVALID_CONCAT", "invalid Upload-Concat header", http.StatusBadRequest)
+	ErrModifyFinal                      = NewError("ERR_MODIFY_FINAL", "modifying a final upload is not allowed", http.StatusForbidden)
+	ErrUploadLengthAndUploadDeferLength = NewError("ERR_AMBIGUOUS_UPLOAD_LENGTH", "provided both Upload-Length and Upload-Defer-Length", http.StatusBadRequest)
+	ErrInvalidUploadDeferLength         = NewError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
+	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
+	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
 
 	// TODO: These two responses are 500 for backwards compatability. We should discuss
 	// whether it is better to more them to 4XX status codes.
-	ErrReadTimeout     = NewHTTPError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
-	ErrConnectionReset = NewHTTPError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
+	ErrReadTimeout     = NewError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
+	ErrConnectionReset = NewError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
 )
 
+// TODO: Move HTTP structs into own file
 // HTTPRequest contains basic details of an incoming HTTP request.
 type HTTPRequest struct {
 	// Method is the HTTP method, e.g. POST or PATCH
@@ -96,6 +87,15 @@ type HTTPRequest struct {
 	RemoteAddr string
 	// Header contains all HTTP headers as present in the HTTP request.
 	Header http.Header
+}
+
+type HTTPResponse struct {
+	// HTTPStatus, HTTPHeaders and HTTPBody control these details of the corresponding
+	// HTTP response.
+	// TODO: Currently only works for error responses
+	StatusCode int
+	Headers    http.Header
+	Body       []byte
 }
 
 // HookEvent represents an event from tusd which can be handled by the application.
@@ -354,7 +354,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+		if _, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -710,7 +710,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 		handler.Metrics.incUploadsFinished()
 
 		if handler.config.PreFinishResponseCallback != nil {
-			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
+			if _, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
 				return err
 			}
 		}
@@ -950,13 +950,13 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	//	err = nil
 	//}
 
-	statusErr, ok := err.(HTTPError)
+	detailedErr, ok := err.(Error)
 	if !ok {
 		handler.log("InternalServerError", "message", err.Error(), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
-		statusErr = NewHTTPError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
+		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
-	reason := append(statusErr.Body(), '\n')
+	reason := append(detailedErr.HTTPResponse.Body, '\n')
 	if r.Method == "HEAD" {
 		reason = nil
 	}
@@ -964,12 +964,12 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// TODO: Allow JSON response
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
-	w.WriteHeader(statusErr.StatusCode())
+	w.WriteHeader(detailedErr.HTTPResponse.StatusCode)
 	w.Write(reason)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(statusErr.StatusCode()), "method", r.Method, "path", r.URL.Path, "error", statusErr.ErrorCode(), "requestId", getRequestId(r))
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(detailedErr.HTTPResponse.StatusCode), "method", r.Method, "path", r.URL.Path, "error", detailedErr.ErrorCode, "requestId", getRequestId(r))
 
-	handler.Metrics.incErrorsTotal(statusErr)
+	handler.Metrics.incErrorsTotal(detailedErr)
 }
 
 // sendResp writes the header to w with the specified status code.

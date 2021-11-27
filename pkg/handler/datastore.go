@@ -41,6 +41,7 @@ type FileInfo struct {
 // more data. Furthermore, a response is sent to notify the client of the
 // interrupting and the upload is terminated (if supported by the data store),
 // so the upload cannot be resumed anymore.
+// TODO: Allow passing in a HTTP Response
 func (f FileInfo) StopUpload() {
 	if f.stopUpload != nil {
 		f.stopUpload()

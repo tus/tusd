@@ -46,7 +46,6 @@ var Flags struct {
 	GrpcHooksEndpoint       string
 	GrpcHooksRetry          int
 	GrpcHooksBackoff        int
-	HooksStopUploadCode     int
 	EnabledHooks            []hooks.HookType
 	ShowVersion             bool
 	ExposeMetrics           bool
@@ -98,7 +97,6 @@ func ParseFlags() {
 	flag.StringVar(&Flags.GrpcHooksEndpoint, "hooks-grpc", "", "An gRPC endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.GrpcHooksRetry, "hooks-grpc-retry", 3, "Number of times to retry on a server error or network timeout")
 	flag.IntVar(&Flags.GrpcHooksBackoff, "hooks-grpc-backoff", 1, "Number of seconds to wait before retrying each retry")
-	flag.IntVar(&Flags.HooksStopUploadCode, "hooks-stop-code", 0, "Return code from post-receive hook which causes tusd to stop and delete the current upload. A zero value means that no uploads will be stopped")
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")
