@@ -46,7 +46,10 @@ func NewError(errCode string, message string, statusCode int) Error {
 		Message:   message,
 		HTTPResponse: HTTPResponse{
 			StatusCode: statusCode,
-			Body:       []byte(errCode + ": " + message),
+			Body:       []byte(errCode + ": " + message + "\n"),
+			Headers: HTTPHeaders{
+				"Content-Type": "text/plain; charset=utf-8",
+			},
 		},
 	}
 }
@@ -86,16 +89,36 @@ type HTTPRequest struct {
 	// RemoteAddr contains the network address that sent the request
 	RemoteAddr string
 	// Header contains all HTTP headers as present in the HTTP request.
+	// TODO: Change to HTTPHeaders as well
 	Header http.Header
 }
+
+type HTTPHeaders map[string]string
 
 type HTTPResponse struct {
 	// HTTPStatus, HTTPHeaders and HTTPBody control these details of the corresponding
 	// HTTP response.
 	// TODO: Currently only works for error responses
 	StatusCode int
-	Headers    http.Header
+	Headers    HTTPHeaders
 	Body       []byte
+}
+
+func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
+	headers := w.Header()
+	for key, value := range resp.Headers {
+		headers.Set(key, value)
+	}
+
+	if len(resp.Body) > 0 {
+		headers.Set("Content-Length", strconv.Itoa(len(resp.Body)))
+	}
+
+	w.WriteHeader(resp.StatusCode)
+
+	if len(resp.Body) > 0 {
+		w.Write(resp.Body)
+	}
 }
 
 // HookEvent represents an event from tusd which can be handled by the application.
@@ -266,7 +289,9 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			// will be ignored or interpreted as a rejection.
 			// For example, the Presto engine, which is used in older versions of
 			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
-			handler.sendResp(w, r, http.StatusOK)
+			handler.sendResp(w, r, HTTPResponse{
+				StatusCode: http.StatusOK,
+			})
 			return
 		}
 
@@ -377,7 +402,12 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
 	url := handler.absFileURL(r, id)
-	w.Header().Set("Location", url)
+	resp := HTTPResponse{
+		StatusCode: http.StatusCreated,
+		Headers: HTTPHeaders{
+			"Location": url,
+		},
+	}
 
 	handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
@@ -410,7 +440,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			defer lock.Unlock()
 		}
 
-		if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
+		if err := handler.writeChunk(ctx, upload, info, resp, r); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -424,7 +454,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	handler.sendResp(w, r, http.StatusCreated)
+	handler.sendResp(w, r, resp)
 }
 
 // HeadFile returns the length and offset for the HEAD request
@@ -459,9 +489,14 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	resp := HTTPResponse{
+		StatusCode: http.StatusOK,
+		Headers:    make(HTTPHeaders),
+	}
+
 	// Add Upload-Concat header if possible
 	if info.IsPartial {
-		w.Header().Set("Upload-Concat", "partial")
+		resp.Headers["Upload-Concat"] = "partial"
 	}
 
 	if info.IsFinal {
@@ -472,23 +507,23 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		// Remove trailing space
 		v = v[:len(v)-1]
 
-		w.Header().Set("Upload-Concat", v)
+		resp.Headers["Upload-Concat"] = v
 	}
 
 	if len(info.MetaData) != 0 {
-		w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
+		resp.Headers["Upload-Metadata"] = SerializeMetadataHeader(info.MetaData)
 	}
 
 	if info.SizeIsDeferred {
-		w.Header().Set("Upload-Defer-Length", UploadLengthDeferred)
+		resp.Headers["Upload-Defer-Length"] = UploadLengthDeferred
 	} else {
-		w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
-		w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
+		resp.Headers["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+		resp.Headers["Content-Length"] = strconv.FormatInt(info.Size, 10)
 	}
 
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
-	handler.sendResp(w, r, http.StatusOK)
+	resp.Headers["Cache-Control"] = "no-store"
+	resp.Headers["Upload-Offset"] = strconv.FormatInt(info.Offset, 10)
+	handler.sendResp(w, r, resp)
 }
 
 // PatchFile adds a chunk to an upload. This operation is only allowed
@@ -548,10 +583,15 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	resp := HTTPResponse{
+		StatusCode: http.StatusNoContent,
+		Headers:    make(HTTPHeaders, 1), // Initialize map, so writeChunk can set the Upload-Offset header.
+	}
+
 	// Do not proxy the call to the data store if the upload is already completed
 	if !info.SizeIsDeferred && info.Offset == info.Size {
-		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
-		handler.sendResp(w, r, http.StatusNoContent)
+		resp.Headers["Upload-Offset"] = strconv.FormatInt(offset, 10)
+		handler.sendResp(w, r, resp)
 		return
 	}
 
@@ -580,18 +620,18 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.SizeIsDeferred = false
 	}
 
-	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
+	if err := handler.writeChunk(ctx, upload, info, resp, r); err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
-	handler.sendResp(w, r, http.StatusNoContent)
+	handler.sendResp(w, r, resp)
 }
 
 // writeChunk reads the body from the requests r and appends it to the upload
 // with the corresponding id. Afterwards, it will set the necessary response
 // headers but will not send the response.
-func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, info FileInfo, w http.ResponseWriter, r *http.Request) error {
+func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, info FileInfo, resp HTTPResponse, r *http.Request) error {
 	// Get Content-Length if possible
 	length := r.ContentLength
 	offset := info.Offset
@@ -684,7 +724,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
-	w.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
+	resp.Headers["Upload-Offset"] = strconv.FormatInt(newOffset, 10)
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
@@ -752,16 +792,21 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Set headers before sending responses
-	w.Header().Set("Content-Length", strconv.FormatInt(info.Offset, 10))
-
 	contentType, contentDisposition := filterContentType(info)
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Disposition", contentDisposition)
+	resp := HTTPResponse{
+		StatusCode: http.StatusOK,
+		Headers: HTTPHeaders{
+			"Content-Length":      strconv.FormatInt(info.Offset, 10),
+			"Content-Type":        contentType,
+			"Content-Disposition": contentDisposition,
+		},
+		Body: nil, // Body is intentionally left nil, and we copy it manually in later.
+	}
 
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
-		handler.sendResp(w, r, http.StatusNoContent)
+		resp.StatusCode = http.StatusNoContent
+		handler.sendResp(w, r, resp)
 		return
 	}
 
@@ -771,7 +816,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	handler.sendResp(w, r, http.StatusOK)
+	handler.sendResp(w, r, resp)
 	io.Copy(w, src)
 
 	// Try to close the reader if the io.Closer interface is implemented
@@ -888,7 +933,9 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	handler.sendResp(w, r, http.StatusNoContent)
+	handler.sendResp(w, r, HTTPResponse{
+		StatusCode: http.StatusNoContent,
+	})
 }
 
 // terminateUpload passes a given upload to the DataStore's Terminater,
@@ -956,27 +1003,21 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
-	reason := append(detailedErr.HTTPResponse.Body, '\n')
+	// If we are sending the response for a HEAD request, ensure that we are not including
+	// any response body.
 	if r.Method == "HEAD" {
-		reason = nil
+		detailedErr.HTTPResponse.Body = nil
 	}
 
-	// TODO: Allow JSON response
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(reason)))
-	w.WriteHeader(detailedErr.HTTPResponse.StatusCode)
-	w.Write(reason)
-
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(detailedErr.HTTPResponse.StatusCode), "method", r.Method, "path", r.URL.Path, "error", detailedErr.ErrorCode, "requestId", getRequestId(r))
-
+	handler.sendResp(w, r, detailedErr.HTTPResponse)
 	handler.Metrics.incErrorsTotal(detailedErr)
 }
 
 // sendResp writes the header to w with the specified status code.
-func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request, status int) {
-	w.WriteHeader(status)
+func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request, resp HTTPResponse) {
+	resp.writeTo(w)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(status), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(resp.StatusCode), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
