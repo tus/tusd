@@ -46,7 +46,7 @@ func NewError(errCode string, message string, statusCode int) Error {
 		Message:   message,
 		HTTPResponse: HTTPResponse{
 			StatusCode: statusCode,
-			Body:       []byte(errCode + ": " + message + "\n"),
+			Body:       errCode + ": " + message + "\n",
 			Headers: HTTPHeaders{
 				"Content-Type": "text/plain; charset=utf-8",
 			},
@@ -96,12 +96,9 @@ type HTTPRequest struct {
 type HTTPHeaders map[string]string
 
 type HTTPResponse struct {
-	// HTTPStatus, HTTPHeaders and HTTPBody control these details of the corresponding
-	// HTTP response.
-	// TODO: Currently only works for error responses
 	StatusCode int
 	Headers    HTTPHeaders
-	Body       []byte
+	Body       string
 }
 
 func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
@@ -117,7 +114,21 @@ func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
 	w.WriteHeader(resp.StatusCode)
 
 	if len(resp.Body) > 0 {
-		w.Write(resp.Body)
+		w.Write([]byte(resp.Body))
+	}
+}
+
+func (resp *HTTPResponse) MergeWith(resp2 HTTPResponse) {
+	if resp2.StatusCode != 0 {
+		resp.StatusCode = resp2.StatusCode
+	}
+
+	for key, value := range resp2.Headers {
+		resp.Headers[key] = value
+	}
+
+	if len(resp2.Body) > 0 {
+		resp.Body = resp2.Body
 	}
 }
 
@@ -378,11 +389,18 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		PartialUploads: partialUploadIDs,
 	}
 
+	resp := HTTPResponse{
+		StatusCode: http.StatusCreated,
+		Headers:    HTTPHeaders{},
+	}
+
 	if handler.config.PreUploadCreateCallback != nil {
-		if _, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+		resp2, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
+		resp.MergeWith(resp2)
 	}
 
 	upload, err := handler.composer.Core.NewUpload(ctx, info)
@@ -402,12 +420,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
 	url := handler.absFileURL(r, id)
-	resp := HTTPResponse{
-		StatusCode: http.StatusCreated,
-		Headers: HTTPHeaders{
-			"Location": url,
-		},
-	}
+	resp.Headers["Location"] = url
 
 	handler.Metrics.incUploadsCreated()
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
@@ -440,7 +453,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			defer lock.Unlock()
 		}
 
-		if err := handler.writeChunk(ctx, upload, info, resp, r); err != nil {
+		resp, err = handler.writeChunk(ctx, upload, info, resp, r)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -448,7 +462,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
-		if err := handler.finishUploadIfComplete(ctx, upload, info, r); err != nil {
+		resp, err = handler.finishUploadIfComplete(ctx, upload, info, resp, r)
+		if err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -620,7 +635,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.SizeIsDeferred = false
 	}
 
-	if err := handler.writeChunk(ctx, upload, info, resp, r); err != nil {
+	resp, err = handler.writeChunk(ctx, upload, info, resp, r)
+	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
@@ -631,7 +647,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 // writeChunk reads the body from the requests r and appends it to the upload
 // with the corresponding id. Afterwards, it will set the necessary response
 // headers but will not send the response.
-func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, info FileInfo, resp HTTPResponse, r *http.Request) error {
+func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, info FileInfo, resp HTTPResponse, r *http.Request) (HTTPResponse, error) {
 	// Get Content-Length if possible
 	length := r.ContentLength
 	offset := info.Offset
@@ -639,7 +655,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 
 	// Test if this upload fits into the file's size
 	if !info.SizeIsDeferred && offset+length > info.Size {
-		return ErrSizeExceeded
+		return resp, ErrSizeExceeded
 	}
 
 	maxSize := info.Size - offset
@@ -719,7 +735,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	handler.log("ChunkWriteComplete", "id", id, "bytesWritten", i64toa(bytesWritten))
 
 	if err != nil {
-		return err
+		return resp, err
 	}
 
 	// Send new offset to client
@@ -728,18 +744,18 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
-	return handler.finishUploadIfComplete(ctx, upload, info, r)
+	return handler.finishUploadIfComplete(ctx, upload, info, resp, r)
 }
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
 // matches upload size) and if so, it will call the data store's FinishUpload
 // function and send the necessary message on the CompleteUpload channel.
-func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
+func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo, resp HTTPResponse, r *http.Request) (HTTPResponse, error) {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow custom mechanism to finish and cleanup the upload
 		if err := upload.FinishUpload(ctx); err != nil {
-			return err
+			return resp, err
 		}
 
 		// ... send the info out to the channel
@@ -750,13 +766,15 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 		handler.Metrics.incUploadsFinished()
 
 		if handler.config.PreFinishResponseCallback != nil {
-			if _, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
-				return err
+			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r))
+			if err != nil {
+				return resp, err
 			}
+			resp.MergeWith(resp2)
 		}
 	}
 
-	return nil
+	return resp, nil
 }
 
 // GetFile handles requests to download a file using a GET request. This is not
@@ -800,7 +818,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 			"Content-Type":        contentType,
 			"Content-Disposition": contentDisposition,
 		},
-		Body: nil, // Body is intentionally left nil, and we copy it manually in later.
+		Body: "", // Body is intentionally left empty, and we copy it manually in later.
 	}
 
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
@@ -1006,7 +1024,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 	// If we are sending the response for a HEAD request, ensure that we are not including
 	// any response body.
 	if r.Method == "HEAD" {
-		detailedErr.HTTPResponse.Body = nil
+		detailedErr.HTTPResponse.Body = ""
 	}
 
 	handler.sendResp(w, r, detailedErr.HTTPResponse)
