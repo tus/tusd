@@ -69,6 +69,12 @@ func SetupPreHooks(config *handler.Config) error {
 		// 		MaxRetries: Flags.GrpcHooksRetry,
 		// 		Backoff:    Flags.GrpcHooksBackoff,
 		// 	}
+	} else if Flags.PluginHookPath != "" {
+		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
+
+		hookHandler = &hooks.PluginHook{
+			Path: Flags.PluginHookPath,
+		}
 	} else {
 		return nil
 	}
@@ -165,6 +171,7 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	// If the hook response includes the instruction to reject the upload, reuse the error code
 	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values
 	if typ == hooks.HookPreCreate && hookRes.RejectUpload {
+		// TODO: Merge httpRes with default of ErrUploadRejected, so we always have a response code.
 		return httpRes, handler.Error{
 			ErrorCode:    handler.ErrUploadRejectedByServer.ErrorCode,
 			Message:      handler.ErrUploadRejectedByServer.Message,
