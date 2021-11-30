@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 
@@ -161,11 +160,6 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	// Instead the additional HTTP response return value
 
 	httpRes = hookRes.HTTPResponse
-
-	if hookRes.Error != "" {
-		// TODO: Is this actually useful?
-		return httpRes, errors.New(hookRes.Error)
-	}
 
 	// If the hook response includes the instruction to reject the upload, reuse the error code
 	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values

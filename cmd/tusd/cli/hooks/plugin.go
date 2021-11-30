@@ -1,13 +1,11 @@
 package hooks
 
 import (
-	"fmt"
 	"log"
 	"net/rpc"
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/tus/tusd/pkg/handler"
 )
 
 // TODO: When the tusd process stops, the plugin does not get properly killed
@@ -67,13 +65,6 @@ var pluginMap = map[string]plugin.Plugin{
 	"hookHandler": &HookHandlerPlugin{},
 }
 
-// TODO: Explain, mention that it is internal only
-// TODO: Do we actually need this? Maybe not...
-type InvokeHookRPCAnswer struct {
-	HookResponse HookResponse
-	TusdError    *handler.Error // Why is TusdError a pointer
-}
-
 // Here is an implementation that talks over RPC
 type HookHandlerRPC struct{ client *rpc.Client }
 
@@ -83,19 +74,9 @@ func (g *HookHandlerRPC) Setup() error {
 	return err
 }
 
-func (g *HookHandlerRPC) InvokeHook(req HookRequest) (HookResponse, error) {
-	var answer InvokeHookRPCAnswer
-	err := g.client.Call("Plugin.InvokeHook", req, &answer)
-	fmt.Printf("Client: %#v\n", answer.TusdError)
-	if err != nil {
-		return answer.HookResponse, err
-	}
-
-	if answer.TusdError != nil {
-		return answer.HookResponse, *answer.TusdError
-	}
-
-	return answer.HookResponse, nil
+func (g *HookHandlerRPC) InvokeHook(req HookRequest) (res HookResponse, err error) {
+	err = g.client.Call("Plugin.InvokeHook", req, &res)
+	return res, err
 }
 
 // Here is the RPC server that HookHandlerRPC talks to, conforming to
@@ -109,21 +90,9 @@ func (s *HookHandlerRPCServer) Setup(args interface{}, resp *interface{}) error 
 	return s.Impl.Setup()
 }
 
-func (s *HookHandlerRPCServer) InvokeHook(args HookRequest, answer *InvokeHookRPCAnswer) error {
-	resp, err := s.Impl.InvokeHook(args)
-	if err != nil {
-
-		if tusdErr, ok := err.(handler.Error); ok {
-			answer.TusdError = &tusdErr
-			return nil
-		} else {
-			return err
-		}
-	}
-
-	answer.HookResponse = resp
-
-	return nil
+func (s *HookHandlerRPCServer) InvokeHook(args HookRequest, resp *HookResponse) (err error) {
+	*resp, err = s.Impl.InvokeHook(args)
+	return err
 }
 
 // This is the implementation of plugin.Plugin so we can serve/consume this

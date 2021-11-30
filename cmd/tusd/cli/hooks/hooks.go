@@ -17,10 +17,6 @@ type HookRequest struct {
 }
 
 type HookResponse struct {
-	// Error indicates whether a fault occurred while processing the hook request.
-	// If Error is an empty string, no fault is assumed.
-	Error string
-
 	HTTPResponse handler.HTTPResponse
 
 	RejectUpload bool
