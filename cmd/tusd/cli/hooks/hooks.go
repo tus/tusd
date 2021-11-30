@@ -1,5 +1,7 @@
 package hooks
 
+// TODO: Move hooks into a package in /pkg
+
 import (
 	"github.com/tus/tusd/pkg/handler"
 )

@@ -118,18 +118,33 @@ func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
 	}
 }
 
-func (resp *HTTPResponse) MergeWith(resp2 HTTPResponse) {
-	if resp2.StatusCode != 0 {
-		resp.StatusCode = resp2.StatusCode
-	}
+func (resp1 HTTPResponse) MergeWith(resp2 HTTPResponse) HTTPResponse {
+	// Clone the response 1 and use it as a basis
+	newResp := resp1
 
-	for key, value := range resp2.Headers {
-		resp.Headers[key] = value
+	// Take the status code and body from response 2 to
+	// overwrite values from response 1.
+	if resp2.StatusCode != 0 {
+		newResp.StatusCode = resp2.StatusCode
 	}
 
 	if len(resp2.Body) > 0 {
-		resp.Body = resp2.Body
+		newResp.Body = resp2.Body
 	}
+
+	// For the headers, me must make a new map to avoid writing
+	// into the header map from response 1.
+	newResp.Headers = make(HTTPHeaders, len(resp1.Headers)+len(resp2.Headers))
+
+	for key, value := range resp1.Headers {
+		newResp.Headers[key] = value
+	}
+
+	for key, value := range resp2.Headers {
+		newResp.Headers[key] = value
+	}
+
+	return newResp
 }
 
 // HookEvent represents an event from tusd which can be handled by the application.
@@ -400,7 +415,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(w, r, err)
 			return
 		}
-		resp.MergeWith(resp2)
+		resp = resp.MergeWith(resp2)
 	}
 
 	upload, err := handler.composer.Core.NewUpload(ctx, info)
@@ -770,7 +785,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 			if err != nil {
 				return resp, err
 			}
-			resp.MergeWith(resp2)
+			resp = resp.MergeWith(resp2)
 		}
 	}
 
@@ -1035,7 +1050,7 @@ func (handler *UnroutedHandler) sendError(w http.ResponseWriter, r *http.Request
 func (handler *UnroutedHandler) sendResp(w http.ResponseWriter, r *http.Request, resp HTTPResponse) {
 	resp.writeTo(w)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(resp.StatusCode), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+	handler.log("ResponseOutgoing", "status", strconv.Itoa(resp.StatusCode), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r), "body", resp.Body)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -151,14 +150,14 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	})
 
 	if err != nil {
-		err = fmt.Errorf("%s hook failed: %s", typ, err)
+		//err = fmt.Errorf("%s hook failed: %s", typ, err)
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
 	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
 	}
 
-	// IDEA: PreHooks work like this: error return value does not carry HTTP response information
+	// IDEA: PreHooks work like this: error return value does carry HTTP response information for error
 	// Instead the additional HTTP response return value
 
 	httpRes = hookRes.HTTPResponse
@@ -171,12 +170,10 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	// If the hook response includes the instruction to reject the upload, reuse the error code
 	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values
 	if typ == hooks.HookPreCreate && hookRes.RejectUpload {
-		// TODO: Merge httpRes with default of ErrUploadRejected, so we always have a response code.
-		return httpRes, handler.Error{
-			ErrorCode:    handler.ErrUploadRejectedByServer.ErrorCode,
-			Message:      handler.ErrUploadRejectedByServer.Message,
-			HTTPResponse: httpRes,
-		}
+		err := handler.ErrUploadRejectedByServer
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return httpRes, err
 	}
 
 	if typ == hooks.HookPostReceive && hookRes.StopUpload {

@@ -26,6 +26,14 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 
 	if req.Type == hooks.HookPreCreate {
 		res.HTTPResponse.Headers["X-From-Pre-Create"] = "hello"
+
+		if req.Event.Upload.Size > 10 {
+			res.HTTPResponse.StatusCode = 413
+			res.HTTPResponse.Body = `{"error":"upload size is too large"}`
+			res.RejectUpload = true
+
+			return res, nil
+		}
 	}
 
 	if req.Type == hooks.HookPreFinish {
@@ -42,8 +50,8 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 // directory. It is a UX feature, not a security feature.
 var handshakeConfig = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "hello",
+	MagicCookieKey:   "TUSD_PLUGIN",
+	MagicCookieValue: "yes",
 }
 
 func main() {
