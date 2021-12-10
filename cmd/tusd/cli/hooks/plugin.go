@@ -3,6 +3,7 @@ package hooks
 import (
 	"log"
 	"net/rpc"
+	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
@@ -23,6 +24,8 @@ func (h *PluginHook) Setup() error {
 		HandshakeConfig: handshakeConfig,
 		Plugins:         pluginMap,
 		Cmd:             exec.Command(h.Path),
+		SyncStdout:      os.Stdout,
+		SyncStderr:      os.Stderr,
 		//Logger:          logger,
 	})
 	//defer client.Kill()
