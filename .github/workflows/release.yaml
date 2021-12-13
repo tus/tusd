@@ -91,7 +91,7 @@ jobs:
 
       -
         name: GitHub Release
-        uses: softprops/action-gh-release@v0.1.13
+        uses: softprops/action-gh-release@v0.1.14
         with:
           files: tusd_*.*
 
