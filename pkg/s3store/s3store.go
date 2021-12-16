@@ -94,7 +94,7 @@ import (
 
 // This regular expression matches every character which is not
 // considered valid into a header value according to RFC2616.
-var nonPrintableRegexp = regexp.MustCompile(`[^\x09,\x20-\x7E]`)
+var nonPrintableRegexp = regexp.MustCompile(`[^\x09\x20-\x7E]`)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
