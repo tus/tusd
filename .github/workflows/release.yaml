@@ -81,7 +81,7 @@ jobs:
 
       -
         name: Install Go 1.17.2
-        uses: actions/setup-go@v2.1.5
+        uses: actions/setup-go@v2.2.0
         with:
           go-version: '1.17.2'
 
