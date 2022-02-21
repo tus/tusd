@@ -308,3 +308,10 @@ func blockIDBase64ToInt(blockID string) int {
 	blockIDBase64ToBinary(blockID)
 	return int(binary.LittleEndian.Uint32(blockIDBase64ToBinary(blockID)))
 }
+
+func isAzureError(err error, code string) bool {
+	if err, ok := err.(azblob.StorageError); ok && string(err.ServiceCode()) == code {
+		return true
+	}
+	return false
+}
