@@ -83,7 +83,7 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	return azUpload, nil
 }
 
-func (store AzureStore) GetUpload(ctx context.Context, id string) (handle handler.Upload, err error) {
+func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	info := handler.FileInfo{}
 	infoFile := store.keyWithPrefix(store.infoPath(id))
 	infoBlob, err := store.Service.NewBlob(ctx, infoFile)
