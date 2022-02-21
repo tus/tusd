@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 const (
@@ -261,6 +262,9 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL())
 	}
 	if err != nil {
+		if isAzureError(err, "BlobNotFound") {
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 
