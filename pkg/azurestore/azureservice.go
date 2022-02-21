@@ -201,7 +201,7 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	getBlock, err := blockBlob.Blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
 	if err != nil {
-		if err.(azblob.StorageError).ServiceCode() == azblob.ServiceCodeBlobNotFound {
+		if isAzureError(err, "BlobNotFound") {
 			return 0, nil
 		}
 
