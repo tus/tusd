@@ -133,9 +133,10 @@ func CreateComposer() {
 		store := azurestore.New(azService)
 		store.ObjectPrefix = Flags.AzObjectPrefix
 		store.Container = Flags.AzStorage
-
 		store.UseIn(Composer)
 
+		locker := memorylocker.New()
+		locker.UseIn(Composer)
 	} else {
 		dir, err := filepath.Abs(Flags.UploadDir)
 		if err != nil {
