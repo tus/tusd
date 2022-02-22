@@ -176,9 +176,13 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err erro
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		return nil, fmt.Errorf("File %s does not exist", blockBlob.Blob.ToBlockBlobURL())
+		return nil, handler.ErrNotFound
 	}
 	if err != nil {
+		// This might occur when the blob is being uploaded, but a block list has not been committed yet
+		if isAzureError(err, "BlobNotFound") {
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 
