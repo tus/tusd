@@ -112,7 +112,7 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 	}
 
 	offset, err := blockBlob.GetOffset(ctx)
-	if err != nil {
+	if err != nil && err != handler.ErrNotFound {
 		return nil, err
 	}
 
