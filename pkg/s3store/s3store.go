@@ -94,11 +94,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-// This regular expression matches every character which is not defined in the
-// ASCII tables which range from 00 to 7F, inclusive.
-// It also matches the \r and \n characters which are not allowed in values
-// for HTTP headers.
-var nonASCIIRegexp = regexp.MustCompile(`([^\x00-\x7F]|[\r\n])`)
+// This regular expression matches every character which is not
+// considered valid into a header value according to RFC2616.
+var nonPrintableRegexp = regexp.MustCompile(`[^\x09\x20-\x7E]`)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
@@ -300,7 +298,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	for key, value := range info.MetaData {
 		// Copying the value is required in order to prevent it from being
 		// overwritten by the next iteration.
-		v := nonASCIIRegexp.ReplaceAllString(value, "?")
+		v := nonPrintableRegexp.ReplaceAllString(value, "?")
 		metadata[key] = &v
 	}
 

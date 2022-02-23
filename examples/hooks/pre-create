@@ -1,6 +1,6 @@
 #!/bin/sh
 
-filename=$(cat /dev/stdin | jq .MetaData.filename)
+filename=$(cat /dev/stdin | jq .Upload.MetaData.filename)
 if [ -z "$filename" ]; then
   echo "Error: no filename provided"
   exit 1
