@@ -14,8 +14,6 @@ import (
 	"context"
 	"sync"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/tus/tusd/pkg/handler"
 )
 
@@ -28,7 +26,7 @@ type MemoryLocker struct {
 }
 
 type lockEntry struct {
-	mutex          *semaphore.Weighted
+	lockReleased   chan struct{}
 	requestRelease func()
 }
 
@@ -65,11 +63,11 @@ requestRelease:
 		// TODO: Make this channel?
 		// TODO: Should we ensure this is only called once?
 		entry.requestRelease()
-		if err := entry.mutex.Acquire(ctx, 1); err != nil {
+		select {
+		case <-ctx.Done():
 			return handler.ErrLockTimeout
+		case <-entry.lockReleased:
 		}
-		// Release the lock immediately, so we can recreate it.
-		entry.mutex.Release(1)
 	}
 
 	lock.locker.mutex.Lock()
@@ -83,12 +81,8 @@ requestRelease:
 
 	// No lock exists, so we can create it
 	entry = lockEntry{
-		mutex:          semaphore.NewWeighted(1),
+		lockReleased:   make(chan struct{}),
 		requestRelease: requestRelease,
-	}
-	if !entry.mutex.TryAcquire(1) {
-		// We should always be able to acquire, so panic if not.
-		panic("unable to acquire fresh semaphore")
 	}
 
 	lock.locker.locks[lock.id] = entry
@@ -101,12 +95,14 @@ requestRelease:
 func (lock memoryLock) Unlock() error {
 	lock.locker.mutex.Lock()
 
-	// Release the semaphore
-	lock.locker.locks[lock.id].mutex.Release(1)
+	lockReleased := lock.locker.locks[lock.id].lockReleased
 
-	// ... and delete the lock entry entirely
+	// Delete the lock entry entirely
 	delete(lock.locker.locks, lock.id)
 
 	lock.locker.mutex.Unlock()
+
+	close(lockReleased)
+
 	return nil
 }
