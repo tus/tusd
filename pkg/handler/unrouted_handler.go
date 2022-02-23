@@ -70,6 +70,7 @@ var (
 	ErrInvalidOffset                    = NewHTTPError("ERR_INVALID_OFFSET", "missing or invalid Upload-Offset header", http.StatusBadRequest)
 	ErrNotFound                         = NewHTTPError("ERR_UPLOAD_NOT_FOUND", "upload not found", http.StatusNotFound)
 	ErrFileLocked                       = NewHTTPError("ERR_UPLOAD_LOCKED", "file currently locked", http.StatusLocked)
+	ErrLockTimeout                      = NewHTTPError("ERR_LOCK_TIMEOUT", "failed to acquire lock before timeout", http.StatusInternalServerError)
 	ErrMismatchOffset                   = NewHTTPError("ERR_MISMATCHED_OFFSET", "mismatched offset", http.StatusConflict)
 	ErrSizeExceeded                     = NewHTTPError("ERR_UPLOAD_SIZE_EXCEEDED", "upload's size exceeded", http.StatusRequestEntityTooLarge)
 	ErrNotImplemented                   = NewHTTPError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
