@@ -146,11 +146,15 @@ type Locker interface {
 type Lock interface {
 	// Lock attempts to obtain an exclusive lock for the upload specified
 	// by its id.
-	// If this operation fails because the resource is already locked, the
-	// tusd.ErrFileLocked must be returned. If no error is returned, the attempt
-	// is consider to be successful and the upload to be locked until UnlockUpload
-	// is invoked for the same upload.
-	Lock() error
+	// If the lock can be acquired, it will return without error. The requestUnlock
+	// callback is invoked when another caller attempts to create a lock. In this
+	// case, the holder of the lock should attempt to release the lock as soon
+	// as possible
+	// If the lock is already held, the holder's requestUnlock function will be
+	// invoked to request the lock to be released. If the context is cancelled before
+	// the lock can be acquired, ErrLockTimeout will be returned without acquiring
+	// the lock.
+	Lock(ctx context.Context, requestUnlock func()) error
 	// Unlock releases an existing lock for the given upload.
 	Unlock() error
 }

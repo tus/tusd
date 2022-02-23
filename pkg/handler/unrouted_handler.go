@@ -1127,7 +1127,8 @@ func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
 		return nil, err
 	}
 
-	if err := lock.Lock(); err != nil {
+	// TODO: Implement timeout and callback to close body
+	if err := lock.Lock(context.Background(), func() {}); err != nil {
 		return nil, err
 	}
 

@@ -9,8 +9,7 @@ import (
 	"github.com/tus/tusd/pkg/handler"
 )
 
-// TODO: Change interface
-//var _ handler.Locker = &MemoryLocker{}
+var _ handler.Locker = &MemoryLocker{}
 
 func TestMemoryLocker_LockAndUnlock(t *testing.T) {
 	a := assert.New(t)
