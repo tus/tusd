@@ -28,6 +28,7 @@ func Serve() {
 		BasePath:                Flags.Basepath,
 		RespectForwardedHeaders: Flags.BehindProxy,
 		DisableDownload:         Flags.DisableDownload,
+		DisableDelete:           Flags.DisableDelete,
 		StoreComposer:           Composer,
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,

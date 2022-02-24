@@ -45,7 +45,7 @@ func NewHandler(config Config) (*Handler, error) {
 	}
 
 	// Only attach the DELETE handler if the Terminate() method is provided
-	if config.StoreComposer.UsesTerminater {
+	if config.StoreComposer.UsesTerminater && !config.DisableDelete {
 		mux.Del(":id", http.HandlerFunc(handler.DelFile))
 	}
 

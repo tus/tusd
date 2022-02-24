@@ -22,6 +22,7 @@ var Flags struct {
 	Basepath                string
 	ShowGreeting            bool
 	DisableDownload         bool
+	DisableDelete           bool
 	Timeout                 int64
 	S3Bucket                string
 	S3ObjectPrefix          string
@@ -70,6 +71,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 	flag.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message")
 	flag.BoolVar(&Flags.DisableDownload, "disable-download", false, "Disable the download endpoint")
+	flag.BoolVar(&Flags.DisableDelete, "disable-delete", false, "Disable the delete endpoint")
 	flag.Int64Var(&Flags.Timeout, "timeout", 6*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 	flag.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
