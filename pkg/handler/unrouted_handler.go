@@ -628,7 +628,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	// available in the case of a malicious request.
 	if r.Body != nil {
 		// Limit the data read from the request's body to the allowed maximum
-		reader := newBodyReader(io.LimitReader(r.Body, maxSize))
+		reader := newBodyReader(r.Body, maxSize)
 
 		// We use a context object to allow the hook system to cancel an upload
 		uploadCtx, stopUpload := context.WithCancel(context.Background())
@@ -643,6 +643,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 		go func() {
 			// Interrupt the Read() call from the request body
 			<-uploadCtx.Done()
+			// TODO: Consider using CloseWithError function from BodyReader
 			terminateUpload = true
 			r.Body.Close()
 		}()
@@ -1128,7 +1129,8 @@ func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
 	}
 
 	// TODO: Implement timeout and callback to close body
-	if err := lock.Lock(context.Background(), func() {}); err != nil {
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := lock.Lock(ctx, func() {}); err != nil {
 		return nil, err
 	}
 

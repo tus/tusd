@@ -14,13 +14,15 @@ import (
 // In addition, the bodyReader keeps track of how many bytes were read.
 type bodyReader struct {
 	reader       io.Reader
+	closer       io.Closer
 	err          error
 	bytesCounter int64
 }
 
-func newBodyReader(r io.Reader) *bodyReader {
+func newBodyReader(r io.ReadCloser, maxSize int64) *bodyReader {
 	return &bodyReader{
-		reader: r,
+		reader: io.LimitReader(r, maxSize),
+		closer: r,
 	}
 }
 
@@ -50,4 +52,9 @@ func (r bodyReader) hasError() error {
 
 func (r *bodyReader) bytesRead() int64 {
 	return atomic.LoadInt64(&r.bytesCounter)
+}
+
+func (r *bodyReader) closeWithError(err error) {
+	r.closer.Close()
+	r.err = err
 }
