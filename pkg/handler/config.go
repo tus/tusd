@@ -22,6 +22,9 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
+	// DisableDownload indicates whether the server will refuse downloads of the
+	// uploaded file, by not mounting the GET handler.
+	DisableDownload bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

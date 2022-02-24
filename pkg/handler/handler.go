@@ -40,7 +40,9 @@ func NewHandler(config Config) (*Handler, error) {
 	mux.Post("", http.HandlerFunc(handler.PostFile))
 	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
 	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
-	mux.Get(":id", http.HandlerFunc(handler.GetFile))
+	if !config.DisableDownload {
+		mux.Get(":id", http.HandlerFunc(handler.GetFile))
+	}
 
 	// Only attach the DELETE handler if the Terminate() method is provided
 	if config.StoreComposer.UsesTerminater {
