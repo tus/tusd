@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# This example demonstrates how to read the hook event details
+# from environment variables and output debug messages.
+
+id="$TUS_ID"
+offset="$TUS_OFFSET"
+size="$TUS_SIZE"
+progress=$((100 * $offset/$size))
+
+# We use >&2 to write debugging output to stderr. tusd
+# will forward these to its stderr. Any output from the
+# hook on stdout will be captured by tusd and interpreted
+# as a response.
+echo "Upload ${id} is at ${progress}% (${offset}/${size})" >&2

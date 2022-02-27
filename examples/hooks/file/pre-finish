@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# This example demonstrates how to read the hook event details
+# from stdin, and output debug messages.
+
+# We use >&2 to write debugging output to stderr. tusd
+# will forward these to its stderr. Any output from the
+# hook on stdout will be captured by tusd and interpreted
+# as a response.
+cat /dev/stdin | jq . >&2
