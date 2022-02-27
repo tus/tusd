@@ -43,14 +43,13 @@ func SetupHookMetrics() {
 }
 
 func SetupPreHooks(config *handler.Config) error {
-	// if Flags.FileHooksDir != "" {
-	// 	stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+	if Flags.FileHooksDir != "" {
+		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
 
-	// 	hookHandler = &hooks.FileHook{
-	// 		Directory: Flags.FileHooksDir,
-	// 	}
-	// } else
-	if Flags.HttpHooksEndpoint != "" {
+		hookHandler = &hooks.FileHook{
+			Directory: Flags.FileHooksDir,
+		}
+	} else if Flags.HttpHooksEndpoint != "" {
 		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
 		hookHandler = &hooks.HttpHook{
