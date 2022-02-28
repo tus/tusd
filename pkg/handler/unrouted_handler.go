@@ -97,8 +97,9 @@ type HTTPHeaders map[string]string
 
 type HTTPResponse struct {
 	StatusCode int
-	Headers    HTTPHeaders
-	Body       string
+	// TODO: Uniform naming with HTTPRequest.Header
+	Headers HTTPHeaders
+	Body    string
 }
 
 func (resp HTTPResponse) writeTo(w http.ResponseWriter) {

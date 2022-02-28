@@ -7,4 +7,5 @@ This directory contains following examples:
 - `server/` is an example of how to the tusd package embedded in your own Go application.
 - `hooks/file/` are Bash scripts for file hook implementations.
 - `hooks/http/` is a Python HTTP server as the HTTP hook implementation.
+- `hooks/grpc/` is a Python GRPC server as the GRPC hook implementation.
 - `hooks/plugin/` is a Go plugin usable with the plugin hooks.

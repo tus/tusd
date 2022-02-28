@@ -58,14 +58,14 @@ func SetupPreHooks(config *handler.Config) error {
 			Backoff:        Flags.HttpHooksBackoff,
 			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
 		}
-		// } else if Flags.GrpcHooksEndpoint != "" {
-		// 	stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
+	} else if Flags.GrpcHooksEndpoint != "" {
+		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
 
-		// 	hookHandler = &hooks.GrpcHook{
-		// 		Endpoint:   Flags.GrpcHooksEndpoint,
-		// 		MaxRetries: Flags.GrpcHooksRetry,
-		// 		Backoff:    Flags.GrpcHooksBackoff,
-		// 	}
+		hookHandler = &hooks.GrpcHook{
+			Endpoint:   Flags.GrpcHooksEndpoint,
+			MaxRetries: Flags.GrpcHooksRetry,
+			Backoff:    Flags.GrpcHooksBackoff,
+		}
 	} else if Flags.PluginHookPath != "" {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 

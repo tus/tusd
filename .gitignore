@@ -4,3 +4,4 @@ data/
 node_modules/
 .DS_Store
 ./tusd
+__pycache__/
