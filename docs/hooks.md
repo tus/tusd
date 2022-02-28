@@ -213,9 +213,9 @@ $ # Retrying 5 times with a 2 second backoff
 $ tusd --hooks-http http://localhost:8081/write --hooks-http-retry 5 --hooks-http-backoff 2
 ```
 
-## GRPC Hooks
+## gRPC Hooks
 
-GRPC Hooks are the third type of hooks supported by tusd. Like the others hooks, it is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, which the tusd binary will be sent to:
+gRPC Hooks are the third type of hooks supported by tusd. Like the others hooks, it is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, which the tusd binary will be sent to:
 
 ```bash
 $ tusd --hooks-grpc localhost:8080
