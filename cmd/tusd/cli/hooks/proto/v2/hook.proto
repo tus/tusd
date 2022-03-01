@@ -1,0 +1,116 @@
+// If this file gets changed, you must recompile the generate package in pkg/proto.
+// To do this, install the Go protobuf toolchain as mentioned in
+// https://github.com/golang/protobuf#installation.
+// Then use following command to recompile it with gRPC support:
+//   protoc --go_out=plugins=grpc:../../../../../pkg/proto/ v2/hook.proto
+// In addition, it may be necessary to update the protobuf or gRPC dependencies as well.
+
+syntax = "proto3";
+package v2;
+
+// HookRequest contains the information about the hook type, the involved upload,
+// and causing HTTP request.
+message HookRequest {
+	// Type is the name of the hook.
+	string type = 1;
+	
+	// Event contains the involved upload and causing HTTP request.
+	Event event = 2;
+}
+
+// Event represents an event from tusd which can be handled by the application.
+message Event {
+	// Upload contains information about the upload that caused this hook
+	// to be fired.
+	FileInfo upload = 1;
+
+	// HTTPRequest contains details about the HTTP request that reached
+	// tusd.
+	HTTPRequest httpRequest = 2;
+}
+
+// FileInfo contains information about a single upload resource.
+message FileInfo {
+	// ID is the unique identifier of the upload resource.
+	string id = 1;
+	// Total file size in bytes specified in the NewUpload call
+	int64 size = 2; 
+	// Indicates whether the total file size is deferred until later
+	bool sizeIsDeferred = 3;
+	// Offset in bytes (zero-based)
+	int64 offset = 4;
+	map<string, string> metaData = 5;
+	// Indicates that this is a partial upload which will later be used to form
+	// a final upload by concatenation. Partial uploads should not be processed
+	// when they are finished since they are only incomplete chunks of files.
+	bool isPartial = 6; 
+	// Indicates that this is a final upload
+	bool isFinal = 7; 
+	// If the upload is a final one (see IsFinal) this will be a non-empty
+	// ordered slice containing the ids of the uploads of which the final upload
+	// will consist after concatenation.
+	repeated string partialUploads = 8;
+	// Storage contains information about where the data storage saves the upload,
+	// for example a file path. The available values vary depending on what data
+	// store is used. This map may also be nil.
+	map <string, string> storage = 9;
+}
+
+// HTTPRequest contains basic details of an incoming HTTP request.
+message HTTPRequest {
+	// Method is the HTTP method, e.g. POST or PATCH.
+	string method = 1;
+	// URI is the full HTTP request URI, e.g. /files/fooo.
+	string uri = 2;
+	// RemoteAddr contains the network address that sent the request.
+	string remoteAddr = 3; 
+	// Header contains all HTTP headers as present in the HTTP request.
+	map <string, string> header = 4;
+}
+
+// HookResponse is the response after a hook is executed.
+message HookResponse {
+// HTTPResponse's fields can be filled to modify the HTTP response.
+	// This is only possible for pre-create, pre-finish and post-receive hooks.
+	// For other hooks this value is ignored.
+	// If multiple hooks modify the HTTP response, a later hook may overwrite the
+	// modified values from a previous hook (e.g. if multiple post-receive hooks
+	// are executed).
+	// Example usages: Send an error to the client if RejectUpload/StopUpload are
+	// set in the pre-create/post-receive hook. Send more information to the client
+	// in the pre-finish hook.
+	HTTPResponse httpResponse = 1;
+
+	// RejectUpload will cause the upload to be rejected and not be created during
+	// POST request. This value is only respected for pre-create hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the rejection
+	// to the client.
+	bool rejectUpload = 2;
+
+	// StopUpload will cause the upload to be stopped during a PATCH request.
+	// This value is only respected for post-receive hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the stop
+	// to the client.
+	bool stopUpload = 3;
+}
+
+// HTTPResponse contains basic details of an outgoing HTTP response.
+message HTTPResponse {
+	// StatusCode is status code, e.g. 200 or 400.
+	int64 statusCode = 1;
+	// Headers contains additional HTTP headers for the response.
+	map <string, string> headers = 2;
+	// Body is the response body.
+	string body = 3;
+}
+
+
+// The hook service definition.
+service HookHandler {
+  // InvokeHook is invoked for every hook that is executed. HookRequest contains the
+	// corresponding information about the hook type, the involved upload, and
+	// causing HTTP request.
+	// The return value HookResponse allows to stop or reject an upload, as well as modifying
+	// the HTTP response. See the documentation for HookResponse for more details.
+  rpc InvokeHook (HookRequest) returns (HookResponse) {}
+}

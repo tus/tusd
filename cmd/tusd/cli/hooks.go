@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -20,27 +19,12 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func hookCallback(typ hooks.HookType, info handler.HookEvent) error {
-	if output, err := invokeHookSync(typ, info, true); err != nil {
-		if hookErr, ok := err.(hooks.HookError); ok {
-			return hooks.NewHookError(
-				fmt.Errorf("%s hook failed: %s", typ, err),
-				hookErr.StatusCode(),
-				hookErr.Body(),
-			)
-		}
-		return fmt.Errorf("%s hook failed: %s\n%s", typ, err, string(output))
-	}
-
-	return nil
+func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+	return invokeHookSync(hooks.HookPreCreate, event)
 }
 
-func preCreateCallback(info handler.HookEvent) error {
-	return hookCallback(hooks.HookPreCreate, info)
-}
-
-func preFinishCallback(info handler.HookEvent) error {
-	return hookCallback(hooks.HookPreFinish, info)
+func preFinishCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+	return invokeHookSync(hooks.HookPreFinish, event)
 }
 
 func SetupHookMetrics() {
@@ -113,35 +97,35 @@ func SetupPostHooks(handler *handler.Handler) {
 	go func() {
 		for {
 			select {
-			case info := <-handler.CompleteUploads:
-				invokeHookAsync(hooks.HookPostFinish, info)
-			case info := <-handler.TerminatedUploads:
-				invokeHookAsync(hooks.HookPostTerminate, info)
-			case info := <-handler.UploadProgress:
-				invokeHookAsync(hooks.HookPostReceive, info)
-			case info := <-handler.CreatedUploads:
-				invokeHookAsync(hooks.HookPostCreate, info)
+			case event := <-handler.CompleteUploads:
+				invokeHookAsync(hooks.HookPostFinish, event)
+			case event := <-handler.TerminatedUploads:
+				invokeHookAsync(hooks.HookPostTerminate, event)
+			case event := <-handler.UploadProgress:
+				invokeHookAsync(hooks.HookPostReceive, event)
+			case event := <-handler.CreatedUploads:
+				invokeHookAsync(hooks.HookPostCreate, event)
 			}
 		}
 	}()
 }
 
-func invokeHookAsync(typ hooks.HookType, info handler.HookEvent) {
+func invokeHookAsync(typ hooks.HookType, event handler.HookEvent) {
 	go func() {
 		// Error handling is taken care by the function.
-		_, _ = invokeHookSync(typ, info, false)
+		_, _ = invokeHookSync(typ, event)
 	}()
 }
 
-func invokeHookSync(typ hooks.HookType, info handler.HookEvent, captureOutput bool) ([]byte, error) {
+func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, err error) {
 	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
-		return nil, nil
+		return httpRes, nil
 	}
 
 	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
 
-	id := info.Upload.ID
-	size := info.Upload.Size
+	id := event.Upload.ID
+	size := event.Upload.Size
 
 	switch typ {
 	case hooks.HookPostFinish:
@@ -151,28 +135,43 @@ func invokeHookSync(typ hooks.HookType, info handler.HookEvent, captureOutput bo
 	}
 
 	if hookHandler == nil {
-		return nil, nil
+		return httpRes, nil
 	}
 
-	name := string(typ)
 	if Flags.VerboseOutput {
-		logEv(stdout, "HookInvocationStart", "type", name, "id", id)
+		logEv(stdout, "HookInvocationStart", "type", string(typ), "id", id)
 	}
 
-	output, returnCode, err := hookHandler.InvokeHook(typ, info, captureOutput)
+	hookRes, err := hookHandler.InvokeHook(hooks.HookRequest{
+		Type:  typ,
+		Event: event,
+	})
 
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
+		return httpRes, err
 	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
 	}
 
-	if typ == hooks.HookPostReceive && Flags.HooksStopUploadCode != 0 && Flags.HooksStopUploadCode == returnCode {
-		logEv(stdout, "HookStopUpload", "id", id)
+	httpRes = hookRes.HTTPResponse
 
-		info.Upload.StopUpload()
+	// If the hook response includes the instruction to reject the upload, reuse the error code
+	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values
+	if typ == hooks.HookPreCreate && hookRes.RejectUpload {
+		err := handler.ErrUploadRejectedByServer
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return httpRes, err
 	}
 
-	return output, err
+	if typ == hooks.HookPostReceive && hookRes.StopUpload {
+		logEv(stdout, "HookStopUpload", "id", id)
+
+		// TODO: Control response for PATCH request
+		event.Upload.StopUpload()
+	}
+
+	return httpRes, err
 }

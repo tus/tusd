@@ -38,6 +38,7 @@ var Flags struct {
 	AzObjectPrefix          string
 	AzEndpoint              string
 	EnabledHooksString      string
+	PluginHookPath          string
 	FileHooksDir            string
 	HttpHooksEndpoint       string
 	HttpHooksForwardHeaders string
@@ -46,8 +47,6 @@ var Flags struct {
 	GrpcHooksEndpoint       string
 	GrpcHooksRetry          int
 	GrpcHooksBackoff        int
-	HooksStopUploadCode     int
-	PluginHookPath          string
 	EnabledHooks            []hooks.HookType
 	ShowVersion             bool
 	ExposeMetrics           bool
@@ -91,6 +90,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.AzObjectPrefix, "azure-object-prefix", "", "Prefix for Azure object names")
 	flag.StringVar(&Flags.AzEndpoint, "azure-endpoint", "", "Custom Endpoint to use for Azure BlockBlob Storage (requires azure-storage to be pass)")
 	flag.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
+	flag.StringVar(&Flags.PluginHookPath, "hooks-plugin", "", "Path to a Go plugin for loading hook functions")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
@@ -99,8 +99,6 @@ func ParseFlags() {
 	flag.StringVar(&Flags.GrpcHooksEndpoint, "hooks-grpc", "", "An gRPC endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.GrpcHooksRetry, "hooks-grpc-retry", 3, "Number of times to retry on a server error or network timeout")
 	flag.IntVar(&Flags.GrpcHooksBackoff, "hooks-grpc-backoff", 1, "Number of seconds to wait before retrying each retry")
-	flag.IntVar(&Flags.HooksStopUploadCode, "hooks-stop-code", 0, "Return code from post-receive hook which causes tusd to stop and delete the current upload. A zero value means that no uploads will be stopped")
-	flag.StringVar(&Flags.PluginHookPath, "hooks-plugin", "", "Path to a Go plugin for loading hook functions (only supported on Linux and macOS; highly EXPERIMENTAL and may BREAK in the future)")
 	flag.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
 	flag.StringVar(&Flags.MetricsPath, "metrics-path", "/metrics", "Path under which the metrics endpoint will be accessible")

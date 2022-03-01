@@ -1,0 +1,37 @@
+#!/bin/sh
+
+# This example demonstrates how to read the hook event details
+# from stdout, output debug messages, and reject a new upload based
+# on custom constraints. Here, an upload will be rejected if the
+# filename metadata is missing. Remove the following `exit 0` line
+# to activate the constraint:
+exit 0
+
+hasFilename="$(cat /dev/stdin | jq '.Event.Upload.MetaData | has("filename")')"
+
+# We use >&2 to write debugging output to stderr. tusd
+# will forward these to its stderr. Any output from the
+# hook on stdout will be captured by tusd and interpreted
+# as a response.
+echo "Filename exists: $hasFilename" >&2
+
+if [ "$hasFilename" == "false" ]; then
+
+  # If the condition is not met, output a JSON object on stdout,
+  # that instructs tusd to reject the upload and respond with a custom
+  # HTTP error response.
+  cat <<END
+  {
+    "RejectUpload": true,
+    "HTTPResponse": {
+      "StatusCode": 400,
+      "Body": "no filename provided"
+    }
+  }
+END
+
+  # It is important that the hook exits with code 0. Otherwise, tusd
+  # assumes the hook has failed and will print an error message about
+  # the hook failure.
+  exit 0
+fi

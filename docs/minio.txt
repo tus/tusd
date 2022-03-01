@@ -1,0 +1,3 @@
+MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE MINIO_ROOT_PASSWORD=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY ./minio server data
+
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY go run cmd/tusd/main.go -s3-bucket tusdtest.transloadit.com -s3-endpoint http://127.0.0.1:9000 -expose-pprof

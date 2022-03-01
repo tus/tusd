@@ -76,10 +76,8 @@ func TestHead(t *testing.T) {
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
 			},
-			Code: http.StatusNotFound,
-			ResHeader: map[string]string{
-				"Content-Length": "0",
-			},
+			Code:      http.StatusNotFound,
+			ResHeader: map[string]string{},
 		}).Run(handler, t)
 
 		if res.Body.String() != "" {

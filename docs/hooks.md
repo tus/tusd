@@ -1,5 +1,7 @@
 # Hooks
 
+TODO: Update with new details
+
 When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a system which triggers actions when certain events happen, such as an upload being created or finished. This simple-but-powerful system enables uses ranging from logging over validation and authorization to processing the uploaded files.
 
 When a specific action happens during an upload (pre-create, post-receive, post-finish, or post-terminate), the hook system enables tusd to fire off a specific event. Tusd provides two ways of doing this:
@@ -211,9 +213,9 @@ $ # Retrying 5 times with a 2 second backoff
 $ tusd --hooks-http http://localhost:8081/write --hooks-http-retry 5 --hooks-http-backoff 2
 ```
 
-## GRPC Hooks
+## gRPC Hooks
 
-GRPC Hooks are the third type of hooks supported by tusd. Like the others hooks, it is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, which the tusd binary will be sent to:
+gRPC Hooks are the third type of hooks supported by tusd. Like the others hooks, it is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, which the tusd binary will be sent to:
 
 ```bash
 $ tusd --hooks-grpc localhost:8080

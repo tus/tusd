@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# This example demonstrates how to read the hook event details
+# from stdout and output debug messages.
+
+id="$TUS_ID"
+size="$TUS_SIZE"
+
+# We use >&2 to write debugging output to stderr. tusd
+# will forward these to its stderr. Any output from the
+# hook on stdout will be captured by tusd and interpreted
+# as a response.
+echo "Upload created with ID ${id} and size ${size}" >&2
+cat /dev/stdin | jq . >&2
