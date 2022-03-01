@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 ./tusd
 __pycache__/
+examples/hooks/plugin/hook_handler

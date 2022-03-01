@@ -148,15 +148,12 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	})
 
 	if err != nil {
-		//err = fmt.Errorf("%s hook failed: %s", typ, err)
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
+		return httpRes, err
 	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
 	}
-
-	// IDEA: PreHooks work like this: error return value does carry HTTP response information for error
-	// Instead the additional HTTP response return value
 
 	httpRes = hookRes.HTTPResponse
 

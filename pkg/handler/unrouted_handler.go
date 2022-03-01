@@ -23,37 +23,6 @@ var (
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
 
-// TODO: Move in own file
-// ErrorWithResponse represents an error with an additional HTTP response
-// attached, which can hold a status code, body and headers.
-type Error struct {
-	ErrorCode    string
-	Message      string
-	HTTPResponse HTTPResponse
-}
-
-func (e Error) Error() string {
-	return e.ErrorCode + ": " + e.Message
-}
-
-// TODO: Rename comment
-// NewError adds the given status code to the provided error and returns
-// the new error instance. The status code may be used in corresponding HTTP
-// responses. See the net/http package for standardized status codes.
-func NewError(errCode string, message string, statusCode int) Error {
-	return Error{
-		ErrorCode: errCode,
-		Message:   message,
-		HTTPResponse: HTTPResponse{
-			StatusCode: statusCode,
-			Body:       errCode + ": " + message + "\n",
-			Headers: HTTPHeaders{
-				"Content-Type": "text/plain; charset=utf-8",
-			},
-		},
-	}
-}
-
 var (
 	ErrUnsupportedVersion               = NewError("ERR_UNSUPPORTED_VERSION", "missing, invalid or unsupported Tus-Resumable header", http.StatusPreconditionFailed)
 	ErrMaxSizeExceeded                  = NewError("ERR_MAX_SIZE_EXCEEDED", "maximum size exceeded", http.StatusRequestEntityTooLarge)
@@ -78,97 +47,6 @@ var (
 	ErrReadTimeout     = NewError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
 	ErrConnectionReset = NewError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
 )
-
-// TODO: Move HTTP structs into own file
-// HTTPRequest contains basic details of an incoming HTTP request.
-type HTTPRequest struct {
-	// Method is the HTTP method, e.g. POST or PATCH
-	Method string
-	// URI is the full HTTP request URI, e.g. /files/fooo
-	URI string
-	// RemoteAddr contains the network address that sent the request
-	RemoteAddr string
-	// Header contains all HTTP headers as present in the HTTP request.
-	// TODO: Change to HTTPHeaders as well
-	Header http.Header
-}
-
-type HTTPHeaders map[string]string
-
-type HTTPResponse struct {
-	StatusCode int
-	// TODO: Uniform naming with HTTPRequest.Header
-	Headers HTTPHeaders
-	Body    string
-}
-
-func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
-	headers := w.Header()
-	for key, value := range resp.Headers {
-		headers.Set(key, value)
-	}
-
-	if len(resp.Body) > 0 {
-		headers.Set("Content-Length", strconv.Itoa(len(resp.Body)))
-	}
-
-	w.WriteHeader(resp.StatusCode)
-
-	if len(resp.Body) > 0 {
-		w.Write([]byte(resp.Body))
-	}
-}
-
-func (resp1 HTTPResponse) MergeWith(resp2 HTTPResponse) HTTPResponse {
-	// Clone the response 1 and use it as a basis
-	newResp := resp1
-
-	// Take the status code and body from response 2 to
-	// overwrite values from response 1.
-	if resp2.StatusCode != 0 {
-		newResp.StatusCode = resp2.StatusCode
-	}
-
-	if len(resp2.Body) > 0 {
-		newResp.Body = resp2.Body
-	}
-
-	// For the headers, me must make a new map to avoid writing
-	// into the header map from response 1.
-	newResp.Headers = make(HTTPHeaders, len(resp1.Headers)+len(resp2.Headers))
-
-	for key, value := range resp1.Headers {
-		newResp.Headers[key] = value
-	}
-
-	for key, value := range resp2.Headers {
-		newResp.Headers[key] = value
-	}
-
-	return newResp
-}
-
-// HookEvent represents an event from tusd which can be handled by the application.
-type HookEvent struct {
-	// Upload contains information about the upload that caused this hook
-	// to be fired.
-	Upload FileInfo
-	// HTTPRequest contains details about the HTTP request that reached
-	// tusd.
-	HTTPRequest HTTPRequest
-}
-
-func newHookEvent(info FileInfo, r *http.Request) HookEvent {
-	return HookEvent{
-		Upload: info,
-		HTTPRequest: HTTPRequest{
-			Method:     r.Method,
-			URI:        r.RequestURI,
-			RemoteAddr: r.RemoteAddr,
-			Header:     r.Header,
-		},
-	}
-}
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
 // such as PostFile, HeadFile, PatchFile and DelFile. In addition the GetFile method

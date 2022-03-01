@@ -7,7 +7,9 @@ import (
 
 type MetaData map[string]string
 
+// FileInfo contains information about a single upload resource.
 type FileInfo struct {
+	// ID is the unique identifier of the upload resource.
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64

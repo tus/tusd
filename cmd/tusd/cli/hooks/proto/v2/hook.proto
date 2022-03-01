@@ -8,25 +8,30 @@
 syntax = "proto3";
 package v2;
 
-// TODO: remove
-// TODO: Move into better directory
-//import "google/protobuf/any.proto";
-
-// Hook's data
+// HookRequest contains the information about the hook type, the involved upload,
+// and causing HTTP request.
 message HookRequest {
+	// Type is the name of the hook.
 	string type = 1;
+	
+	// Event contains the involved upload and causing HTTP request.
 	Event event = 2;
 }
 
+// Event represents an event from tusd which can be handled by the application.
 message Event {
+	// Upload contains information about the upload that caused this hook
+	// to be fired.
 	FileInfo upload = 1;
+
+	// HTTPRequest contains details about the HTTP request that reached
+	// tusd.
 	HTTPRequest httpRequest = 2;
 }
 
-// TODO: Keep consistent naming capitalization
-// Uploaded data
+// FileInfo contains information about a single upload resource.
 message FileInfo {
-	// Unique integer identifier of the uploaded file
+	// ID is the unique identifier of the upload resource.
 	string id = 1;
 	// Total file size in bytes specified in the NewUpload call
 	int64 size = 2; 
@@ -51,32 +56,61 @@ message FileInfo {
 	map <string, string> storage = 9;
 }
 
+// HTTPRequest contains basic details of an incoming HTTP request.
 message HTTPRequest {
-	// Method is the HTTP method, e.g. POST or PATCH
+	// Method is the HTTP method, e.g. POST or PATCH.
 	string method = 1;
-	// URI is the full HTTP request URI, e.g. /files/fooo
+	// URI is the full HTTP request URI, e.g. /files/fooo.
 	string uri = 2;
-	// RemoteAddr contains the network address that sent the request
+	// RemoteAddr contains the network address that sent the request.
 	string remoteAddr = 3; 
-
+	// Header contains all HTTP headers as present in the HTTP request.
 	map <string, string> header = 4;
 }
 
+// HookResponse is the response after a hook is executed.
 message HookResponse {
+// HTTPResponse's fields can be filled to modify the HTTP response.
+	// This is only possible for pre-create, pre-finish and post-receive hooks.
+	// For other hooks this value is ignored.
+	// If multiple hooks modify the HTTP response, a later hook may overwrite the
+	// modified values from a previous hook (e.g. if multiple post-receive hooks
+	// are executed).
+	// Example usages: Send an error to the client if RejectUpload/StopUpload are
+	// set in the pre-create/post-receive hook. Send more information to the client
+	// in the pre-finish hook.
 	HTTPResponse httpResponse = 1;
+
+	// RejectUpload will cause the upload to be rejected and not be created during
+	// POST request. This value is only respected for pre-create hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the rejection
+	// to the client.
 	bool rejectUpload = 2;
+
+	// StopUpload will cause the upload to be stopped during a PATCH request.
+	// This value is only respected for post-receive hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the stop
+	// to the client.
 	bool stopUpload = 3;
 }
 
+// HTTPResponse contains basic details of an outgoing HTTP response.
 message HTTPResponse {
+	// StatusCode is status code, e.g. 200 or 400.
 	int64 statusCode = 1;
+	// Headers contains additional HTTP headers for the response.
 	map <string, string> headers = 2;
+	// Body is the response body.
 	string body = 3;
 }
 
 
 // The hook service definition.
 service HookHandler {
-  // Sends a hook
+  // InvokeHook is invoked for every hook that is executed. HookRequest contains the
+	// corresponding information about the hook type, the involved upload, and
+	// causing HTTP request.
+	// The return value HookResponse allows to stop or reject an upload, as well as modifying
+	// the HTTP response. See the documentation for HookResponse for more details.
   rpc InvokeHook (HookRequest) returns (HookResponse) {}
 }
