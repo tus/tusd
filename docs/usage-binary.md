@@ -92,71 +92,89 @@ options:
 
 ```
 $ tusd -help
-Usage of tusd:
+  -azure-blob-access-tier string
+      Blob access tier when uploading new files (possible values: archive, cool, hot, '')
+  -azure-container-access-type string
+      Access type when creating a new container if it does not exist (possible values: blob, container, '')
+  -azure-endpoint string
+      Custom Endpoint to use for Azure BlockBlob Storage (requires azure-storage to be pass)
+  -azure-object-prefix string
+      Prefix for Azure object names
+  -azure-storage string
+      Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variable to be set)
   -base-path string
-    	Basepath of the HTTP server (default "/files/")
+      Basepath of the HTTP server (default "/files/")
   -behind-proxy
-    	Respect X-Forwarded-* and similar headers which may be set by proxies
+      Respect X-Forwarded-* and similar headers which may be set by proxies
+  -cpuprofile string
+      write cpu profile to file
   -expose-metrics
-    	Expose metrics about tusd usage (default true)
+      Expose metrics about tusd usage (default true)
   -gcs-bucket string
-    	Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
+      Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)
   -gcs-object-prefix string
-    	Prefix for GCS object names (can't contain underscore character)
+      Prefix for GCS object names
   -hooks-dir string
-    	Directory to search for available hooks scripts
+      Directory to search for available hooks scripts
   -hooks-enabled-events string
-    	Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events (default "pre-create,post-create,post-receive,post-terminate,post-finish")
+      Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events (default "pre-create,post-create,post-receive,post-terminate,post-finish")
   -hooks-grpc string
-    	An gRPC endpoint to which hook events will be sent to
+      An gRPC endpoint to which hook events will be sent to
   -hooks-grpc-backoff int
-    	Number of seconds to wait before retrying each retry (default 1)
+      Number of seconds to wait before retrying each retry (default 1)
   -hooks-grpc-retry int
-    	Number of times to retry on a server error or network timeout (default 3)
+      Number of times to retry on a server error or network timeout (default 3)
   -hooks-http string
-    	An HTTP endpoint to which hook events will be sent to
+      An HTTP endpoint to which hook events will be sent to
   -hooks-http-backoff int
-    	Number of seconds to wait before retrying each retry (default 1)
+      Number of seconds to wait before retrying each retry (default 1)
   -hooks-http-forward-headers string
-    	List of HTTP request headers to be forwarded from the client request to the hook endpoint
+      List of HTTP request headers to be forwarded from the client request to the hook endpoint
   -hooks-http-retry int
-    	Number of times to retry on a 500 or network timeout (default 3)
+      Number of times to retry on a 500 or network timeout (default 3)
   -hooks-plugin string
-    	Path to a Go plugin for loading hook functions (only supported on Linux and macOS; highly EXPERIMENTAL and may BREAK in the future)
+      Path to a Go plugin for loading hook functions (only supported on Linux and macOS; highly EXPERIMENTAL and may BREAK in the future)
   -hooks-stop-code int
-    	Return code from post-receive hook which causes tusd to stop and delete the current upload. A zero value means that no uploads will be stopped
+      Return code from post-receive hook which causes tusd to stop and delete the current upload. A zero value means that no uploads will be stopped
   -host string
-    	Host to bind HTTP server to (default "0.0.0.0")
+      Host to bind HTTP server to (default "0.0.0.0")
   -max-size int
-    	Maximum size of a single upload in bytes
+      Maximum size of a single upload in bytes
   -metrics-path string
-    	Path under which the metrics endpoint will be accessible (default "/metrics")
+      Path under which the metrics endpoint will be accessible (default "/metrics")
   -port string
-    	Port to bind HTTP server to (default "1080")
+      Port to bind HTTP server to (default "1080")
   -s3-bucket string
-    	Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
+      Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
+  -s3-disable-content-hashes
+      Disable the calculation of MD5 and SHA256 hashes for the content that gets uploaded to S3 for minimized CPU usage (experimental and may be removed in the future)
+  -s3-disable-ssl
+      Disable SSL and only use HTTP for communication with S3 (experimental and may be removed in the future)
   -s3-endpoint string
-    	Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)
+      Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)
   -s3-object-prefix string
-    	Prefix for S3 object names
+      Prefix for S3 object names
   -s3-part-size int
-    	Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future) (default 52428800)
+      Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future) (default 52428800)
   -s3-transfer-acceleration
-    	Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)
+      Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)
+  -show-greeting
+      Show the greeting message (default true)
   -timeout int
-    	Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 6000)
+      Read timeout for connections in milliseconds.  A zero value means that reads will not timeout (default 6000)
   -tls-certificate string
-    	Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.
+      Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.
   -tls-key string
-    	Path to the file containing the key for the TLS certificate.
+      Path to the file containing the key for the TLS certificate.
   -tls-mode string
-    	Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong. (default "tls12")
+      Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong. (default "tls12")
   -unix-sock string
-    	If set, will listen to a UNIX socket at this location instead of a TCP socket
+      If set, will listen to a UNIX socket at this location instead of a TCP socket
   -upload-dir string
-    	Directory to store uploads in (default "./data")
+      Directory to store uploads in (default "./data")
   -verbose
-    	Enable verbose logging output (default true)
+      Enable verbose logging output (default true)
   -version
-    	Print tusd version information
+      Print tusd version information
+
 ```
