@@ -1,4 +1,0 @@
-#!/bin/sh
-
-echo "Upload $TUS_ID terminated"
-cat /dev/stdin | jq .

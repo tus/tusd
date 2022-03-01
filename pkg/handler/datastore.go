@@ -7,7 +7,9 @@ import (
 
 type MetaData map[string]string
 
+// FileInfo contains information about a single upload resource.
 type FileInfo struct {
+	// ID is the unique identifier of the upload resource.
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
@@ -41,6 +43,7 @@ type FileInfo struct {
 // more data. Furthermore, a response is sent to notify the client of the
 // interrupting and the upload is terminated (if supported by the data store),
 // so the upload cannot be resumed anymore.
+// TODO: Allow passing in a HTTP Response
 func (f FileInfo) StopUpload() {
 	if f.stopUpload != nil {
 		f.stopUpload()

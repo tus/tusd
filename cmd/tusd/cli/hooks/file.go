@@ -3,11 +3,10 @@ package hooks
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
-
-	"github.com/tus/tusd/pkg/handler"
 )
 
 type FileHook struct {
@@ -18,43 +17,50 @@ func (_ FileHook) Setup() error {
 	return nil
 }
 
-func (h FileHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
-	hookPath := h.Directory + string(os.PathSeparator) + string(typ)
+func (h FileHook) InvokeHook(req HookRequest) (res HookResponse, err error) {
+	hookPath := h.Directory + string(os.PathSeparator) + string(req.Type)
 	cmd := exec.Command(hookPath)
 	env := os.Environ()
-	env = append(env, "TUS_ID="+info.Upload.ID)
-	env = append(env, "TUS_SIZE="+strconv.FormatInt(info.Upload.Size, 10))
-	env = append(env, "TUS_OFFSET="+strconv.FormatInt(info.Upload.Offset, 10))
+	env = append(env, "TUS_ID="+req.Event.Upload.ID)
+	env = append(env, "TUS_SIZE="+strconv.FormatInt(req.Event.Upload.Size, 10))
+	env = append(env, "TUS_OFFSET="+strconv.FormatInt(req.Event.Upload.Offset, 10))
 
-	jsonInfo, err := json.Marshal(info)
+	jsonReq, err := json.Marshal(req)
 	if err != nil {
-		return nil, 0, err
+		return res, err
 	}
 
-	reader := bytes.NewReader(jsonInfo)
+	reader := bytes.NewReader(jsonReq)
 	cmd.Stdin = reader
 
 	cmd.Env = env
 	cmd.Dir = h.Directory
 	cmd.Stderr = os.Stderr
 
-	// If `captureOutput` is true, this function will return the output (both,
-	// stderr and stdout), else it will use this process' stdout
-	var output []byte
-	if !captureOutput {
-		cmd.Stdout = os.Stdout
-		err = cmd.Run()
-	} else {
-		output, err = cmd.Output()
-	}
+	output, err := cmd.Output()
 
-	// Ignore the error, only, if the hook's file could not be found. This usually
+	// Ignore the error if the hook's file could not be found. This usually
 	// means that the user is only using a subset of the available hooks.
 	if os.IsNotExist(err) {
-		err = nil
+		return res, nil
 	}
 
-	returnCode := cmd.ProcessState.ExitCode()
+	// Report error if the exit code was non-zero
+	if err, ok := err.(*exec.ExitError); ok {
+		return res, fmt.Errorf("unexpected return code %d from hook endpoint: %s", err.ProcessState.ExitCode(), string(output))
+	}
 
-	return output, returnCode, err
+	if err != nil {
+		return res, err
+	}
+
+	// Do not parse the output as JSON, if we received no output to reduce possible
+	// errors.
+	if len(output) > 0 {
+		if err = json.Unmarshal(output, &res); err != nil {
+			return res, fmt.Errorf("failed to parse hook response: %w, response was: %s", err, string(output))
+		}
+	}
+
+	return res, nil
 }

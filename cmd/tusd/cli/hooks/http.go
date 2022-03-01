@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tus/tusd/pkg/handler"
-
 	"github.com/sethgrid/pester"
 )
 
@@ -18,35 +16,11 @@ type HttpHook struct {
 	MaxRetries     int
 	Backoff        int
 	ForwardHeaders []string
+
+	client *pester.Client
 }
 
-func (_ HttpHook) Setup() error {
-	return nil
-}
-
-func (h HttpHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
-	jsonInfo, err := json.Marshal(info)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	req, err := http.NewRequest("POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
-	if err != nil {
-		return nil, 0, err
-	}
-
-	for _, k := range h.ForwardHeaders {
-		// Lookup the Canonicalised version of the specified header
-		if vals, ok := info.HTTPRequest.Header[http.CanonicalHeaderKey(k)]; ok {
-			// but set the case specified by the user
-			req.Header[k] = vals
-		}
-	}
-
-	req.Header.Set("Hook-Name", string(typ))
-	req.Header.Set("Content-Type", "application/json")
-
-	// TODO: Can we initialize this in Setup()?
+func (h *HttpHook) Setup() error {
 	// Use linear backoff strategy with the user defined values.
 	client := pester.New()
 	client.KeepLog = true
@@ -55,24 +29,51 @@ func (h HttpHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput
 		return time.Duration(h.Backoff) * time.Second
 	}
 
-	resp, err := client.Do(req)
+	h.client = client
+
+	return nil
+}
+
+func (h HttpHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err error) {
+	jsonInfo, err := json.Marshal(hookReq)
 	if err != nil {
-		return nil, 0, err
+		return hookRes, err
 	}
-	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	httpReq, err := http.NewRequest("POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
 	if err != nil {
-		return nil, 0, err
+		return hookRes, err
 	}
 
-	if resp.StatusCode >= http.StatusBadRequest {
-		return body, resp.StatusCode, NewHookError(fmt.Errorf("endpoint returned: %s", resp.Status), resp.StatusCode, body)
+	for _, k := range h.ForwardHeaders {
+		// Lookup the Canonicalised version of the specified header
+		if vals, ok := hookReq.Event.HTTPRequest.Header[http.CanonicalHeaderKey(k)]; ok {
+			// but set the case specified by the user
+			httpReq.Header[k] = vals
+		}
 	}
 
-	if captureOutput {
-		return body, resp.StatusCode, err
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	httpRes, err := h.client.Do(httpReq)
+	if err != nil {
+		return hookRes, err
+	}
+	defer httpRes.Body.Close()
+
+	httpBody, err := ioutil.ReadAll(httpRes.Body)
+	if err != nil {
+		return hookRes, err
 	}
 
-	return nil, resp.StatusCode, err
+	// Report an error, if the response has a non-2XX status code
+	if httpRes.StatusCode < http.StatusOK || httpRes.StatusCode >= http.StatusMultipleChoices {
+		return hookRes, fmt.Errorf("unexpected response code from hook endpoint (%d): %s", httpRes.StatusCode, string(httpBody))
+	}
+
+	if err = json.Unmarshal(httpBody, &hookRes); err != nil {
+		return hookRes, fmt.Errorf("failed to parse hook response: %w", err)
+	}
+
+	return hookRes, nil
 }

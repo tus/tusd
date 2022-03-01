@@ -31,7 +31,7 @@ func (m Metrics) incRequestsTotal(method string) {
 
 // TODO: Rework to only store error code
 // incErrorsTotal increases the counter for this error atomically by one.
-func (m Metrics) incErrorsTotal(err HTTPError) {
+func (m Metrics) incErrorsTotal(err Error) {
 	ptr := m.ErrorsTotal.retrievePointerFor(err)
 	atomic.AddUint64(ptr, 1)
 }
@@ -95,10 +95,10 @@ func newErrorsTotalMap() *ErrorsTotalMap {
 
 // retrievePointerFor returns (after creating it if necessary) the pointer to
 // the counter for the error.
-func (e *ErrorsTotalMap) retrievePointerFor(err HTTPError) *uint64 {
+func (e *ErrorsTotalMap) retrievePointerFor(err Error) *uint64 {
 	serr := ErrorsTotalMapEntry{
-		ErrorCode:  err.ErrorCode(),
-		StatusCode: err.StatusCode(),
+		ErrorCode:  err.ErrorCode,
+		StatusCode: err.HTTPResponse.StatusCode,
 	}
 
 	e.lock.RLock()

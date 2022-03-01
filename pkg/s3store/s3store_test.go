@@ -576,7 +576,7 @@ func TestGetReaderNotFinished(t *testing.T) {
 
 	content, err := upload.GetReader(context.Background())
 	assert.Nil(content)
-	assert.Equal("cannot stream non-finished upload", err.Error())
+	assert.Equal("ERR_INCOMPLETE_UPLOAD: cannot stream non-finished upload", err.Error())
 }
 
 func TestDeclareLength(t *testing.T) {

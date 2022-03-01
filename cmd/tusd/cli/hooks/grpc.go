@@ -5,17 +5,15 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	"github.com/tus/tusd/pkg/handler"
-	pb "github.com/tus/tusd/pkg/proto/v1"
+	pb "github.com/tus/tusd/pkg/proto/v2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 type GrpcHook struct {
 	Endpoint   string
 	MaxRetries int
 	Backoff    int
-	Client     pb.HookServiceClient
+	Client     pb.HookHandlerClient
 }
 
 func (g *GrpcHook) Setup() error {
@@ -31,44 +29,59 @@ func (g *GrpcHook) Setup() error {
 	if err != nil {
 		return err
 	}
-	g.Client = pb.NewHookServiceClient(conn)
+	g.Client = pb.NewHookHandlerClient(conn)
 	return nil
 }
 
-func (g *GrpcHook) InvokeHook(typ HookType, info handler.HookEvent, captureOutput bool) ([]byte, int, error) {
+func (g *GrpcHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err error) {
 	ctx := context.Background()
-	req := &pb.SendRequest{Hook: marshal(typ, info)}
-	resp, err := g.Client.Send(ctx, req)
+	req := marshal(hookReq)
+	res, err := g.Client.InvokeHook(ctx, req)
 	if err != nil {
-		if e, ok := status.FromError(err); ok {
-			return nil, int(e.Code()), err
-		}
-		return nil, 2, err
+		return hookRes, err
 	}
-	if captureOutput {
-		return resp.Response.GetValue(), 0, err
-	}
-	return nil, 0, err
+
+	hookRes = unmarshal(res)
+	return hookRes, nil
 }
 
-func marshal(typ HookType, info handler.HookEvent) *pb.Hook {
-	return &pb.Hook{
-		Upload: &pb.Upload{
-			Id:             info.Upload.ID,
-			Size:           info.Upload.Size,
-			SizeIsDeferred: info.Upload.SizeIsDeferred,
-			Offset:         info.Upload.Offset,
-			MetaData:       info.Upload.MetaData,
-			IsPartial:      info.Upload.IsPartial,
-			IsFinal:        info.Upload.IsFinal,
-			PartialUploads: info.Upload.PartialUploads,
-			Storage:        info.Upload.Storage,
+func marshal(hookReq HookRequest) *pb.HookRequest {
+	event := hookReq.Event
+
+	return &pb.HookRequest{
+		Type: string(hookReq.Type),
+		Event: &pb.Event{
+			Upload: &pb.FileInfo{
+				Id:             event.Upload.ID,
+				Size:           event.Upload.Size,
+				SizeIsDeferred: event.Upload.SizeIsDeferred,
+				Offset:         event.Upload.Offset,
+				MetaData:       event.Upload.MetaData,
+				IsPartial:      event.Upload.IsPartial,
+				IsFinal:        event.Upload.IsFinal,
+				PartialUploads: event.Upload.PartialUploads,
+				Storage:        event.Upload.Storage,
+			},
+			HttpRequest: &pb.HTTPRequest{
+				Method:     event.HTTPRequest.Method,
+				Uri:        event.HTTPRequest.URI,
+				RemoteAddr: event.HTTPRequest.RemoteAddr,
+				// TODO: HEaders
+			},
 		},
-		HttpRequest: &pb.HTTPRequest{
-			Method:     info.HTTPRequest.Method,
-			Uri:        info.HTTPRequest.URI,
-			RemoteAddr: info.HTTPRequest.RemoteAddr,
-		},
-		Name: string(typ),
 	}
+}
+
+func unmarshal(res *pb.HookResponse) (hookRes HookResponse) {
+	hookRes.RejectUpload = res.RejectUpload
+	hookRes.StopUpload = res.StopUpload
+
+	httpRes := res.HttpResponse
+	if httpRes != nil {
+		hookRes.HTTPResponse.StatusCode = int(httpRes.StatusCode)
+		hookRes.HTTPResponse.Headers = httpRes.Headers
+		hookRes.HTTPResponse.Body = httpRes.Body
+	}
+
+	return hookRes
 }
