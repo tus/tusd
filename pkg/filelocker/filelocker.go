@@ -9,6 +9,7 @@
 package filelocker
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -58,7 +59,8 @@ type fileUploadLock struct {
 	file lockfile.Lockfile
 }
 
-func (lock fileUploadLock) Lock() error {
+// TODO: Implement functionality for ctx and requestRelease.
+func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) error {
 	err := lock.file.TryLock()
 	if err == lockfile.ErrBusy {
 		return handler.ErrFileLocked
