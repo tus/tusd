@@ -42,6 +42,7 @@ var (
 	ErrInvalidUploadDeferLength         = NewError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
+	ErrUploadInterrupted                = NewError("ERR_UPLAOD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
 
 	// TODO: These two responses are 500 for backwards compatability. We should discuss
 	// whether it is better to more them to 4XX status codes.
@@ -341,7 +342,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	if containsChunk {
 		if handler.composer.UsesLocker {
-			lock, err := handler.lockUpload(id)
+			lock, err := handler.lockUpload(c, id)
 			if err != nil {
 				handler.sendError(c, err)
 				return
@@ -380,7 +381,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(id)
+		lock, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -463,7 +464,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(id)
+		lock, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -581,7 +582,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	// available in the case of a malicious request.
 	if r.Body != nil {
 		// Limit the data read from the request's body to the allowed maximum
-		reader := newBodyReader(r.Body, maxSize)
+		c.body = newBodyReader(r.Body, maxSize)
 
 		// We use a context object to allow the hook system to cancel an upload
 		uploadCtx, stopUpload := context.WithCancel(context.Background())
@@ -602,11 +603,11 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), reader)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), c.body)
 			defer close(stopProgressEvents)
 		}
 
-		bytesWritten, err = upload.WriteChunk(c, offset, reader)
+		bytesWritten, err = upload.WriteChunk(c, offset, c.body)
 		if terminateUpload && handler.composer.UsesTerminater {
 			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
@@ -617,7 +618,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
 		// it in the response, if the store did not also return an error.
-		if bodyErr := reader.hasError(); bodyErr != nil {
+		if bodyErr := c.body.hasError(); bodyErr != nil {
 			handler.log("BodyReadError", "id", id, "error", bodyErr.Error())
 			if err == nil {
 				err = bodyErr
@@ -690,7 +691,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(id)
+		lock, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -822,7 +823,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(id)
+		lock, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -1082,15 +1083,21 @@ func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeade
 
 // lockUpload creates a new lock for the given upload ID and attempts to lock it.
 // The created lock is returned if it was aquired successfully.
-func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
+func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, error) {
 	lock, err := handler.composer.Locker.NewLock(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Implement timeout and callback to close body
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	if err := lock.Lock(ctx, func() {}); err != nil {
+	releaseLock := func() {
+		if c.body != nil {
+			handler.log("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+			c.body.closeWithError(ErrUploadInterrupted)
+		}
+	}
+
+	if err := lock.Lock(ctx, releaseLock); err != nil {
 		return nil, err
 	}
 
