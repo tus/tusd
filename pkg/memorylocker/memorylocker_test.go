@@ -39,7 +39,8 @@ func TestMemoryLocker_Timeout(t *testing.T) {
 		// release the lock
 	}))
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
 
 	lock2, err := locker.NewLock("one")
 	a.NoError(err)
@@ -65,7 +66,8 @@ func TestMemoryLocker_RequestUnlock(t *testing.T) {
 		a.NoError(lock1.Unlock())
 	}))
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
 	lock2, err := locker.NewLock("one")
 	a.NoError(err)

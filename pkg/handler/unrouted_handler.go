@@ -1089,7 +1089,9 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 		return nil, err
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	// TODO: Make lock timeout configurable
+	ctx, cancelContext := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancelContext()
 	releaseLock := func() {
 		if c.body != nil {
 			handler.log("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
