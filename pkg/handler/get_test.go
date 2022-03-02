@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -34,9 +33,9 @@ func TestGet(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
-			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 5,
 				Size:   20,
 				MetaData: map[string]string{
@@ -44,7 +43,7 @@ func TestGet(t *testing.T) {
 					"filetype": "image/jpeg",
 				},
 			}, nil),
-			upload.EXPECT().GetReader(context.Background()).Return(reader, nil),
+			upload.EXPECT().GetReader(gomock.Any()).Return(reader, nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
@@ -79,8 +78,8 @@ func TestGet(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 0,
 			}, nil),
 		)
@@ -107,8 +106,8 @@ func TestGet(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
 					"filetype": "non-a-valid-mime-type",
@@ -139,8 +138,8 @@ func TestGet(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
 					"filetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.v1",
