@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/tus/tusd/pkg/handler"
 )
 
 const (
@@ -175,9 +176,13 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err erro
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		return nil, fmt.Errorf("File %s does not exist", blockBlob.Blob.ToBlockBlobURL())
+		return nil, handler.ErrNotFound
 	}
 	if err != nil {
+		// This might occur when the blob is being uploaded, but a block list has not been committed yet
+		if isAzureError(err, "BlobNotFound") {
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -200,8 +205,8 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	getBlock, err := blockBlob.Blob.GetBlockList(ctx, azblob.BlockListAll, azblob.LeaseAccessConditions{})
 	if err != nil {
-		if err.(azblob.StorageError).ServiceCode() == azblob.ServiceCodeBlobNotFound {
-			return 0, nil
+		if isAzureError(err, "BlobNotFound") {
+			err = handler.ErrNotFound
 		}
 
 		return 0, err
@@ -261,6 +266,9 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL())
 	}
 	if err != nil {
+		if isAzureError(err, "BlobNotFound") {
+			err = handler.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -307,4 +315,11 @@ func blockIDIntToBase64(blockID int) string {
 func blockIDBase64ToInt(blockID string) int {
 	blockIDBase64ToBinary(blockID)
 	return int(binary.LittleEndian.Uint32(blockIDBase64ToBinary(blockID)))
+}
+
+func isAzureError(err error, code string) bool {
+	if err, ok := err.(azblob.StorageError); ok && string(err.ServiceCode()) == code {
+		return true
+	}
+	return false
 }
