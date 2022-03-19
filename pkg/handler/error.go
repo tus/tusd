@@ -3,6 +3,8 @@ package handler
 // Error represents an error with the intent to be sent in the HTTP
 // response to the client. Therefore, it also contains a HTTPResponse,
 // next to an error code and error message.
+// TODO: Error is not comparable anymore because HTTPResponse
+// contains a map. See if we should change this.
 type Error struct {
 	ErrorCode    string
 	Message      string
