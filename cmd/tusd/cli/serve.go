@@ -32,6 +32,7 @@ func Serve() {
 		NotifyTerminatedUploads: true,
 		NotifyUploadProgress:    true,
 		NotifyCreatedUploads:    true,
+		AllowCustomFilepath:     Flags.AllowCustomFilepath,
 	}
 
 	if err := SetupPreHooks(&config); err != nil {
@@ -55,6 +56,10 @@ func Serve() {
 	}
 
 	stdout.Printf("Using %s as the base path.\n", basepath)
+
+	if Flags.AllowCustomFilepath && Flags.S3Bucket == "" {
+		stderr.Fatalf("Custom filepath implemented only for S3. You have not provided -s3-bucket.\n")
+	}
 
 	SetupPostHooks(handler)
 

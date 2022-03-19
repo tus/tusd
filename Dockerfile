@@ -25,7 +25,7 @@ RUN set -xe \
         -o /go/bin/tusd ./cmd/tusd/main.go
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.15.0
+FROM alpine:3.15.1
 WORKDIR /srv/tusd-data
 
 RUN apk add --no-cache ca-certificates jq \

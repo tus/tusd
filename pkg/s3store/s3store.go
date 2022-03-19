@@ -74,6 +74,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -105,6 +106,10 @@ type S3Store struct {
 	// to store uploaded files. It can be used to create a pseudo-directory
 	// structure in the bucket, e.g. "path/to/my/uploads".
 	ObjectPrefix string
+	// AllowCustomObjectPath if enabled and metadata contains CustomFilepath
+	// value, then file stored with this path instead of generated uuid.
+	// Basepath and prefix are respected.
+	AllowCustomObjectPath bool
 	// MetadataObjectPrefix is prepended to the name of each .info and .part S3
 	// object that is created. If it is not set, then ObjectPrefix is used.
 	MetadataObjectPrefix string
@@ -215,14 +220,6 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		return nil, fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
 	}
 
-	var uploadId string
-	if info.ID == "" {
-		uploadId = uid.Uid()
-	} else {
-		// certain tests set info.ID in advance
-		uploadId = info.ID
-	}
-
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
 	metadata := make(map[string]*string, len(info.MetaData))
 	for key, value := range info.MetaData {
@@ -230,6 +227,22 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		// overwritten by the next iteration.
 		v := nonPrintableRegexp.ReplaceAllString(value, "?")
 		metadata[key] = &v
+	}
+
+	var uploadId string
+	if info.ID == "" {
+		if filepath, keyExist := metadata["CustomFilepath"]; store.AllowCustomObjectPath && keyExist {
+			filepath := strings.Trim(*filepath, "/")
+			if len(filepath) < 1 {
+				return nil, fmt.Errorf("s3store: malformed CustomFilepath")
+			}
+			uploadId = filepath
+		} else {
+			uploadId = uid.Uid()
+		}
+	} else {
+		// certain tests set info.ID in advance
+		uploadId = info.ID
 	}
 
 	// Create the actual multipart upload

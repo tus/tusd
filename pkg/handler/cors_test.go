@@ -40,7 +40,7 @@ func TestCORS(t *testing.T) {
 			ReqHeader: map[string]string{
 				"Origin": "tus.io",
 			},
-			Code: http.StatusMethodNotAllowed,
+			Code: http.StatusNotFound,
 			ResHeader: map[string]string{
 				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
 				"Access-Control-Allow-Origin":   "tus.io",

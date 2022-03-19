@@ -22,6 +22,10 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
+	// AllowCustomFilepath provides possibility to store files not only
+	// with generated ID but with provided CustomFilepath in metadata, if store
+	// implementation allows it. Require metadata extension. BasePath respected.
+	AllowCustomFilepath bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

@@ -18,11 +18,16 @@ import (
 const UploadLengthDeferred = "1"
 
 var (
-	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
 	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
+
+// Regexp tests: https://regex101.com/r/dEqVSE/1
+func getCustomFilepathIdRegexp(basepath string) *regexp.Regexp {
+	basepath = strings.Replace(basepath, "/", "", -1)
+	return regexp.MustCompile(`\/?` + basepath + `\/(.+)\/$|\/?` + basepath + `\/(.+)\/?$|([^\/]+)\/?$`)
+}
 
 // HTTPError represents an error with an additional status code attached
 // which may be used when this error is sent in a HTTP response.
@@ -290,7 +295,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader)
+	isPartial, isFinal, partialUploadIDs, err := handler.parseConcat(concatHeader)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -420,7 +425,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractIDFromPath(r.RequestURI)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -498,7 +503,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractIDFromPath(r.RequestURI)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -713,7 +718,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractIDFromPath(r.RequestURI)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -840,7 +845,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.extractIDFromPath(r.RequestURI)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -1178,7 +1183,7 @@ func SerializeMetadataHeader(meta map[string]string) string {
 // Parse the Upload-Concat header, e.g.
 // Upload-Concat: partial
 // Upload-Concat: final;http://tus.io/files/a /files/b/
-func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
+func (handler *UnroutedHandler) parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
 	if len(header) == 0 {
 		return
 	}
@@ -1199,7 +1204,7 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			id, extractErr := extractIDFromPath(value)
+			id, extractErr := handler.extractIDFromPath(value)
 			if extractErr != nil {
 				err = extractErr
 				return
@@ -1219,12 +1224,19 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 }
 
 // extractIDFromPath pulls the last segment from the url provided
-func extractIDFromPath(url string) (string, error) {
-	result := reExtractFileID.FindStringSubmatch(url)
-	if len(result) != 2 {
+// or if AllowCustomFilepath enabled, all after Basepath (except last slash)
+func (handler *UnroutedHandler) extractIDFromPath(url string) (string, error) {
+	result := getCustomFilepathIdRegexp(handler.basePath).FindStringSubmatch(url)
+	// there is 1 match and 3 capturing groups in regex, so 4 submatches
+	if len(result) < 4 {
 		return "", ErrNotFound
 	}
-	return result[1], nil
+	for i := 1; i <= 4; i++ {
+		if result[i] != "" {
+			return result[i], nil
+		}
+	}
+	return "", ErrNotFound
 }
 
 func i64toa(num int64) string {

@@ -2,14 +2,14 @@ package handler
 
 import (
 	"net/http"
-
-	"github.com/bmizerany/pat"
+	"strings"
 )
 
 // Handler is a ready to use handler with routing (using pat)
 type Handler struct {
 	*UnroutedHandler
 	http.Handler
+	allowedMethods []string
 }
 
 // NewHandler creates a routed tus protocol handler. This is the simplest
@@ -24,28 +24,53 @@ func NewHandler(config Config) (*Handler, error) {
 		return nil, err
 	}
 
-	handler, err := NewUnroutedHandler(config)
+	unroutedHandler, err := NewUnroutedHandler(config)
 	if err != nil {
 		return nil, err
 	}
 
-	routedHandler := &Handler{
-		UnroutedHandler: handler,
-	}
-
-	mux := pat.New()
-
-	routedHandler.Handler = handler.Middleware(mux)
-
-	mux.Post("", http.HandlerFunc(handler.PostFile))
-	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
-	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
-	mux.Get(":id", http.HandlerFunc(handler.GetFile))
-
-	// Only attach the DELETE handler if the Terminate() method is provided
+	allowed := []string{http.MethodPost, http.MethodHead, http.MethodPatch, http.MethodGet}
 	if config.StoreComposer.UsesTerminater {
-		mux.Del(":id", http.HandlerFunc(handler.DelFile))
+		allowed = append(allowed, http.MethodDelete)
 	}
+	routedHandler := &Handler{
+		UnroutedHandler: unroutedHandler,
+		allowedMethods:  allowed,
+	}
+
+	// This madness made only for saving other code from changes after rid of https://github.com/bmizerany/pat
+	routedHandler.Handler = unroutedHandler.Middleware(&router{routedHandler})
 
 	return routedHandler, nil
+}
+
+type router struct {
+	routedHandler *Handler
+}
+
+func (router *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		http.HandlerFunc(router.routedHandler.UnroutedHandler.PostFile).ServeHTTP(w, r)
+	case http.MethodHead:
+		http.HandlerFunc(router.routedHandler.UnroutedHandler.HeadFile).ServeHTTP(w, r)
+	case http.MethodPatch:
+		http.HandlerFunc(router.routedHandler.UnroutedHandler.PatchFile).ServeHTTP(w, r)
+	case http.MethodGet:
+		http.HandlerFunc(router.routedHandler.UnroutedHandler.GetFile).ServeHTTP(w, r)
+	case http.MethodDelete:
+		if router.routedHandler.config.StoreComposer.UsesTerminater {
+			// Only attach the DELETE handler if the Terminate() method is provided
+			http.HandlerFunc(router.routedHandler.DelFile).ServeHTTP(w, r)
+		} else {
+			router.NotAllowed(w, r)
+		}
+	default:
+		router.NotAllowed(w, r)
+	}
+}
+
+func (router *router) NotAllowed(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Allow", strings.Join(router.routedHandler.allowedMethods, ", "))
+	http.Error(w, "Method Not Allowed", 405)
 }

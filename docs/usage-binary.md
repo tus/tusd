@@ -92,6 +92,8 @@ options:
 
 ```
 $ tusd -help
+  -allow-custom-filepath bool
+      Allows to customize path and filename (instead of generated ID, basepath respected). Send it with metadata CustomFilepath value. Currently implemented only for s3store (default false)
   -azure-blob-access-tier string
       Blob access tier when uploading new files (possible values: archive, cool, hot, '')
   -azure-container-access-type string
