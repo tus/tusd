@@ -1,5 +1,6 @@
 // Package memorylocker provides an in-memory locking mechanism.
 //
+// TODO: Update comment
 // When multiple processes are attempting to access an upload, whether it be
 // by reading or writing, a synchronization mechanism is required to prevent
 // data corruption, especially to ensure correct offset values and the proper
@@ -11,6 +12,7 @@
 package memorylocker
 
 import (
+	"context"
 	"sync"
 
 	"github.com/tus/tusd/pkg/handler"
@@ -20,14 +22,19 @@ import (
 // cheap mechanism. Locks will only exist as long as this object is kept in
 // reference and will be erased if the program exits.
 type MemoryLocker struct {
-	locks map[string]struct{}
-	mutex sync.Mutex
+	locks map[string]lockEntry
+	mutex sync.RWMutex
+}
+
+type lockEntry struct {
+	lockReleased   chan struct{}
+	requestRelease func()
 }
 
 // New creates a new in-memory locker.
 func New() *MemoryLocker {
 	return &MemoryLocker{
-		locks: make(map[string]struct{}),
+		locks: make(map[string]lockEntry),
 	}
 }
 
@@ -46,16 +53,40 @@ type memoryLock struct {
 }
 
 // Lock tries to obtain the exclusive lock.
-func (lock memoryLock) Lock() error {
-	lock.locker.mutex.Lock()
-	defer lock.locker.mutex.Unlock()
+func (lock memoryLock) Lock(ctx context.Context, requestRelease func()) error {
+	lock.locker.mutex.RLock()
+	entry, ok := lock.locker.locks[lock.id]
+	lock.locker.mutex.RUnlock()
 
-	// Ensure file is not locked
-	if _, ok := lock.locker.locks[lock.id]; ok {
-		return handler.ErrFileLocked
+requestRelease:
+	if ok {
+		// TODO: Make this channel?
+		// TODO: Should we ensure this is only called once?
+		entry.requestRelease()
+		select {
+		case <-ctx.Done():
+			return handler.ErrLockTimeout
+		case <-entry.lockReleased:
+		}
 	}
 
-	lock.locker.locks[lock.id] = struct{}{}
+	lock.locker.mutex.Lock()
+	// Check that the lock has not already been created in the meantime
+	entry, ok = lock.locker.locks[lock.id]
+	if ok {
+		// Lock has been created in the meantime, so we must wait again until it is free
+		lock.locker.mutex.Unlock()
+		goto requestRelease
+	}
+
+	// No lock exists, so we can create it
+	entry = lockEntry{
+		lockReleased:   make(chan struct{}),
+		requestRelease: requestRelease,
+	}
+
+	lock.locker.locks[lock.id] = entry
+	lock.locker.mutex.Unlock()
 
 	return nil
 }
@@ -64,10 +95,14 @@ func (lock memoryLock) Lock() error {
 func (lock memoryLock) Unlock() error {
 	lock.locker.mutex.Lock()
 
-	// Deleting a non-existing key does not end in unexpected errors or panic
-	// since this operation results in a no-op
+	lockReleased := lock.locker.locks[lock.id].lockReleased
+
+	// Delete the lock entry entirely
 	delete(lock.locker.locks, lock.id)
 
 	lock.locker.mutex.Unlock()
+
+	close(lockReleased)
+
 	return nil
 }
