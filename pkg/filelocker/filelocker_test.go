@@ -1,6 +1,7 @@
 package filelocker
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 
@@ -21,12 +22,12 @@ func TestFileLocker(t *testing.T) {
 	lock1, err := locker.NewLock("one")
 	a.NoError(err)
 
-	a.NoError(lock1.Lock())
-	a.Equal(handler.ErrFileLocked, lock1.Lock())
+	a.NoError(lock1.Lock(context.TODO(), nil))
+	a.Equal(handler.ErrFileLocked, lock1.Lock(context.TODO(), nil))
 
 	lock2, err := locker.NewLock("one")
 	a.NoError(err)
-	a.Equal(handler.ErrFileLocked, lock2.Lock())
+	a.Equal(handler.ErrFileLocked, lock2.Lock(context.TODO(), nil))
 
 	a.NoError(lock1.Unlock())
 }

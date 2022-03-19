@@ -293,17 +293,17 @@ func (m *MockFullLock) EXPECT() *MockFullLockMockRecorder {
 }
 
 // Lock mocks base method
-func (m *MockFullLock) Lock() error {
+func (m *MockFullLock) Lock(ctx context.Context, requestUnlock func()) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Lock")
+	ret := m.ctrl.Call(m, "Lock", ctx, requestUnlock)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Lock indicates an expected call of Lock
-func (mr *MockFullLockMockRecorder) Lock() *gomock.Call {
+func (mr *MockFullLockMockRecorder) Lock(ctx, requestUnlock interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockFullLock)(nil).Lock))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockFullLock)(nil).Lock), ctx, requestUnlock)
 }
 
 // Unlock mocks base method

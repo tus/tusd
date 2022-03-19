@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -23,14 +22,14 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -75,14 +74,14 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -112,8 +111,8 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 20,
 				Size:   20,
@@ -141,7 +140,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(context.Background(), "no").Return(nil, ErrNotFound)
+		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, ErrNotFound)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -165,8 +164,8 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 			}, nil),
@@ -194,8 +193,8 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   10,
@@ -268,14 +267,14 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 5,
 				Size:   20,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -310,17 +309,17 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:             "yes",
 				Offset:         5,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload).Return(upload),
-			upload.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().DeclareLength(gomock.Any(), int64(20)),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -353,16 +352,16 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:             "yes",
 				Offset:         20,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload).Return(upload),
-			upload.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload.EXPECT().FinishUpload(context.Background()),
+			upload.EXPECT().DeclareLength(gomock.Any(), int64(20)),
+			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -392,26 +391,26 @@ func TestPatch(t *testing.T) {
 		upload2 := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload1, nil),
-			upload1.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload1, nil),
+			upload1.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:             "yes",
 				Offset:         5,
 				Size:           0,
 				SizeIsDeferred: true,
 			}, nil),
 			store.EXPECT().AsLengthDeclarableUpload(upload1).Return(upload1),
-			upload1.EXPECT().DeclareLength(context.Background(), int64(20)),
-			upload1.EXPECT().WriteChunk(context.Background(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload1.EXPECT().DeclareLength(gomock.Any(), int64(20)),
+			upload1.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hello")).Return(int64(5), nil),
 
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload2, nil),
-			upload2.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload2, nil),
+			upload2.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:             "yes",
 				Offset:         10,
 				Size:           20,
 				SizeIsDeferred: false,
 			}, nil),
-			upload2.EXPECT().WriteChunk(context.Background(), int64(10), NewReaderMatcher("thisismore")).Return(int64(10), nil),
-			upload2.EXPECT().FinishUpload(context.Background()),
+			upload2.EXPECT().WriteChunk(gomock.Any(), int64(10), NewReaderMatcher("thisismore")).Return(int64(10), nil),
+			upload2.EXPECT().FinishUpload(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -460,14 +459,14 @@ func TestPatch(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
-			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   20,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
@@ -500,13 +499,13 @@ func TestPatch(t *testing.T) {
 		// We simulate that the upload has already an offset of 10 bytes. Therefore, the progress notifications
 		// must be the sum of the exisiting offset and the newly read bytes.
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 10,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(10), NewReaderMatcher("first second third")).Return(int64(18), nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(10), NewReaderMatcher("first second third")).Return(int64(18), nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -574,15 +573,15 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   100,
 			}, nil),
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate(context.Background()),
+			upload.EXPECT().Terminate(gomock.Any()),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -644,14 +643,14 @@ func TestPatch(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(context.Background(), "yes").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
 				Offset: 0,
 				Size:   100,
 			}, nil),
 			// The reader for WriteChunk must not return an error.
-			upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
 		)
 
 		handler, _ := NewHandler(Config{

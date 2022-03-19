@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
@@ -39,14 +38,14 @@ func TestTerminate(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("foo").Return(lock, nil),
-			lock.EXPECT().Lock().Return(nil),
-			store.EXPECT().GetUpload(context.Background(), "foo").Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			store.EXPECT().GetUpload(gomock.Any(), "foo").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:   "foo",
 				Size: 10,
 			}, nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
-			upload.EXPECT().Terminate(context.Background()).Return(nil),
+			upload.EXPECT().Terminate(gomock.Any()).Return(nil),
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
