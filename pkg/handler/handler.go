@@ -29,9 +29,12 @@ func NewHandler(config Config) (*Handler, error) {
 		return nil, err
 	}
 
-	allowed := []string{http.MethodPost, http.MethodHead, http.MethodPatch, http.MethodGet}
-	if config.StoreComposer.UsesTerminater {
+	allowed := []string{http.MethodPost, http.MethodHead, http.MethodPatch}
+	if config.StoreComposer.UsesTerminater && !config.DisableDelete {
 		allowed = append(allowed, http.MethodDelete)
+	}
+	if !config.DisableDownload {
+		allowed = append(allowed, http.MethodGet)
 	}
 	routedHandler := &Handler{
 		UnroutedHandler: unroutedHandler,
@@ -57,9 +60,13 @@ func (router *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPatch:
 		http.HandlerFunc(router.routedHandler.UnroutedHandler.PatchFile).ServeHTTP(w, r)
 	case http.MethodGet:
-		http.HandlerFunc(router.routedHandler.UnroutedHandler.GetFile).ServeHTTP(w, r)
+		if !router.routedHandler.config.DisableDownload {
+			http.HandlerFunc(router.routedHandler.UnroutedHandler.GetFile).ServeHTTP(w, r)
+		} else {
+			router.NotAllowed(w, r)
+		}
 	case http.MethodDelete:
-		if router.routedHandler.config.StoreComposer.UsesTerminater {
+		if router.routedHandler.config.StoreComposer.UsesTerminater && !router.routedHandler.config.DisableDelete {
 			// Only attach the DELETE handler if the Terminate() method is provided
 			http.HandlerFunc(router.routedHandler.DelFile).ServeHTTP(w, r)
 		} else {
