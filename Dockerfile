@@ -1,4 +1,4 @@
-FROM golang:1.17.8-alpine AS builder
+FROM golang:1.18.0-alpine AS builder
 WORKDIR /go/src/github.com/tus/tusd
 
 # Add gcc and libc-dev early so it is cached
@@ -25,7 +25,7 @@ RUN set -xe \
         -o /go/bin/tusd ./cmd/tusd/main.go
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.15.0
+FROM alpine:3.15.1
 WORKDIR /srv/tusd-data
 
 RUN apk add --no-cache ca-certificates jq \
