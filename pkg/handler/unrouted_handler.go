@@ -221,8 +221,17 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			header.Set("Access-Control-Allow-Origin", origin)
 
 			if r.Method == "OPTIONS" {
+				allowedMethods := "POST, HEAD, PATCH, OPTIONS"
+				if !handler.config.DisableDownload {
+					allowedMethods += ", GET"
+				}
+
+				if !handler.config.DisableTermination {
+					allowedMethods += ", DELETE"
+				}
+
 				// Preflight request
-				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				header.Add("Access-Control-Allow-Methods", allowedMethods)
 				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 				header.Set("Access-Control-Max-Age", "86400")
 
