@@ -25,9 +25,9 @@ type Config struct {
 	// DisableDownload indicates whether the server will refuse downloads of the
 	// uploaded file, by not mounting the GET handler.
 	DisableDownload bool
-	// DisableDelete indicates whether the server will refuse delete requests of
-	// the uploaded file, by not mounting the DELETE handler.
-	DisableDelete bool
+	// DisableTermination indicates whether the server will refuse termination
+	// requests of the uploaded file, by not mounting the DELETE handler.
+	DisableTermination bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool
