@@ -226,12 +226,12 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		// Copying the value is required in order to prevent it from being
 		// overwritten by the next iteration.
 		v := nonPrintableRegexp.ReplaceAllString(value, "?")
-		metadata[key] = &v
+		metadata[strings.ToLower(key)] = &v
 	}
 
 	var uploadId string
 	if info.ID == "" {
-		if filepath, keyExist := metadata["CustomFilepath"]; store.AllowCustomObjectPath && keyExist {
+		if filepath, keyExist := metadata["customfilepath"]; store.AllowCustomObjectPath && keyExist {
 			filepath := strings.Trim(*filepath, "/")
 			if len(filepath) < 1 {
 				return nil, fmt.Errorf("s3store: malformed CustomFilepath")

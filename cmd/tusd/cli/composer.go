@@ -58,7 +58,11 @@ func CreateComposer() {
 		}
 
 		if Flags.AllowCustomFilepath {
-			stdout.Printf("Saving objects with custom path and filename enabled. Use CustomFilepath metadata.")
+			stdout.Printf("Saving objects with custom path and filename enabled. Use CustomFilepath metadata.\n")
+		}
+
+		if Flags.DisableDownload {
+			stdout.Printf("Downloads disabled.\n")
 		}
 
 		// Derive credentials from default credential chain (env, shared, ec2 instance role)

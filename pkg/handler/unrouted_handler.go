@@ -24,8 +24,12 @@ var (
 )
 
 // Regexp tests: https://regex101.com/r/dEqVSE/1
+// TODO: cut off query part
 func getCustomFilepathIdRegexp(basepath string) *regexp.Regexp {
 	basepath = strings.Replace(basepath, "/", "", -1)
+	if basepath == "" {
+		return regexp.MustCompile(`\/?(.+)\/$|\/?(.+)\/?$|([^\n\/]+)\/?$`)
+	}
 	return regexp.MustCompile(`\/?` + basepath + `\/(.+)\/$|\/?` + basepath + `\/(.+)\/?$|([^\/]+)\/?$`)
 }
 
@@ -228,7 +232,8 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			if r.Method == "OPTIONS" {
 				// Preflight request
 				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
-				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
+				// TODO: add headers from Flags.HttpHooksForwardHeaders and others
+				header.Add("Access-Control-Allow-Headers", "Authorization, Cookie, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
@@ -242,6 +247,9 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		// Add nosniff to all responses https://golang.org/src/net/http/server.go#L1429
 		header.Set("X-Content-Type-Options", "nosniff")
+
+		// https://github.com/tus/tusd/issues/450#issuecomment-765392832
+		header.Set("Access-Control-Allow-Credentials", "true")
 
 		// Set appropriated headers in case of OPTIONS method allowing protocol
 		// discovery and end with an 204 No Content
