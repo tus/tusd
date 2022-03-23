@@ -22,7 +22,7 @@ func TestCORS(t *testing.T) {
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
 				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
-				"Access-Control-Allow-Methods": "POST, GET, HEAD, PATCH, DELETE, OPTIONS",
+				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
 			},
