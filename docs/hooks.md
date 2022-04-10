@@ -43,7 +43,7 @@ A non-zero exit code or HTTP response greater than `400` will return a HTTP 500 
 
 ### post-finish
 
-This event will be triggered after an upload is fully finished, meaning that all chunks have been transfered and saved in the storage. After this point, no further modifications, except possible deletion, can be made to the upload entity and it may be desirable to use the file for further processing or notify other applications of the completions of this upload.
+This event will be triggered after an upload is fully finished, meaning that all chunks have been transferred and saved in the storage. After this point, no further modifications, except possible deletion, can be made to the upload entity and it may be desirable to use the file for further processing or notify other applications of the completions of this upload.
 
 ### post-terminate
 
@@ -51,7 +51,7 @@ This event will be triggered after an upload has been terminated, meaning that t
 
 ### post-receive
 
-This event will be triggered for every running upload to indicate its current progress. It will be emitted whenever the server has received more data from the client but at most every second. The offset property will be set to the number of bytes which have been transfered to the server, at the time in total. Please be aware that this number may be higher than the number of bytes which have been stored by the data store!
+This event will be triggered for every running upload to indicate its current progress. It will be emitted whenever the server has received more data from the client but at most every second. The offset property will be set to the number of bytes which have been transferred to the server, at the time in total. Please be aware that this number may be higher than the number of bytes which have been stored by the data store!
 
 ## Whitelisting Hook Events
 
@@ -95,7 +95,7 @@ The process of the hook files are provided with information about the event and 
     // If the upload is a final one, this value will be an array of upload IDs
     // which are concatenated to produce the upload.
     "PartialUploads": null,
-    // The upload's meta data which can be supplied by the clients as it wishes.
+    // The upload's metadata which can be supplied by the clients as it wishes.
     // All keys and values in this object will be strings.
     // Be aware that it may contain maliciously crafted values and you must not
     // trust it without escaping it first!
@@ -103,7 +103,7 @@ The process of the hook files are provided with information about the event and 
       "filename": "transloadit.png"
     },
     // Details about where the data store saved the uploaded file. The different
-    // availabl keys vary depending on the used data store.
+    // available keys vary depending on the used data store.
     "Storage": {
       // For example, the filestore supplies the absolute file path:
       "Type": "filestore",
@@ -170,7 +170,7 @@ Tusd will issue a `POST` request to the specified URL endpoint, specifying the h
     // If the upload is a final one, this value will be an array of upload IDs
     // which are concatenated to produce the upload.
     "PartialUploads": null,
-    // The upload's meta data which can be supplied by the clients as it wishes.
+    // The upload's metadata which can be supplied by the clients as it wishes.
     // All keys and values in this object will be strings.
     // Be aware that it may contain maliciously crafted values and you must not
     // trust it without escaping it first!
@@ -178,7 +178,7 @@ Tusd will issue a `POST` request to the specified URL endpoint, specifying the h
       "filename": "transloadit.png"
     },
     // Details about where the data store saved the uploaded file. The different
-    // availabl keys vary depending on the used data store.
+    // available keys vary depending on the used data store.
     "Storage": {
       // For example, the filestore supplies the absolute file path:
       "Type": "filestore",
@@ -247,7 +247,7 @@ Tusd will issue a `gRPC` request to the specified endpoint, specifying the hook 
     // If the upload is a final one, this value will be an array of upload IDs
     // which are concatenated to produce the upload.
     "PartialUploads": null,
-    // The upload's meta data which can be supplied by the clients as it wishes.
+    // The upload's metadata which can be supplied by the clients as it wishes.
     // All keys and values in this object will be strings.
     // Be aware that it may contain maliciously crafted values and you must not
     // trust it without escaping it first!
@@ -255,7 +255,7 @@ Tusd will issue a `gRPC` request to the specified endpoint, specifying the hook 
       "filename": "transloadit.png"
     },
     // Details about where the data store saved the uploaded file. The different
-    // availabl keys vary depending on the used data store.
+    // available keys vary depending on the used data store.
     "Storage": {
       // For example, the filestore supplies the absolute file path:
       "Type": "filestore",

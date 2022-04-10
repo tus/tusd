@@ -8,7 +8,7 @@ go 1.16
 require (
 	cloud.google.com/go/storage v1.21.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
-	github.com/aws/aws-sdk-go v1.43.21
+	github.com/aws/aws-sdk-go v1.43.31
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
@@ -20,7 +20,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/vimeo/go-util v1.4.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	google.golang.org/api v0.73.0
+	google.golang.org/api v0.74.0
 	google.golang.org/grpc v1.45.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
