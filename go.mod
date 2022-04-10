@@ -10,6 +10,8 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/aws/aws-sdk-go v1.43.31
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
+	github.com/felixge/fgprof v0.9.2 // indirect
+	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d // indirect
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0

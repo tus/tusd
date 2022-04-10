@@ -2,13 +2,8 @@ package cli
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"os"
 	"path/filepath"
-	"runtime/pprof"
 	"strings"
-	"time"
 
 	"github.com/tus/tusd/cmd/tusd/cli/hooks"
 )
@@ -63,8 +58,6 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
-
-	CPUProfile string
 }
 
 func ParseFlags() {
@@ -116,28 +109,12 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
-
-	flag.StringVar(&Flags.CPUProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 
 	SetEnabledHooks()
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
-	}
-
-	if Flags.CPUProfile != "" {
-		f, err := os.Create(Flags.CPUProfile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-
-		go func() {
-			<-time.After(20 * time.Second)
-			pprof.StopCPUProfile()
-			fmt.Println("Stopped CPU profile")
-		}()
 	}
 }
 
