@@ -461,8 +461,9 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			break
 		}
 
-		partfile := fileChunk.file
+		partfile := fileChunk.reader
 		partsize := fileChunk.size
+		closePart := fileChunk.closeReader
 
 		isFinalChunk := !info.SizeIsDeferred && (size == offset+bytesUploaded+partsize)
 		if partsize >= store.MinPartSize || isFinalChunk {
@@ -474,9 +475,10 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			upload.parts = append(upload.parts, part)
 
 			wg.Add(1)
-			go func(file *os.File, part *s3Part) {
+			go func(file io.ReadSeeker, part *s3Part, closePart func()) {
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
+				defer closePart()
 
 				t := time.Now()
 				uploadPartInput := &s3.UploadPartInput{
@@ -492,18 +494,19 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 				} else {
 					part.etag = etag
 				}
-			}(partfile, part)
+			}(partfile, part, closePart)
 		} else {
 			wg.Add(1)
-			go func(file *os.File) {
+			go func(file io.ReadSeeker, closePart func()) {
 				defer upload.store.uploadSemaphore.Release()
 				defer wg.Done()
+				defer closePart()
 
 				if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
 					uploadErr = err
 				}
 				upload.incompletePartSize = partsize
-			}(partfile)
+			}(partfile, closePart)
 		}
 
 		bytesUploaded += partsize
@@ -524,9 +527,7 @@ func cleanUpTempFile(file *os.File) {
 	os.Remove(file.Name())
 }
 
-func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file *os.File, size int64) (string, error) {
-	defer cleanUpTempFile(file)
-
+func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s3.UploadPartInput, file io.ReadSeeker, size int64) (string, error) {
 	if !upload.store.DisableContentHashes {
 		// By default, use the traditional approach to upload data
 		uploadPartInput.Body = file
@@ -1101,9 +1102,7 @@ func (store S3Store) headIncompletePartForUpload(ctx context.Context, uploadId s
 	return *obj.ContentLength, nil
 }
 
-func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file *os.File) error {
-	defer cleanUpTempFile(file)
-
+func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file io.ReadSeeker) error {
 	t := time.Now()
 	_, err := store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),

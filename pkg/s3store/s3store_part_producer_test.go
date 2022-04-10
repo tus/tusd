@@ -2,7 +2,6 @@ package s3store
 
 import (
 	"errors"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +33,7 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	actualStr := ""
 	b := make([]byte, 1)
 	for chunk := range fileChan {
-		n, err := chunk.file.Read(b)
+		n, err := chunk.reader.Read(b)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
@@ -46,8 +45,7 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 		}
 		actualStr += string(b)
 
-		os.Remove(chunk.file.Name())
-		chunk.file.Close()
+		chunk.closeReader()
 	}
 
 	if actualStr != expectedStr {
