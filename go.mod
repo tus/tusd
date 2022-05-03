@@ -17,7 +17,7 @@ require (
 	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0
 	github.com/stretchr/testify v1.7.1
 	github.com/vimeo/go-util v1.4.1
-	google.golang.org/api v0.74.0
+	google.golang.org/api v0.77.0
 	google.golang.org/grpc v1.45.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
