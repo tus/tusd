@@ -270,6 +270,10 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 		return err
 	}
 
+	if len(names) == 0 {
+		return fmt.Errorf("no GCS objects found with FilterObjects %+v", filterParams)
+	}
+
 	composeParams := GCSComposeParams{
 		Bucket:      store.Bucket,
 		Destination: store.keyWithPrefix(id),
