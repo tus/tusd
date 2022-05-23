@@ -97,8 +97,29 @@ type HookEvent struct {
 	HTTPRequest HTTPRequest
 }
 
+type CallbackEvent struct {
+	// Upload contains information about the upload that caused this hook
+	// to be fired.
+	Upload *FileInfo
+	// HTTPRequest contains details about the HTTP request that reached
+	// tusd.
+	HTTPRequest HTTPRequest
+}
+
 func newHookEvent(info FileInfo, r *http.Request) HookEvent {
 	return HookEvent{
+		Upload: info,
+		HTTPRequest: HTTPRequest{
+			Method:     r.Method,
+			URI:        r.RequestURI,
+			RemoteAddr: r.RemoteAddr,
+			Header:     r.Header,
+		},
+	}
+}
+
+func newCallbackEvent(info *FileInfo, r *http.Request) *CallbackEvent {
+	return &CallbackEvent{
 		Upload: info,
 		HTTPRequest: HTTPRequest{
 			Method:     r.Method,
@@ -352,7 +373,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+		if err := handler.config.PreUploadCreateCallback(newCallbackEvent(&info, r)); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -708,7 +729,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 		handler.Metrics.incUploadsFinished()
 
 		if handler.config.PreFinishResponseCallback != nil {
-			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
+			if err := handler.config.PreFinishResponseCallback(newCallbackEvent(&info, r)); err != nil {
 				return err
 			}
 		}
