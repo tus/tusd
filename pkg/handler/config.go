@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 )
@@ -55,6 +56,9 @@ type Config struct {
 	// a response is returned to the client. Error responses from the callback will be passed
 	// back to the client. This can be used to implement post-processing validation.
 	PreFinishResponseCallback func(hook *CallbackEvent) error
+	// PreGetFileInfoCallback will be invoked before read the file information.
+	// This can be used to append upload id with path.
+	PreGetFileInfoCallback func(id *string, r *http.Request) error
 }
 
 func (config *Config) validate() error {

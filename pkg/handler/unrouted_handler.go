@@ -534,6 +534,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if handler.config.PreGetFileInfoCallback != nil {
+		if err := handler.config.PreGetFileInfoCallback(&id, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(id)
 		if err != nil {
@@ -749,6 +756,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if handler.config.PreGetFileInfoCallback != nil {
+		if err := handler.config.PreGetFileInfoCallback(&id, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+	}
+
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(id)
 		if err != nil {
@@ -874,6 +888,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
+	}
+
+	if handler.config.PreGetFileInfoCallback != nil {
+		if err := handler.config.PreGetFileInfoCallback(&id, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
 	}
 
 	if handler.composer.UsesLocker {
