@@ -19,8 +19,7 @@ type httpContext struct {
 
 func newContext(w http.ResponseWriter, r *http.Request) *httpContext {
 	return &httpContext{
-		// TODO: Try to reuse the request's context in the future
-		Context: context.Background(),
+		Context: r.Context(),
 		res:     w,
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests

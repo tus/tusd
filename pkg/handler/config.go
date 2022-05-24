@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/url"
@@ -52,13 +53,13 @@ type Config struct {
 	// If the error is non-nil, the upload will not be created. This can be used to implement
 	// validation of upload metadata etc. Furthermore, HTTPResponse will be ignored and
 	// the error value can contain values for the HTTP response.
-	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, error)
+	PreUploadCreateCallback func(ctx context.Context, hook HookEvent) (HTTPResponse, error)
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
 	// a response is returned to the client. This can be used to implement post-processing validation.
 	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.
 	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
 	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
-	PreFinishResponseCallback func(hook HookEvent) (HTTPResponse, error)
+	PreFinishResponseCallback func(ctx context.Context, hook HookEvent) (HTTPResponse, error)
 }
 
 func (config *Config) validate() error {

@@ -302,7 +302,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, err := handler.config.PreUploadCreateCallback(c, newHookEvent(info, r))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -677,7 +677,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 		handler.Metrics.incUploadsFinished()
 
 		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r))
+			resp2, err := handler.config.PreFinishResponseCallback(c, newHookEvent(info, r))
 			if err != nil {
 				return resp, err
 			}

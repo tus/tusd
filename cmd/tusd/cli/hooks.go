@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -19,11 +20,11 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+func preCreateCallback(_ context.Context, event handler.HookEvent) (handler.HTTPResponse, error) {
 	return invokeHookSync(hooks.HookPreCreate, event)
 }
 
-func preFinishCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+func preFinishCallback(_ context.Context, event handler.HookEvent) (handler.HTTPResponse, error) {
 	return invokeHookSync(hooks.HookPreFinish, event)
 }
 
