@@ -63,14 +63,12 @@ type Upload interface {
 	// requests. It may return an os.ErrNotExist which will be interpreted as a
 	// 404 Not Found.
 	GetInfo(ctx context.Context) (FileInfo, error)
-	// GetReader returns a reader which allows iterating of the content of an
+	// GetReader returns an io.ReadCloser which allows iterating of the content of an
 	// upload specified by its ID. It should attempt to provide a reader even if
 	// the upload has not been finished yet but it's not required.
-	// If the returned reader also implements the io.Closer interface, the
-	// Close() method will be invoked once everything has been read.
 	// If the given upload could not be found, the error tusd.ErrNotFound should
 	// be returned.
-	GetReader(ctx context.Context) (io.Reader, error)
+	GetReader(ctx context.Context) (io.ReadCloser, error)
 	// FinisherDataStore is the interface which can be implemented by DataStores
 	// which need to do additional operations once an entire upload has been
 	// completed. These tasks may include but are not limited to freeing unused

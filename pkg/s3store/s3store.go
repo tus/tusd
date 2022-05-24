@@ -686,7 +686,7 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 	return info, parts, incompletePartSize, nil
 }
 
-func (upload s3Upload) GetReader(ctx context.Context) (io.Reader, error) {
+func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	id := upload.id
 	store := upload.store
 	uploadId, multipartId := splitIds(id)

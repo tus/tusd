@@ -748,10 +748,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(c, resp)
 	io.Copy(w, src)
 
-	// Try to close the reader if the io.Closer interface is implemented
-	if closer, ok := src.(io.Closer); ok {
-		closer.Close()
-	}
+	src.Close()
 }
 
 // mimeInlineBrowserWhitelist is a map containing MIME types which should be

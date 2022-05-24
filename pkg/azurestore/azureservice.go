@@ -15,7 +15,6 @@
 package azurestore
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -59,8 +58,8 @@ type AzBlob interface {
 	Delete(ctx context.Context) error
 	// Upload the blob
 	Upload(ctx context.Context, body io.ReadSeeker) error
-	// Download the contents of the blob
-	Download(ctx context.Context) ([]byte, error)
+	// Download returns a readcloser to download the contents of the blob
+	Download(ctx context.Context) (io.ReadCloser, error)
 	// Get the offset of the blob and its indexes
 	GetOffset(ctx context.Context) (int64, error)
 	// Commit the uploaded blocks to the BlockBlob
@@ -171,7 +170,7 @@ func (blockBlob *BlockBlob) Upload(ctx context.Context, body io.ReadSeeker) erro
 }
 
 // Download the blockBlob from Azure Blob Storage
-func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err error) {
+func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	downloadResponse, err := blockBlob.Blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
@@ -186,15 +185,7 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (data []byte, err erro
 		return nil, err
 	}
 
-	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
-	downloadedData := bytes.Buffer{}
-
-	_, err = downloadedData.ReadFrom(bodyStream)
-	if err != nil {
-		return nil, err
-	}
-
-	return downloadedData.Bytes(), nil
+	return downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20}), nil
 }
 
 func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
@@ -258,7 +249,7 @@ func (infoBlob *InfoBlob) Upload(ctx context.Context, body io.ReadSeeker) error 
 }
 
 // Download the infoBlob from Azure Blob Storage
-func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
+func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	downloadResponse, err := infoBlob.Blob.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
@@ -272,15 +263,7 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
-	downloadedData := bytes.Buffer{}
-
-	_, err = downloadedData.ReadFrom(bodyStream)
-	if err != nil {
-		return nil, err
-	}
-
-	return downloadedData.Bytes(), nil
+	return downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20}), nil
 }
 
 // infoBlob does not utilise offset, so just return 0, nil
