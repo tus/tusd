@@ -649,7 +649,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
-	resp.Headers["Upload-Offset"] = strconv.FormatInt(newOffset, 10)
+	c.res.Header().Set("Upload-Offset", strconv.FormatInt(newOffset, 10))
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
