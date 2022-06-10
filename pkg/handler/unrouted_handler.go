@@ -577,10 +577,10 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
 
-    // Request was made simply to inform the server of the upload length, no need to call handler.writeChunk
-    if (uploadLength == offset) {
-	    handler.sendResp(w, r, http.StatusNoContent)
-    }
+		// Request was made simply to inform the server of the upload length, no need to call handler.writeChunk
+		if uploadLength == offset {
+			handler.sendResp(w, r, http.StatusNoContent)
+		}
 
 	}
 
