@@ -695,22 +695,23 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
-		// ... allow custom mechanism to finish and cleanup the upload
+		// ... allow the data storage to finish and cleanup the upload
 		if err := upload.FinishUpload(ctx); err != nil {
 			return err
 		}
 
-		// ... send the info out to the channel
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
-		}
-
-		handler.Metrics.incUploadsFinished()
-
+		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
 			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
 				return err
 			}
+		}
+
+		handler.Metrics.incUploadsFinished()
+
+		// ... send the info out to the channel
+		if handler.config.NotifyCompleteUploads {
+			handler.CompleteUploads <- newHookEvent(info, r)
 		}
 	}
 
