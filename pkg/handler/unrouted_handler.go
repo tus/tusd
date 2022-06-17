@@ -577,12 +577,6 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
 
-		// Request was made simply to inform the server of the upload length, no need to call handler.writeChunk
-		if uploadLength == offset {
-			handler.sendResp(w, r, http.StatusNoContent)
-			return
-		}
-
 	}
 
 	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
@@ -656,13 +650,18 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 			defer close(stopProgressEvents)
 		}
 
-		bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
-		if terminateUpload && handler.composer.UsesTerminater {
-			if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
-				// We only log this error and not show it to the user since this
-				// termination error is not relevant to the uploading client
-				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+		// Request was made simply to inform the server of the upload length, no need to call upload.writeChunk
+		if maxSize > 0 {
+			bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
+			if terminateUpload && handler.composer.UsesTerminater {
+				if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
+					// We only log this error and not show it to the user since this
+					// termination error is not relevant to the uploading client
+					handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+				}
 			}
+		} else {
+			r.Body.Close()
 		}
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
