@@ -576,6 +576,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
+
 	}
 
 	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
@@ -623,7 +624,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	var err error
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
-	if r.Body != nil {
+	if r.Body != nil && maxSize > 0 {
 		// Limit the data read from the request's body to the allowed maximum
 		reader := newBodyReader(io.LimitReader(r.Body, maxSize))
 
