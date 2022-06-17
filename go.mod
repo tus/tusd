@@ -6,24 +6,23 @@ module github.com/tus/tusd
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.21.0
+	cloud.google.com/go/storage v1.22.1
 	github.com/Azure/azure-storage-blob-go v0.14.0
-	github.com/aws/aws-sdk-go v1.43.31
+	github.com/aws/aws-sdk-go v1.44.32
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
-	github.com/felixge/fgprof v0.9.2 // indirect
-	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d // indirect
+	github.com/felixge/fgprof v0.9.2
+	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/hashicorp/go-hclog v0.14.1 // indirect
-	github.com/hashicorp/go-plugin v1.4.3 // indirect
-	github.com/prometheus/client_golang v1.12.1
+	github.com/hashicorp/go-hclog v0.14.1
+	github.com/hashicorp/go-plugin v1.4.3
+	github.com/prometheus/client_golang v1.12.2
 	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.2
 	github.com/vimeo/go-util v1.4.1
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	google.golang.org/api v0.74.0
-	google.golang.org/grpc v1.45.0
+	google.golang.org/api v0.83.0
+	google.golang.org/grpc v1.47.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
