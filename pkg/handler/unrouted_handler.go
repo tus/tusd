@@ -624,7 +624,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 	var err error
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
-	if r.Body != nil {
+	if r.Body != nil && maxSize > 0 {
 		// Limit the data read from the request's body to the allowed maximum
 		reader := newBodyReader(io.LimitReader(r.Body, maxSize))
 
@@ -650,18 +650,13 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 			defer close(stopProgressEvents)
 		}
 
-		// Request was made simply to inform the server of the upload length, no need to call upload.writeChunk
-		if maxSize > 0 {
-			bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
-			if terminateUpload && handler.composer.UsesTerminater {
-				if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
-					// We only log this error and not show it to the user since this
-					// termination error is not relevant to the uploading client
-					handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
-				}
+		bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
+		if terminateUpload && handler.composer.UsesTerminater {
+			if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
+				// We only log this error and not show it to the user since this
+				// termination error is not relevant to the uploading client
+				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
 			}
-		} else {
-			r.Body.Close()
 		}
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
