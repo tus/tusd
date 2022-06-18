@@ -12,16 +12,25 @@ import (
 type httpContext struct {
 	context.Context
 
-	res  http.ResponseWriter
-	req  *http.Request
-	body *bodyReader
+	parentCtx context.Context
+	res       http.ResponseWriter
+	req       *http.Request
+	body      *bodyReader
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *httpContext {
 	return &httpContext{
-		Context: r.Context(),
-		res:     w,
-		req:     r,
-		body:    nil, // body can be filled later for PATCH requests
+		Context:   context.Background(),
+		parentCtx: r.Context(),
+		res:       w,
+		req:       r,
+		body:      nil, // body can be filled later for PATCH requests
 	}
+}
+
+func (hctx *httpContext) Value(key interface{}) interface{} {
+	if v := hctx.Context.Value(key); v != nil {
+		return v
+	}
+	return hctx.parentCtx.Value(key)
 }
