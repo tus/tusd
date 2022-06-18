@@ -664,24 +664,25 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
-		// ... allow custom mechanism to finish and cleanup the upload
+		// ... allow the data storage to finish and cleanup the upload
 		if err := upload.FinishUpload(c); err != nil {
 			return resp, err
 		}
 
-		// ... send the info out to the channel
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
-		}
-
-		handler.Metrics.incUploadsFinished()
-
+		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
 			resp2, err := handler.config.PreFinishResponseCallback(c, newHookEvent(info, r))
 			if err != nil {
 				return resp, err
 			}
 			resp = resp.MergeWith(resp2)
+		}
+
+		handler.Metrics.incUploadsFinished()
+
+		// ... send the info out to the channel
+		if handler.config.NotifyCompleteUploads {
+			handler.CompleteUploads <- newHookEvent(info, r)
 		}
 	}
 
