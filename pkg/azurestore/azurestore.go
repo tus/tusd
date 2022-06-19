@@ -96,8 +96,9 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 	if err != nil {
 		return nil, err
 	}
+	defer data.Close()
 
-	if err := json.Unmarshal(data, &info); err != nil {
+	if err := json.NewDecoder(data).Decode(&info); err != nil {
 		return nil, err
 	}
 
@@ -173,7 +174,7 @@ func (upload *AzUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 		return info, err
 	}
 
-	if err := json.Unmarshal(data, &info); err != nil {
+	if err := json.NewDecoder(data).Decode(&info); err != nil {
 		return info, err
 	}
 
@@ -182,12 +183,8 @@ func (upload *AzUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 }
 
 // Get the uploaded file from the Azure storage
-func (upload *AzUpload) GetReader(ctx context.Context) (io.Reader, error) {
-	b, err := upload.BlockBlob.Download(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(b), nil
+func (upload *AzUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
+	return upload.BlockBlob.Download(ctx)
 }
 
 // Finish the file upload and commit the block list
