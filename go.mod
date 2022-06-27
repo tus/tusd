@@ -6,7 +6,7 @@ module github.com/tus/tusd
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.22.1
+	cloud.google.com/go/storage v1.23.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/aws/aws-sdk-go v1.44.37
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
@@ -17,7 +17,7 @@ require (
 	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0
 	github.com/stretchr/testify v1.7.2
 	github.com/vimeo/go-util v1.4.1
-	google.golang.org/api v0.84.0
+	google.golang.org/api v0.85.0
 	google.golang.org/grpc v1.47.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
