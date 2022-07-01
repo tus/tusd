@@ -782,10 +782,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 // mimeInlineBrowserWhitelist is a map containing MIME types which should be
 // allowed to be rendered by browser inline, instead of being forced to be
-// downloadd. For example, HTML or SVG files are not allowed, since they may
+// downloaded. For example, HTML or SVG files are not allowed, since they may
 // contain malicious JavaScript. In a similiar fashion PDF is not on this list
 // as their parsers commonly contain vulnerabilities which can be exploited.
-// The values of this map does not convei any meaning and are therefore just
+// The values of this map does not convey any meaning and are therefore just
 // empty structs.
 var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"text/plain": struct{}{},
@@ -803,7 +803,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"audio/webm":      struct{}{},
 	"video/webm":      struct{}{},
 	"audio/ogg":       struct{}{},
-	"video/ogg ":      struct{}{},
+	"video/ogg":      struct{}{},
 	"application/ogg": struct{}{},
 }
 
