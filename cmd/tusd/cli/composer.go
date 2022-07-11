@@ -18,6 +18,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -28,38 +31,58 @@ func CreateComposer() {
 	// If not, we default to storing them locally on disk.
 	Composer = handler.NewStoreComposer()
 	if Flags.S3Bucket != "" {
-		s3Config := aws.NewConfig()
+		var s3Api s3store.S3API
 
-		if Flags.S3TransferAcceleration {
-			s3Config = s3Config.WithS3UseAccelerate(true)
-		}
+		if !Flags.S3UseMinioSDK {
+			s3Config := aws.NewConfig()
 
-		if Flags.S3DisableContentHashes {
-			// Prevent the S3 service client from automatically
-			// adding the Content-MD5 header to S3 Object Put and Upload API calls.
-			s3Config = s3Config.WithS3DisableContentMD5Validation(true)
-		}
-
-		if Flags.S3DisableSSL {
-			// Disable HTTPS and only use HTTP (helpful for debugging requests).
-			s3Config = s3Config.WithDisableSSL(true)
-		}
-
-		if Flags.S3Endpoint == "" {
 			if Flags.S3TransferAcceleration {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
-			} else {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+				s3Config = s3Config.WithS3UseAccelerate(true)
 			}
-		} else {
-			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
 
-			s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
+			if Flags.S3DisableContentHashes {
+				// Prevent the S3 service client from automatically
+				// adding the Content-MD5 header to S3 Object Put and Upload API calls.
+				s3Config = s3Config.WithS3DisableContentMD5Validation(true)
+			}
+
+			if Flags.S3DisableSSL {
+				// Disable HTTPS and only use HTTP (helpful for debugging requests).
+				s3Config = s3Config.WithDisableSSL(true)
+			}
+
+			if Flags.S3Endpoint == "" {
+				if Flags.S3TransferAcceleration {
+					stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
+				} else {
+					stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+				}
+			} else {
+				stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
+
+				s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
+			}
+
+			// Derive credentials from default credential chain (env, shared, ec2 instance role)
+			// as per https://github.com/aws/aws-sdk-go#configuring-credentials
+			s3Api = s3.New(session.Must(session.NewSession()), s3Config)
+		} else {
+			core, err := minio.NewCore(Flags.S3Endpoint, &minio.Options{
+				Creds:  credentials.NewEnvAWS(),
+				Secure: !Flags.S3DisableSSL,
+				Region: os.Getenv("AWS_REGION"),
+			})
+			if err != nil {
+				stderr.Fatalf("Unable to create Minio SDK: %s\n", err)
+			}
+
+			// TODO: Flags.S3TransferAcceleration
+			// TODO: Flags.S3DisableContentHashes
+
+			s3Api = s3store.NewMinioS3API(core)
 		}
 
-		// Derive credentials from default credential chain (env, shared, ec2 instance role)
-		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
-		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
+		store := s3store.New(Flags.S3Bucket, s3Api)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
 		store.MaxBufferedParts = Flags.S3MaxBufferedParts

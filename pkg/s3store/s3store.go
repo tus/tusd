@@ -83,6 +83,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tus/tusd/internal/semaphore"
 	"github.com/tus/tusd/internal/uid"
@@ -531,6 +532,7 @@ func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s
 	if !upload.store.DisableContentHashes {
 		// By default, use the traditional approach to upload data
 		uploadPartInput.Body = file
+		uploadPartInput.ContentLength = &size
 		res, err := upload.store.Service.UploadPartWithContext(ctx, uploadPartInput)
 		if err != nil {
 			return "", err
@@ -1140,6 +1142,11 @@ func isAwsError(err error, code string) bool {
 	if err, ok := err.(awserr.Error); ok && err.Code() == code {
 		return true
 	}
+
+	if err, ok := err.(minio.ErrorResponse); ok && err.Code == code {
+		return true
+	}
+
 	return false
 }
 
