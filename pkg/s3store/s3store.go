@@ -800,7 +800,7 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 				// Part numbers must be in the range of 1 to 10000, inclusive. Since
 				// slice indexes start at 0, we add 1 to ensure that i >= 1.
 				PartNumber: aws.Int64(int64(i + 1)),
-				CopySource: aws.String(store.Bucket + "/" + partialId),
+				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(partialId)),
 			})
 			if err != nil {
 				errs = append(errs, err)
