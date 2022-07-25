@@ -540,6 +540,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
+
 	}
 
 	resp, err = handler.writeChunk(c, resp, upload, info)
@@ -589,7 +590,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	var err error
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
-	if r.Body != nil {
+	if r.Body != nil && maxSize > 0 {
 		// Limit the data read from the request's body to the allowed maximum
 		c.body = newBodyReader(r.Body, maxSize)
 
@@ -754,10 +755,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 // mimeInlineBrowserWhitelist is a map containing MIME types which should be
 // allowed to be rendered by browser inline, instead of being forced to be
-// downloadd. For example, HTML or SVG files are not allowed, since they may
+// downloaded. For example, HTML or SVG files are not allowed, since they may
 // contain malicious JavaScript. In a similiar fashion PDF is not on this list
 // as their parsers commonly contain vulnerabilities which can be exploited.
-// The values of this map does not convei any meaning and are therefore just
+// The values of this map does not convey any meaning and are therefore just
 // empty structs.
 var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"text/plain": struct{}{},
@@ -775,7 +776,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"audio/webm":      struct{}{},
 	"video/webm":      struct{}{},
 	"audio/ogg":       struct{}{},
-	"video/ogg ":      struct{}{},
+	"video/ogg":      struct{}{},
 	"application/ogg": struct{}{},
 }
 
