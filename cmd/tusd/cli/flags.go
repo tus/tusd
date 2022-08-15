@@ -46,6 +46,7 @@ var Flags struct {
 	GrpcHooksRetry          int
 	GrpcHooksBackoff        int
 	EnabledHooks            []hooks.HookType
+	ProgressHooksInterval   int64
 	ShowVersion             bool
 	ExposeMetrics           bool
 	MetricsPath             string
@@ -89,6 +90,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.AzObjectPrefix, "azure-object-prefix", "", "Prefix for Azure object names")
 	flag.StringVar(&Flags.AzEndpoint, "azure-endpoint", "", "Custom Endpoint to use for Azure BlockBlob Storage (requires azure-storage to be pass)")
 	flag.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
+	flag.Int64Var(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1000, "Interval in milliseconds at which the post-receive progress hooks are emitted for each active upload")
 	flag.StringVar(&Flags.PluginHookPath, "hooks-plugin", "", "Path to a Go plugin for loading hook functions")
 	flag.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")

@@ -34,6 +34,7 @@ func Serve() {
 		NotifyTerminatedUploads: true,
 		NotifyUploadProgress:    true,
 		NotifyCreatedUploads:    true,
+		UploadProgressInterval:  time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
 	}
 
 	if err := SetupPreHooks(&config); err != nil {

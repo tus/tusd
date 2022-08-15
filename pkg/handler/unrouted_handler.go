@@ -776,7 +776,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"audio/webm":      struct{}{},
 	"video/webm":      struct{}{},
 	"audio/ogg":       struct{}{},
-	"video/ogg":      struct{}{},
+	"video/ogg":       struct{}{},
 	"application/ogg": struct{}{},
 }
 
@@ -984,7 +984,7 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bod
 					previousOffset = hook.Upload.Offset
 				}
 				return
-			case <-time.After(1 * time.Second):
+			case <-time.After(handler.config.UploadProgressInterval):
 				hook.Upload.Offset = originalOffset + reader.bytesRead()
 				if hook.Upload.Offset != previousOffset {
 					handler.UploadProgress <- hook
