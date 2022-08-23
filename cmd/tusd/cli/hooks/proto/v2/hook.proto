@@ -1,0 +1,80 @@
+// If this file gets changed, you must recompile the generate package in pkg/proto.
+// To do this, install the Go protobuf toolchain as mentioned in
+// https://github.com/golang/protobuf#installation.
+// Then use following command to recompile it with gRPC support:
+//   protoc --go_out=plugins=grpc:../../../../../pkg/proto/ v1/hook.proto
+// In addition, it may be necessary to update the protobuf or gRPC dependencies as well.
+
+syntax = "proto3";
+package v2;
+option go_package = "./v2";
+
+import "google/protobuf/any.proto";
+
+// Uploaded data
+message Upload {
+	// Unique integer identifier of the uploaded file
+	string id = 1;
+	// Total file size in bytes specified in the NewUpload call
+	int64 Size = 2; 
+	// Indicates whether the total file size is deferred until later
+	bool SizeIsDeferred = 3;
+	// Offset in bytes (zero-based)
+	int64 Offset = 4;
+	map<string, string> metaData = 5;
+	// Indicates that this is a partial upload which will later be used to form
+	// a final upload by concatenation. Partial uploads should not be processed
+	// when they are finished since they are only incomplete chunks of files.
+	bool isPartial = 6; 
+	// Indicates that this is a final upload
+	bool isFinal = 7; 
+	// If the upload is a final one (see IsFinal) this will be a non-empty
+	// ordered slice containing the ids of the uploads of which the final upload
+	// will consist after concatenation.
+	repeated string partialUploads = 8;
+	// Storage contains information about where the data storage saves the upload,
+	// for example a file path. The available values vary depending on what data
+	// store is used. This map may also be nil.
+	map <string, string> storage = 9;
+}
+
+message HTTPRequest {
+	// Method is the HTTP method, e.g. POST or PATCH
+	string method = 1;
+	// URI is the full HTTP request URI, e.g. /files/fooo
+	string uri = 2;
+	// RemoteAddr contains the network address that sent the request
+	string remoteAddr = 3; 
+  // BearerAuth contains the HTTP Authorization header value
+  string bearerAuth = 4;
+}
+
+// Hook's data
+message Hook {
+	// Upload contains information about the upload that caused this hook
+	// to be fired.
+	Upload upload = 1;
+	// HTTPRequest contains details about the HTTP request that reached
+	// tusd.
+	HTTPRequest httpRequest = 2;
+	// The hook name
+	string name = 3;
+}
+
+// Request data to send hook
+message SendRequest {
+  // The hook data
+  Hook hook = 1;
+}
+
+// Response that contains data for sended hook
+message SendResponse {
+  // The response of the hook.
+  google.protobuf.Any response = 1;
+}
+
+// The hook service definition.
+service HookService {
+  // Sends a hook
+  rpc Send (SendRequest) returns (SendResponse) {}
+}
