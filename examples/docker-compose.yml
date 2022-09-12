@@ -1,7 +1,7 @@
 version: "3.9"
 services:
     tusd:
-      image: tusproject/tusd:custom # tusproject/tusd:v1.9
+      image: tusproject/tusd:v1.9
       command: -verbose -s3-bucket mybucket -s3-endpoint http://minio:9000
       volumes:
         - tusd:/data
