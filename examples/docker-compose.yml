@@ -7,7 +7,6 @@ services:
         - tusd:/data
       environment:
         - AWS_REGION=us-east-1
-        - AWS_URL=http://minio:9000
         - AWS_ACCESS_KEY_ID_FILE=/run/secrets/minio-username
         - AWS_SECRET_ACCESS_KEY_FILE=/run/secrets/minio-password
       secrets:
