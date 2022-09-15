@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -66,10 +67,20 @@ func marshal(hookReq HookRequest) *pb.HookRequest {
 				Method:     event.HTTPRequest.Method,
 				Uri:        event.HTTPRequest.URI,
 				RemoteAddr: event.HTTPRequest.RemoteAddr,
-				// TODO: HEaders
+				Header:     getHeaders(event.HTTPRequest.Header),
 			},
 		},
 	}
+}
+
+func getHeaders(httpHeader http.Header) (hookHeader map[string]string) {
+	hookHeader = make(map[string]string)
+	for key, val := range httpHeader {
+		if key != "" && val != nil && len(val) > 0 {
+			hookHeader[key] = val[0]
+		}
+	}
+	return hookHeader
 }
 
 func unmarshal(res *pb.HookResponse) (hookRes HookResponse) {
