@@ -20,9 +20,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/tus/tusd/pkg/handler"
@@ -38,6 +40,8 @@ type azService struct {
 	BlobAccessTier azblob.AccessTierType
 	ContainerURL   *azblob.ContainerURL
 	ContainerName  string
+	SasUrl         string
+	Endpoint       string
 }
 
 type AzService interface {
@@ -46,6 +50,7 @@ type AzService interface {
 
 type AzConfig struct {
 	AccountName         string
+	SasUrl              string
 	AccountKey          string
 	BlobAccessTier      string
 	ContainerName       string
@@ -79,9 +84,24 @@ type InfoBlob struct {
 // New Azure service for communication to Azure BlockBlob Storage API
 func NewAzureService(config *AzConfig) (AzService, error) {
 	// struct to store your credentials.
-	credential, err := azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
-	if err != nil {
-		return nil, err
+	var credential azblob.Credential
+	var credError error
+	var cURL *url.URL
+	if config.AccountKey != "" {
+		// Use AccountKey for shared key credentials
+		credential, credError = azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
+		if credError != nil {
+			return nil, credError
+		}
+		cURL, _ = url.Parse(fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName))
+	} else {
+		// Use anonymous credentials, request initial SAS and append it to URL
+		credential = azblob.NewAnonymousCredential()
+		sas, err := getSasToken(config.SasUrl)
+		if err != nil {
+			return nil, err
+		}
+		cURL, _ = url.Parse(fmt.Sprintf("%s/%s?%s", config.Endpoint, config.ContainerName, sas))
 	}
 
 	// Might be limited by the storage account
@@ -113,7 +133,6 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 
 	// The pipeline specifies things like retry policies, logging, deserialization of HTTP response payloads, and more.
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
-	cURL, _ := url.Parse(fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName))
 
 	// Get the ContainerURL URL
 	containerURL := azblob.NewContainerURL(*cURL, p)
@@ -124,12 +143,31 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		BlobAccessTier: blobAccessTierType,
 		ContainerURL:   &containerURL,
 		ContainerName:  config.ContainerName,
+		SasUrl:         config.SasUrl,
+		Endpoint:       config.Endpoint,
 	}, nil
 }
 
 // Determine if we return a InfoBlob or BlockBlob, based on the name
 func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, error) {
 	var fileBlob AzBlob
+	url := service.ContainerURL.URL()
+	skeParam := url.Query().Get("ske")
+	if skeParam != "" {
+		sasEndDate, _ := time.Parse(time.RFC3339, skeParam)
+		if sasEndDate.Before(time.Now()) {
+			// Renew SAS and append it to URL
+			sas, err := getSasToken(service.SasUrl)
+			if err != nil {
+				return nil, err
+			}
+			cURL, _ := url.Parse(fmt.Sprintf("%s/%s?%s", service.Endpoint, service.ContainerName, sas))
+			p := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{})
+			newContainerURL := azblob.NewContainerURL(*cURL, p)
+			service.ContainerURL = &newContainerURL
+		}
+	}
+
 	bb := service.ContainerURL.NewBlockBlobURL(name)
 	if strings.HasSuffix(name, InfoBlobSuffix) {
 		fileBlob = &InfoBlob{
@@ -305,4 +343,17 @@ func isAzureError(err error, code string) bool {
 		return true
 	}
 	return false
+}
+
+func getSasToken(sasUrl string) (sas string, err error) {
+	resp, err := http.Get(sasUrl)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	sasResponse, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", readErr
+	}
+	return string(sasResponse), nil
 }

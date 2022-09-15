@@ -135,8 +135,10 @@ func CreateComposer() {
 		}
 
 		accountKey := os.Getenv("AZURE_STORAGE_KEY")
-		if accountKey == "" {
-			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_STORAGE_KEY environment variable.\n")
+		sasUrl := os.Getenv("AZURE_STORAGE_SAS_URL")
+
+		if accountKey == "" && sasUrl == "" {
+			stderr.Fatalf("No service account key or SAS URL for Azure BlockBlob Storage using the AZURE_STORAGE_KEY or AZURE_STORAGE_SAS_URL environment variable.\n")
 		}
 
 		azureEndpoint := Flags.AzEndpoint
@@ -152,6 +154,7 @@ func CreateComposer() {
 
 		azConfig := &azurestore.AzConfig{
 			AccountName:         accountName,
+			SasUrl:              sasUrl,
 			AccountKey:          accountKey,
 			ContainerName:       Flags.AzStorage,
 			ContainerAccessType: Flags.AzContainerAccessType,
