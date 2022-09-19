@@ -28,16 +28,20 @@ RUN set -xe \
 FROM alpine:3.16.2
 WORKDIR /srv/tusd-data
 
-RUN apk add --no-cache ca-certificates jq \
+COPY ./docker/entrypoint.sh /usr/local/share/docker-entrypoint.sh
+COPY ./docker/load-env.sh /usr/local/share/load-env.sh
+
+RUN apk add --no-cache ca-certificates jq bash \
     && addgroup -g 1000 tusd \
     && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
     && mkdir -p /srv/tusd-hooks \
-    && chown tusd:tusd /srv/tusd-data
+    && chown tusd:tusd /srv/tusd-data \
+    && chmod +x /usr/local/share/docker-entrypoint.sh /usr/local/share/load-env.sh
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
 EXPOSE 1080
 USER tusd
 
-ENTRYPOINT ["tusd"]
+ENTRYPOINT ["/usr/local/share/docker-entrypoint.sh"]
 CMD [ "--hooks-dir", "/srv/tusd-hooks" ]

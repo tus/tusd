@@ -58,3 +58,16 @@ To make your setup easier, tusd already includes the necessary CORS configuratio
  * `Upload-Concat`: A tus specific header used to indicate if the containing HTTP request is the final request for uploading a file or not. See [here](https://tus.io/protocols/resumable-upload.html#upload-concat) for details.
 
 If you are looking for a way to communicate additional information from a client to a server, use the `Upload-Metadata` header.
+
+### How to use Docker Secrets for credentials (Swarm mode only)
+
+Example usage with "minio"/S3 (AWS). Create the secrets:
+
+```bash
+printf "minio" | docker secret create minio-username -
+printf "miniosecret" | docker secret create minio-password -
+```
+
+Those commands create two secrets which are used inside the example [docker-compose.yml](../examples/docker-compose.yml) file.
+The provided example assumes, that you also have a service named "minio" inside the same Docker Network.
+We just append a _FILE suffix to the corresponding environment variables. The contents of the mounted file will be added to the environment variable without _FILE suffix.
