@@ -73,8 +73,8 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 	upload := &fileUpload{
 		info:     info,
-		infoPath: store.infoPath(id),
-		binPath:  store.binPath(id),
+		infoPath: store.infoPath(info.ID),
+		binPath:  binPath,
 	}
 
 	// writeInfo creates the file by itself if necessary
