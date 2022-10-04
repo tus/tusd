@@ -19,7 +19,7 @@ const UploadLengthDeferred = "1"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
-	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`)
+	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
@@ -802,7 +802,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"audio/webm":      struct{}{},
 	"video/webm":      struct{}{},
 	"audio/ogg":       struct{}{},
-	"video/ogg":      struct{}{},
+	"video/ogg":       struct{}{},
 	"application/ogg": struct{}{},
 }
 
