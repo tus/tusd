@@ -18,7 +18,7 @@ const UploadLengthDeferred = "1"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
-	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`)
+	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
@@ -540,7 +540,6 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 		info.Size = uploadLength
 		info.SizeIsDeferred = false
-
 	}
 
 	resp, err = handler.writeChunk(c, resp, upload, info)
@@ -590,7 +589,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	var err error
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
-	if r.Body != nil && maxSize > 0 {
+	if r.Body != nil {
 		// Limit the data read from the request's body to the allowed maximum
 		c.body = newBodyReader(r.Body, maxSize)
 
