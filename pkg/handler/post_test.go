@@ -325,11 +325,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
