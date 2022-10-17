@@ -152,8 +152,8 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, error) {
 	var fileBlob AzBlob
 	url := service.ContainerURL.URL()
-	skeParam := url.Query().Get("ske")
-	if skeParam != "" {
+	if service.SasUrl != "" {
+		skeParam := url.Query().Get("ske")
 		sasEndDate, _ := time.Parse(time.RFC3339, skeParam)
 		if sasEndDate.Before(time.Now()) {
 			// Renew SAS and append it to URL
@@ -355,5 +355,6 @@ func getSasToken(sasUrl string) (sas string, err error) {
 	if readErr != nil {
 		return "", readErr
 	}
+	fmt.Println("Requested SAS Token.")
 	return string(sasResponse), nil
 }
