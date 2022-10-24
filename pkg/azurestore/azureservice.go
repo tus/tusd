@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -351,6 +352,9 @@ func getSasToken(sasUrl string) (sas string, err error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", errors.New("Error at requesting SAS Token: " + resp.Status)
+	}
 	sasResponse, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
 		return "", readErr
