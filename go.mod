@@ -15,7 +15,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/sethgrid/pester v0.0.0-20190127155807-68a33a018ad0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/vimeo/go-util v1.4.1
 	google.golang.org/api v0.100.0
 	google.golang.org/grpc v1.50.1
