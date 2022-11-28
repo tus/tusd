@@ -15,7 +15,7 @@ function compile {
   local dir="tusd_${os}_${arch}"
   rm -rf "$dir"
   mkdir -p "$dir"
-  GOOS=$os GOARCH=$arch go build \
+  GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build \
     -trimpath \
     -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
     -o "$dir/tusd$ext" ./cmd/tusd/main.go
