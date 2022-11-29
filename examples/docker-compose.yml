@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+    tusd:
+      image: tusproject/tusd:v1.9
+      command: -verbose -s3-bucket mybucket -s3-endpoint http://minio:9000
+      volumes:
+        - tusd:/data
+      environment:
+        - AWS_REGION=us-east-1
+        - AWS_ACCESS_KEY_ID_FILE=/run/secrets/minio-username
+        - AWS_SECRET_ACCESS_KEY_FILE=/run/secrets/minio-password
+      secrets:
+        - minio-username
+        - minio-password
+      networks:
+        - tusd
+
+volumes:
+  tusd:
+
+secrets:
+  minio-username:
+    external: true
+  minio-password:
+    external: true
+
+networks:
+  tusd:

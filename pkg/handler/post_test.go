@@ -318,6 +318,44 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 
+		SubTest(t, "RespectForwardedWithQuotes", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			// See https://github.com/tus/tusd/issues/809
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:           composer,
+				BasePath:                "/files/",
+				RespectForwardedHeaders: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+					"Forwarded":     `Forwarded: for=192.168.10.112;host="upload.example.tld:8443";proto=https`,
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"Location": "https://upload.example.tld:8443/files/foo",
+				},
+			}).Run(handler, t)
+		})
+
 		SubTest(t, "FilterForwardedProtocol", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
