@@ -19,12 +19,13 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, map[string]string, error) {
 	return invokeHookSync(hooks.HookPreCreate, event)
 }
 
 func preFinishCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
-	return invokeHookSync(hooks.HookPreFinish, event)
+	res, _, err := invokeHookSync(hooks.HookPreFinish, event)
+	return res, err
 }
 
 func SetupHookMetrics() {
@@ -113,13 +114,13 @@ func SetupPostHooks(handler *handler.Handler) {
 func invokeHookAsync(typ hooks.HookType, event handler.HookEvent) {
 	go func() {
 		// Error handling is taken care by the function.
-		_, _ = invokeHookSync(typ, event)
+		_, _, _ = invokeHookSync(typ, event)
 	}()
 }
 
-func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, err error) {
+func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, additionalMetadata map[string]string, err error) {
 	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
-		return httpRes, nil
+		return httpRes, nil, nil
 	}
 
 	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
@@ -135,7 +136,7 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	}
 
 	if hookHandler == nil {
-		return httpRes, nil
+		return httpRes, nil, nil
 	}
 
 	if Flags.VerboseOutput {
@@ -150,7 +151,7 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
-		return httpRes, err
+		return httpRes, nil, err
 	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
 	}
@@ -163,7 +164,7 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 		err := handler.ErrUploadRejectedByServer
 		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
 
-		return httpRes, err
+		return httpRes, nil, err
 	}
 
 	if typ == hooks.HookPostReceive && hookRes.StopUpload {
@@ -173,5 +174,5 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 		event.Upload.StopUpload()
 	}
 
-	return httpRes, err
+	return httpRes, hookRes.AdditionalMetaData, err
 }

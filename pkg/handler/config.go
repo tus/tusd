@@ -54,10 +54,11 @@ type Config struct {
 	// PreUploadCreateCallback will be invoked before a new upload is created, if the
 	// property is supplied. If the callback returns no error, the upload will be created
 	// and optional values from HTTPResponse will be contained in the HTTP response.
+	// Furthermore, additional metadata can be returned by the hook. These are also returned.
 	// If the error is non-nil, the upload will not be created. This can be used to implement
 	// validation of upload metadata etc. Furthermore, HTTPResponse will be ignored and
 	// the error value can contain values for the HTTP response.
-	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, error)
+	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, map[string]string, error)
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
 	// a response is returned to the client. This can be used to implement post-processing validation.
 	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.

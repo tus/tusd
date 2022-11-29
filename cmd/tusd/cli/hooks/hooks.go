@@ -29,6 +29,8 @@ type HookRequest struct {
 	Event handler.HookEvent
 }
 
+type MetaData map[string]string
+
 // HookResponse is the response after a hook is executed.
 type HookResponse struct {
 	// HTTPResponse's fields can be filled to modify the HTTP response.
@@ -53,6 +55,9 @@ type HookResponse struct {
 	// it is ignored. Use the HTTPResponse field to send details about the stop
 	// to the client.
 	StopUpload bool
+
+	// Additional metadata which can be set from the pre create hook and is then added to the initial metadata.
+	AdditionalMetaData MetaData
 }
 
 type HookType string
