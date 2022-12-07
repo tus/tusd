@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/tus/tusd/pkg/azurestore"
-	"github.com/tus/tusd/pkg/filelocker"
 	"github.com/tus/tusd/pkg/filestore"
 	"github.com/tus/tusd/pkg/gcsstore"
 	"github.com/tus/tusd/pkg/handler"
@@ -185,7 +184,9 @@ func CreateComposer() {
 		store := filestore.New(dir)
 		store.UseIn(Composer)
 
-		locker := filelocker.New(dir)
+		// TODO: Do not use filelocker here, because it does not implement the lock
+		// release mechanism yet.
+		locker := memorylocker.New()
 		locker.UseIn(Composer)
 	}
 
