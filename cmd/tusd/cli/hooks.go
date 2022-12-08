@@ -118,7 +118,7 @@ func invokeHookAsync(typ hooks.HookType, event handler.HookEvent) {
 	}()
 }
 
-func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, additionalMetadata map[string]string, err error) {
+func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, updatedMetadata map[string]string, err error) {
 	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
 		return httpRes, nil, nil
 	}
@@ -174,5 +174,5 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 		event.Upload.StopUpload()
 	}
 
-	return httpRes, hookRes.AdditionalMetaData, err
+	return httpRes, hookRes.UpdatedMetaData, err
 }

@@ -56,8 +56,8 @@ type HookResponse struct {
 	// to the client.
 	StopUpload bool
 
-	// Additional metadata which can be set from the pre create hook and is then added to the initial metadata.
-	AdditionalMetaData MetaData
+	// Updated metadata which can be set from the pre create hook and is then used instead of the initial metadata.
+	UpdatedMetaData MetaData
 }
 
 type HookType string
