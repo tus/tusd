@@ -156,6 +156,7 @@ type S3Store struct {
 	// CPU, so it might be desirable to disable them.
 	// Note that this property is experimental and might be removed in the future!
 	DisableContentHashes bool
+	SSEPattern           string
 }
 
 type S3API interface {
@@ -232,12 +233,17 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		metadata[key] = &v
 	}
 
-	// Create the actual multipart upload
-	res, err := store.Service.CreateMultipartUploadWithContext(ctx, &s3.CreateMultipartUploadInput{
+	multipartInput := s3.CreateMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(uploadId),
 		Metadata: metadata,
-	})
+	}
+	if store.SSEPattern != "" {
+		multipartInput.ServerSideEncryption = aws.String(store.SSEPattern)
+	}
+
+	// Create the actual multipart upload
+	res, err := store.Service.CreateMultipartUploadWithContext(ctx, &multipartInput)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create multipart upload:\n%s", err)
 	}
@@ -289,13 +295,18 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 		return err
 	}
 
-	// Create object on S3 containing information about the file
-	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	putObjectInput := s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
 		Key:           store.metadataKeyWithPrefix(uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
-	})
+	}
+	if store.SSEPattern != "" {
+		putObjectInput.ServerSideEncryption = aws.String(store.SSEPattern)
+	}
+
+	// Create object on S3 containing information about the file
+	_, err = store.Service.PutObjectWithContext(ctx, &putObjectInput)
 
 	return err
 }
@@ -750,12 +761,17 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	// Seek to the beginning of the file, so the entire file is being uploaded
 	file.Seek(0, 0)
 
-	// Upload the entire file to S3
-	_, err = store.Service.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	putObjectInput := s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(uploadId),
 		Body:   file,
-	})
+	}
+	if store.SSEPattern != "" {
+		putObjectInput.ServerSideEncryption = aws.String(store.SSEPattern)
+	}
+
+	// Upload the entire file to S3
+	_, err = store.Service.PutObjectWithContext(ctx, &putObjectInput)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
+
 	"github.com/tus/tusd/pkg/handler"
 )
 
@@ -163,6 +164,58 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 		MetaData: map[string]string{
 			"foo": "hello",
 			"bar": "menü",
+		},
+	}
+
+	upload, err := store.NewUpload(context.Background(), info)
+	assert.Nil(err)
+	assert.NotNil(upload)
+}
+
+func TestNewUploadWithSSE(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	sSEPattern := "AES256"
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.SSEPattern = sSEPattern
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+	assert.Equal(sSEPattern, store.SSEPattern)
+
+	s1 := "hello"
+	s2 := "men???hi"
+
+	gomock.InOrder(
+		s3obj.EXPECT().CreateMultipartUploadWithContext(context.Background(), &s3.CreateMultipartUploadInput{
+			Bucket: aws.String("bucket"),
+			Key:    aws.String("uploadId"),
+			Metadata: map[string]*string{
+				"foo": &s1,
+				"bar": &s2,
+			},
+			ServerSideEncryption: &sSEPattern,
+		}).Return(&s3.CreateMultipartUploadOutput{
+			UploadId: aws.String("multipartId"),
+		}, nil),
+		s3obj.EXPECT().PutObjectWithContext(context.Background(), &s3.PutObjectInput{
+			Bucket:               aws.String("bucket"),
+			Key:                  aws.String("uploadId.info"),
+			Body:                 bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
+			ContentLength:        aws.Int64(int64(241)),
+			ServerSideEncryption: &sSEPattern,
+		}),
+	)
+
+	info := handler.FileInfo{
+		ID:   "uploadId",
+		Size: 500,
+		MetaData: map[string]string{
+			"foo": "hello",
+			"bar": "menü\r\nhi",
 		},
 	}
 
