@@ -16,7 +16,7 @@ Once a recent Go version is installed, you can clone the git repository, install
 the remaining dependencies and build the binary:
 
 ```bash
-git clone git@github.com:tus/tusd.git
+git clone https://github.com/tus/tusd.git
 cd tusd
 
 go build -o tusd cmd/tusd/main.go
