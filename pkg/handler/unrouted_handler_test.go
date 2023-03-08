@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/tus/tusd/pkg/handler"
+	. "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func TestParseMetadataHeader(t *testing.T) {

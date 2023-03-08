@@ -15,7 +15,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 // MemoryLocker persists locks using memory and therefore allowing a simple and

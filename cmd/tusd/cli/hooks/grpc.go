@@ -6,7 +6,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	pb "github.com/tus/tusd/pkg/proto/v2"
+	pb "github.com/tus/tusd/v2/pkg/proto/v2"
 	"google.golang.org/grpc"
 )
 

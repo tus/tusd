@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	azurestore "github.com/tus/tusd/pkg/azurestore"
+	azurestore "github.com/tus/tusd/v2/pkg/azurestore"
 )
 
 // MockAzService is a mock of AzService interface.

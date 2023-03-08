@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 const (

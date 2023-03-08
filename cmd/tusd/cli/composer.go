@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tus/tusd/pkg/azurestore"
-	"github.com/tus/tusd/pkg/filestore"
-	"github.com/tus/tusd/pkg/gcsstore"
-	"github.com/tus/tusd/pkg/handler"
-	"github.com/tus/tusd/pkg/memorylocker"
-	"github.com/tus/tusd/pkg/s3store"
+	"github.com/tus/tusd/v2/pkg/azurestore"
+	"github.com/tus/tusd/v2/pkg/filestore"
+	"github.com/tus/tusd/v2/pkg/gcsstore"
+	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/memorylocker"
+	"github.com/tus/tusd/v2/pkg/s3store"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

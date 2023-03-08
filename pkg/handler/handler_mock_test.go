@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	handler "github.com/tus/tusd/pkg/handler"
+	handler "github.com/tus/tusd/v2/pkg/handler"
 )
 
 // MockFullDataStore is a mock of FullDataStore interface.

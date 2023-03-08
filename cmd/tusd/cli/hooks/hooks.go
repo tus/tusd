@@ -3,7 +3,7 @@ package hooks
 // TODO: Move hooks into a package in /pkg
 
 import (
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 // HookHandler is the main inferface to be implemented by all hook backends.

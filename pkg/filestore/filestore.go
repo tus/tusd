@@ -17,8 +17,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tus/tusd/internal/uid"
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/internal/uid"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 var defaultFilePerm = os.FileMode(0664)
@@ -49,7 +49,7 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 }
 
 func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
-	if info.ID == "" { 
+	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
 	binPath := store.binPath(info.ID)
