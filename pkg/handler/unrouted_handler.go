@@ -381,7 +381,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(info, r)
+		handler.CreatedUploads <- newHookEvent(&info, r)
 	}
 
 	if isFinal {
@@ -393,7 +393,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(&info, r)
 		}
 	}
 
