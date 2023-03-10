@@ -702,7 +702,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
-			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
+			if err := handler.config.PreFinishResponseCallback(newHookEvent(&info, r)); err != nil {
 				return err
 			}
 		}
@@ -711,7 +711,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(&info, r)
 		}
 	}
 
