@@ -645,7 +645,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), reader)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(&info, r), reader)
 			defer close(stopProgressEvents)
 		}
 
@@ -904,7 +904,7 @@ func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Uplo
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- newHookEvent(info, r)
+		handler.TerminatedUploads <- newHookEvent(&info, r)
 	}
 
 	handler.Metrics.incUploadsTerminated()
