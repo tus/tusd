@@ -91,13 +91,13 @@ type HTTPRequest struct {
 type HookEvent struct {
 	// Upload contains information about the upload that caused this hook
 	// to be fired.
-	Upload FileInfo
+	Upload *FileInfo
 	// HTTPRequest contains details about the HTTP request that reached
 	// tusd.
 	HTTPRequest HTTPRequest
 }
 
-func newHookEvent(info FileInfo, r *http.Request) HookEvent {
+func newHookEvent(info *FileInfo, r *http.Request) HookEvent {
 	return HookEvent{
 		Upload: info,
 		HTTPRequest: HTTPRequest{
@@ -352,7 +352,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
+		if err := handler.config.PreUploadCreateCallback(newHookEvent(&info, r)); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
