@@ -1,6 +1,6 @@
 # Hooks
 
-When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a system which triggers actions when certain events happen, such as an upload being created or finished. This simple-but-powerful system enables uses ranging from logging over validation and authorization to processing the uploaded files.
+When integrating tusd into an application, it is important to establish a communication channel between the two components. The tusd binary accomplishes this by providing a system which triggers actions when certain events happen, such as an upload being created or finished. This simple-but-powerful system enables use cases ranging from logging over validation and authorization to processing the uploaded files.
 
 When a specific action happens during an upload (pre-create, post-receive, post-finish, or post-terminate), the hook system enables tusd to fire off a specific event. Tusd provides two ways of doing this:
 
