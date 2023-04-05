@@ -12,6 +12,12 @@ type HookEvent struct {
 	HTTPRequest HTTPRequest
 }
 
+// HookResponse is the response after a hook is executed.
+type HookResponse struct {
+	// Updated metadata which can be set from the pre create hook and is then used instead of the initial metadata.
+	UpdatedMetaData MetaData
+}
+
 func newHookEvent(info FileInfo, r *http.Request) HookEvent {
 	return HookEvent{
 		Upload: info,

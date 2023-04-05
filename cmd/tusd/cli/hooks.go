@@ -19,7 +19,7 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, map[string]string, error) {
+func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, handler.HookResponse, error) {
 	return invokeHookSync(hooks.HookPreCreate, event)
 }
 
@@ -118,9 +118,10 @@ func invokeHookAsync(typ hooks.HookType, event handler.HookEvent) {
 	}()
 }
 
-func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, updatedMetadata map[string]string, err error) {
+func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handler.HTTPResponse, hookRes handler.HookResponse, err error) {
+
 	if !hookTypeInSlice(typ, Flags.EnabledHooks) {
-		return httpRes, nil, nil
+		return httpRes, hookRes, nil
 	}
 
 	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
@@ -136,14 +137,14 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	}
 
 	if hookHandler == nil {
-		return httpRes, nil, nil
+		return httpRes, hookRes, nil
 	}
 
 	if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationStart", "type", string(typ), "id", id)
 	}
 
-	hookRes, err := hookHandler.InvokeHook(hooks.HookRequest{
+	hookResponse, err := hookHandler.InvokeHook(hooks.HookRequest{
 		Type:  typ,
 		Event: event,
 	})
@@ -151,28 +152,29 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	if err != nil {
 		logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
-		return httpRes, nil, err
+		return httpRes, hookRes, err
 	} else if Flags.VerboseOutput {
 		logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
 	}
 
-	httpRes = hookRes.HTTPResponse
+	httpRes = hookResponse.HTTPResponse
+	hookRes.UpdatedMetaData = handler.MetaData(hookResponse.UpdatedMetaData)
 
 	// If the hook response includes the instruction to reject the upload, reuse the error code
 	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values
-	if typ == hooks.HookPreCreate && hookRes.RejectUpload {
+	if typ == hooks.HookPreCreate && hookResponse.RejectUpload {
 		err := handler.ErrUploadRejectedByServer
 		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
 
-		return httpRes, nil, err
+		return httpRes, hookRes, err
 	}
 
-	if typ == hooks.HookPostReceive && hookRes.StopUpload {
+	if typ == hooks.HookPostReceive && hookResponse.StopUpload {
 		logEv(stdout, "HookStopUpload", "id", id)
 
 		// TODO: Control response for PATCH request
 		event.Upload.StopUpload()
 	}
 
-	return httpRes, hookRes.UpdatedMetaData, err
+	return httpRes, hookRes, err
 }

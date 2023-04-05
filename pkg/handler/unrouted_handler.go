@@ -302,14 +302,14 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, updatedMetadata, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, hookRes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 		// If updated metadata is available in the hook response overwrite the request metadata
-		if updatedMetadata != nil {
-			info.MetaData = updatedMetadata
+		if hookRes.UpdatedMetaData != nil {
+			info.MetaData = hookRes.UpdatedMetaData
 		}
 		resp = resp.MergeWith(resp2)
 	}
