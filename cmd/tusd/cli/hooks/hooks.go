@@ -56,6 +56,9 @@ type HookResponse struct {
 	// to the client.
 	StopUpload bool
 
+	// Updated ID which can be set from the pre create hook and is then used instead of the initial ID.
+	UpdatedID string
+
 	// Updated metadata which can be set from the pre create hook and is then used instead of the initial metadata.
 	UpdatedMetaData MetaData
 }

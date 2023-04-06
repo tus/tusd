@@ -159,6 +159,7 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 
 	httpRes = hookResponse.HTTPResponse
 	hookRes.UpdatedMetaData = handler.MetaData(hookResponse.UpdatedMetaData)
+	hookRes.UpdatedID = hookResponse.UpdatedID
 
 	// If the hook response includes the instruction to reject the upload, reuse the error code
 	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values

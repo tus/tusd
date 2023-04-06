@@ -307,9 +307,12 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			handler.sendError(c, err)
 			return
 		}
-		// If updated metadata is available in the hook response overwrite the request metadata
+		// Overwrite values if available in the hook response:
 		if hookRes.UpdatedMetaData != nil {
 			info.MetaData = hookRes.UpdatedMetaData
+		}
+		if len(hookRes.UpdatedID) > 0 {
+			info.ID = hookRes.UpdatedID
 		}
 		resp = resp.MergeWith(resp2)
 	}
