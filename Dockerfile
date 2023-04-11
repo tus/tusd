@@ -1,4 +1,4 @@
-FROM golang:1.20.2-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.20.2-alpine AS builder
 WORKDIR /go/src/github.com/tus/tusd
 
 # Add gcc and libc-dev early so it is cached
@@ -19,8 +19,12 @@ COPY pkg/ ./pkg/
 ARG GIT_VERSION
 ARG GIT_COMMIT
 
+# Get the operating system and architecture to build for
+ARG TARGETOS
+ARG TARGETARCH
+
 RUN set -xe \
-	&& GOOS=linux GOARCH=amd64 go build \
+	&& GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
         -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o /go/bin/tusd ./cmd/tusd/main.go
 
