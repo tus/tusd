@@ -102,7 +102,7 @@ func (config *Config) validate() error {
 	if config.CorsOrigin != "" && config.CorsOrigin != "*" && config.CorsOrigin != "null" {
 		_, err := url.ParseRequestURI(config.CorsOrigin)
 		if err != nil {
-			errors.New("tusd: CorsOrigin is not a valid URL")
+			return errors.New("tusd: CorsOrigin is not a valid URL")
 		}
 	}
 
