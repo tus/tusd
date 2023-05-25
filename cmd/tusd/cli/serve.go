@@ -114,6 +114,13 @@ func Serve() {
 
 	server := &http.Server{}
 
+	// Close any open patch requests on shutdown.
+	server.RegisterOnShutdown(func() {
+		for _, cancel := range handler.OpenPatchRequests {
+			cancel()
+		}
+	})
+
 	// If we're not using TLS just start the server.
 	if protocol == "http" {
 		go func() {
@@ -175,12 +182,9 @@ func Serve() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// Shutting down
-	<-ctx.Done()
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	<-ctx.Done() // Shutting down.
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(context.Background()); err != nil {
 		stdout.Println("Graceful shutdown failed", err)
 	}
 

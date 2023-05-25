@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const UploadLengthDeferred = "1"
@@ -126,6 +128,8 @@ type UnroutedHandler struct {
 	logger        *log.Logger
 	extensions    string
 
+	OpenPatchRequests map[string]context.CancelFunc
+
 	// CompleteUploads is used to send notifications whenever an upload is
 	// completed by a user. The HookEvent will contain information about this
 	// upload after it is completed. Sending to this channel will only
@@ -184,6 +188,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		composer:          config.StoreComposer,
 		basePath:          config.BasePath,
 		isBasePathAbs:     config.isAbs,
+		OpenPatchRequests: make(map[string]context.CancelFunc),
 		CompleteUploads:   make(chan HookEvent),
 		TerminatedUploads: make(chan HookEvent),
 		UploadProgress:    make(chan HookEvent),
@@ -495,10 +500,30 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	handler.sendResp(w, r, http.StatusOK)
 }
 
+func (handler *UnroutedHandler) PatchFileWrapper(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithCancel(r.Context())
+	key := uuid.NewString()
+	handler.OpenPatchRequests[key] = cancel
+	defer delete(handler.OpenPatchRequests, key)
+
+	done := make(chan struct{}, 1)
+
+	go func() {
+		handler.PatchFile(w, r.WithContext(ctx))
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-ctx.Done():
+		_ = r.Body.Close()
+	case <-done:
+	}
+}
+
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := r.Context()
 
 	// Check for presence of application/offset+octet-stream
 	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
