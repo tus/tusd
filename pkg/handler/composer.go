@@ -6,8 +6,8 @@ package handler
 type StoreComposer struct {
 	Core DataStore
 
-	UsesTerminater     bool
-	Terminater         TerminaterDataStore
+	UsesTerminator     bool
+	Terminator         TerminatorDataStore
 	UsesLocker         bool
 	Locker             Locker
 	UsesConcater       bool
@@ -32,8 +32,8 @@ func (store *StoreComposer) Capabilities() string {
 		str += "✗"
 	}
 
-	str += ` Terminater: `
-	if store.UsesTerminater {
+	str += ` Terminator: `
+	if store.UsesTerminator {
 		str += "✓"
 	} else {
 		str += "✗"
@@ -66,9 +66,9 @@ func (store *StoreComposer) UseCore(core DataStore) {
 	store.Core = core
 }
 
-func (store *StoreComposer) UseTerminater(ext TerminaterDataStore) {
-	store.UsesTerminater = ext != nil
-	store.Terminater = ext
+func (store *StoreComposer) UseTerminator(ext TerminatorDataStore) {
+	store.UsesTerminator = ext != nil
+	store.Terminator = ext
 }
 
 func (store *StoreComposer) UseLocker(ext Locker) {

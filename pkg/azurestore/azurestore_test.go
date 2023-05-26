@@ -18,7 +18,7 @@ import (
 
 // Test interface implementations
 var _ handler.DataStore = azurestore.AzureStore{}
-var _ handler.TerminaterDataStore = azurestore.AzureStore{}
+var _ handler.TerminatorDataStore = azurestore.AzureStore{}
 var _ handler.LengthDeferrerDataStore = azurestore.AzureStore{}
 
 const mockID = "123456789abcdefghijklmnopqrstuvwxyz"

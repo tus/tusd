@@ -23,7 +23,7 @@ import (
 
 // Test interface implementations
 var _ handler.DataStore = S3Store{}
-var _ handler.TerminaterDataStore = S3Store{}
+var _ handler.TerminatorDataStore = S3Store{}
 var _ handler.ConcaterDataStore = S3Store{}
 var _ handler.LengthDeferrerDataStore = S3Store{}
 

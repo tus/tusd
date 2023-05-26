@@ -194,7 +194,7 @@ func New(bucket string, service S3API) S3Store {
 // all possible extension to it.
 func (store S3Store) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
-	composer.UseTerminater(store)
+	composer.UseTerminator(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
 }

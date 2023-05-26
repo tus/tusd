@@ -23,7 +23,7 @@ import (
 // Therefore it has been moved into its own type definition, the Locker.
 type FullDataStore interface {
 	handler.DataStore
-	handler.TerminaterDataStore
+	handler.TerminatorDataStore
 	handler.ConcaterDataStore
 	handler.LengthDeferrerDataStore
 }

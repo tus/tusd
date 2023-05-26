@@ -53,7 +53,7 @@ func New(bucket string, service GCSAPI) GCSStore {
 
 func (store GCSStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
-	composer.UseTerminater(store)
+	composer.UseTerminator(store)
 }
 
 func (store GCSStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {

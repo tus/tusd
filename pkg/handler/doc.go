@@ -30,14 +30,14 @@ them (WriteChunk) and retrieving their status (GetInfo). However, there
 are many more features which are not mandatory but may still be used.
 These are contained in their own interfaces which all share the *DataStore
 suffix. For example, GetReaderDataStore which enables downloading uploads or
-TerminaterDataStore which allows uploads to be terminated.
+TerminatorDataStore which allows uploads to be terminated.
 
 The store composer offers a way to combine the basic data store - the core -
 implementation and these additional extensions:
 
   composer := tusd.NewStoreComposer()
   composer.UseCore(dataStore) // Implements DataStore
-  composer.UseTerminater(terminater) // Implements TerminaterDataStore
+  composer.UseTerminator(terminator) // Implements TerminatorDataStore
   composer.UseLocker(locker) // Implements LockerDataStore
 
 The corresponding methods for adding an extension to the composer are prefixed

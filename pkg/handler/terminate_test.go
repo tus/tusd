@@ -15,7 +15,7 @@ func TestTerminate(t *testing.T) {
 	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		composer = NewStoreComposer()
 		composer.UseCore(store)
-		composer.UseTerminater(store)
+		composer.UseTerminator(store)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -52,7 +52,7 @@ func TestTerminate(t *testing.T) {
 
 		composer = NewStoreComposer()
 		composer.UseCore(store)
-		composer.UseTerminater(store)
+		composer.UseTerminator(store)
 		composer.UseLocker(locker)
 
 		handler, _ := NewHandler(Config{

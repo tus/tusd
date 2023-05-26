@@ -26,7 +26,7 @@ if store.Uses ## TYPE { \
 type StoreComposer struct {
   Core DataStore
 
-  USE_FIELD(Terminater)
+  USE_FIELD(Terminator)
   USE_FIELD(Finisher)
   USE_FIELD(Locker)
   USE_FIELD(GetReader)
@@ -50,7 +50,7 @@ func (store *StoreComposer) Capabilities() string {
     str += "✗"
   }
 
-  USE_CAP(Terminater)
+  USE_CAP(Terminator)
   USE_CAP(Finisher)
   USE_CAP(Locker)
   USE_CAP(GetReader)
@@ -66,7 +66,7 @@ func (store *StoreComposer) UseCore(core DataStore) {
   store.Core = core
 }
 
-USE_FUNC(Terminater)
+USE_FUNC(Terminator)
 USE_FUNC(Finisher)
 USE_FUNC(Locker)
 USE_FUNC(GetReader)

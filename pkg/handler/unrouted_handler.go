@@ -169,7 +169,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 
 	// Only promote extesions using the Tus-Extension header which are implemented
 	extensions := "creation,creation-with-upload"
-	if config.StoreComposer.UsesTerminater {
+	if config.StoreComposer.UsesTerminator {
 		extensions += ",termination"
 	}
 	if config.StoreComposer.UsesConcater {
@@ -656,7 +656,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 		}
 
 		bytesWritten, err = upload.WriteChunk(ctx, offset, reader)
-		if terminateUpload && handler.composer.UsesTerminater {
+		if terminateUpload && handler.composer.UsesTerminator {
 			if terminateErr := handler.terminateUpload(ctx, upload, info, r); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
@@ -851,7 +851,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	ctx := context.Background()
 
 	// Abort the request handling if the required interface is not implemented
-	if !handler.composer.UsesTerminater {
+	if !handler.composer.UsesTerminator {
 		handler.sendError(w, r, ErrNotImplemented)
 		return
 	}
@@ -896,13 +896,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	handler.sendResp(w, r, http.StatusNoContent)
 }
 
-// terminateUpload passes a given upload to the DataStore's Terminater,
+// terminateUpload passes a given upload to the DataStore's Terminator,
 // send the corresponding upload info on the TerminatedUploads channnel
 // and updates the statistics.
 // Note the the info argument is only needed if the terminated uploads
 // notifications are enabled.
 func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
-	terminatableUpload := handler.composer.Terminater.AsTerminatableUpload(upload)
+	terminatableUpload := handler.composer.Terminator.AsTerminatableUpload(upload)
 
 	err := terminatableUpload.Terminate(ctx)
 	if err != nil {

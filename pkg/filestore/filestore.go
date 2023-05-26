@@ -43,7 +43,7 @@ func New(path string) FileStore {
 // all possible extension to it.
 func (store FileStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
-	composer.UseTerminater(store)
+	composer.UseTerminator(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
 }

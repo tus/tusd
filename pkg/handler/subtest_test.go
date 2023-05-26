@@ -18,7 +18,7 @@ func SubTest(t *testing.T, name string, runTest func(*testing.T, *MockFullDataSt
 		store := NewMockFullDataStore(ctrl)
 		composer := handler.NewStoreComposer()
 		composer.UseCore(store)
-		composer.UseTerminater(store)
+		composer.UseTerminator(store)
 		composer.UseConcater(store)
 		composer.UseLengthDeferrer(store)
 

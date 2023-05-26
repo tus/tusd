@@ -14,7 +14,7 @@ import (
 
 // Test interface implementation of Filestore
 var _ handler.DataStore = FileStore{}
-var _ handler.TerminaterDataStore = FileStore{}
+var _ handler.TerminatorDataStore = FileStore{}
 var _ handler.ConcaterDataStore = FileStore{}
 var _ handler.LengthDeferrerDataStore = FileStore{}
 

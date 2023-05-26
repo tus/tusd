@@ -94,10 +94,10 @@ type TerminatableUpload interface {
 	Terminate(ctx context.Context) error
 }
 
-// TerminaterDataStore is the interface which must be implemented by DataStores
+// TerminatorDataStore is the interface which must be implemented by DataStores
 // if they want to receive DELETE requests using the Handler. If this interface
 // is not implemented, no request handler for this method is attached.
-type TerminaterDataStore interface {
+type TerminatorDataStore interface {
 	AsTerminatableUpload(upload Upload) TerminatableUpload
 }
 

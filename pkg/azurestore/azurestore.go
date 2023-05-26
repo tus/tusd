@@ -37,7 +37,7 @@ func New(service AzService) *AzureStore {
 // all possible extension to it.
 func (store AzureStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
-	composer.UseTerminater(store)
+	composer.UseTerminator(store)
 	composer.UseLengthDeferrer(store)
 }
 
