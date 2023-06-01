@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/vimeo/go-util v1.4.1
 	google.golang.org/api v0.120.0
-	google.golang.org/grpc v1.54.0
+	google.golang.org/grpc v1.55.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
