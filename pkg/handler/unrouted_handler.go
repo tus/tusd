@@ -761,23 +761,23 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 // The values of this map does not convey any meaning and are therefore just
 // empty structs.
 var mimeInlineBrowserWhitelist = map[string]struct{}{
-	"text/plain": struct{}{},
+	"text/plain": {},
 
-	"image/png":  struct{}{},
-	"image/jpeg": struct{}{},
-	"image/gif":  struct{}{},
-	"image/bmp":  struct{}{},
-	"image/webp": struct{}{},
+	"image/png":  {},
+	"image/jpeg": {},
+	"image/gif":  {},
+	"image/bmp":  {},
+	"image/webp": {},
 
-	"audio/wave":      struct{}{},
-	"audio/wav":       struct{}{},
-	"audio/x-wav":     struct{}{},
-	"audio/x-pn-wav":  struct{}{},
-	"audio/webm":      struct{}{},
-	"video/webm":      struct{}{},
-	"audio/ogg":       struct{}{},
-	"video/ogg":       struct{}{},
-	"application/ogg": struct{}{},
+	"audio/wave":      {},
+	"audio/wav":       {},
+	"audio/x-wav":     {},
+	"audio/x-pn-wav":  {},
+	"audio/webm":      {},
+	"video/webm":      {},
+	"audio/ogg":       {},
+	"video/ogg":       {},
+	"application/ogg": {},
 }
 
 // filterContentType returns the values for the Content-Type and

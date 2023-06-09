@@ -276,7 +276,7 @@ func (store S3Store) RegisterMetrics(registry prometheus.Registerer) {
 }
 
 func (store S3Store) observeRequestDuration(start time.Time, label string) {
-	elapsed := time.Now().Sub(start)
+	elapsed := time.Since(start)
 	ms := float64(elapsed.Nanoseconds() / int64(time.Millisecond))
 
 	store.requestDurationMetric.WithLabelValues(label).Observe(ms)
@@ -847,7 +847,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 		}
 
 		parts = []*s3Part{
-			&s3Part{
+			{
 				etag:   *res.ETag,
 				number: 1,
 				size:   0,
