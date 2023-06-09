@@ -87,6 +87,8 @@ message HookResponse {
 	// to the client.
 	bool rejectUpload = 2;
 
+	// TODO: Update with ChangeFileInfo
+
 	// StopUpload will cause the upload to be stopped during a PATCH request.
 	// This value is only respected for post-receive hooks. For other hooks,
 	// it is ignored. Use the HTTPResponse field to send details about the stop
