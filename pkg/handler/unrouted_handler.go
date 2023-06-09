@@ -678,6 +678,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 			resp = resp.MergeWith(resp2)
 		}
 
+		handler.log("UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
 		handler.Metrics.incUploadsFinished()
 
 		// ... send the info out to the channel
@@ -882,6 +883,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 		handler.TerminatedUploads <- newHookEvent(info, c.req)
 	}
 
+	handler.log("UploadTerminated", "id", info.ID)
 	handler.Metrics.incUploadsTerminated()
 
 	return nil

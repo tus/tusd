@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/tus/tusd/v2/cmd/tusd/cli/hooks"
@@ -125,14 +124,6 @@ func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (httpRes handle
 	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
 
 	id := event.Upload.ID
-	size := event.Upload.Size
-
-	switch typ {
-	case hooks.HookPostFinish:
-		logEv(stdout, "UploadFinished", "id", id, "size", strconv.FormatInt(size, 10))
-	case hooks.HookPostTerminate:
-		logEv(stdout, "UploadTerminated", "id", id)
-	}
 
 	if hookHandler == nil {
 		return httpRes, nil
