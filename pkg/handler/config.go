@@ -29,6 +29,9 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
+	// Disable cors headers. If set to true, tusd will not send any CORS related header.
+	// This is useful if you have a proxy sitting in front of tusd that handles CORS.
+	DisableCors bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool

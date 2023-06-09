@@ -216,6 +216,8 @@ $ tusd -help
       If set, will listen to a UNIX socket at this location instead of a TCP socket
   -upload-dir string
       Directory to store uploads in (default "./data")
+  -disable-cors
+      Disables CORS headers. If set to true, tusd will not send any CORS related header. This is useful if you have a proxy sitting in front of tusd that handles CORS (default false)
   -verbose
       Enable verbose logging output (default true)
   -version

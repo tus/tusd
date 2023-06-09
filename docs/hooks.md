@@ -11,11 +11,11 @@ When a specific action happens during an upload (pre-create, post-receive, post-
 
 ## Non-Blocking Hooks
 
-If not otherwise noted, all hooks are invoked in a *non-blocking* way, meaning that tusd will not wait until the hook process has finished and exited. Therefore, the hook process is not able to influence how tusd may continue handling the current request, regardless of which exit code it may set. Furthermore, the hook process' stdout and stderr will be piped to tusd's stdout and stderr correspondingly, allowing one to use these channels for additional logging.
+If not otherwise noted, all hooks are invoked in a _non-blocking_ way, meaning that tusd will not wait until the hook process has finished and exited. Therefore, the hook process is not able to influence how tusd may continue handling the current request, regardless of which exit code it may set. Furthermore, the hook process' stdout and stderr will be piped to tusd's stdout and stderr correspondingly, allowing one to use these channels for additional logging.
 
 ## Blocking Hooks
 
-On the other hand, there are a few *blocking* hooks, such as caused by the `pre-create` and `pre-finish` events. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks.
+On the other hand, there are a few _blocking_ hooks, such as caused by the `pre-create` and `pre-finish` events. Because their exit code will dictate whether tusd will accept the current incoming request, tusd will wait until the hook process has exited. Therefore, in order to keep the response times low, one should avoid to make time-consuming operations inside the processes for blocking hooks.
 
 ### Blocking File Hooks
 
@@ -33,7 +33,7 @@ This event will be triggered before an upload is created, allowing you to run ce
 
 ### post-create
 
-This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration. 
+This event will be triggered after an upload is created, allowing you to run certain routines. For example, notifying other parts of your system that a new upload has to be handled. At this point the upload may have received some data already since the invocation of these hooks may be delayed by a short duration.
 
 ### pre-finish
 
@@ -58,7 +58,9 @@ This event will be triggered for every running upload to indicate its current pr
 The `--hooks-enabled-events` option for the tusd binary works as a whitelist for hook events and takes a comma separated list of hook events (for instance: `pre-create,post-create`). This can be useful to limit the number of hook executions and save resources if you are only interested in some events. If the `--hooks-enabled-events` option is omitted, all default hook events are enabled (pre-create, post-create, post-receive, post-terminate, post-finish).
 
 ## File Hooks
+
 ### The Hook Directory
+
 By default, the file hook system is disabled. To enable it, pass the `--hooks-dir` option to the tusd binary. The flag's value will be a path, the **hook directory**, relative to the current working directory, pointing to the folder containing the executable **hook files**:
 
 ```bash
@@ -69,13 +71,14 @@ $ tusd --hooks-dir ./path/to/hooks/
 ...
 ```
 
-If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that in UNIX environments the hook file *must not* have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. On Windows, however, the hook file *must* have an extension, such as `.bat` or `.exe`.
+If an event occurs, the tusd binary will look for a file, named exactly as the event, which will then be executed, as long as the object exists. In the example above, the binary `./path/to/hooks/pre-create` will be invoked, before an upload is created, which can be used to e.g. validate certain metadata. Please note, that in UNIX environments the hook file _must not_ have an extension, such as `.sh` or `.py`, or else tusd will not recognize and ignore it. On Windows, however, the hook file _must_ have an extension, such as `.bat` or `.exe`.
 
 ### The Hook's Environment
 
 The process of the hook files are provided with information about the event and the upload using to two methods:
-* The `TUS_ID` and `TUS_SIZE` environment variables will contain the upload ID and its size in bytes, which triggered the event. Please be aware, that in the `pre-create` hook the upload ID will be an empty string as the entity has not been created and therefore this piece of information is not yet available.
-* On `stdin` a JSON-encoded object can be read which contains more details about the corresponding event in following format:
+
+- The `TUS_ID` and `TUS_SIZE` environment variables will contain the upload ID and its size in bytes, which triggered the event. Please be aware, that in the `pre-create` hook the upload ID will be an empty string as the entity has not been created and therefore this piece of information is not yet available.
+- On `stdin` a JSON-encoded object can be read which contains more details about the corresponding event in following format:
 
 ```js
 {
