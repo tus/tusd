@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -115,62 +119,113 @@ func Serve() {
 		stdout.Printf("You can now upload files to: %s://%s%s", protocol, address, basepath)
 	}
 
-	// If we're not using TLS just start the server and, if http.Serve() returns, just return.
-	if protocol == "http" {
-		if err = http.Serve(listener, mux); err != nil {
-			stderr.Fatalf("Unable to serve: %s", err)
-		}
-		return
-	}
-
-	// TODO: Move TLS handling into own file.
-	// Fall-through for TLS mode.
 	server := &http.Server{
 		Handler: mux,
 	}
-	switch Flags.TLSMode {
-	case TLS13:
-		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13}
 
-	case TLS12:
-		// Ciphersuite selection comes from
-		// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6
-		// 128-bit AES modes remain as TLSv1.3 is enabled in this mode, and TLSv1.3 compatibility requires an AES-128 ciphersuite.
-		server.TLSConfig = &tls.Config{
-			MinVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			},
+	shutdownComplete := setupSignalHandler(server, handler)
+
+	if protocol == "http" {
+		// Non-TLS mode
+		err = server.Serve(listener)
+	} else {
+		// TODO: Move TLS handling into own file.
+		// TLS mode
+
+		switch Flags.TLSMode {
+		case TLS13:
+			server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13}
+
+		case TLS12:
+			// Ciphersuite selection comes from
+			// https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6
+			// 128-bit AES modes remain as TLSv1.3 is enabled in this mode, and TLSv1.3 compatibility requires an AES-128 ciphersuite.
+			server.TLSConfig = &tls.Config{
+				MinVersion:               tls.VersionTLS12,
+				PreferServerCipherSuites: true,
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
+			}
+
+		case TLS12STRONG:
+			// Ciphersuite selection as above, but intersected with
+			// https://github.com/denji/golang-tls#perfect-ssl-labs-score-with-go
+			// TLSv1.3 is disabled as it requires an AES-128 ciphersuite.
+			server.TLSConfig = &tls.Config{
+				MinVersion:               tls.VersionTLS12,
+				MaxVersion:               tls.VersionTLS12,
+				PreferServerCipherSuites: true,
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				},
+			}
+
+		default:
+			stderr.Fatalf("Invalid TLS mode chosen. Recommended valid modes are tls13, tls12 (default), and tls12-strong")
 		}
 
-	case TLS12STRONG:
-		// Ciphersuite selection as above, but intersected with
-		// https://github.com/denji/golang-tls#perfect-ssl-labs-score-with-go
-		// TLSv1.3 is disabled as it requires an AES-128 ciphersuite.
-		server.TLSConfig = &tls.Config{
-			MinVersion:               tls.VersionTLS12,
-			MaxVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			},
-		}
+		// Disable HTTP/2; the default non-TLS mode doesn't support it
+		server.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
 
-	default:
-		stderr.Fatalf("Invalid TLS mode chosen. Recommended valid modes are tls13, tls12 (default), and tls12-strong")
+		err = server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile)
 	}
 
-	// Disable HTTP/2; the default non-TLS mode doesn't support it
-	server.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
-
-	if err = server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile); err != nil {
+	// Note: http.Server.Serve and http.Server.ServeTLS always return a non-nil error code. So
+	// we can assume from here that `err != nil`
+	if err == http.ErrServerClosed {
+		// ErrServerClosed means that http.Server.Shutdown was called due to an interruption signal.
+		// We wait until the interruption procedure is complete or times out and then exit main.
+		<-shutdownComplete
+	} else {
+		// Any other error is relayed to the user.
 		stderr.Fatalf("Unable to serve: %s", err)
 	}
+}
+
+func setupSignalHandler(server *http.Server, handler *handler.Handler) <-chan struct{} {
+	shutdownComplete := make(chan struct{})
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	// Signal to the handler that it should stop all long running requests if we shut down
+	server.RegisterOnShutdown(handler.StopLongRunningRequests)
+
+	go func() {
+		// First interrupt signal
+		<-c
+		stdout.Println("Received interrupt signal. Shutting down tusd...")
+
+		// Wait for second interrupt signal, while also shutting down the existing server
+		go func() {
+			<-c
+			stdout.Println("Received second interrupt signal. Exiting immediately!")
+			os.Exit(1)
+		}()
+
+		// Shutdown the server, but with a user-specified timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := server.Shutdown(ctx)
+
+		if err == nil {
+			stdout.Println("Shutdown completed. Goodbye!")
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			stderr.Println("Shutdown timeout exceeded. Exiting immediately!")
+		} else {
+			stderr.Printf("Failed to shutdown gracefully: %s\n", err)
+		}
+
+		close(shutdownComplete)
+	}()
+
+	return shutdownComplete
 }
