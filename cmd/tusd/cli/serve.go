@@ -201,7 +201,7 @@ func setupSignalHandler(server *http.Server, handler *handler.Handler) <-chan st
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	// Signal to the handler that it should stop all long running requests if we shut down
-	server.RegisterOnShutdown(handler.StopLongRunningRequests)
+	server.RegisterOnShutdown(handler.InterruptRequestHandling)
 
 	go func() {
 		// First interrupt signal

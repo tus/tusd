@@ -134,7 +134,20 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	return handler, nil
 }
 
-func (handler UnroutedHandler) StopLongRunningRequests() {
+// InterruptRequestHandling attempts to interrupt long running requests, so
+// the server can shutdown gracefully. This function should not be used on
+// its own, but as part of http.Server.Shutdown. For example:
+//
+//	server := &http.Server{
+//		Handler: handler,
+//	}
+//	server.RegisterOnShutdown(handler.InterruptRequestHandling)
+//	server.Shutdown(ctx)
+//
+// Note: currently, this function only interrupts POST and PATCH requests
+// with a request body. In the future, this might be extended to HEAD, DELETE
+// and GET requests.
+func (handler UnroutedHandler) InterruptRequestHandling() {
 	close(handler.serverCtx)
 }
 
