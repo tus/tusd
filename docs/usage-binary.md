@@ -224,3 +224,13 @@ $ tusd -help
       Print tusd version information
 
 ```
+
+## Graceful shutdown
+
+If tusd receives a SIGINT or SIGTERM signal, it will initiate a graceful shutdown. SIGINT is usually emitted by pressing Ctrl+C inside the terminal that is running tusd. SIGINT and SIGTERM can also be emitted using the [`kill(1)`](https://man7.org/linux/man-pages/man1/kill.1.html) utility on Unix. Signals in that sense do not exist on Windows, so please refer to the [Go documentation](https://pkg.go.dev/os/signal#hdr-Windows) on how different events are translated into signals on Windows.
+
+Once the graceful shutdown is started, tusd will stop listening on its port and won't accept new connections anymore. Idle connections are closed down. Already running requests will be given a grace period to complete before their connections are closed as well. PATCH and POST requests with a request body are interrupted, so that data stores can gracefully finish saving all the received data until that point. If all requests have been completed, tusd will exit.
+
+If not all requests have been completed in the period defined by the `-shutdown-timeout` flag, tusd will exit regardless. By default, tusd will give all requests 10 seconds to complete their processing. If you do not want to wait for requests, use `-shutdown-timeout=0`.
+
+tusd will also immediately exit if it receives a second SIGINT or SIGTERM signal. It will also always exit immediately if a SIGKILL is received.

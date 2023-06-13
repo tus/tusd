@@ -43,6 +43,7 @@ var (
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLAOD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
+	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusInternalServerError)
 
 	// TODO: These two responses are 500 for backwards compatability. We should discuss
 	// whether it is better to more them to 4XX status codes.
@@ -60,6 +61,7 @@ type UnroutedHandler struct {
 	basePath      string
 	logger        *log.Logger
 	extensions    string
+	serverCtx     chan struct{}
 
 	// CompleteUploads is used to send notifications whenever an upload is
 	// completed by a user. The HookEvent will contain information about this
@@ -126,9 +128,27 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
+		serverCtx:         make(chan struct{}),
 	}
 
 	return handler, nil
+}
+
+// InterruptRequestHandling attempts to interrupt long running requests, so
+// the server can shutdown gracefully. This function should not be used on
+// its own, but as part of http.Server.Shutdown. For example:
+//
+//	server := &http.Server{
+//		Handler: handler,
+//	}
+//	server.RegisterOnShutdown(handler.InterruptRequestHandling)
+//	server.Shutdown(ctx)
+//
+// Note: currently, this function only interrupts POST and PATCH requests
+// with a request body. In the future, this might be extended to HEAD, DELETE
+// and GET requests.
+func (handler UnroutedHandler) InterruptRequestHandling() {
+	close(handler.serverCtx)
 }
 
 // SupportedExtensions returns a comma-separated list of the supported tus extensions.
@@ -596,18 +616,28 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// We use a context object to allow the hook system to cancel an upload
 		uploadCtx, stopUpload := context.WithCancel(context.Background())
 		info.stopUpload = stopUpload
+
 		// terminateUpload specifies whether the upload should be deleted after
 		// the write has finished
 		terminateUpload := false
+
+		serverShutDown := false
+
 		// Cancel the context when the function exits to ensure that the goroutine
 		// is properly cleaned up
 		defer stopUpload()
 
 		go func() {
-			// Interrupt the Read() call from the request body
-			<-uploadCtx.Done()
-			// TODO: Consider using CloseWithError function from BodyReader
-			terminateUpload = true
+			select {
+			case <-uploadCtx.Done():
+				// uploadCtx is done if the upload is stopped by a post-receive hook
+				terminateUpload = true
+			case <-handler.serverCtx:
+				// serverCtx is closed if the server is being shut down
+				serverShutDown = true
+			}
+
+			// interrupt the Read() calls from the request body
 			r.Body.Close()
 		}()
 
@@ -638,6 +668,11 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// TODO: Include a custom reason for the end user why the upload was stopped.
 		if terminateUpload {
 			err = ErrUploadStoppedByServer
+		}
+
+		// If the server is closing down, send an error response indicating this.
+		if serverShutDown {
+			err = ErrServerShutdown
 		}
 	}
 
@@ -1104,6 +1139,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	releaseLock := func() {
 		if c.body != nil {
 			handler.log("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+			// TODO: Consider replacing this with a channel or a context
 			c.body.closeWithError(ErrUploadInterrupted)
 		}
 	}
