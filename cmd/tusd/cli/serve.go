@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -192,8 +193,12 @@ func Serve() {
 func setupSignalHandler(server *http.Server, handler *handler.Handler) <-chan struct{} {
 	shutdownComplete := make(chan struct{})
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	// We read up to two signals, so use a capacity of 2 here to not miss any signal
+	c := make(chan os.Signal, 2)
+
+	// os.Interrupt is mapped to SIGINT on Unix and to the termination instructions on Windows.
+	// On Unix we also listen to SIGTERM.
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	// Signal to the handler that it should stop all long running requests if we shut down
 	server.RegisterOnShutdown(handler.StopLongRunningRequests)
