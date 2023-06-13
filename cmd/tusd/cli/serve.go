@@ -211,7 +211,7 @@ func setupSignalHandler(server *http.Server, handler *handler.Handler) <-chan st
 		}()
 
 		// Shutdown the server, but with a user-specified timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Flags.ShutdownTimeout)*time.Millisecond)
 		defer cancel()
 
 		err := server.Shutdown(ctx)

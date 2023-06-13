@@ -61,6 +61,7 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
+	ShutdownTimeout         int64
 }
 
 func ParseFlags() {
@@ -115,6 +116,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
+	flag.Int64Var(&Flags.ShutdownTimeout, "shutdown-timeout", 5*1000, "Timeout in milliseconds for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
 	flag.Parse()
 
 	SetEnabledHooks()
