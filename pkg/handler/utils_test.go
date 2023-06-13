@@ -52,9 +52,10 @@ type httpTest struct {
 	ReqBody   io.Reader
 	ReqHeader map[string]string
 
-	Code      int
-	ResBody   string
-	ResHeader map[string]string
+	Code                int
+	ResBody             string
+	ResHeader           map[string]string
+	DisallowedResHeader []string
 }
 
 func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
@@ -79,6 +80,14 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 
 		if value != header {
 			t.Errorf("Expected '%s' as '%s' (got '%s')", value, key, header)
+		}
+	}
+
+	for _, key := range test.DisallowedResHeader {
+		header := w.Header().Get(key)
+
+		if header != "" {
+			t.Errorf("Not Expected '%s' (got '%s')", key, header)
 		}
 	}
 
