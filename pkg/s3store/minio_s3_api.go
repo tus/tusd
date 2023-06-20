@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -26,11 +26,11 @@ func (s MinioS3API) PutObjectWithContext(ctx context.Context, input *s3.PutObjec
 	if input.ContentLength != nil {
 		objectSize = *input.ContentLength
 	} else {
-		size, err := input.Body.Seek(0, os.SEEK_END)
+		size, err := input.Body.Seek(0, io.SeekEnd)
 		if err != nil {
 			return nil, err
 		}
-		_, err = input.Body.Seek(0, os.SEEK_SET)
+		_, err = input.Body.Seek(0, io.SeekStart)
 		if err != nil {
 			return nil, err
 		}

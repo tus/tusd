@@ -107,7 +107,7 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 			return fileChunk{}, false, nil
 		}
 
-		elapsed := time.Now().Sub(start)
+		elapsed := time.Since(start)
 		ms := float64(elapsed.Nanoseconds() / int64(time.Millisecond))
 		spp.diskWriteDurationMetric.Observe(ms)
 
@@ -141,7 +141,7 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 			return fileChunk{}, false, nil
 		}
 
-		elapsed := time.Now().Sub(start)
+		elapsed := time.Since(start)
 		ms := float64(elapsed.Nanoseconds() / int64(time.Millisecond))
 		spp.diskWriteDurationMetric.Observe(ms)
 

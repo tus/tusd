@@ -31,6 +31,10 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		return 0, io.EOF
 	}
 
+	// TODO: Mask certain errors that we can safely ignore later on:
+	// io.EOF, io.UnexpectedEOF, io.ErrClosedPipe,
+	// read tcp 127.0.0.1:1080->127.0.0.1:56953: read: connection reset by peer,
+	// read tcp 127.0.0.1:1080->127.0.0.1:9375: i/o timeout
 	n, err := r.reader.Read(b)
 	atomic.AddInt64(&r.bytesCounter, int64(n))
 	r.err = err

@@ -682,4 +682,57 @@ func TestPatch(t *testing.T) {
 			ResBody: "ERR_INTERNAL_SERVER_ERROR: an error while reading the body\n",
 		}).Run(handler, t)
 	})
+
+	SubTest(t, "InterruptRequestHandling", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   100,
+			}, nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		reader, writer := io.Pipe()
+		a := assert.New(t)
+
+		go func() {
+			writer.Write([]byte("first "))
+
+			handler.InterruptRequestHandling()
+
+			// Wait a short time to ensure that the goroutine in the PATCH
+			// handler has received and processed the stop event.
+			<-time.After(10 * time.Millisecond)
+
+			// Assert that the "request body" has been closed.
+			_, err := writer.Write([]byte("second "))
+			a.Equal(err, io.ErrClosedPipe)
+		}()
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusInternalServerError,
+			ResHeader: map[string]string{
+				"Upload-Offset": "",
+			},
+			ResBody: "ERR_SERVER_SHUTDOWN: request has been interrupted because the server is shutting down\n",
+		}).Run(handler, t)
+	})
 }

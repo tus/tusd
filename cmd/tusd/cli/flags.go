@@ -18,6 +18,7 @@ var Flags struct {
 	ShowGreeting            bool
 	DisableDownload         bool
 	DisableTermination      bool
+	DisableCors             bool
 	Timeout                 int64
 	S3Bucket                string
 	S3ObjectPrefix          string
@@ -60,6 +61,7 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
+	ShutdownTimeout         int64
 }
 
 func ParseFlags() {
@@ -72,6 +74,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message")
 	flag.BoolVar(&Flags.DisableDownload, "disable-download", false, "Disable the download endpoint")
 	flag.BoolVar(&Flags.DisableTermination, "disable-termination", false, "Disable the termination endpoint")
+	flag.BoolVar(&Flags.DisableCors, "disable-cors", false, "Disable CORS headers")
 	flag.Int64Var(&Flags.Timeout, "timeout", 6*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
 	flag.StringVar(&Flags.S3Bucket, "s3-bucket", "", "Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)")
 	flag.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
@@ -113,6 +116,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
+	flag.Int64Var(&Flags.ShutdownTimeout, "shutdown-timeout", 10*1000, "Timeout in milliseconds for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
 	flag.Parse()
 
 	SetEnabledHooks()

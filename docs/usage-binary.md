@@ -67,7 +67,7 @@ $ tusd -gcs-bucket=my-test-bucket.com
 [tusd] Using /metrics as the metrics path.
 ```
 
-Tusd also supports storing uploads on Microsoft Azure Blob Storage. In order to enable this feature,  provide the
+Tusd also supports storing uploads on Microsoft Azure Blob Storage. In order to enable this feature, provide the
 corresponding access credentials using environment variables.
 
 ```
@@ -111,7 +111,7 @@ Using endpoint https://xxxxx.blob.core.windows.net
 [tusd] Using /metrics as the metrics path.
 ```
 
-TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate.  The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`.  The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address; that this certificate is not appropriate for production use.  Note also that the key file must not be encrypted/require a passphrase.
+TLS support for HTTPS connections can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate. The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`; alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`. The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address; that this certificate is not appropriate for production use. Note also that the key file must not be encrypted/require a passphrase.
 
 ```
 $ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost"
@@ -129,7 +129,6 @@ $ tusd -upload-dir=./data -host=127.0.0.1 -port=8443 -tls-certificate=localhost.
 [tusd] Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
 [tusd] You can now upload files to: https://127.0.0.1:8443/files/
 ```
-
 
 Besides these simple examples, tusd can be easily configured using a variety of command line
 options:
@@ -216,9 +215,21 @@ $ tusd -help
       If set, will listen to a UNIX socket at this location instead of a TCP socket
   -upload-dir string
       Directory to store uploads in (default "./data")
+  -disable-cors
+      Disables CORS headers. If set to true, tusd will not send any CORS related header. This is useful if you have a proxy sitting in front of tusd that handles CORS (default false)
   -verbose
       Enable verbose logging output (default true)
   -version
       Print tusd version information
 
 ```
+
+## Graceful shutdown
+
+If tusd receives a SIGINT or SIGTERM signal, it will initiate a graceful shutdown. SIGINT is usually emitted by pressing Ctrl+C inside the terminal that is running tusd. SIGINT and SIGTERM can also be emitted using the [`kill(1)`](https://man7.org/linux/man-pages/man1/kill.1.html) utility on Unix. Signals in that sense do not exist on Windows, so please refer to the [Go documentation](https://pkg.go.dev/os/signal#hdr-Windows) on how different events are translated into signals on Windows.
+
+Once the graceful shutdown is started, tusd will stop listening on its port and won't accept new connections anymore. Idle connections are closed down. Already running requests will be given a grace period to complete before their connections are closed as well. PATCH and POST requests with a request body are interrupted, so that data stores can gracefully finish saving all the received data until that point. If all requests have been completed, tusd will exit.
+
+If not all requests have been completed in the period defined by the `-shutdown-timeout` flag, tusd will exit regardless. By default, tusd will give all requests 10 seconds to complete their processing. If you do not want to wait for requests, use `-shutdown-timeout=0`.
+
+tusd will also immediately exit if it receives a second SIGINT or SIGTERM signal. It will also always exit immediately if a SIGKILL is received.
