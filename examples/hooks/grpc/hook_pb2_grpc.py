@@ -27,7 +27,11 @@ class HookHandlerServicer(object):
     """
 
     def InvokeHook(self, request, context):
-        """Sends a hook
+        """InvokeHook is invoked for every hook that is executed. HookRequest contains the
+        corresponding information about the hook type, the involved upload, and
+        causing HTTP request.
+        The return value HookResponse allows to stop or reject an upload, as well as modifying
+        the HTTP response. See the documentation for HookResponse for more details.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

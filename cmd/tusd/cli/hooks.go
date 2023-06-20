@@ -18,10 +18,10 @@ func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
 	return false
 }
 
-func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
+func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(hooks.HookPreCreate, event)
 	if !ok || err != nil {
-		return handler.HTTPResponse{}, err
+		return handler.HTTPResponse{}, handler.FileInfoChanges{}, err
 	}
 
 	httpRes := hookRes.HTTPResponse
@@ -32,10 +32,12 @@ func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, error) {
 		err := handler.ErrUploadRejectedByServer
 		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
 
-		return handler.HTTPResponse{}, err
+		return handler.HTTPResponse{}, handler.FileInfoChanges{}, err
 	}
 
-	return httpRes, nil
+	// Pass any changes regarding file info from the hook to the handler.
+	changes := hookRes.ChangeFileInfo
+	return httpRes, changes, nil
 }
 
 func preFinishCallback(event handler.HookEvent) (handler.HTTPResponse, error) {

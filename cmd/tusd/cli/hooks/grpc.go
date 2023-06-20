@@ -94,5 +94,12 @@ func unmarshal(res *pb.HookResponse) (hookRes HookResponse) {
 		hookRes.HTTPResponse.Body = httpRes.Body
 	}
 
+	changes := res.ChangeFileInfo
+	if changes != nil {
+		hookRes.ChangeFileInfo.ID = changes.Id
+		hookRes.ChangeFileInfo.MetaData = changes.MetaData
+		hookRes.ChangeFileInfo.Storage = changes.Storage
+	}
+
 	return hookRes
 }

@@ -322,12 +322,25 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 		resp = resp.MergeWith(resp2)
+
+		// Apply changes returned from the pre-create hook.
+		if changes.ID != "" {
+			info.ID = changes.ID
+		}
+
+		if changes.MetaData != nil {
+			info.MetaData = changes.MetaData
+		}
+
+		if changes.Storage != nil {
+			info.Storage = changes.Storage
+		}
 	}
 
 	upload, err := handler.composer.Core.NewUpload(c, info)

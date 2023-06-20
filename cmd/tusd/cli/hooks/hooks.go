@@ -48,6 +48,13 @@ type HookResponse struct {
 	// to the client.
 	RejectUpload bool
 
+	// ChangeFileInfo can be set to change selected properties of an upload before
+	// it has been created. See the handler.FileInfoChanges type for more details.
+	// Changes are applied on a per-property basis, meaning that specifying just
+	// one property leaves all others unchanged.
+	// This value is only respected for pre-create hooks.
+	ChangeFileInfo handler.FileInfoChanges
+
 	// StopUpload will cause the upload to be stopped during a PATCH request.
 	// This value is only respected for post-receive hooks. For other hooks,
 	// it is ignored. Use the HTTPResponse field to send details about the stop
