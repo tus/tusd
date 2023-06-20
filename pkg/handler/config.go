@@ -60,7 +60,10 @@ type Config struct {
 	// If the error is non-nil, the upload will not be created. This can be used to implement
 	// validation of upload metadata etc. Furthermore, HTTPResponse will be ignored and
 	// the error value can contain values for the HTTP response.
-	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, error)
+	// If the error is nil, FileInfoChanges can be filled out to specify individual properties
+	// that should be overwriten before the upload is create. See its type definition for
+	// more details on its behavior. If you do not want to make any changes, return an empty struct.
+	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, FileInfoChanges, error)
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
 	// a response is returned to the client. This can be used to implement post-processing validation.
 	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.

@@ -50,6 +50,34 @@ func (f FileInfo) StopUpload() {
 	}
 }
 
+// FileInfoChanges collects changes the should be made to a FileInfo struct. This
+// can be done using the PreUploadCreateCallback to modify certain properties before
+// an upload is created. Properties which should not be modified (e.g. Size or Offset)
+// are intentionally left out here.
+type FileInfoChanges struct {
+	// If ID is not empty, it will be passed to the data store, allowing
+	// hooks to influence the upload ID. Be aware that a data store is not required to
+	// respect a pre-defined upload ID and might overwrite or modify it. However,
+	// all data stores in the github.com/tus/tusd package do respect pre-defined IDs.
+	ID string
+
+	// If MetaData is not nil, it replaces the entire user-defined meta data from
+	// the upload creation request. You can add custom meta data fields this way
+	// or ensure that only certain fields from the user-defined meta data are saved.
+	// If you want to retain only specific entries from the user-defined meta data, you must
+	// manually copy them into this MetaData field.
+	// If you do not want to store any meta data, set this field to an empty map (`MetaData{}`).
+	// If you want to keep the entire user-defined meta data, set this field to nil.
+	MetaData MetaData
+
+	// If Storage is not nil, it is passed to the data store to allow for minor adjustments
+	// to the upload storage (e.g. destination file name). The details are specific for each
+	// data store and should be looked up in their respective documentation.
+	// Please be aware that this behavior is currently not supported by any data store in
+	// the github.com/tus/tusd package.
+	Storage map[string]string
+}
+
 type Upload interface {
 	// Write the chunk read from src into the file specified by the id at the
 	// given offset. The handler will take care of validating the offset and

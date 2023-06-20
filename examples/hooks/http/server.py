@@ -2,6 +2,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from io import BytesIO
 
 import json
+import time
+import uuid
 
 class HTTPHookHandler(BaseHTTPRequestHandler):
 
@@ -29,13 +31,25 @@ class HTTPHookHandler(BaseHTTPRequestHandler):
 
         # Example: Use the pre-create hook to check if a filename has been supplied
         # using metadata. If not, the upload is rejected with a custom HTTP response.
+        # In addition, a custom upload ID with a choosable prefix is supplied.
+        # Metadata is configured, so that it only retains the filename meta data
+        # and the creation time.
         if hook_request['Type'] == 'pre-create':
             metaData = hook_request['Event']['Upload']['MetaData']
-            if 'filename' not in metaData:
+            isValid = 'filename' in metaData
+            if not isValid:
                 hook_response['RejectUpload'] = True
                 hook_response['HTTPResponse']['StatusCode'] = 400
                 hook_response['HTTPResponse']['Body'] = 'no filename provided'
                 hook_response['HTTPResponse']['Headers']['X-Some-Header'] = 'yes'
+            else:
+                hook_response['ChangeFileInfo'] = {}
+                hook_response['ChangeFileInfo']['ID'] = f'prefix-{uuid.uuid4()}' 
+                hook_response['ChangeFileInfo']['MetaData'] = {
+                    'filename': metaData['filename'],
+                    'creation_time': time.ctime(),
+                }
+
 
         # Example: Use the post-finish hook to print information about a completed upload,
         # including its storage location.
