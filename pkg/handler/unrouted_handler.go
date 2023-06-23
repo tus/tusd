@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -92,7 +91,7 @@ type HTTPRequest struct {
 type HookEvent struct {
 	// Upload contains information about the upload that caused this hook
 	// to be fired.
-	Upload FileInfo
+	Upload *FileInfo
 	// HTTPRequest contains details about the HTTP request that reached
 	// tusd.
 	HTTPRequest HTTPRequest
@@ -106,7 +105,7 @@ func newHookEvent(info *FileInfo, r *http.Request) HookEvent {
 	r.Header.Set("Host", r.Host)
 
 	return HookEvent{
-		Upload: *info,
+		Upload: info,
 		HTTPRequest: HTTPRequest{
 			Method:     r.Method,
 			URI:        r.RequestURI,
@@ -156,7 +155,8 @@ type UnroutedHandler struct {
 	// true in the Config structure.
 	CreatedUploads chan HookEvent
 	// Metrics provides numbers of the usage for this handler.
-	Metrics Metrics
+	Metrics           Metrics
+	ExtractIDFromPath func(url string) (string, error)
 }
 
 // NewUnroutedHandler creates a new handler without routing using the given
@@ -192,6 +192,10 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
+		ExtractIDFromPath: extractIDFromPath,
+	}
+	if config.ExtractIDFromPath != nil {
+		handler.ExtractIDFromPath = config.ExtractIDFromPath
 	}
 
 	return handler, nil
@@ -306,7 +310,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader)
+	isPartial, isFinal, partialUploadIDs, err := handler.parseConcat(concatHeader)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -364,7 +368,6 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	fmt.Println("fileID: ", info.ID)
 	upload, err := handler.composer.Core.NewUpload(ctx, *info)
 	if err != nil {
 		handler.sendError(w, r, err)
@@ -436,7 +439,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.ExtractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -514,7 +517,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.ExtractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -730,7 +733,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.ExtractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -857,7 +860,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	id, err := extractIDFromPath(r.URL.Path)
+	id, err := handler.ExtractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -1195,7 +1198,7 @@ func SerializeMetadataHeader(meta map[string]string) string {
 // Parse the Upload-Concat header, e.g.
 // Upload-Concat: partial
 // Upload-Concat: final;http://tus.io/files/a /files/b/
-func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
+func (handler *UnroutedHandler) parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
 	if len(header) == 0 {
 		return
 	}
@@ -1216,7 +1219,7 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			id, extractErr := extractIDFromPath(value)
+			id, extractErr := handler.ExtractIDFromPath(value)
 			if extractErr != nil {
 				err = extractErr
 				return
