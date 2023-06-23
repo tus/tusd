@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -97,7 +98,7 @@ type HookEvent struct {
 	HTTPRequest HTTPRequest
 }
 
-func newHookEvent(info FileInfo, r *http.Request) HookEvent {
+func newHookEvent(info *FileInfo, r *http.Request) HookEvent {
 	// The Host header field is not present in the header map, see https://pkg.go.dev/net/http#Request:
 	// > For incoming requests, the Host header is promoted to the
 	// > Request.Host field and removed from the Header map.
@@ -105,7 +106,7 @@ func newHookEvent(info FileInfo, r *http.Request) HookEvent {
 	r.Header.Set("Host", r.Host)
 
 	return HookEvent{
-		Upload: info,
+		Upload: *info,
 		HTTPRequest: HTTPRequest{
 			Method:     r.Method,
 			URI:        r.RequestURI,
@@ -348,7 +349,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Parse metadata
 	meta := ParseMetadataHeader(r.Header.Get("Upload-Metadata"))
 
-	info := FileInfo{
+	info := &FileInfo{
 		Size:           size,
 		SizeIsDeferred: sizeIsDeferred,
 		MetaData:       meta,
@@ -363,14 +364,14 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-
-	upload, err := handler.composer.Core.NewUpload(ctx, info)
+	fmt.Println("fileID: ", info.ID)
+	upload, err := handler.composer.Core.NewUpload(ctx, *info)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
-	info, err = upload.GetInfo(ctx)
+	*info, err = upload.GetInfo(ctx)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -414,7 +415,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			defer lock.Unlock()
 		}
 
-		if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
+		if err := handler.writeChunk(ctx, upload, *info, w, r); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -422,7 +423,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		// Directly finish the upload if the upload is empty (i.e. has a size of 0).
 		// This statement is in an else-if block to avoid causing duplicate calls
 		// to finishUploadIfComplete if an upload is empty and contains a chunk.
-		if err := handler.finishUploadIfComplete(ctx, upload, info, r); err != nil {
+		if err := handler.finishUploadIfComplete(ctx, upload, *info, r); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
@@ -651,7 +652,7 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), reader)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(&info, r), reader)
 			defer close(stopProgressEvents)
 		}
 
@@ -708,7 +709,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
-			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
+			if err := handler.config.PreFinishResponseCallback(newHookEvent(&info, r)); err != nil {
 				return err
 			}
 		}
@@ -717,7 +718,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, uplo
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(&info, r)
 		}
 	}
 
@@ -910,7 +911,7 @@ func (handler *UnroutedHandler) terminateUpload(ctx context.Context, upload Uplo
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- newHookEvent(info, r)
+		handler.TerminatedUploads <- newHookEvent(&info, r)
 	}
 
 	handler.Metrics.incUploadsTerminated()
