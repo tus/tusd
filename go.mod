@@ -20,6 +20,7 @@ require (
 	github.com/sethgrid/pester v1.2.0
 	github.com/stretchr/testify v1.8.4
 	github.com/vimeo/go-util v1.4.1
+	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	google.golang.org/api v0.129.0
 	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.31.0

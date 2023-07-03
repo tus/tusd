@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/tus/tusd/v2/cmd/tusd/cli/hooks"
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 // Here is the implementation of our hook handler

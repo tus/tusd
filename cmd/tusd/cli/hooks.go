@@ -9,20 +9,12 @@ import (
 	"github.com/tus/tusd/v2/pkg/hooks/grpc"
 	"github.com/tus/tusd/v2/pkg/hooks/http"
 	"github.com/tus/tusd/v2/pkg/hooks/plugin"
+	"golang.org/x/exp/slices"
 )
 
 // TODO: Move some parts into hooks package
 
 var hookHandler hooks.HookHandler = nil
-
-func hookTypeInSlice(a hooks.HookType, list []hooks.HookType) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
 
 func preCreateCallback(event handler.HookEvent) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(hooks.HookPreCreate, event)
@@ -170,7 +162,7 @@ func invokeHookAsync(typ hooks.HookType, event handler.HookEvent) {
 // hook completed successfully.
 func invokeHookSync(typ hooks.HookType, event handler.HookEvent) (ok bool, res hooks.HookResponse, err error) {
 	// Stop, if no hook handler is installed or this hook event is not enabled
-	if hookHandler == nil || !hookTypeInSlice(typ, Flags.EnabledHooks) {
+	if hookHandler == nil || !slices.Contains(Flags.EnabledHooks, typ) {
 		return false, hooks.HookResponse{}, nil
 	}
 
