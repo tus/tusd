@@ -28,7 +28,6 @@ var Flags struct {
 	S3DisableContentHashes  bool
 	S3DisableSSL            bool
 	S3ConcurrentPartUploads int
-	S3UseMinioSDK           bool
 	GCSBucket               string
 	GCSObjectPrefix         string
 	AzStorage               string
@@ -84,7 +83,6 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.S3DisableContentHashes, "s3-disable-content-hashes", false, "Disable the calculation of MD5 and SHA256 hashes for the content that gets uploaded to S3 for minimized CPU usage (experimental and may be removed in the future)")
 	flag.BoolVar(&Flags.S3DisableSSL, "s3-disable-ssl", false, "Disable SSL and only use HTTP for communication with S3 (experimental and may be removed in the future)")
 	flag.IntVar(&Flags.S3ConcurrentPartUploads, "s3-concurrent-part-uploads", 10, "Number of concurrent part uploads to S3 (experimental and may be removed in the future)")
-	flag.BoolVar(&Flags.S3UseMinioSDK, "s3-use-minio-sdk", false, "Use the Minio SDK interally (experimental)")
 	flag.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 	flag.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names")
 	flag.StringVar(&Flags.AzStorage, "azure-storage", "", "Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variable to be set)")
