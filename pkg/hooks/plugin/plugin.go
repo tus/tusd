@@ -1,4 +1,4 @@
-package hooks
+package plugin
 
 import (
 	"log"
@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 // TODO: When the tusd process stops, the plugin does not get properly killed
@@ -15,7 +16,7 @@ import (
 type PluginHook struct {
 	Path string
 
-	handlerImpl HookHandler
+	handlerImpl hooks.HookHandler
 }
 
 func (h *PluginHook) Setup() error {
@@ -44,12 +45,12 @@ func (h *PluginHook) Setup() error {
 
 	// We should have a HookHandler now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	h.handlerImpl = raw.(HookHandler)
+	h.handlerImpl = raw.(hooks.HookHandler)
 
 	return h.handlerImpl.Setup()
 }
 
-func (h *PluginHook) InvokeHook(req HookRequest) (HookResponse, error) {
+func (h *PluginHook) InvokeHook(req hooks.HookRequest) (hooks.HookResponse, error) {
 	return h.handlerImpl.InvokeHook(req)
 }
 
@@ -77,7 +78,7 @@ func (g *HookHandlerRPC) Setup() error {
 	return err
 }
 
-func (g *HookHandlerRPC) InvokeHook(req HookRequest) (res HookResponse, err error) {
+func (g *HookHandlerRPC) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err error) {
 	err = g.client.Call("Plugin.InvokeHook", req, &res)
 	return res, err
 }
@@ -86,14 +87,14 @@ func (g *HookHandlerRPC) InvokeHook(req HookRequest) (res HookResponse, err erro
 // the requirements of net/rpc
 type HookHandlerRPCServer struct {
 	// This is the real implementation
-	Impl HookHandler
+	Impl hooks.HookHandler
 }
 
 func (s *HookHandlerRPCServer) Setup(args interface{}, resp *interface{}) error {
 	return s.Impl.Setup()
 }
 
-func (s *HookHandlerRPCServer) InvokeHook(args HookRequest, resp *HookResponse) (err error) {
+func (s *HookHandlerRPCServer) InvokeHook(args hooks.HookRequest, resp *hooks.HookResponse) (err error) {
 	*resp, err = s.Impl.InvokeHook(args)
 	return err
 }
@@ -110,7 +111,7 @@ func (s *HookHandlerRPCServer) InvokeHook(args HookRequest, resp *HookResponse) 
 // plugin connection and is a more advanced use case.
 type HookHandlerPlugin struct {
 	// Impl Injection
-	Impl HookHandler
+	Impl hooks.HookHandler
 }
 
 func (p *HookHandlerPlugin) Server(*plugin.MuxBroker) (interface{}, error) {

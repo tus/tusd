@@ -1,4 +1,4 @@
-package hooks
+package file
 
 import (
 	"bytes"
@@ -7,17 +7,19 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 type FileHook struct {
 	Directory string
 }
 
-func (_ FileHook) Setup() error {
+func (FileHook) Setup() error {
 	return nil
 }
 
-func (h FileHook) InvokeHook(req HookRequest) (res HookResponse, err error) {
+func (h FileHook) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err error) {
 	hookPath := h.Directory + string(os.PathSeparator) + string(req.Type)
 	cmd := exec.Command(hookPath)
 	env := os.Environ()

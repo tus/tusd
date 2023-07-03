@@ -3,9 +3,15 @@ package cli
 import (
 	"strings"
 
-	"github.com/tus/tusd/v2/cmd/tusd/cli/hooks"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/hooks"
+	"github.com/tus/tusd/v2/pkg/hooks/file"
+	"github.com/tus/tusd/v2/pkg/hooks/grpc"
+	"github.com/tus/tusd/v2/pkg/hooks/http"
+	"github.com/tus/tusd/v2/pkg/hooks/plugin"
 )
+
+// TODO: Move some parts into hooks package
 
 var hookHandler hooks.HookHandler = nil
 
@@ -85,13 +91,13 @@ func SetupPreHooks(config *handler.Config) error {
 	if Flags.FileHooksDir != "" {
 		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
 
-		hookHandler = &hooks.FileHook{
+		hookHandler = &file.FileHook{
 			Directory: Flags.FileHooksDir,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
 		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
-		hookHandler = &hooks.HttpHook{
+		hookHandler = &http.HttpHook{
 			Endpoint:       Flags.HttpHooksEndpoint,
 			MaxRetries:     Flags.HttpHooksRetry,
 			Backoff:        Flags.HttpHooksBackoff,
@@ -100,7 +106,7 @@ func SetupPreHooks(config *handler.Config) error {
 	} else if Flags.GrpcHooksEndpoint != "" {
 		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
 
-		hookHandler = &hooks.GrpcHook{
+		hookHandler = &grpc.GrpcHook{
 			Endpoint:   Flags.GrpcHooksEndpoint,
 			MaxRetries: Flags.GrpcHooksRetry,
 			Backoff:    Flags.GrpcHooksBackoff,
@@ -108,7 +114,7 @@ func SetupPreHooks(config *handler.Config) error {
 	} else if Flags.PluginHookPath != "" {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 
-		hookHandler = &hooks.PluginHook{
+		hookHandler = &plugin.PluginHook{
 			Path: Flags.PluginHookPath,
 		}
 	} else {

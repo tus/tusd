@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.12
-// source: cmd/tusd/cli/hooks/proto/v2/hook.proto
+// source: pkg/hooks/grpc/proto/hook.proto
 
-package v2
+package proto
 
 import (
 	context "context"
@@ -40,7 +40,7 @@ func NewHookHandlerClient(cc grpc.ClientConnInterface) HookHandlerClient {
 
 func (c *hookHandlerClient) InvokeHook(ctx context.Context, in *HookRequest, opts ...grpc.CallOption) (*HookResponse, error) {
 	out := new(HookResponse)
-	err := c.cc.Invoke(ctx, "/v2.HookHandler/InvokeHook", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/proto.HookHandler/InvokeHook", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func _HookHandler_InvokeHook_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/v2.HookHandler/InvokeHook",
+		FullMethod: "/proto.HookHandler/InvokeHook",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HookHandlerServer).InvokeHook(ctx, req.(*HookRequest))
@@ -102,7 +102,7 @@ func _HookHandler_InvokeHook_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var HookHandler_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "v2.HookHandler",
+	ServiceName: "proto.HookHandler",
 	HandlerType: (*HookHandlerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -111,5 +111,5 @@ var HookHandler_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "cmd/tusd/cli/hooks/proto/v2/hook.proto",
+	Metadata: "pkg/hooks/grpc/proto/hook.proto",
 }

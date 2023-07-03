@@ -1,6 +1,5 @@
+// TODO: Documentation
 package hooks
-
-// TODO: Move hooks into a package in /pkg
 
 import (
 	"github.com/tus/tusd/v2/pkg/handler"

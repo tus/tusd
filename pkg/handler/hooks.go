@@ -2,6 +2,8 @@ package handler
 
 import "net/http"
 
+// TODO: Move some parts to hooks package
+
 // HookEvent represents an event from tusd which can be handled by the application.
 type HookEvent struct {
 	// Upload contains information about the upload that caused this hook

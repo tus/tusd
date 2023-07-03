@@ -1,4 +1,4 @@
-package hooks
+package http
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sethgrid/pester"
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 type HttpHook struct {
@@ -34,7 +35,7 @@ func (h *HttpHook) Setup() error {
 	return nil
 }
 
-func (h HttpHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err error) {
+func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
 	jsonInfo, err := json.Marshal(hookReq)
 	if err != nil {
 		return hookRes, err
