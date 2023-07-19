@@ -290,7 +290,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	if isTusV2Request(r) {
+	if r.Header.Get("Upload-Incomplete") != "" {
 		handler.PostFileV2(w, r)
 		return
 	}
@@ -444,54 +444,55 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	// TODO: Check that upload length deferring is supported
 
 	// Parse headers
-	// TODO: Make parsing of Upload-Offset optional
-	// TODO: What is the correct valud for Upload-Incomplete
 	// TODO: Also consider Content-Type and Content-Disposition (using https://play.golang.org/p/AjWbJB8vUk)
-	token := r.Header.Get("Upload-Token")
-	offset, err := strconv.ParseInt(r.Header.Get("Upload-Offset"), 10, 64)
-	if err != nil || offset < 0 {
-		handler.sendError(w, r, ErrInvalidOffset)
-		return
+
+	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
+
+	var info FileInfo
+	if isComplete && r.ContentLength != -1 {
+		info.Size = r.ContentLength
+	} else {
+		info.SizeIsDeferred = true
 	}
-	isIncomplete := r.Header.Get("Upload-Incomplete") == "?1"
 
-	// 1. Get or create upload resource
-	// TODO: Create consistent ID from token? e.g. using SHA256
-	id := token
-	upload, err := handler.composer.Core.GetUpload(ctx, id)
-	if err == ErrNotFound {
-		info := FileInfo{
-			ID:             id,
-			SizeIsDeferred: true,
-			// TODO: Set metadata?
-			// MetaData:       meta,
-		}
-
-		if handler.config.PreUploadCreateCallback != nil {
-			if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
-				handler.sendError(w, r, err)
-				return
-			}
-		}
-
-		upload, err = handler.composer.Core.NewUpload(ctx, info)
-		if err != nil {
+	// 1. Create upload resource
+	if handler.config.PreUploadCreateCallback != nil {
+		if err := handler.config.PreUploadCreateCallback(newHookEvent(info, r)); err != nil {
 			handler.sendError(w, r, err)
 			return
 		}
+	}
 
-		handler.Metrics.incUploadsCreated()
-		handler.log("UploadCreated", "id", id, "size", "n/a", "url", "n/a")
-
-		if handler.config.NotifyCreatedUploads {
-			handler.CreatedUploads <- newHookEvent(info, r)
-		}
-	} else if err != nil {
+	upload, err := handler.composer.Core.NewUpload(ctx, info)
+	if err != nil {
 		handler.sendError(w, r, err)
 		return
 	}
 
-	// 2. Verify offset
+	info, err = upload.GetInfo(ctx)
+	if err != nil {
+		handler.sendError(w, r, err)
+		return
+	}
+
+	id := info.ID
+
+	// Add the Location header directly after creating the new resource to even
+	// include it in cases of failure when an error is returned
+	url := handler.absFileURL(r, id)
+	w.Header().Set("Location", url)
+
+	// TODO: Send 104 response
+
+	handler.Metrics.incUploadsCreated()
+
+	handler.log("UploadCreated", "id", id, "size", i64toa(info.Size), "url", url)
+
+	if handler.config.NotifyCreatedUploads {
+		handler.CreatedUploads <- newHookEvent(info, r)
+	}
+
+	// 2. Lock upload
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(id)
 		if err != nil {
@@ -502,17 +503,6 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 		defer lock.Unlock()
 	}
 
-	info, err := upload.GetInfo(ctx)
-	if err != nil {
-		handler.sendError(w, r, err)
-		return
-	}
-
-	if offset != info.Offset {
-		handler.sendError(w, r, ErrMismatchOffset)
-		return
-	}
-
 	// 3. Write chunk
 	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
 		handler.sendError(w, r, err)
@@ -520,7 +510,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 4. Finish upload, if necessary
-	if !isIncomplete {
+	if isComplete && info.SizeIsDeferred {
 		info, err = upload.GetInfo(ctx)
 		if err != nil {
 			handler.sendError(w, r, err)
@@ -580,23 +570,23 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Add Upload-Concat header if possible
-	if info.IsPartial {
-		w.Header().Set("Upload-Concat", "partial")
-	}
-
-	if info.IsFinal {
-		v := "final;"
-		for _, uploadID := range info.PartialUploads {
-			v += handler.absFileURL(r, uploadID) + " "
+	if r.Header.Get("Tus-Resumable") != "" {
+		// Add Upload-Concat header if possible
+		if info.IsPartial {
+			w.Header().Set("Upload-Concat", "partial")
 		}
-		// Remove trailing space
-		v = v[:len(v)-1]
 
-		w.Header().Set("Upload-Concat", v)
-	}
+		if info.IsFinal {
+			v := "final;"
+			for _, uploadID := range info.PartialUploads {
+				v += handler.absFileURL(r, uploadID) + " "
+			}
+			// Remove trailing space
+			v = v[:len(v)-1]
 
-	if !isTusV2Request(r) {
+			w.Header().Set("Upload-Concat", v)
+		}
+
 		if len(info.MetaData) != 0 {
 			w.Header().Set("Upload-Metadata", SerializeMetadataHeader(info.MetaData))
 		}
@@ -625,8 +615,10 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
+	isTusV1 := r.Header.Get("Upload-Incomplete") == ""
+
 	// Check for presence of application/offset+octet-stream
-	if r.Header.Get("Content-Type") != "application/offset+octet-stream" {
+	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
 		handler.sendError(w, r, ErrInvalidContentType)
 		return
 	}
@@ -677,6 +669,10 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// TODO: If Upload-Incomplete: ?0 and Content-Length is set, we can
+	// - declare the length already here
+	// - validate that the length from this request matches info.Size if !info.SizeIsDeferred
+
 	// Do not proxy the call to the data store if the upload is already completed
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		w.Header().Set("Upload-Offset", strconv.FormatInt(offset, 10))
@@ -712,6 +708,32 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	if err := handler.writeChunk(ctx, upload, info, w, r); err != nil {
 		handler.sendError(w, r, err)
 		return
+	}
+
+	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
+	if isComplete && info.SizeIsDeferred {
+		info, err = upload.GetInfo(ctx)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		uploadLength := info.Offset
+
+		lengthDeclarableUpload := handler.composer.LengthDeferrer.AsLengthDeclarableUpload(upload)
+		if err := lengthDeclarableUpload.DeclareLength(ctx, uploadLength); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		info.Size = uploadLength
+		info.SizeIsDeferred = false
+
+		if err := handler.finishUploadIfComplete(ctx, upload, info, r); err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
 	}
 
 	handler.sendResp(w, r, http.StatusNoContent)
