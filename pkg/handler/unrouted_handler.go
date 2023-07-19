@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"mime"
 	"net"
 	"net/http"
 	"regexp"
@@ -445,10 +446,13 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	ctx := context.Background()
 
 	// Parse headers
-	// TODO: Also consider Content-Type and Content-Disposition (using https://play.golang.org/p/AjWbJB8vUk)
+	contentType := r.Header.Get("Content-Type")
+	contentDisposition := r.Header.Get("Content-Disposition")
 	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
 
-	var info FileInfo
+	info := FileInfo{
+		MetaData: make(MetaData),
+	}
 	if isComplete && r.ContentLength != -1 {
 		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
 		info.Size = r.ContentLength
@@ -460,6 +464,29 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 		}
 
 		info.SizeIsDeferred = true
+	}
+
+	// Parse Content-Type and Content-Disposition to get file type or file name
+	if contentType != "" {
+		fileType, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		info.MetaData["filetype"] = fileType
+	}
+
+	if contentDisposition != "" {
+		_, values, err := mime.ParseMediaType(contentDisposition)
+		if err != nil {
+			handler.sendError(w, r, err)
+			return
+		}
+
+		if values["filename"] != "" {
+			info.MetaData["filename"] = values["filename"]
+		}
 	}
 
 	// 1. Create upload resource
