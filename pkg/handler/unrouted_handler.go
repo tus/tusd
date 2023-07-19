@@ -441,17 +441,21 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// TODO: Check that upload length deferring is supported
-
 	// Parse headers
 	// TODO: Also consider Content-Type and Content-Disposition (using https://play.golang.org/p/AjWbJB8vUk)
-
 	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
 
 	var info FileInfo
 	if isComplete && r.ContentLength != -1 {
+		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
 		info.Size = r.ContentLength
 	} else {
+		// Error out if the storage does not support upload length deferring, but we need it.
+		if !handler.composer.UsesLengthDeferrer {
+			handler.sendError(w, r, ErrNotImplemented)
+			return
+		}
+
 		info.SizeIsDeferred = true
 	}
 
