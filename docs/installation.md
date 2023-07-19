@@ -9,13 +9,14 @@ Windows in various formats of the
 ## Compile from source
 
 The only requirement for building tusd is [Go](http://golang.org/doc/install).
-Currently only Go 1.12 and 1.13 is tested and supported and in the future only the two latest
-major releases will be supported.
-If you meet this criteria, you can clone the git repository, install the remaining
-dependencies and build the binary:
+We only test and support the [two latest major releases](https://go.dev/dl/) of
+Go, although tusd might also run with other versions.
+
+Once a recent Go version is installed, you can clone the git repository, install
+the remaining dependencies and build the binary:
 
 ```bash
-git clone git@github.com:tus/tusd.git
+git clone https://github.com/tus/tusd.git
 cd tusd
 
 go build -o tusd cmd/tusd/main.go

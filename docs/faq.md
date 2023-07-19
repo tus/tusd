@@ -36,7 +36,7 @@ tusd allows any user to retrieve a previously uploaded file by issuing a HTTP GE
 
 ### How can I keep the original filename for the uploads?
 
-tusd will generate a unique ID for every upload, e.g. `1881febb4343e9b806cad2e676989c0d`, which is also used as the filename for storing the upload. If you want to keep the original filename, e.g. `my_image.png`, you will have to rename the uploaded file manually after the upload is completed. One can use the [`post-finish` hook](https://github.com/tus/tusd/blob/master/docs/hooks.md#post-finish) to be notified once the upload is completed. The client must also be configured to add the filename to the upload's metadata, which can be [accessed inside the hooks](https://github.com/tus/tusd/blob/master/docs/hooks.md#the-hooks-environment) and used for the renaming operation.
+tusd will generate a unique ID for every upload, e.g. `1881febb4343e9b806cad2e676989c0d`, which is also used as the filename for storing the upload. If you want to keep the original filename, e.g. `my_image.png`, you will have to rename the uploaded file manually after the upload is completed. One can use the [`post-finish` hook](https://github.com/tus/tusd/blob/main/docs/hooks.md#post-finish) to be notified once the upload is completed. The client must also be configured to add the filename to the upload's metadata, which can be [accessed inside the hooks](https://github.com/tus/tusd/blob/main/docs/hooks.md#the-hooks-environment) and used for the renaming operation.
 
 ### Does tusd support Cross-Origin Resource Sharing (CORS)?
 
@@ -58,3 +58,16 @@ To make your setup easier, tusd already includes the necessary CORS configuratio
  * `Upload-Concat`: A tus specific header used to indicate if the containing HTTP request is the final request for uploading a file or not. See [here](https://tus.io/protocols/resumable-upload.html#upload-concat) for details.
 
 If you are looking for a way to communicate additional information from a client to a server, use the `Upload-Metadata` header.
+
+### How to use Docker Secrets for credentials (Swarm mode only)
+
+Example usage with "minio"/S3 (AWS). Create the secrets:
+
+```bash
+printf "minio" | docker secret create minio-username -
+printf "miniosecret" | docker secret create minio-password -
+```
+
+Those commands create two secrets which are used inside the example [docker-compose.yml](../examples/docker-compose.yml) file.
+The provided example assumes, that you also have a service named "minio" inside the same Docker Network.
+We just append a _FILE suffix to the corresponding environment variables. The contents of the mounted file will be added to the environment variable without _FILE suffix.

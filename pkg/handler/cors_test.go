@@ -22,7 +22,29 @@ func TestCORS(t *testing.T) {
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
 				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
-				"Access-Control-Allow-Methods": "POST, GET, HEAD, PATCH, DELETE, OPTIONS",
+				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
+				"Access-Control-Max-Age":       "86400",
+				"Access-Control-Allow-Origin":  "tus.io",
+			},
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "Conditional allow methods", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer:      composer,
+			DisableTermination: true,
+			DisableDownload:    true,
+		})
+
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Origin": "tus.io",
+			},
+			Code: http.StatusOK,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
+				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS",
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
 			},
@@ -73,5 +95,21 @@ func TestCORS(t *testing.T) {
 		if methods[0] != "METHOD" {
 			t.Errorf("expected header to contain METHOD but got: %#v", methods)
 		}
+	})
+
+	SubTest(t, "Disable CORS", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			DisableCors:   true,
+		})
+
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Origin": "tus.io",
+			},
+			Code:      http.StatusOK,
+			ResHeader: map[string]string{},
+		}).Run(handler, t)
 	})
 }

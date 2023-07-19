@@ -1,16 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: /
     schedule:
-      interval: "daily"
+      interval: monthly
 
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: daily
+      interval: monthly
 
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: daily
+      interval: monthly

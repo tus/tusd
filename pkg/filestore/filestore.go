@@ -49,11 +49,10 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 }
 
 func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
-	if info.ID == "" {
+	if info.ID == "" { 
 		info.ID = uid.Uid()
 	}
-	id := info.ID
-	binPath := store.binPath(id)
+	binPath := store.binPath(info.ID)
 	info.Storage = map[string]string{
 		"Type": "filestore",
 		"Path": binPath,
@@ -74,8 +73,8 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 	upload := &fileUpload{
 		info:     info,
-		infoPath: store.infoPath(id),
-		binPath:  store.binPath(id),
+		infoPath: store.infoPath(info.ID),
+		binPath:  binPath,
 	}
 
 	// writeInfo creates the file by itself if necessary

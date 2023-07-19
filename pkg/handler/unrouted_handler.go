@@ -19,7 +19,7 @@ const UploadLengthDeferred = "1"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
-	reForwardedHost  = regexp.MustCompile(`host=([^;]+)`)
+	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 )
@@ -98,6 +98,12 @@ type HookEvent struct {
 }
 
 func newHookEvent(info FileInfo, r *http.Request) HookEvent {
+	// The Host header field is not present in the header map, see https://pkg.go.dev/net/http#Request:
+	// > For incoming requests, the Host header is promoted to the
+	// > Request.Host field and removed from the Header map.
+	// That's why we add it back manually.
+	r.Header.Set("Host", r.Host)
+
 	return HookEvent{
 		Upload: info,
 		HTTPRequest: HTTPRequest{
@@ -217,12 +223,21 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		header := w.Header()
 
-		if origin := r.Header.Get("Origin"); origin != "" {
+		if origin := r.Header.Get("Origin"); !handler.config.DisableCors && origin != "" {
 			header.Set("Access-Control-Allow-Origin", origin)
 
 			if r.Method == "OPTIONS" {
+				allowedMethods := "POST, HEAD, PATCH, OPTIONS"
+				if !handler.config.DisableDownload {
+					allowedMethods += ", GET"
+				}
+
+				if !handler.config.DisableTermination {
+					allowedMethods += ", DELETE"
+				}
+
 				// Preflight request
-				header.Add("Access-Control-Allow-Methods", "POST, GET, HEAD, PATCH, DELETE, OPTIONS")
+				header.Add("Access-Control-Allow-Methods", allowedMethods)
 				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 				header.Set("Access-Control-Max-Age", "86400")
 
@@ -811,22 +826,23 @@ func (handler *UnroutedHandler) writeChunk(ctx context.Context, upload Upload, i
 func (handler *UnroutedHandler) finishUploadIfComplete(ctx context.Context, upload Upload, info FileInfo, r *http.Request) error {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
-		// ... allow custom mechanism to finish and cleanup the upload
+		// ... allow the data storage to finish and cleanup the upload
 		if err := upload.FinishUpload(ctx); err != nil {
 			return err
 		}
 
-		// ... send the info out to the channel
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
-		}
-
-		handler.Metrics.incUploadsFinished()
-
+		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
 			if err := handler.config.PreFinishResponseCallback(newHookEvent(info, r)); err != nil {
 				return err
 			}
+		}
+
+		handler.Metrics.incUploadsFinished()
+
+		// ... send the info out to the channel
+		if handler.config.NotifyCompleteUploads {
+			handler.CompleteUploads <- newHookEvent(info, r)
 		}
 	}
 
@@ -896,10 +912,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 
 // mimeInlineBrowserWhitelist is a map containing MIME types which should be
 // allowed to be rendered by browser inline, instead of being forced to be
-// downloadd. For example, HTML or SVG files are not allowed, since they may
+// downloaded. For example, HTML or SVG files are not allowed, since they may
 // contain malicious JavaScript. In a similiar fashion PDF is not on this list
 // as their parsers commonly contain vulnerabilities which can be exploited.
-// The values of this map does not convei any meaning and are therefore just
+// The values of this map does not convey any meaning and are therefore just
 // empty structs.
 var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"text/plain": struct{}{},
@@ -917,7 +933,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"audio/webm":      struct{}{},
 	"video/webm":      struct{}{},
 	"audio/ogg":       struct{}{},
-	"video/ogg ":      struct{}{},
+	"video/ogg":       struct{}{},
 	"application/ogg": struct{}{},
 }
 

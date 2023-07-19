@@ -25,6 +25,15 @@ type Config struct {
 	// EnableTusV2 controls whether the new and experimental tus v2 protocol is
 	// accepted, next to the current tus v1 protocol.
 	EnableTusV2 bool
+	// DisableDownload indicates whether the server will refuse downloads of the
+	// uploaded file, by not mounting the GET handler.
+	DisableDownload bool
+	// DisableTermination indicates whether the server will refuse termination
+	// requests of the uploaded file, by not mounting the DELETE handler.
+	DisableTermination bool
+	// Disable cors headers. If set to true, tusd will not send any CORS related header.
+	// This is useful if you have a proxy sitting in front of tusd that handles CORS.
+	DisableCors bool
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool
@@ -56,7 +65,7 @@ type Config struct {
 
 func (config *Config) validate() error {
 	if config.Logger == nil {
-		config.Logger = log.New(os.Stdout, "[tusd] ", log.Ldate|log.Ltime)
+		config.Logger = log.New(os.Stdout, "[tusd] ", log.Ldate|log.Lmicroseconds)
 	}
 
 	base := config.BasePath
