@@ -217,6 +217,8 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
+		// TODO: Handle Upload-Draft-Interop-Version
+
 		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 
 		handler.Metrics.incRequestsTotal(r.Method)
@@ -290,7 +292,8 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Upload-Incomplete") != "" {
+	isTusV2Request := r.Header.Get("Upload-Incomplete") != ""
+	if isTusV2Request {
 		handler.PostFileV2(w, r)
 		return
 	}
@@ -486,7 +489,8 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	url := handler.absFileURL(r, id)
 	w.Header().Set("Location", url)
 
-	// TODO: Send 104 response
+	// Send 104 response
+	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
 
@@ -1181,10 +1185,6 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bod
 }
 
 func (handler *UnroutedHandler) extractUploadID(r *http.Request) (string, error) {
-	if isTusV2Request(r) {
-		return r.Header.Get("Upload-Token"), nil
-	}
-
 	return extractIDFromPath(r.URL.Path)
 }
 
@@ -1421,10 +1421,4 @@ func getRequestId(r *http.Request) string {
 	}
 
 	return reqId
-}
-
-// isTusV2Request returns whether a HTTP request includes a sign that it is
-// related to tus v2 (instead of tus v1)
-func isTusV2Request(r *http.Request) bool {
-	return r.Header.Get("Upload-Token") != ""
 }

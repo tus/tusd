@@ -49,14 +49,5 @@ func NewHandler(config Config) (*Handler, error) {
 		mux.Del(":id", http.HandlerFunc(handler.DelFile))
 	}
 
-	if config.EnableTusV2 {
-		mux.Head("", http.HandlerFunc(handler.HeadFile))
-
-		// Only attach the DELETE handler if the Terminate() method is provided
-		if config.StoreComposer.UsesTerminater {
-			mux.Del("", http.HandlerFunc(handler.DelFile))
-		}
-	}
-
 	return routedHandler, nil
 }
