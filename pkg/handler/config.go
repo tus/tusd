@@ -24,6 +24,7 @@ type Config struct {
 	isAbs    bool
 	// EnableTusV2 controls whether the new and experimental tus v2 protocol is
 	// accepted, next to the current tus v1 protocol.
+	// TODO: Rename this? Maybe EnableExperimentalProtocolSupport?
 	EnableTusV2 bool
 	// DisableDownload indicates whether the server will refuse downloads of the
 	// uploaded file, by not mounting the GET handler.
