@@ -17,6 +17,7 @@ import (
 )
 
 const UploadLengthDeferred = "1"
+const currentUploadDraftInteropVersion = "3"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
@@ -218,8 +219,6 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		// TODO: Handle Upload-Draft-Interop-Version
-
 		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 
 		handler.Metrics.incRequestsTotal(r.Method)
@@ -241,17 +240,22 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 				// Preflight request
 				header.Add("Access-Control-Allow-Methods", allowedMethods)
-				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
+				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete")
 				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
-				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
+				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete")
 			}
 		}
 
-		// Set current version used by the server
-		header.Set("Tus-Resumable", "1.0.0")
+		// Detect requests with tus v1 protocol vs the IETF resumable upload draft
+		isTusV1 := !handler.isResumableUploadDraftRequest(r)
+
+		if isTusV1 {
+			// Set current version used by the server
+			header.Set("Tus-Resumable", "1.0.0")
+		}
 
 		// Add nosniff to all responses https://golang.org/src/net/http/server.go#L1429
 		header.Set("X-Content-Type-Options", "nosniff")
@@ -280,7 +284,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Test if the version sent by the client is supported
 		// GET and HEAD methods are not checked since a browser may visit this URL and does
 		// not include this header. GET requests are not part of the specification.
-		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && !handler.config.EnableTusV2 {
+		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && isTusV1 {
 			handler.sendError(w, r, ErrUnsupportedVersion)
 			return
 		}
@@ -293,8 +297,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	isTusV2Request := r.Header.Get("Upload-Incomplete") != ""
-	if isTusV2Request {
+	if handler.isResumableUploadDraftRequest(r) {
 		handler.PostFileV2(w, r)
 		return
 	}
@@ -517,6 +520,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Location", url)
 
 	// Send 104 response
+	w.Header().Set("Upload-Draft-Interop-Version", currentUploadDraftInteropVersion)
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
@@ -605,7 +609,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if r.Header.Get("Tus-Resumable") != "" {
+	if !handler.isResumableUploadDraftRequest(r) {
 		// Add Upload-Concat header if possible
 		if info.IsPartial {
 			w.Header().Set("Upload-Concat", "partial")
@@ -650,7 +654,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	isTusV1 := r.Header.Get("Upload-Incomplete") == ""
+	isTusV1 := !handler.isResumableUploadDraftRequest(r)
 
 	// Check for presence of application/offset+octet-stream
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -1320,6 +1324,12 @@ func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
 	}
 
 	return lock, nil
+}
+
+// isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
+// related to resumable upload draft from IETF (instead of tus v1)
+func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
+	return handler.config.EnableTusV2 && r.Header.Get("Upload-Draft-Interop-Version") == currentUploadDraftInteropVersion
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
