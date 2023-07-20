@@ -581,7 +581,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	id, err := handler.extractUploadID(r)
+	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -1042,7 +1042,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	id, err := handler.extractUploadID(r)
+	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
 		handler.sendError(w, r, err)
 		return
@@ -1213,10 +1213,6 @@ func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bod
 	}()
 
 	return stop
-}
-
-func (handler *UnroutedHandler) extractUploadID(r *http.Request) (string, error) {
-	return extractIDFromPath(r.URL.Path)
 }
 
 // getHostAndProtocol extracts the host and used protocol (either HTTP or HTTPS)
