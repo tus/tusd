@@ -609,6 +609,9 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
+
 	if !handler.isResumableUploadDraftRequest(r) {
 		// Add Upload-Concat header if possible
 		if info.IsPartial {
@@ -636,17 +639,22 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			w.Header().Set("Upload-Length", strconv.FormatInt(info.Size, 10))
 			w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
 		}
-	} else {
-		if info.SizeIsDeferred {
-			w.Header().Set("Upload-Incomplete", "?1")
-		} else {
-			w.Header().Set("Upload-Incomplete", "?0")
-		}
-	}
 
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Upload-Offset", strconv.FormatInt(info.Offset, 10))
-	handler.sendResp(w, r, http.StatusOK)
+		// TODO: We send a 200 OK here by default. Can we switch this to 204?
+		handler.sendResp(w, r, http.StatusOK)
+	} else {
+		if !info.SizeIsDeferred && info.Offset == info.Size {
+			// Upload is complete if we know the size and it matches the offset.
+			w.Header().Set("Upload-Incomplete", "?0")
+		} else {
+			w.Header().Set("Upload-Incomplete", "?1")
+		}
+
+		w.Header().Set("Upload-Draft-Interop-Version", currentUploadDraftInteropVersion)
+
+		// Draft requires a 204 No Content response
+		handler.sendResp(w, r, http.StatusNoContent)
+	}
 }
 
 // PatchFile adds a chunk to an upload. This operation is only allowed
