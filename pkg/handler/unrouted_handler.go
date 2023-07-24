@@ -1333,7 +1333,7 @@ func (handler *UnroutedHandler) lockUpload(id string) (Lock, error) {
 // isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
 // related to resumable upload draft from IETF (instead of tus v1)
 func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
-	return handler.config.EnableTusV2 && r.Header.Get("Upload-Draft-Interop-Version") == currentUploadDraftInteropVersion
+	return handler.config.EnableExperimentalProtocol && r.Header.Get("Upload-Draft-Interop-Version") == currentUploadDraftInteropVersion
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
