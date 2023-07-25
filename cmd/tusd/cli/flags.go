@@ -59,6 +59,7 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
+	ExperimentalProtocol    bool
 
 	CPUProfile string
 }
@@ -108,6 +109,8 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSCertFile, "tls-certificate", "", "Path to the file containing the x509 TLS certificate to be used. The file should also contain any intermediate certificates and the CA certificate.")
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
+	flag.BoolVar(&Flags.ExperimentalProtocol, "enable-experimental-protocol", false, "Enable support for the new resumable upload protocol draft from the IETF's HTTP working group, next to the current tus v1 protocol. (experimental and may be removed/changed in the future)")
+
 	flag.StringVar(&Flags.CPUProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.Parse()
 

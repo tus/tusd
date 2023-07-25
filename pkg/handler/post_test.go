@@ -544,4 +544,117 @@ func TestPost(t *testing.T) {
 			}).Run(handler, t)
 		})
 	})
+
+	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(context.Background(), FileInfo{
+					SizeIsDeferred: false,
+					Size:           11,
+					MetaData: map[string]string{
+						"filename": "hello.txt",
+						"filetype": "text/plain",
+					},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					ID:             "foo",
+					SizeIsDeferred: false,
+					Size:           11,
+					MetaData: map[string]string{
+						"filename": "hello.txt",
+						"filetype": "text/plain",
+					},
+				}, nil),
+				locker.EXPECT().NewLock("foo").Return(lock, nil),
+				lock.EXPECT().Lock().Return(nil),
+				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
+				upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+				lock.EXPECT().Unlock().Return(nil),
+			)
+
+			composer = NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:              composer,
+				BasePath:                   "/files/",
+				EnableExperimentalProtocol: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Upload-Draft-Interop-Version": "3",
+					"Upload-Incomplete":            "?0",
+					"Content-Type":                 "text/plain; charset=utf-8",
+					"Content-Disposition":          "attachment; filename=hello.txt",
+				},
+				ReqBody: strings.NewReader("hello world"),
+				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
+				Code: 104,
+				ResHeader: map[string]string{
+					"Upload-Draft-Interop-Version": "3",
+					"Location":                     "http://tus.io/files/foo",
+					"Upload-Offset":                "11",
+				},
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(context.Background(), FileInfo{
+					SizeIsDeferred: true,
+					MetaData:       map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+					ID:             "foo",
+					SizeIsDeferred: true,
+				}, nil),
+				locker.EXPECT().NewLock("foo").Return(lock, nil),
+				lock.EXPECT().Lock().Return(nil),
+				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
+				lock.EXPECT().Unlock().Return(nil),
+			)
+
+			composer = NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+			composer.UseLengthDeferrer(store)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:              composer,
+				BasePath:                   "/files/",
+				EnableExperimentalProtocol: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Upload-Draft-Interop-Version": "3",
+					"Upload-Incomplete":            "?1",
+				},
+				ReqBody: strings.NewReader("hello world"),
+				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
+				Code: 104,
+				ResHeader: map[string]string{
+					"Upload-Draft-Interop-Version": "3",
+					"Location":                     "http://tus.io/files/foo",
+					"Upload-Offset":                "11",
+				},
+			}).Run(handler, t)
+		})
+	})
 }

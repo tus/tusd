@@ -49,7 +49,7 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 }
 
 func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
-	if info.ID == "" { 
+	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
 	binPath := store.binPath(info.ID)
