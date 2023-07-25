@@ -21,7 +21,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
+				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete",
 				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
@@ -43,7 +43,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
+				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete",
 				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS",
 				"Access-Control-Max-Age":       "86400",
 				"Access-Control-Allow-Origin":  "tus.io",
@@ -64,7 +64,7 @@ func TestCORS(t *testing.T) {
 			},
 			Code: http.StatusMethodNotAllowed,
 			ResHeader: map[string]string{
-				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat",
+				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete",
 				"Access-Control-Allow-Origin":   "tus.io",
 			},
 		}).Run(handler, t)
