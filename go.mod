@@ -8,7 +8,7 @@ go 1.16
 require (
 	cloud.google.com/go/storage v1.31.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
-	github.com/aws/aws-sdk-go v1.44.294
+	github.com/aws/aws-sdk-go v1.44.313
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/felixge/fgprof v0.9.2
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
@@ -20,8 +20,8 @@ require (
 	github.com/sethgrid/pester v1.2.0
 	github.com/stretchr/testify v1.8.4
 	github.com/vimeo/go-util v1.4.1
-	google.golang.org/api v0.129.0
-	google.golang.org/grpc v1.56.1
+	google.golang.org/api v0.134.0
+	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2

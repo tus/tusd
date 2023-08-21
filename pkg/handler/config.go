@@ -23,6 +23,10 @@ type Config struct {
 	// absolute URL containing a scheme, e.g. "http://tus.io"
 	BasePath string
 	isAbs    bool
+	// EnableExperimentalProtocol controls whether the new resumable upload protocol draft
+	// from the IETF's HTTP working group is accepted next to the current tus v1 protocol.
+	// See https://datatracker.ietf.org/doc/draft-ietf-httpbis-resumable-upload/
+	EnableExperimentalProtocol bool
 	// DisableDownload indicates whether the server will refuse downloads of the
 	// uploaded file, by not mounting the GET handler.
 	DisableDownload bool
