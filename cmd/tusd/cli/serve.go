@@ -31,14 +31,15 @@ const (
 // is put in place.
 func Serve() {
 	config := handler.Config{
-		MaxSize:                 Flags.MaxSize,
-		BasePath:                Flags.Basepath,
-		RespectForwardedHeaders: Flags.BehindProxy,
-		DisableDownload:         Flags.DisableDownload,
-		DisableTermination:      Flags.DisableTermination,
-		DisableCors:             Flags.DisableCors,
-		StoreComposer:           Composer,
-		UploadProgressInterval:  time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
+		MaxSize:                    Flags.MaxSize,
+		BasePath:                   Flags.Basepath,
+		RespectForwardedHeaders:    Flags.BehindProxy,
+		EnableExperimentalProtocol: Flags.ExperimentalProtocol,
+		DisableDownload:            Flags.DisableDownload,
+		DisableTermination:         Flags.DisableTermination,
+		DisableCors:                Flags.DisableCors,
+		StoreComposer:              Composer,
+		UploadProgressInterval:     time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
 	}
 
 	var handler *handlerpkg.Handler
