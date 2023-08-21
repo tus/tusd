@@ -2,7 +2,11 @@
 package hooks
 
 import (
+	"fmt"
+
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"golang.org/x/exp/slices"
 )
 
 // HookHandler is the main inferface to be implemented by all hook backends.
@@ -72,4 +76,174 @@ const (
 	HookPreFinish     HookType = "pre-finish"
 )
 
+// AvailableHooks is a slice of all hooks that are implemented by tusd.
 var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish}
+
+func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, handler.FileInfoChanges, error) {
+	ok, hookRes, err := invokeHookSync(HookPreCreate, event, hookHandler)
+	if !ok || err != nil {
+		return handler.HTTPResponse{}, handler.FileInfoChanges{}, err
+	}
+
+	httpRes := hookRes.HTTPResponse
+
+	// If the hook response includes the instruction to reject the upload, reuse the error code
+	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values.
+	if hookRes.RejectUpload {
+		err := handler.ErrUploadRejectedByServer
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return handler.HTTPResponse{}, handler.FileInfoChanges{}, err
+	}
+
+	// Pass any changes regarding file info from the hook to the handler.
+	changes := hookRes.ChangeFileInfo
+	return httpRes, changes, nil
+}
+
+func preFinishCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, error) {
+	ok, hookRes, err := invokeHookSync(HookPreFinish, event, hookHandler)
+	if !ok || err != nil {
+		return handler.HTTPResponse{}, err
+	}
+
+	httpRes := hookRes.HTTPResponse
+	return httpRes, nil
+}
+
+func postReceiveCallback(event handler.HookEvent, hookHandler HookHandler) {
+	ok, hookRes, _ := invokeHookSync(HookPostReceive, event, hookHandler)
+	// invokeHookSync already logs the error, if any occurs. So by checking `ok`, we can ensure
+	// that the hook finished successfully
+	if !ok {
+		return
+	}
+
+	if hookRes.StopUpload {
+		// logEv(stdout, "HookStopUpload", "id", event.Upload.ID)
+
+		// TODO: Control response for PATCH request
+		event.Upload.StopUpload()
+	}
+}
+
+var MetricsHookErrorsTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "tusd_hook_errors_total",
+		Help: "Total number of execution errors per hook type.",
+	},
+	[]string{"hooktype"},
+)
+
+var MetricsHookInvocationsTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "tusd_hook_invocations_total",
+		Help: "Total number of invocations per hook type.",
+	},
+	[]string{"hooktype"},
+)
+
+func SetupHookMetrics() {
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+}
+
+func invokeHookAsync(typ HookType, event handler.HookEvent, hookHandler HookHandler) {
+	go func() {
+		// Error handling is taken care by the function.
+		_, _, _ = invokeHookSync(typ, event, hookHandler)
+	}()
+}
+
+// invokeHookSync executes a hook of the given type with the given event data. If
+// the hook was not executed properly (e.g. an error occurred or not handler is installed),
+// `ok` will be false and `res` is not filled. `err` can contain the underlying error.
+// If `ok` is true, `res` contains the response as retrieved from the hook.
+// Therefore, a caller should always check `ok` and `err` before assuming that the
+// hook completed successfully.
+func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandler) (ok bool, res HookResponse, err error) {
+	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
+
+	// id := event.Upload.ID
+
+	// TODO: Re-enable logging with structured logging package slog.
+	// if Flags.VerboseOutput {
+	// 	logEv(stdout, "HookInvocationStart", "type", string(typ), "id", id)
+	// }
+
+	res, err = hookHandler.InvokeHook(HookRequest{
+		Type:  typ,
+		Event: event,
+	})
+	if err != nil {
+		// If an error occurs during the hook execution, we log and track the error, but do not
+		// return a hook response.
+		// logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
+		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
+		return false, HookResponse{}, err
+	}
+
+	// if Flags.VerboseOutput {
+	// 	logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
+	// }
+
+	return true, res, nil
+}
+
+func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enabledHooks []HookType) (*handler.Handler, error) {
+	if err := hookHandler.Setup(); err != nil {
+		return nil, fmt.Errorf("unable to setup hooks for handler: %s", err)
+	}
+
+	// Activate notifications for post-* hooks
+	config.NotifyCompleteUploads = slices.Contains(enabledHooks, HookPostFinish)
+	config.NotifyTerminatedUploads = slices.Contains(enabledHooks, HookPostTerminate)
+	config.NotifyUploadProgress = slices.Contains(enabledHooks, HookPostReceive)
+	config.NotifyCreatedUploads = slices.Contains(enabledHooks, HookPostCreate)
+
+	// Install callbacks for pre-* hooks
+	if slices.Contains(enabledHooks, HookPreCreate) {
+		config.PreUploadCreateCallback = func(event handler.HookEvent) (handler.HTTPResponse, handler.FileInfoChanges, error) {
+			return preCreateCallback(event, hookHandler)
+		}
+	}
+	if slices.Contains(enabledHooks, HookPreFinish) {
+		config.PreFinishResponseCallback = func(event handler.HookEvent) (handler.HTTPResponse, error) {
+			return preFinishCallback(event, hookHandler)
+		}
+	}
+
+	// Create handler
+	handler, err := handler.NewHandler(*config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Listen for notifications for post-* hooks
+	go func() {
+		for {
+			select {
+			case event := <-handler.CompleteUploads:
+				invokeHookAsync(HookPostFinish, event, hookHandler)
+			case event := <-handler.TerminatedUploads:
+				invokeHookAsync(HookPostTerminate, event, hookHandler)
+			case event := <-handler.CreatedUploads:
+				invokeHookAsync(HookPostCreate, event, hookHandler)
+			case event := <-handler.UploadProgress:
+				go postReceiveCallback(event, hookHandler)
+			}
+		}
+	}()
+
+	return handler, nil
+}

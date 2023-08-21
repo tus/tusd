@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/tus/tusd/v2/pkg/handler"
+	handlerpkg "github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 const (
@@ -36,21 +38,30 @@ func Serve() {
 		DisableTermination:      Flags.DisableTermination,
 		DisableCors:             Flags.DisableCors,
 		StoreComposer:           Composer,
-		NotifyCompleteUploads:   true,
-		NotifyTerminatedUploads: true,
-		NotifyUploadProgress:    true,
-		NotifyCreatedUploads:    true,
 		UploadProgressInterval:  time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
 	}
 
-	if err := SetupPreHooks(&config); err != nil {
-		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
-	}
+	var handler *handlerpkg.Handler
+	var err error
+	hookHandler := getHookHandler(&config)
+	if hookHandler != nil {
+		handler, err = hooks.NewHandlerWithHooks(&config, hookHandler, Flags.EnabledHooks)
 
-	handler, err := handler.NewHandler(config)
+		var enabledHooksString []string
+		for _, h := range Flags.EnabledHooks {
+			enabledHooksString = append(enabledHooksString, string(h))
+		}
+
+		stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
+
+	} else {
+		handler, err = handlerpkg.NewHandler(config)
+	}
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
+
+	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	basepath := Flags.Basepath
 	address := ""
@@ -64,10 +75,6 @@ func Serve() {
 	}
 
 	stdout.Printf("Using %s as the base path.\n", basepath)
-
-	SetupPostHooks(handler)
-
-	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	mux := http.NewServeMux()
 	if basepath == "/" {
@@ -91,7 +98,7 @@ func Serve() {
 
 	if Flags.ExposeMetrics {
 		SetupMetrics(mux, handler)
-		SetupHookMetrics()
+		hooks.SetupHookMetrics()
 	}
 
 	if Flags.ExposePprof {
