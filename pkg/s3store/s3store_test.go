@@ -750,32 +750,29 @@ func TestWriteChunk(t *testing.T) {
 
 	// From WriteChunk
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(3),
-		Body:          bytes.NewReader([]byte("1234")),
-		ContentLength: aws.Int64(4),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(3),
+		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-3"),
 	}, nil)
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(4),
-		Body:          bytes.NewReader([]byte("5678")),
-		ContentLength: aws.Int64(4),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(4),
+		Body:       bytes.NewReader([]byte("5678")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-4"),
 	}, nil)
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(5),
-		Body:          bytes.NewReader([]byte("90AB")),
-		ContentLength: aws.Int64(4),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(5),
+		Body:       bytes.NewReader([]byte("90AB")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-5"),
 	}, nil)
@@ -891,22 +888,20 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 	}).Return(&s3.DeleteObjectOutput{}, nil)
 
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(1),
-		Body:          bytes.NewReader([]byte("1234")),
-		ContentLength: aws.Int64(4),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(1),
+		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-1"),
 	}, nil)
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(2),
-		Body:          bytes.NewReader([]byte("5")),
-		ContentLength: aws.Int64(1),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(2),
+		Body:       bytes.NewReader([]byte("5")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-2"),
 	}, nil)
@@ -963,12 +958,11 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 	}).Return(&s3.DeleteObjectOutput{}, nil)
 
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(1),
-		Body:          bytes.NewReader([]byte("1234")),
-		ContentLength: aws.Int64(4),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(1),
+		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-1"),
 	}, nil)
@@ -1025,12 +1019,11 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		Key:    aws.String("uploadId.part"),
 	}).Return(nil, awserr.New("AccessDenied", "Access Denied.", nil))
 	s3obj.EXPECT().UploadPartWithContext(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("uploadId"),
-		UploadId:      aws.String("multipartId"),
-		PartNumber:    aws.Int64(3),
-		Body:          bytes.NewReader([]byte("1234567890")),
-		ContentLength: aws.Int64(10),
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int64(3),
+		Body:       bytes.NewReader([]byte("1234567890")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-3"),
 	}, nil)
