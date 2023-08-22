@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
-	"log"
 	"math"
 	"mime"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 const UploadLengthDeferred = "1"
@@ -61,7 +62,7 @@ type UnroutedHandler struct {
 	composer      *StoreComposer
 	isBasePathAbs bool
 	basePath      string
-	logger        *log.Logger
+	logger        *slog.Logger
 	extensions    string
 	serverCtx     chan struct{}
 
@@ -174,7 +175,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		handler.log("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+		handler.logger.Info("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 
 		handler.Metrics.incRequestsTotal(r.Method)
 
@@ -375,7 +376,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	resp.Headers["Location"] = url
 
 	handler.Metrics.incUploadsCreated()
-	handler.log("UploadCreated", "id", id, "size", i64toa(size), "url", url)
+	handler.logger.Info("UploadCreated", "id", id, "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(info, r)
@@ -525,7 +526,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	handler.Metrics.incUploadsCreated()
 
-	handler.log("UploadCreated", "id", id, "size", i64toa(info.Size), "url", url)
+	handler.logger.Info("UploadCreated", "id", id, "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(info, r)
@@ -832,7 +833,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		maxSize = length
 	}
 
-	handler.log("ChunkWriteStart", "id", id, "maxSize", i64toa(maxSize), "offset", i64toa(offset))
+	handler.logger.Info("ChunkWriteStart", "id", id, "maxSize", maxSize, "offset", offset)
 
 	var bytesWritten int64
 	var err error
@@ -880,14 +881,14 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
-				handler.log("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+				handler.logger.Error("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
 			}
 		}
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
 		// it in the response, if the store did not also return an error.
 		if bodyErr := c.body.hasError(); bodyErr != nil {
-			handler.log("BodyReadError", "id", id, "error", bodyErr.Error())
+			handler.logger.Error("BodyReadError", "id", id, "error", bodyErr.Error())
 			if err == nil {
 				err = bodyErr
 			}
@@ -905,7 +906,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}
 	}
 
-	handler.log("ChunkWriteComplete", "id", id, "bytesWritten", i64toa(bytesWritten))
+	handler.logger.Info("ChunkWriteComplete", "id", id, "bytesWritten", bytesWritten)
 
 	if err != nil {
 		return resp, err
@@ -942,7 +943,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 			resp = resp.MergeWith(resp2)
 		}
 
-		handler.log("UploadFinished", "id", info.ID, "size", strconv.FormatInt(info.Size, 10))
+		handler.logger.Info("UploadFinished", "id", info.ID, "size", info.Size)
 		handler.Metrics.incUploadsFinished()
 
 		// ... send the info out to the channel
@@ -1147,7 +1148,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 		handler.TerminatedUploads <- newHookEvent(info, c.req)
 	}
 
-	handler.log("UploadTerminated", "id", info.ID)
+	handler.logger.Info("UploadTerminated", "id", info.ID)
 	handler.Metrics.incUploadsTerminated()
 
 	return nil
@@ -1194,7 +1195,7 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 
 	detailedErr, ok := err.(Error)
 	if !ok {
-		handler.log("InternalServerError", "message", err.Error(), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+		handler.logger.Error("InternalServerError", "message", err.Error(), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
 		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
@@ -1212,7 +1213,7 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 func (handler *UnroutedHandler) sendResp(c *httpContext, resp HTTPResponse) {
 	resp.writeTo(c.res)
 
-	handler.log("ResponseOutgoing", "status", strconv.Itoa(resp.StatusCode), "method", c.req.Method, "path", c.req.URL.Path, "requestId", getRequestId(c.req), "body", resp.Body)
+	handler.logger.Info("ResponseOutgoing", "status", resp.StatusCode, "method", c.req.Method, "path", c.req.URL.Path, "requestId", getRequestId(c.req), "body", resp.Body)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -1367,7 +1368,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	defer cancelContext()
 	releaseLock := func() {
 		if c.body != nil {
-			handler.log("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
 			// TODO: Consider replacing this with a channel or a context
 			c.body.closeWithError(ErrUploadInterrupted)
 		}

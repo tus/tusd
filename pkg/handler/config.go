@@ -2,10 +2,10 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"net/url"
-	"os"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
@@ -53,7 +53,7 @@ type Config struct {
 	// Defaults to 1s.
 	UploadProgressInterval time.Duration
 	// Logger is the logger to use internally, mostly for printing requests.
-	Logger *log.Logger
+	Logger *slog.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
@@ -78,7 +78,7 @@ type Config struct {
 
 func (config *Config) validate() error {
 	if config.Logger == nil {
-		config.Logger = log.New(os.Stdout, "[tusd] ", log.Ldate|log.Lmicroseconds)
+		config.Logger = slog.Default()
 	}
 
 	base := config.BasePath

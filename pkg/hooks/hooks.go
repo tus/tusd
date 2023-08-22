@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tus/tusd/v2/pkg/handler"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 // HookHandler is the main inferface to be implemented by all hook backends.
@@ -136,7 +137,7 @@ func postReceiveCallback(event handler.HookEvent, hookHandler HookHandler) {
 	}
 
 	if hookRes.StopUpload {
-		// logEv(stdout, "HookStopUpload", "id", event.Upload.ID)
+		slog.Info("HookStopUpload", "id", event.Upload.ID)
 
 		// TODO: Control response for PATCH request
 		event.Upload.StopUpload()
@@ -190,12 +191,9 @@ func invokeHookAsync(typ HookType, event handler.HookEvent, hookHandler HookHand
 func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandler) (ok bool, res HookResponse, err error) {
 	MetricsHookInvocationsTotal.WithLabelValues(string(typ)).Add(1)
 
-	// id := event.Upload.ID
+	id := event.Upload.ID
 
-	// TODO: Re-enable logging with structured logging package slog.
-	// if Flags.VerboseOutput {
-	// 	logEv(stdout, "HookInvocationStart", "type", string(typ), "id", id)
-	// }
+	slog.Debug("HookInvocationStart", "type", typ, "id", id)
 
 	res, err = hookHandler.InvokeHook(HookRequest{
 		Type:  typ,
@@ -204,14 +202,12 @@ func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandl
 	if err != nil {
 		// If an error occurs during the hook execution, we log and track the error, but do not
 		// return a hook response.
-		// logEv(stderr, "HookInvocationError", "type", string(typ), "id", id, "error", err.Error())
+		slog.Error("HookInvocationError", "type", typ, "id", id, "error", err.Error())
 		MetricsHookErrorsTotal.WithLabelValues(string(typ)).Add(1)
 		return false, HookResponse{}, err
 	}
 
-	// if Flags.VerboseOutput {
-	// 	logEv(stdout, "HookInvocationFinish", "type", string(typ), "id", id)
-	// }
+	slog.Debug("HookInvocationFinish", "type", typ, "id", id)
 
 	return true, res, nil
 }

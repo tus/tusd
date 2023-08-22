@@ -126,6 +126,8 @@ func ParseFlags() {
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
 	}
+
+	SetupStructuredLogger()
 }
 
 func SetEnabledHooks() {

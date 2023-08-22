@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/tus/tusd/v2/pkg/hooks"
 )
@@ -35,7 +36,12 @@ func (h *PluginHook) Setup() error {
 		SyncStderr:      os.Stderr,
 		// We use a managed client, so we can use plugin.CleanupClients() to shut it down.
 		Managed: true,
-		//Logger:          logger,
+		Logger: hclog.New(&hclog.LoggerOptions{
+			Name:       "plugin",
+			Level:      hclog.Debug,
+			Output:     os.Stdout,
+			TimeFormat: "2006/01/02 03:04:05.000000",
+		}),
 	})
 	//defer client.Kill()
 
