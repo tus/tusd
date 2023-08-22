@@ -12,8 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tus/tusd/v2/pkg/handler"
-	handlerpkg "github.com/tus/tusd/v2/pkg/handler"
+	tushandler "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
@@ -30,7 +29,7 @@ const (
 // specified, in which case a different socket creation and binding mechanism
 // is put in place.
 func Serve() {
-	config := handler.Config{
+	config := tushandler.Config{
 		MaxSize:                    Flags.MaxSize,
 		BasePath:                   Flags.Basepath,
 		RespectForwardedHeaders:    Flags.BehindProxy,
@@ -42,7 +41,7 @@ func Serve() {
 		UploadProgressInterval:     time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
 	}
 
-	var handler *handlerpkg.Handler
+	var handler *tushandler.Handler
 	var err error
 	hookHandler := getHookHandler(&config)
 	if hookHandler != nil {
@@ -56,7 +55,7 @@ func Serve() {
 		stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 
 	} else {
-		handler, err = handlerpkg.NewHandler(config)
+		handler, err = tushandler.NewHandler(config)
 	}
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
@@ -198,7 +197,7 @@ func Serve() {
 	}
 }
 
-func setupSignalHandler(server *http.Server, handler *handler.Handler) <-chan struct{} {
+func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan struct{} {
 	shutdownComplete := make(chan struct{})
 
 	// We read up to two signals, so use a capacity of 2 here to not miss any signal
