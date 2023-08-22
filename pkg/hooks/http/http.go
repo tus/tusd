@@ -1,4 +1,8 @@
-package hooks
+// Package http implements a HTTP-based hook system. For each hook event, it will send a
+// POST request to the specified endpoint. The body is a JSON-formatted object including
+// the hook type, upload and request information.
+// By responding with a JSON object, the response from tusd can be controlled.
+package http
 
 import (
 	"bytes"
@@ -9,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sethgrid/pester"
+	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
 type HttpHook struct {
@@ -34,7 +39,7 @@ func (h *HttpHook) Setup() error {
 	return nil
 }
 
-func (h HttpHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err error) {
+func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
 	jsonInfo, err := json.Marshal(hookReq)
 	if err != nil {
 		return hookRes, err

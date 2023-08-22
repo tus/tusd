@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tus/tusd/v2/cmd/tusd/cli/hooks"
+	"github.com/tus/tusd/v2/pkg/hooks"
+	"golang.org/x/exp/slices"
 )
 
 var Flags struct {
@@ -134,7 +135,7 @@ func SetEnabledHooks() {
 		for i, h := range slc {
 			slc[i] = strings.TrimSpace(h)
 
-			if !hookTypeInSlice(hooks.HookType(h), hooks.AvailableHooks) {
+			if !slices.Contains(hooks.AvailableHooks, hooks.HookType(h)) {
 				stderr.Fatalf("Unknown hook event type in -hooks-enabled-events flag: %s", h)
 			}
 

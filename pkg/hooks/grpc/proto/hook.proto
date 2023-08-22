@@ -2,13 +2,13 @@
 // To do this, install the Go protobuf toolchain as mentioned in
 // https://grpc.io/docs/languages/go/quickstart/#prerequisites.
 // Then use following command from the repository's root to recompile it with gRPC support:
-//   protoc --go-grpc_out=./pkg/ --go_out=./pkg/ ./cmd/tusd/cli/hooks/proto/v2/hook.proto
+//   protoc --go-grpc_out=./pkg/ --go_out=./pkg/ ./pkg/hooks/grpc/proto/hook.proto
 // In addition, it may be necessary to update the protobuf or gRPC dependencies as well.
 
 syntax = "proto3";
-package v2;
+package proto;
 
-option go_package = "proto/v2";
+option go_package = "hooks/grpc/proto";
 
 // HookRequest contains the information about the hook type, the involved upload,
 // and causing HTTP request.
@@ -144,10 +144,10 @@ message HTTPResponse {
 
 // The hook service definition.
 service HookHandler {
-  // InvokeHook is invoked for every hook that is executed. HookRequest contains the
+	// InvokeHook is invoked for every hook that is executed. HookRequest contains the
 	// corresponding information about the hook type, the involved upload, and
 	// causing HTTP request.
 	// The return value HookResponse allows to stop or reject an upload, as well as modifying
 	// the HTTP response. See the documentation for HookResponse for more details.
-  rpc InvokeHook (HookRequest) returns (HookResponse) {}
+	rpc InvokeHook (HookRequest) returns (HookResponse) {}
 }

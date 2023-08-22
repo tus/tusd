@@ -1,4 +1,7 @@
-package hooks
+// Package grpc implements a gRPC-based hook system. For each hook event, the InvokeHook
+// procedure is invoked with additional details about the hook type, upload and request.
+// The Protocol Buffers are defined in github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto.
+package grpc
 
 import (
 	"context"
@@ -6,7 +9,8 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	pb "github.com/tus/tusd/v2/pkg/proto/v2"
+	"github.com/tus/tusd/v2/pkg/hooks"
+	pb "github.com/tus/tusd/v2/pkg/hooks/grpc/proto"
 	"google.golang.org/grpc"
 )
 
@@ -34,7 +38,7 @@ func (g *GrpcHook) Setup() error {
 	return nil
 }
 
-func (g *GrpcHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err error) {
+func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
 	ctx := context.Background()
 	req := marshal(hookReq)
 	res, err := g.Client.InvokeHook(ctx, req)
@@ -46,7 +50,7 @@ func (g *GrpcHook) InvokeHook(hookReq HookRequest) (hookRes HookResponse, err er
 	return hookRes, nil
 }
 
-func marshal(hookReq HookRequest) *pb.HookRequest {
+func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 	event := hookReq.Event
 
 	return &pb.HookRequest{
@@ -83,7 +87,7 @@ func getHeaders(httpHeader http.Header) (hookHeader map[string]string) {
 	return hookHeader
 }
 
-func unmarshal(res *pb.HookResponse) (hookRes HookResponse) {
+func unmarshal(res *pb.HookResponse) (hookRes hooks.HookResponse) {
 	hookRes.RejectUpload = res.RejectUpload
 	hookRes.StopUpload = res.StopUpload
 
