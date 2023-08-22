@@ -1,3 +1,9 @@
+// Package file provides a file-based hook implementation. A directory is specified, whose
+// files will be executed for specific hook events. When the pre-create events is emitted,
+// the file called pre-create will be executed, similar to Git hooks. If such a file does not
+// exist, the event will be ignored.
+// Information about the current upload and HTTP request is provided on stdin and in the
+// environment variables. By writing to stdout, the response from tusd can be influenced.
 package file
 
 import (

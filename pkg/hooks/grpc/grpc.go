@@ -1,3 +1,6 @@
+// Package grpc implements a gRPC-based hook system. For each hook event, the InvokeHook
+// procedure is invoked with additional details about the hook type, upload and request.
+// The Protocol Buffers are defined in github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto.
 package grpc
 
 import (

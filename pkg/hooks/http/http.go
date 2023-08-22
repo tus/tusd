@@ -1,3 +1,7 @@
+// Package http implements a HTTP-based hook system. For each hook event, it will send a
+// POST request to the specified endpoint. The body is a JSON-formatted object including
+// the hook type, upload and request information.
+// By responding with a JSON object, the response from tusd can be controlled.
 package http
 
 import (

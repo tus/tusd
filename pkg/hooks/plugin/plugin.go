@@ -1,3 +1,7 @@
+// Package plugin provides a hook system based on Hashicorp's plugin system. You can
+// write a plugin in many languages. The plugin is then executed as a separate process
+// and communicates with tusd over RPC. More details can be found at https://github.com/hashicorp/go-plugin.
+// An example for a Go-based plugin implementation is at github.com/tus/tusd/examples/hooks/plugin.
 package plugin
 
 import (

@@ -1,4 +1,20 @@
-// TODO: Documentation
+// Package hooks allows you to execute hooks based on events emitted from the tusd handler
+// using the callbacks and notification channels. The actual hook systems are implemented
+// in the subpackages and this package provides the glue betwen the tusd handler and the hook
+// system. For example, to use the HTTP-based hook system:
+//
+//	import (
+//		"github.com/tus/tusd/v2/pkg/handler"
+//		"github.com/tus/tusd/v2/pkg/hooks"
+//		"github.com/tus/tusd/v2/pkg/hooks/http"
+//	)
+//	config := handler.Config{}
+//	hookHandler := http.HttpHook{
+//		Endpoint: "https://example.com"
+//	}
+//	handler, err = hooks.NewHandlerWithHooks(&config, hookHandler, hooks.AvailableHooks)
+//
+// More details can be found in the documentation at github.com/tus/tusd/docs/hooks.md
 package hooks
 
 import (
