@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/tus/tusd/v2/pkg/hooks"
+	tusdplugin "github.com/tus/tusd/v2/pkg/hooks/plugin"
 )
 
 // Here is the implementation of our hook handler
@@ -74,7 +75,7 @@ func main() {
 
 	// 2. Construct the plugin map. The key must be "hookHandler".
 	var pluginMap = map[string]plugin.Plugin{
-		"hookHandler": &hooks.HookHandlerPlugin{Impl: myHandler},
+		"hookHandler": &tusdplugin.HookHandlerPlugin{Impl: myHandler},
 	}
 
 	// 3. Expose the plugin to tusd.
