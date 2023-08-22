@@ -23,6 +23,8 @@ type PluginHook struct {
 	handlerImpl hooks.HookHandler
 }
 
+// Setup initiates the connection to the plugin. Note: When the main process ends,
+// you must call CleanupClients() to ensure that the subprocess is properly cleaned up.
 func (h *PluginHook) Setup() error {
 	// We're a host! Start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
@@ -31,6 +33,8 @@ func (h *PluginHook) Setup() error {
 		Cmd:             exec.Command(h.Path),
 		SyncStdout:      os.Stdout,
 		SyncStderr:      os.Stderr,
+		// We use a managed client, so we can use plugin.CleanupClients() to shut it down.
+		Managed: true,
 		//Logger:          logger,
 	})
 	//defer client.Kill()
@@ -56,6 +60,12 @@ func (h *PluginHook) Setup() error {
 
 func (h *PluginHook) InvokeHook(req hooks.HookRequest) (hooks.HookResponse, error) {
 	return h.handlerImpl.InvokeHook(req)
+}
+
+// CleanupPlugins closes the connections to all plugins and ensures that their processes are
+// properly stopped. You must call this function when the main process exits.
+func CleanupPlugins() {
+	plugin.CleanupClients()
 }
 
 // handshakeConfigs are used to just do a basic handshake between

@@ -14,6 +14,7 @@ import (
 
 	tushandler "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
+	"github.com/tus/tusd/v2/pkg/hooks/plugin"
 )
 
 const (
@@ -235,6 +236,9 @@ func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan
 		} else {
 			stderr.Printf("Failed to shutdown gracefully: %s\n", err)
 		}
+
+		// Make sure that the plugins exit properly.
+		plugin.CleanupPlugins()
 
 		close(shutdownComplete)
 	}()
