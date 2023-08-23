@@ -74,6 +74,8 @@ type Config struct {
 	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
 	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
 	PreFinishResponseCallback func(hook HookEvent) (HTTPResponse, error)
+	// GracefulRequestCompletionDuration
+	GracefulRequestCompletionDuration time.Duration
 }
 
 func (config *Config) validate() error {
@@ -109,6 +111,10 @@ func (config *Config) validate() error {
 
 	if config.UploadProgressInterval <= 0 {
 		config.UploadProgressInterval = 1 * time.Second
+	}
+
+	if config.GracefulRequestCompletionDuration <= 0 {
+		config.GracefulRequestCompletionDuration = 10 * time.Second
 	}
 
 	return nil

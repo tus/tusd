@@ -233,7 +233,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			// will be ignored or interpreted as a rejection.
 			// For example, the Presto engine, which is used in older versions of
 			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
-			c := newContext(w, r)
+			c := handler.newContext(w, r)
 			handler.sendResp(c, HTTPResponse{
 				StatusCode: http.StatusOK,
 			})
@@ -244,7 +244,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// GET and HEAD methods are not checked since a browser may visit this URL and does
 		// not include this header. GET requests are not part of the specification.
 		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && isTusV1 {
-			c := newContext(w, r)
+			c := handler.newContext(w, r)
 			handler.sendError(c, ErrUnsupportedVersion)
 			return
 		}
@@ -262,7 +262,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Check for presence of application/offset+octet-stream. If another content
 	// type is defined, it will be ignored and treated as none was set because
@@ -429,7 +429,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
@@ -582,7 +582,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -669,7 +669,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
 
@@ -951,7 +951,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -1074,7 +1074,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {
