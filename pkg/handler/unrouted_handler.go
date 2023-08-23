@@ -851,10 +851,6 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// terminateUpload specifies whether the upload should be deleted after
 		// the write has finished
 		terminateUpload := false
-		var terminateUploadResponse HTTPResponse
-
-		// serverShutDown specifies whether the upload was stopped because the server closes down.
-		serverShutDown := false
 
 		go func() {
 			select {
@@ -867,14 +863,14 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 				// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
 				terminateUpload = true
-				terminateUploadResponse = resp
+
+				err := ErrUploadStoppedByServer
+				err.HTTPResponse = err.HTTPResponse.MergeWith(resp)
+				c.body.closeWithError(err)
 			case <-handler.serverCtx:
 				// serverCtx is closed if the server is being shut down
-				serverShutDown = true
+				c.body.closeWithError(ErrServerShutdown)
 			}
-
-			// interrupt the Read() calls from the request body
-			r.Body.Close()
 		}()
 
 		if handler.config.NotifyUploadProgress {
@@ -883,13 +879,6 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}
 
 		bytesWritten, err = upload.WriteChunk(c, offset, c.body)
-		if terminateUpload && handler.composer.UsesTerminater {
-			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
-				// We only log this error and not show it to the user since this
-				// termination error is not relevant to the uploading client
-				handler.logger.Error("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
-			}
-		}
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
 		// it in the response, if the store did not also return an error.
@@ -900,16 +889,13 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			}
 		}
 
-		// If the upload was stopped by the server, send an error response indicating this.
-		if terminateUpload {
-			stoppedErr := ErrUploadStoppedByServer
-			stoppedErr.HTTPResponse = stoppedErr.HTTPResponse.MergeWith(terminateUploadResponse)
-			err = stoppedErr
-		}
-
-		// If the server is closing down, send an error response indicating this.
-		if serverShutDown {
-			err = ErrServerShutdown
+		// Terminate the upload if it was stopped.
+		if terminateUpload && handler.composer.UsesTerminater {
+			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
+				// We only log this error and not show it to the user since this
+				// termination error is not relevant to the uploading client
+				handler.logger.Error("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+			}
 		}
 	}
 
@@ -1179,15 +1165,6 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 		err = ErrConnectionReset
 	}
 
-	// TODO: Decide if we should handle this in here, in body_reader or not at all.
-	// If the HTTP PATCH request gets interrupted in the middle (e.g. because
-	// the user wants to pause the upload), Go's net/http returns an io.ErrUnexpectedEOF.
-	// However, for the handler it's not important whether the stream has ended
-	// on purpose or accidentally.
-	//if err == io.ErrUnexpectedEOF {
-	//	err = nil
-	//}
-
 	// TODO: Decide if we want to ignore connection reset errors all together.
 	// In some cases, the HTTP connection gets reset by the other peer. This is not
 	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
@@ -1376,7 +1353,6 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	releaseLock := func() {
 		if c.body != nil {
 			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
-			// TODO: Consider replacing this with a channel or a context
 			c.body.closeWithError(ErrUploadInterrupted)
 		}
 	}
