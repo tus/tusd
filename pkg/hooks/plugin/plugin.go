@@ -15,9 +15,6 @@ import (
 	"github.com/tus/tusd/v2/pkg/hooks"
 )
 
-// TODO: When the tusd process stops, the plugin does not get properly killed
-// and lives on as a zombie process.
-
 type PluginHook struct {
 	Path string
 
