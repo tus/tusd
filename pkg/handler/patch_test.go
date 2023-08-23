@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -488,6 +489,71 @@ func TestPatch(t *testing.T) {
 			},
 			ReqBody: strings.NewReader("hello"),
 			Code:    http.StatusNoContent,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "RequestUnlock", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		// This test ensures that the handler will stop an onging write if another request wants the lock.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockFullLocker(ctrl)
+		lock := NewMockFullLock(ctrl)
+		upload := NewMockFullUpload(ctrl)
+
+		var requestReleaseFn func()
+
+		// Mock a typical data store. The lock's requestRelease function is exposed, so we can
+		// later call it. The WriteChunk mock simulates a real store, which waits until the source is closed
+		// instead of returning immediately.
+		gomock.InOrder(
+			locker.EXPECT().NewLock("yes").Return(lock, nil),
+			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Do(func(_ context.Context, requestRelease func()) {
+				requestReleaseFn = requestRelease
+			}).Return(nil),
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   20,
+			}, nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, src io.Reader) (int64, error) {
+				data, err := io.ReadAll(src)
+				if string(data) != "hello" {
+					panic("unexpected result of reading source")
+				}
+				return int64(len(data)), err
+			}),
+			lock.EXPECT().Unlock().Return(nil),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseLocker(locker)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		// Simulate an ongoing upload. The write must happen in a goroutine because
+		// io.PipeWriter.Write will block until a read operation occurs.
+		// After the write, we simulate that another request wants to acquire the lock.
+		reader, writer := io.Pipe()
+		go func() {
+			writer.Write([]byte("hello"))
+			requestReleaseFn()
+		}()
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusBadRequest,
+			ResBody: "ERR_UPLOAD_INTERRUPTED: upload has been interrupted by another request for this upload resource\n",
 		}).Run(handler, t)
 	})
 
