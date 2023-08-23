@@ -6,6 +6,19 @@ import (
 
 // HookEvent represents an event from tusd which can be handled by the application.
 type HookEvent struct {
+	// Context provides access to the context from the HTTP request. This context is
+	// not the exact value as the request context from http.Request.Context() but
+	// a similar context that retains the same values as the request context. In
+	// addition, Context will be cancelled after a short delay when the request context
+	// is done. This delay is controlled by Config.GracefulRequestCompletionDuration.
+	//
+	// The reason is that we want stores to be able to continue processing a request after
+	// its context has been cancelled. For example, assume a PATCH request is incoming. If
+	// the end-user pauses the upload, the connection is closed causing the request context
+	// to be cancelled immediately. However, we want the store to be able to save the last
+	// few bytes that were transmitted before the request was aborted. To allow this, we
+	// copy the request context but cancel it with a brief delay to give the data store
+	// time to finish its operations.
 	Context context.Context `json:"-"`
 	// Upload contains information about the upload that caused this hook
 	// to be fired.
