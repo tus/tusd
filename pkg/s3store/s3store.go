@@ -88,6 +88,7 @@ import (
 	"github.com/tus/tusd/v2/internal/semaphore"
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -1043,7 +1044,7 @@ func (store S3Store) listAllParts(ctx context.Context, id string) (parts []*s3Pa
 			return nil, err
 		}
 
-		// TODO: Find more efficient way when appending many elements
+		parts = slices.Grow(parts, len(parts)+len((*listPtr).Parts))
 		for _, part := range (*listPtr).Parts {
 			parts = append(parts, &s3Part{
 				number: *part.PartNumber,
