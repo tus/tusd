@@ -160,12 +160,17 @@ func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.R
 	if err != nil {
 		return 0, err
 	}
-	defer file.Close()
+	// Avoid the use of defer file.Close() here to ensure no errors are lost
+	// See https://github.com/tus/tusd/issues/698.
 
 	n, err := io.Copy(file, src)
-
 	upload.info.Offset += n
-	return n, err
+	if err != nil {
+		file.Close()
+		return n, err
+	}
+
+	return n, file.Close()
 }
 
 func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
@@ -187,7 +192,14 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		// Ensure that close error is propagated, if it occurs.
+		// See https://github.com/tus/tusd/issues/698.
+		cerr := file.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 
 	for _, partialUpload := range uploads {
 		fileUpload := partialUpload.(*fileUpload)

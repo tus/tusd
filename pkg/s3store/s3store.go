@@ -500,10 +500,9 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			upload.parts = append(upload.parts, part)
 
 			wg.Add(1)
-			go func(file io.ReadSeeker, part *s3Part, closePart func()) {
+			go func(file io.ReadSeeker, part *s3Part, closePart func() error) {
 				defer upload.store.releaseUploadSemaphore()
 				defer wg.Done()
-				defer closePart()
 
 				t := time.Now()
 				uploadPartInput := &s3.UploadPartInput{
@@ -519,16 +518,21 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 				} else {
 					part.etag = etag
 				}
+				if cerr := closePart(); cerr != nil && uploadErr == nil {
+					uploadErr = cerr
+				}
 			}(partfile, part, closePart)
 		} else {
 			wg.Add(1)
-			go func(file io.ReadSeeker, closePart func()) {
+			go func(file io.ReadSeeker, closePart func() error) {
 				defer upload.store.releaseUploadSemaphore()
 				defer wg.Done()
-				defer closePart()
 
 				if err := store.putIncompletePartForUpload(ctx, uploadId, file); err != nil {
 					uploadErr = err
+				}
+				if cerr := closePart(); cerr != nil && uploadErr == nil {
+					uploadErr = cerr
 				}
 				upload.incompletePartSize = partsize
 			}(partfile, closePart)

@@ -24,7 +24,7 @@ type s3PartProducer struct {
 
 type fileChunk struct {
 	reader      io.ReadSeeker
-	closeReader func()
+	closeReader func() error
 	size        int64
 }
 
@@ -116,9 +116,11 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 
 		return fileChunk{
 			reader: file,
-			closeReader: func() {
-				file.Close()
-				os.Remove(file.Name())
+			closeReader: func() error {
+				if err := file.Close(); err != nil {
+					return err
+				}
+				return os.Remove(file.Name())
 			},
 			size: n,
 		}, true, nil
@@ -148,7 +150,7 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 		return fileChunk{
 			// buf does not get written to anymore, so we can turn it into a reader
 			reader:      bytes.NewReader(buf.Bytes()),
-			closeReader: func() {},
+			closeReader: func() error { return nil },
 			size:        n,
 		}, true, nil
 	}
