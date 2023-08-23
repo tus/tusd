@@ -335,7 +335,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -379,7 +379,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.logger.Info("UploadCreated", "id", id, "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(info, r)
+		handler.CreatedUploads <- newHookEvent(c, info)
 	}
 
 	if isFinal {
@@ -391,7 +391,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(c, info)
 		}
 	}
 
@@ -482,7 +482,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// 1. Create upload resource
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -529,7 +529,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	handler.logger.Info("UploadCreated", "id", id, "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(info, r)
+		handler.CreatedUploads <- newHookEvent(c, info)
 	}
 
 	// 2. Lock upload
@@ -874,7 +874,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), c.body)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(c, info), c.body)
 			defer close(stopProgressEvents)
 		}
 
@@ -918,8 +918,6 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 // matches upload size) and if so, it will call the data store's FinishUpload
 // function and send the necessary message on the CompleteUpload channel.
 func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTPResponse, upload Upload, info FileInfo) (HTTPResponse, error) {
-	r := c.req
-
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow the data storage to finish and cleanup the upload
@@ -929,7 +927,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r))
+			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
 			if err != nil {
 				return resp, err
 			}
@@ -941,7 +939,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(c, info)
 		}
 	}
 
@@ -1138,7 +1136,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- newHookEvent(info, c.req)
+		handler.TerminatedUploads <- newHookEvent(c, info)
 	}
 
 	handler.logger.Info("UploadTerminated", "id", info.ID)

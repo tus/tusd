@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	. "github.com/tus/tusd/v2/pkg/handler"
 )
 
@@ -64,35 +65,48 @@ func (m contextCancelMatcher) String() string {
 
 func TestContext(t *testing.T) {
 	SubTest(t, "Value", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// This test ensures that values from the request's context are accessible in the store and hook events.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().GetUpload(contextValueMatcher{"hello", "world"}, "yes").Return(upload, nil),
+			store.EXPECT().NewUpload(contextValueMatcher{"hello", "world"}, FileInfo{
+				Size:     300,
+				MetaData: MetaData{},
+			}).Return(upload, nil),
 			upload.EXPECT().GetInfo(contextValueMatcher{"hello", "world"}).Return(FileInfo{
-				Offset: 10,
-				Size:   40,
+				ID:   "foo",
+				Size: 300,
 			}, nil),
 		)
 
 		handler, _ := NewHandler(Config{
-			StoreComposer: composer,
+			StoreComposer:        composer,
+			BasePath:             "https://buy.art/files/",
+			NotifyCreatedUploads: true,
 		})
+
+		c := make(chan HookEvent, 1)
+		handler.CreatedUploads = c
 
 		(&httpTest{
 			Context: context.WithValue(context.Background(), "hello", "world"),
-			Method:  "HEAD",
-			URL:     "yes",
+			Method:  "POST",
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "300",
 			},
-			Code: http.StatusOK,
+			Code: http.StatusCreated,
 			ResHeader: map[string]string{
-				"Upload-Offset": "10",
-				"Upload-Length": "40",
+				"Location": "https://buy.art/files/foo",
 			},
 		}).Run(handler, t)
+
+		// Check that the value is in the hook's context.
+		event := <-c
+		a := assert.New(t)
+		a.Equal("world", event.Context.Value("hello"))
 	})
 
 	SubTest(t, "Cancel", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
