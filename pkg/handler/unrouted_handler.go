@@ -233,7 +233,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			// will be ignored or interpreted as a rejection.
 			// For example, the Presto engine, which is used in older versions of
 			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
-			c := newContext(w, r)
+			c := handler.newContext(w, r)
 			handler.sendResp(c, HTTPResponse{
 				StatusCode: http.StatusOK,
 			})
@@ -244,7 +244,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// GET and HEAD methods are not checked since a browser may visit this URL and does
 		// not include this header. GET requests are not part of the specification.
 		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && isTusV1 {
-			c := newContext(w, r)
+			c := handler.newContext(w, r)
 			handler.sendError(c, ErrUnsupportedVersion)
 			return
 		}
@@ -262,7 +262,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Check for presence of application/offset+octet-stream. If another content
 	// type is defined, it will be ignored and treated as none was set because
@@ -335,7 +335,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -379,7 +379,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	handler.logger.Info("UploadCreated", "id", id, "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(info, r)
+		handler.CreatedUploads <- newHookEvent(c, info)
 	}
 
 	if isFinal {
@@ -391,7 +391,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(c, info)
 		}
 	}
 
@@ -429,7 +429,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
@@ -482,7 +482,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// 1. Create upload resource
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(info, r))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -529,7 +529,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	handler.logger.Info("UploadCreated", "id", id, "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(info, r)
+		handler.CreatedUploads <- newHookEvent(c, info)
 	}
 
 	// 2. Lock upload
@@ -582,7 +582,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -669,7 +669,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
 
@@ -874,7 +874,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}()
 
 		if handler.config.NotifyUploadProgress {
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(info, r), c.body)
+			stopProgressEvents := handler.sendProgressMessages(newHookEvent(c, info), c.body)
 			defer close(stopProgressEvents)
 		}
 
@@ -918,8 +918,6 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 // matches upload size) and if so, it will call the data store's FinishUpload
 // function and send the necessary message on the CompleteUpload channel.
 func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTPResponse, upload Upload, info FileInfo) (HTTPResponse, error) {
-	r := c.req
-
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		// ... allow the data storage to finish and cleanup the upload
@@ -929,7 +927,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(info, r))
+			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
 			if err != nil {
 				return resp, err
 			}
@@ -941,7 +939,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(info, r)
+			handler.CompleteUploads <- newHookEvent(c, info)
 		}
 	}
 
@@ -951,7 +949,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -1074,7 +1072,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := handler.newContext(w, r)
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {
@@ -1138,7 +1136,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- newHookEvent(info, c.req)
+		handler.TerminatedUploads <- newHookEvent(c, info)
 	}
 
 	handler.logger.Info("UploadTerminated", "id", info.ID)

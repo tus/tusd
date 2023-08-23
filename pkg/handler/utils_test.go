@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -44,7 +45,8 @@ type FullLock interface {
 }
 
 type httpTest struct {
-	Name string
+	Name    string
+	Context context.Context
 
 	Method string
 	URL    string
@@ -58,7 +60,11 @@ type httpTest struct {
 }
 
 func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
-	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
+	if test.Context == nil {
+		test.Context = context.Background()
+	}
+
+	req, _ := http.NewRequestWithContext(test.Context, test.Method, test.URL, test.ReqBody)
 	req.RequestURI = test.URL
 
 	// Add headers

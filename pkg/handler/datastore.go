@@ -107,6 +107,11 @@ type Upload interface {
 	FinishUpload(ctx context.Context) error
 }
 
+// DataStore is the base interface for storages to implement. It provides functions
+// to create new uploads and fetch existing ones.
+//
+// Note: the context values passed to all functions is not the request's context,
+// but a similar context. See HookEvent.Context for more details.
 type DataStore interface {
 	// Create a new upload using the size as the file's length. The method must
 	// return an unique id which is used to identify the upload. If no backend
