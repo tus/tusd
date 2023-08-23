@@ -600,7 +600,14 @@ func TestPatch(t *testing.T) {
 
 			event := <-c
 			info := event.Upload
-			info.StopUpload()
+			// Include a custom response
+			info.StopUpload(HTTPResponse{
+				StatusCode: http.StatusPaymentRequired,
+				Body:       "upload is stopped because you didn't pay",
+				Headers: HTTPHeaders{
+					"X-Foo": "bar",
+				},
+			})
 
 			// Wait a short time to ensure that the goroutine in the PATCH
 			// handler has received and processed the stop event.
@@ -624,11 +631,12 @@ func TestPatch(t *testing.T) {
 				"Upload-Offset": "0",
 			},
 			ReqBody: reader,
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusPaymentRequired,
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
+				"X-Foo":         "bar",
 			},
-			ResBody: "ERR_UPLOAD_STOPPED: upload has been stopped by server\n",
+			ResBody: "upload is stopped because you didn't pay",
 		}).Run(handler, t)
 
 		_, more := <-c

@@ -33,20 +33,20 @@ type FileInfo struct {
 	// store is used. This map may also be nil.
 	Storage map[string]string
 
-	// stopUpload is the cancel function for the upload's context.Context. When
-	// invoked it will interrupt the writes to DataStore#WriteChunk.
-	stopUpload context.CancelFunc
+	// stopUpload is a channel for communicating that an upload should by stopped
+	// and interrupt the writes to DataStore#WriteChunk.
+	stopUpload chan HTTPResponse
 }
 
-// StopUpload interrupts an running upload from the server-side. This means that
+// StopUpload interrupts a running upload from the server-side. This means that
 // the current request body is closed, so that the data store does not get any
 // more data. Furthermore, a response is sent to notify the client of the
 // interrupting and the upload is terminated (if supported by the data store),
-// so the upload cannot be resumed anymore.
-// TODO: Allow passing in a HTTP Response
-func (f FileInfo) StopUpload() {
+// so the upload cannot be resumed anymore. The response to the client can be
+// optionally modified by providing values in the HTTPResponse struct.
+func (f FileInfo) StopUpload(response HTTPResponse) {
 	if f.stopUpload != nil {
-		f.stopUpload()
+		f.stopUpload <- response
 	}
 }
 

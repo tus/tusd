@@ -843,25 +843,31 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// Limit the data read from the request's body to the allowed maximum
 		c.body = newBodyReader(r.Body, maxSize)
 
-		// We use a context object to allow the hook system to cancel an upload
-		uploadCtx, stopUpload := context.WithCancel(context.Background())
-		info.stopUpload = stopUpload
+		// We use a channel to allow the hook system to cancel an upload. The channel
+		// is closed, so that the goroutine can exit when the upload completes normally.
+		info.stopUpload = make(chan HTTPResponse)
+		defer close(info.stopUpload)
 
 		// terminateUpload specifies whether the upload should be deleted after
 		// the write has finished
 		terminateUpload := false
+		var terminateUploadResponse HTTPResponse
 
+		// serverShutDown specifies whether the upload was stopped because the server closes down.
 		serverShutDown := false
-
-		// Cancel the context when the function exits to ensure that the goroutine
-		// is properly cleaned up
-		defer stopUpload()
 
 		go func() {
 			select {
-			case <-uploadCtx.Done():
-				// uploadCtx is done if the upload is stopped by a post-receive hook
+			case resp, ok := <-info.stopUpload:
+				// If the channel is closed, the request completed (successfully or not) and so
+				// we can stop waiting on the channels.
+				if !ok {
+					return
+				}
+
+				// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
 				terminateUpload = true
+				terminateUploadResponse = resp
 			case <-handler.serverCtx:
 				// serverCtx is closed if the server is being shut down
 				serverShutDown = true
@@ -895,9 +901,10 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}
 
 		// If the upload was stopped by the server, send an error response indicating this.
-		// TODO: Include a custom reason for the end user why the upload was stopped.
 		if terminateUpload {
-			err = ErrUploadStoppedByServer
+			stoppedErr := ErrUploadStoppedByServer
+			stoppedErr.HTTPResponse = stoppedErr.HTTPResponse.MergeWith(terminateUploadResponse)
+			err = stoppedErr
 		}
 
 		// If the server is closing down, send an error response indicating this.

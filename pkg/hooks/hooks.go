@@ -139,8 +139,7 @@ func postReceiveCallback(event handler.HookEvent, hookHandler HookHandler) {
 	if hookRes.StopUpload {
 		slog.Info("HookStopUpload", "id", event.Upload.ID)
 
-		// TODO: Control response for PATCH request
-		event.Upload.StopUpload()
+		event.Upload.StopUpload(hookRes.HTTPResponse)
 	}
 }
 
