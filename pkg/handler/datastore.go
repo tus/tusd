@@ -81,29 +81,23 @@ type FileInfoChanges struct {
 type Upload interface {
 	// Write the chunk read from src into the file specified by the id at the
 	// given offset. The handler will take care of validating the offset and
-	// limiting the size of the src to not overflow the file's size. It may
-	// return an os.ErrNotExist which will be interpreted as a 404 Not Found.
-	// It will also lock resources while they are written to ensure only one
+	// limiting the size of the src to not overflow the file's size.
+	// The handler will also lock resources while they are written to ensure only one
 	// write happens per time.
 	// The function call must return the number of bytes written.
 	WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error)
 	// Read the fileinformation used to validate the offset and respond to HEAD
-	// requests. It may return an os.ErrNotExist which will be interpreted as a
-	// 404 Not Found.
+	// requests.
 	GetInfo(ctx context.Context) (FileInfo, error)
 	// GetReader returns an io.ReadCloser which allows iterating of the content of an
-	// upload specified by its ID. It should attempt to provide a reader even if
-	// the upload has not been finished yet but it's not required.
-	// If the given upload could not be found, the error tusd.ErrNotFound should
-	// be returned.
+	// upload. It should attempt to provide a reader even if the upload has not
+	// been finished yet but it's not required.
 	GetReader(ctx context.Context) (io.ReadCloser, error)
 	// FinisherDataStore is the interface which can be implemented by DataStores
 	// which need to do additional operations once an entire upload has been
 	// completed. These tasks may include but are not limited to freeing unused
 	// resources or notifying other services. For example, S3Store uses this
 	// interface for removing a temporary object.
-	// FinishUpload executes additional operations for the finished upload which
-	// is specified by its ID.
 	FinishUpload(ctx context.Context) error
 }
 
@@ -119,12 +113,14 @@ type DataStore interface {
 	// generate one. The properties Size and MetaData will be filled.
 	NewUpload(ctx context.Context, info FileInfo) (upload Upload, err error)
 
+	// GetUpload fetches the upload with a given ID. If no such upload can be found,
+	// ErrNotFound must be returned.
 	GetUpload(ctx context.Context, id string) (upload Upload, err error)
 }
 
 type TerminatableUpload interface {
-	// Terminate an upload so any further requests to the resource, both reading
-	// and writing, must return os.ErrNotExist or similar.
+	// Terminate an upload so any further requests to the upload resource will
+	// return the ErrNotFound error.
 	Terminate(ctx context.Context) error
 }
 
