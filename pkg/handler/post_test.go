@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -587,7 +588,7 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			(&httpTest{
+			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
@@ -596,14 +597,25 @@ func TestPost(t *testing.T) {
 					"Content-Disposition":          "attachment; filename=hello.txt",
 				},
 				ReqBody: strings.NewReader("hello world"),
-				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
-				Code: 104,
+				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
 			}).Run(handler, t)
+
+			a := assert.New(t)
+			a.Equal([]httptestrecorder.InformationalResponse{
+				{
+					Code: 104,
+					Header: http.Header{
+						"Upload-Draft-Interop-Version": []string{"3"},
+						"Location":                     []string{"http://tus.io/files/foo"},
+						"X-Content-Type-Options":       []string{"nosniff"},
+					},
+				},
+			}, res.InformationalResponses)
 		})
 
 		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -639,21 +651,32 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			(&httpTest{
+			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Incomplete":            "?1",
 				},
 				ReqBody: strings.NewReader("hello world"),
-				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
-				Code: 104,
+				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
 			}).Run(handler, t)
+
+			a := assert.New(t)
+			a.Equal([]httptestrecorder.InformationalResponse{
+				{
+					Code: 104,
+					Header: http.Header{
+						"Upload-Draft-Interop-Version": []string{"3"},
+						"Location":                     []string{"http://tus.io/files/foo"},
+						"X-Content-Type-Options":       []string{"nosniff"},
+					},
+				},
+			}, res.InformationalResponses)
 		})
 	})
 }

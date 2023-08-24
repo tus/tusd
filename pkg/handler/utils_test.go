@@ -6,10 +6,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"testing"
 
+	"github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
@@ -59,7 +59,7 @@ type httpTest struct {
 	ResHeader map[string]string
 }
 
-func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
+func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptestrecorder.ResponseRecorder {
 	if test.Context == nil {
 		test.Context = context.Background()
 	}
@@ -73,7 +73,9 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	}
 
 	req.Host = "tus.io"
-	w := httptest.NewRecorder()
+	// We use a fork of the ResponseRecorder to get support for 1XX informational responses.
+	// See https://github.com/Acconut/go-httptest-recorder
+	w := httptestrecorder.NewRecorder()
 	handler.ServeHTTP(w, req)
 
 	if w.Code != test.Code {
