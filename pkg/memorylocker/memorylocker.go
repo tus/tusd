@@ -60,7 +60,6 @@ func (lock memoryLock) Lock(ctx context.Context, requestRelease func()) error {
 
 requestRelease:
 	if ok {
-		// TODO: Make this channel?
 		entry.requestRelease()
 		select {
 		case <-ctx.Done():
