@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -1349,14 +1348,14 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	// TODO: Make lock timeout configurable
 	ctx, cancelContext := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancelContext()
-	releaseLock := sync.OnceFunc(func() {
-		// We use sync.OnceFunc to make sure this only gets called once, which should be enough.
-		// This also helps against race conditions with duplicate, concurrent invokations.
+
+	// TODO: Wrap this in sync.OnceFunc if we upgrade to Go 1.21
+	releaseLock := func() {
 		if c.body != nil {
 			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
 			c.body.closeWithError(ErrUploadInterrupted)
 		}
-	})
+	}
 
 	if err := lock.Lock(ctx, releaseLock); err != nil {
 		return nil, err
