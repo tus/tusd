@@ -28,32 +28,32 @@ func (g *MyHookHandler) Setup() error {
 func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err error) {
 	log.Println("MyHookHandler.InvokeHook is invoked")
 
-	// Prepare hook response structure
-	res.HTTPResponse.Headers = make(map[string]string)
+	// // Prepare hook response structure
+	// res.HTTPResponse.Headers = make(map[string]string)
 
-	// Example: Use the pre-create hook to check if a filename has been supplied
-	// using metadata. If not, the upload is rejected with a custom HTTP response.
+	// // Example: Use the pre-create hook to check if a filename has been supplied
+	// // using metadata. If not, the upload is rejected with a custom HTTP response.
 
-	if req.Type == hooks.HookPreCreate {
-		if _, ok := req.Event.Upload.MetaData["filename"]; !ok {
-			res.RejectUpload = true
-			res.HTTPResponse.StatusCode = 400
-			res.HTTPResponse.Body = "no filename provided"
-			res.HTTPResponse.Headers["X-Some-Header"] = "yes"
-		}
-	}
+	// if req.Type == hooks.HookPreCreate {
+	// 	if _, ok := req.Event.Upload.MetaData["filename"]; !ok {
+	// 		res.RejectUpload = true
+	// 		res.HTTPResponse.StatusCode = 400
+	// 		res.HTTPResponse.Body = "no filename provided"
+	// 		res.HTTPResponse.Headers["X-Some-Header"] = "yes"
+	// 	}
+	// }
 
-	// Example: Use the post-finish hook to print information about a completed upload,
-	// including its storage location.
-	if req.Type == hooks.HookPreFinish {
-		id := req.Event.Upload.ID
-		size := req.Event.Upload.Size
-		storage := req.Event.Upload.Storage
+	// // Example: Use the post-finish hook to print information about a completed upload,
+	// // including its storage location.
+	// if req.Type == hooks.HookPreFinish {
+	// 	id := req.Event.Upload.ID
+	// 	size := req.Event.Upload.Size
+	// 	storage := req.Event.Upload.Storage
 
-		log.Printf("Upload %s (%d bytes) is finished. Find the file at:\n", id, size)
-		log.Println(storage)
+	// 	log.Printf("Upload %s (%d bytes) is finished. Find the file at:\n", id, size)
+	// 	log.Println(storage)
 
-	}
+	// }
 
 	// Return the hook response to tusd.
 	return res, nil

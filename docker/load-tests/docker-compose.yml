@@ -1,0 +1,68 @@
+version: "3.9"
+
+# TODO:
+# - Add service for monitoring tusd
+# - Add hooks
+# - Use similar configuration as api2
+
+services:
+  s3:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    # Note: Data directory is not persistent on purpose
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2"
+
+  createbucket:
+    image: minio/mc
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add s3 http://s3:9000 minioadmin minioadmin;
+      /usr/bin/mc mb --ignore-existing s3/tusdtest.transloadit.com;
+      sleep infinity;
+      "
+    depends_on:
+      - s3
+
+  tusd:
+    build: ../../
+    ports:
+      - "1080:1080"
+    # entrypoint: file /srv/tusdhook/hook_handler
+    entrypoint: tusd -s3-bucket "tusdtest.transloadit.com" -s3-endpoint "http://s3:9000" -hooks-plugin=/usr/local/bin/hooks_handler -hooks-enabled-events=pre-create,post-create,post-receive,post-finish -progress-hooks-interval=3000 -max-size=128849018880 -timeout=60000 -s3-disable-content-hashes=true -s3-disable-ssl=true -s3-concurrent-part-uploads=48 -s3-max-buffered-parts=1
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    depends_on:
+      - s3
+      - createbucket
+    volumes:
+      - ../../examples/hooks/plugin:/srv/tusdhook
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+
+  uploader:
+    build: ./uploader
+    #   10 MiB: 10485760
+    #  100 MiB: 104857600
+    # 1000 MiB: 1048576000
+    command: 10485760 50 /dev/shm
+    tmpfs:
+      - /dev/shm
+    depends_on:
+      - tusd
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "1"

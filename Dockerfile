@@ -14,6 +14,7 @@ RUN set -xe \
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY pkg/ ./pkg/
+COPY examples/ ./examples/
 
 # Get the version name and git commit as a build argument
 ARG GIT_VERSION
@@ -27,6 +28,10 @@ RUN set -xe \
 	&& GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
         -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o /go/bin/tusd ./cmd/tusd/main.go
+
+RUN set -xe \
+    && GOOS=linux GOARCH=amd64 go build \
+        -o /go/bin/hooks_handler ./examples/hooks/plugin/hook_handler.go
 
 # start a new stage that copies in the binary built in the previous stage
 FROM alpine:3.18.2
@@ -43,6 +48,7 @@ RUN apk add --no-cache ca-certificates jq bash \
     && chmod +x /usr/local/share/docker-entrypoint.sh /usr/local/share/load-env.sh
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
+COPY --from=builder /go/bin/hooks_handler /usr/local/bin/hooks_handler
 
 EXPOSE 1080
 USER tusd
