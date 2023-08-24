@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/tus/tusd/v2/pkg/azurestore"
+	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/gcsstore"
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -75,7 +76,6 @@ func CreateComposer() {
 		locker.UseIn(Composer)
 
 		// Attach the metrics from S3 store to the global Prometheus registry
-		// TODO: Do not use the global registry here.
 		store.RegisterMetrics(prometheus.DefaultRegisterer)
 	} else if Flags.GCSBucket != "" {
 		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
@@ -161,9 +161,7 @@ func CreateComposer() {
 		store := filestore.New(dir)
 		store.UseIn(Composer)
 
-		// TODO: Do not use filelocker here, because it does not implement the lock
-		// release mechanism yet.
-		locker := memorylocker.New()
+		locker := filelocker.New(dir)
 		locker.UseIn(Composer)
 	}
 
