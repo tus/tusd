@@ -13,7 +13,6 @@ type Config struct {
 	// StoreComposer points to the store composer from which the core data store
 	// and optional dependencies should be taken. May only be nil if DataStore is
 	// set.
-	// TODO: Remove pointer?
 	StoreComposer *StoreComposer
 	// MaxSize defines how many bytes may be stored in one single upload. If its
 	// value is is 0 or smaller no limit will be enforced.
