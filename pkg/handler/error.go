@@ -24,7 +24,7 @@ func NewError(errCode string, message string, statusCode int) Error {
 		HTTPResponse: HTTPResponse{
 			StatusCode: statusCode,
 			Body:       errCode + ": " + message + "\n",
-			Headers: HTTPHeaders{
+			Header: HTTPHeader{
 				"Content-Type": "text/plain; charset=utf-8",
 			},
 		},

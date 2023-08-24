@@ -17,7 +17,7 @@ type HTTPRequest struct {
 	Header http.Header
 }
 
-type HTTPHeaders map[string]string
+type HTTPHeader map[string]string
 
 // HTTPResponse contains basic details of an outgoing HTTP response.
 type HTTPResponse struct {
@@ -25,15 +25,14 @@ type HTTPResponse struct {
 	StatusCode int
 	// Body is the response body.
 	Body string
-	// Headers contains additional HTTP headers for the response.
-	// TODO: Uniform naming with HTTPRequest.Header
-	Headers HTTPHeaders
+	// Header contains additional HTTP headers for the response.
+	Header HTTPHeader
 }
 
 // writeTo writes the HTTP response into w, as specified by the fields in resp.
 func (resp HTTPResponse) writeTo(w http.ResponseWriter) {
 	headers := w.Header()
-	for key, value := range resp.Headers {
+	for key, value := range resp.Header {
 		headers.Set(key, value)
 	}
 
@@ -66,14 +65,14 @@ func (resp1 HTTPResponse) MergeWith(resp2 HTTPResponse) HTTPResponse {
 
 	// For the headers, me must make a new map to avoid writing
 	// into the header map from response 1.
-	newResp.Headers = make(HTTPHeaders, len(resp1.Headers)+len(resp2.Headers))
+	newResp.Header = make(HTTPHeader, len(resp1.Header)+len(resp2.Header))
 
-	for key, value := range resp1.Headers {
-		newResp.Headers[key] = value
+	for key, value := range resp1.Header {
+		newResp.Header[key] = value
 	}
 
-	for key, value := range resp2.Headers {
-		newResp.Headers[key] = value
+	for key, value := range resp2.Header {
+		newResp.Header[key] = value
 	}
 
 	return newResp

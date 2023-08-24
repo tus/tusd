@@ -45,7 +45,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	response := handler.HTTPResponse{
 		StatusCode: 200,
 		Body:       "foobar",
-		Headers: handler.HTTPHeaders{
+		Header: handler.HTTPHeader{
 			"X-Hello": "here",
 		},
 	}
@@ -129,7 +129,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		HTTPResponse: handler.HTTPResponse{
 			StatusCode: 200,
 			Body:       "foobar",
-			Headers: handler.HTTPHeaders{
+			Header: handler.HTTPHeader{
 				"X-Hello":      "here",
 				"Content-Type": "text/plain; charset=utf-8",
 			},

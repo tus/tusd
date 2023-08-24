@@ -29,7 +29,7 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 	log.Println("MyHookHandler.InvokeHook is invoked")
 
 	// Prepare hook response structure
-	res.HTTPResponse.Headers = make(map[string]string)
+	res.HTTPResponse.Header = make(map[string]string)
 
 	// Example: Use the pre-create hook to check if a filename has been supplied
 	// using metadata. If not, the upload is rejected with a custom HTTP response.
@@ -39,7 +39,7 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 			res.RejectUpload = true
 			res.HTTPResponse.StatusCode = 400
 			res.HTTPResponse.Body = "no filename provided"
-			res.HTTPResponse.Headers["X-Some-Header"] = "yes"
+			res.HTTPResponse.Header["X-Some-Header"] = "yes"
 		}
 	}
 

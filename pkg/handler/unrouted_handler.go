@@ -332,7 +332,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	resp := HTTPResponse{
 		StatusCode: http.StatusCreated,
-		Headers:    HTTPHeaders{},
+		Header:     HTTPHeader{},
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
@@ -374,7 +374,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// Add the Location header directly after creating the new resource to even
 	// include it in cases of failure when an error is returned
 	url := handler.absFileURL(r, id)
-	resp.Headers["Location"] = url
+	resp.Header["Location"] = url
 
 	handler.Metrics.incUploadsCreated()
 	handler.logger.Info("UploadCreated", "id", id, "size", size, "url", url)
@@ -478,7 +478,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	resp := HTTPResponse{
 		StatusCode: http.StatusCreated,
-		Headers:    HTTPHeaders{},
+		Header:     HTTPHeader{},
 	}
 
 	// 1. Create upload resource
@@ -518,7 +518,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	id := info.ID
 	url := handler.absFileURL(r, id)
-	resp.Headers["Location"] = url
+	resp.Header["Location"] = url
 
 	// Send 104 response
 	w.Header().Set("Location", url)
@@ -614,7 +614,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	resp := HTTPResponse{
-		Headers: HTTPHeaders{
+		Header: HTTPHeader{
 			"Cache-Control": "no-store",
 			"Upload-Offset": strconv.FormatInt(info.Offset, 10),
 		},
@@ -623,7 +623,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	if !handler.isResumableUploadDraftRequest(r) {
 		// Add Upload-Concat header if possible
 		if info.IsPartial {
-			resp.Headers["Upload-Concat"] = "partial"
+			resp.Header["Upload-Concat"] = "partial"
 		}
 
 		if info.IsFinal {
@@ -634,18 +634,18 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			// Remove trailing space
 			v = v[:len(v)-1]
 
-			resp.Headers["Upload-Concat"] = v
+			resp.Header["Upload-Concat"] = v
 		}
 
 		if len(info.MetaData) != 0 {
-			resp.Headers["Upload-Metadata"] = SerializeMetadataHeader(info.MetaData)
+			resp.Header["Upload-Metadata"] = SerializeMetadataHeader(info.MetaData)
 		}
 
 		if info.SizeIsDeferred {
-			resp.Headers["Upload-Defer-Length"] = UploadLengthDeferred
+			resp.Header["Upload-Defer-Length"] = UploadLengthDeferred
 		} else {
-			resp.Headers["Upload-Length"] = strconv.FormatInt(info.Size, 10)
-			resp.Headers["Content-Length"] = strconv.FormatInt(info.Size, 10)
+			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
 		// TODO: We send a 200 OK here by default. Can we switch this to 204?
@@ -653,12 +653,12 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	} else {
 		if !info.SizeIsDeferred && info.Offset == info.Size {
 			// Upload is complete if we know the size and it matches the offset.
-			resp.Headers["Upload-Incomplete"] = "?0"
+			resp.Header["Upload-Incomplete"] = "?0"
 		} else {
-			resp.Headers["Upload-Incomplete"] = "?1"
+			resp.Header["Upload-Incomplete"] = "?1"
 		}
 
-		resp.Headers["Upload-Draft-Interop-Version"] = currentUploadDraftInteropVersion
+		resp.Header["Upload-Draft-Interop-Version"] = currentUploadDraftInteropVersion
 
 		// Draft requires a 204 No Content response
 		resp.StatusCode = http.StatusNoContent
@@ -732,12 +732,12 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 	resp := HTTPResponse{
 		StatusCode: http.StatusNoContent,
-		Headers:    make(HTTPHeaders, 1), // Initialize map, so writeChunk can set the Upload-Offset header.
+		Header:     make(HTTPHeader, 1), // Initialize map, so writeChunk can set the Upload-Offset header.
 	}
 
 	// Do not proxy the call to the data store if the upload is already completed
 	if !info.SizeIsDeferred && info.Offset == info.Size {
-		resp.Headers["Upload-Offset"] = strconv.FormatInt(offset, 10)
+		resp.Header["Upload-Offset"] = strconv.FormatInt(offset, 10)
 		handler.sendResp(c, resp)
 		return
 	}
@@ -908,7 +908,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
-	resp.Headers["Upload-Offset"] = strconv.FormatInt(newOffset, 10)
+	resp.Header["Upload-Offset"] = strconv.FormatInt(newOffset, 10)
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
@@ -983,7 +983,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
-		Headers: HTTPHeaders{
+		Header: HTTPHeader{
 			"Content-Length":      strconv.FormatInt(info.Offset, 10),
 			"Content-Type":        contentType,
 			"Content-Disposition": contentDisposition,

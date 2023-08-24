@@ -71,13 +71,13 @@ func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 				Method:     event.HTTPRequest.Method,
 				Uri:        event.HTTPRequest.URI,
 				RemoteAddr: event.HTTPRequest.RemoteAddr,
-				Header:     getHeaders(event.HTTPRequest.Header),
+				Header:     getHeader(event.HTTPRequest.Header),
 			},
 		},
 	}
 }
 
-func getHeaders(httpHeader http.Header) (hookHeader map[string]string) {
+func getHeader(httpHeader http.Header) (hookHeader map[string]string) {
 	hookHeader = make(map[string]string)
 	for key, val := range httpHeader {
 		if key != "" && val != nil && len(val) > 0 {
@@ -94,7 +94,7 @@ func unmarshal(res *pb.HookResponse) (hookRes hooks.HookResponse) {
 	httpRes := res.HttpResponse
 	if httpRes != nil {
 		hookRes.HTTPResponse.StatusCode = int(httpRes.StatusCode)
-		hookRes.HTTPResponse.Headers = httpRes.Headers
+		hookRes.HTTPResponse.Header = httpRes.Header
 		hookRes.HTTPResponse.Body = httpRes.Body
 	}
 

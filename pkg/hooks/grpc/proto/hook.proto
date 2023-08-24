@@ -136,8 +136,8 @@ message HookResponse {
 message HTTPResponse {
 	// StatusCode is status code, e.g. 200 or 400.
 	int64 statusCode = 1;
-	// Headers contains additional HTTP headers for the response.
-	map <string, string> headers = 2;
+	// Header contains additional HTTP headers for the response.
+	map <string, string> header = 2;
 	// Body is the response body.
 	string body = 3;
 }

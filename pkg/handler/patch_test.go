@@ -670,7 +670,7 @@ func TestPatch(t *testing.T) {
 			info.StopUpload(HTTPResponse{
 				StatusCode: http.StatusPaymentRequired,
 				Body:       "upload is stopped because you didn't pay",
-				Headers: HTTPHeaders{
+				Header: HTTPHeader{
 					"X-Foo": "bar",
 				},
 			})
