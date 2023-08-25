@@ -34,16 +34,11 @@ func CreateComposer() {
 			s3Config = s3Config.WithS3UseAccelerate(true)
 		}
 
-		if Flags.S3DisableContentHashes {
-			// Prevent the S3 service client from automatically
-			// adding the Content-MD5 header to S3 Object Put and Upload API calls.
-			//
-			// Note: For now, we do not set S3DisableContentMD5Validation because when terminating an upload,
-			// a signature is required. If not present, S3 will complain:
-			// InvalidRequest: Missing required header for this request: Content-MD5 OR x-amz-checksum-*
-			// So for now, this flag will only cause hashes to be disabled for the UploadPart operation (see s3store.go).
-			//s3Config = s3Config.WithS3DisableContentMD5Validation(true)
-		}
+		// Note: We do not set s3Config.WithS3DisableContentMD5Validation(true) based
+		// on Flags.S3DisableContentHashes here because when terminating an upload,
+		// a signature is required. If not present, S3 will complain:
+		// InvalidRequest: Missing required header for this request: Content-MD5 OR x-amz-checksum-*
+		// So for now, this flag will only cause hashes to be disabled for the UploadPart operation (see s3store.go).
 
 		if Flags.S3DisableSSL {
 			// Disable HTTPS and only use HTTP (helpful for debugging requests).

@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -297,7 +298,7 @@ func TestGetInfo(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -368,7 +369,7 @@ func TestGetInfoWithMetadataObjectPrefix(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("my/metadata/uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -438,7 +439,7 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -474,7 +475,7 @@ func TestGetInfoFinished(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -508,7 +509,7 @@ func TestGetReader(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`hello world`))),
 	}, nil)
 
 	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
@@ -516,7 +517,7 @@ func TestGetReader(t *testing.T) {
 
 	content, err := upload.GetReader(context.Background())
 	assert.Nil(err)
-	assert.Equal(ioutil.NopCloser(bytes.NewReader([]byte(`hello world`))), content)
+	assert.Equal(io.NopCloser(bytes.NewReader([]byte(`hello world`))), content)
 }
 
 func TestGetReaderNotFound(t *testing.T) {
@@ -591,7 +592,7 @@ func TestDeclareLength(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -634,7 +635,7 @@ func TestFinishUpload(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":400,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":400,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -722,7 +723,7 @@ func TestWriteChunk(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -802,7 +803,7 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -859,7 +860,7 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":5,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":5,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -880,7 +881,7 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.GetObjectOutput{
 		ContentLength: aws.Int64(3),
-		Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
+		Body:          io.NopCloser(bytes.NewReader([]byte("123"))),
 	}, nil)
 	s3obj.EXPECT().DeleteObjectWithContext(context.Background(), &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
@@ -931,7 +932,7 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":10,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":10,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -950,7 +951,7 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.GetObjectOutput{
 		ContentLength: aws.Int64(3),
-		Body:          ioutil.NopCloser(bytes.NewReader([]byte("123"))),
+		Body:          io.NopCloser(bytes.NewReader([]byte("123"))),
 	}, nil)
 	s3obj.EXPECT().DeleteObjectWithContext(context.Background(), &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
@@ -993,7 +994,7 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -1258,19 +1259,19 @@ func TestConcatUploadsUsingDownload(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("aaa"),
 		}).Return(&s3.GetObjectOutput{
-			Body: ioutil.NopCloser(bytes.NewReader([]byte("aaa"))),
+			Body: io.NopCloser(bytes.NewReader([]byte("aaa"))),
 		}, nil),
 		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("bbb"),
 		}).Return(&s3.GetObjectOutput{
-			Body: ioutil.NopCloser(bytes.NewReader([]byte("bbbb"))),
+			Body: io.NopCloser(bytes.NewReader([]byte("bbbb"))),
 		}, nil),
 		s3obj.EXPECT().GetObjectWithContext(context.Background(), &s3.GetObjectInput{
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("ccc"),
 		}).Return(&s3.GetObjectOutput{
-			Body: ioutil.NopCloser(bytes.NewReader([]byte("ccccc"))),
+			Body: io.NopCloser(bytes.NewReader([]byte("ccccc"))),
 		}, nil),
 		s3obj.EXPECT().PutObjectWithContext(context.Background(), NewPutObjectInputMatcher(&s3.PutObjectInput{
 			Bucket: aws.String("bucket"),
@@ -1320,7 +1321,7 @@ func (s s3APIWithTempFileAssertion) UploadPartWithContext(context.Context, *s3.U
 	assert := s.assert
 
 	// Make sure that there are temporary files from tusd in here.
-	files, err := ioutil.ReadDir(s.tempDir)
+	files, err := os.ReadDir(s.tempDir)
 	assert.Nil(err)
 	for _, file := range files {
 		assert.True(strings.HasPrefix(file.Name(), "tusd-s3-tmp-"))
@@ -1346,7 +1347,7 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	assert := assert.New(t)
 
 	// Create a temporary directory, so no files get mixed in.
-	tempDir, err := ioutil.TempDir("", "tusd-s3-cleanup-tests-")
+	tempDir, err := os.MkdirTemp("", "tusd-s3-cleanup-tests-")
 	assert.Nil(err)
 
 	s3obj := NewMockS3API(mockCtrl)
@@ -1368,7 +1369,7 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":14,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":14,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":null}`))),
 	}, nil)
 	s3obj.EXPECT().ListPartsWithContext(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -1393,7 +1394,7 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	assert.Equal(err.Error(), "not now")
 	assert.Equal(int64(0), bytesRead)
 
-	files, err := ioutil.ReadDir(tempDir)
+	files, err := os.ReadDir(tempDir)
 	assert.Nil(err)
 	assert.Equal(len(files), 0)
 }

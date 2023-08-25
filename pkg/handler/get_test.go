@@ -20,7 +20,7 @@ func (reader *closingStringReader) Close() error {
 }
 
 func TestGet(t *testing.T) {
-	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "Download", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 		reader := &closingStringReader{
 			Reader: strings.NewReader("hello"),
 		}
@@ -47,7 +47,7 @@ func TestGet(t *testing.T) {
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
-		composer = NewStoreComposer()
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 

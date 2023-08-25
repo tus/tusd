@@ -55,7 +55,7 @@ func New(metrics handler.Metrics) Collector {
 	}
 }
 
-func (_ Collector) Describe(descs chan<- *prometheus.Desc) {
+func (Collector) Describe(descs chan<- *prometheus.Desc) {
 	descs <- requestsTotalDesc
 	descs <- errorsTotalDesc
 	descs <- bytesReceivedDesc

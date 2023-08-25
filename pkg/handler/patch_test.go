@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -286,7 +285,7 @@ func TestPatch(t *testing.T) {
 		// http.NewRequest() will detect the we supply a strings.Reader as body
 		// and use this information to set the Content-Length header which we
 		// explicitly do not want (see comment above for reason).
-		body := ioutil.NopCloser(strings.NewReader("hellothisismorethan15bytes"))
+		body := io.NopCloser(strings.NewReader("hellothisismorethan15bytes"))
 
 		(&httpTest{
 			Method: "PATCH",
@@ -451,7 +450,7 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "Locker", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockFullLocker(ctrl)
@@ -471,7 +470,7 @@ func TestPatch(t *testing.T) {
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
-		composer = NewStoreComposer()
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 

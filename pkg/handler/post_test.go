@@ -396,8 +396,8 @@ func TestPost(t *testing.T) {
 		})
 	})
 
-	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -426,7 +426,7 @@ func TestPost(t *testing.T) {
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
@@ -546,7 +546,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -578,7 +578,7 @@ func TestPost(t *testing.T) {
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
@@ -618,7 +618,7 @@ func TestPost(t *testing.T) {
 			}, res.InformationalResponses)
 		})
 
-		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -640,7 +640,7 @@ func TestPost(t *testing.T) {
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 			composer.UseLengthDeferrer(store)

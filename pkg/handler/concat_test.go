@@ -12,8 +12,8 @@ import (
 )
 
 func TestConcat(t *testing.T) {
-	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		composer = NewStoreComposer()
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseConcater(store)
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	tusdplugin "github.com/tus/tusd/v2/pkg/hooks/plugin"
@@ -12,7 +11,6 @@ import (
 
 // Here is the implementation of our hook handler
 type MyHookHandler struct {
-	logger hclog.Logger
 }
 
 // Setup is called once the plugin has been loaded by tusd.

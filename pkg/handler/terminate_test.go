@@ -11,8 +11,8 @@ import (
 )
 
 func TestTerminate(t *testing.T) {
-	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		composer = NewStoreComposer()
+	SubTest(t, "ExtensionDiscovery", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseTerminater(store)
 
@@ -29,7 +29,7 @@ func TestTerminate(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "Termination", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockFullLocker(ctrl)
@@ -49,7 +49,7 @@ func TestTerminate(t *testing.T) {
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
-		composer = NewStoreComposer()
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseTerminater(store)
 		composer.UseLocker(locker)
@@ -83,8 +83,8 @@ func TestTerminate(t *testing.T) {
 		a.Equal("foo", req.URI)
 	})
 
-	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		composer = NewStoreComposer()
+	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 
 		handler, _ := NewUnroutedHandler(Config{

@@ -66,16 +66,21 @@ func (m contextCancelMatcher) String() string {
 func TestContext(t *testing.T) {
 	SubTest(t, "Value", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		// This test ensures that values from the request's context are accessible in the store and hook events.
+
+		// Define a custom type for the key, as recommended for context values
+		type keyType string
+		testKey := keyType("hello")
+
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().NewUpload(contextValueMatcher{"hello", "world"}, FileInfo{
+			store.EXPECT().NewUpload(contextValueMatcher{testKey, "world"}, FileInfo{
 				Size:     300,
 				MetaData: MetaData{},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(contextValueMatcher{"hello", "world"}).Return(FileInfo{
+			upload.EXPECT().GetInfo(contextValueMatcher{testKey, "world"}).Return(FileInfo{
 				ID:   "foo",
 				Size: 300,
 			}, nil),
@@ -91,7 +96,7 @@ func TestContext(t *testing.T) {
 		handler.CreatedUploads = c
 
 		(&httpTest{
-			Context: context.WithValue(context.Background(), "hello", "world"),
+			Context: context.WithValue(context.Background(), testKey, "world"),
 			Method:  "POST",
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
@@ -106,7 +111,7 @@ func TestContext(t *testing.T) {
 		// Check that the value is in the hook's context.
 		event := <-c
 		a := assert.New(t)
-		a.Equal("world", event.Context.Value("hello"))
+		a.Equal("world", event.Context.Value(testKey))
 	})
 
 	SubTest(t, "Cancel", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

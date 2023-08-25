@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -66,7 +66,7 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	}
 	defer httpRes.Body.Close()
 
-	httpBody, err := ioutil.ReadAll(httpRes.Body)
+	httpBody, err := io.ReadAll(httpRes.Body)
 	if err != nil {
 		return hookRes, err
 	}

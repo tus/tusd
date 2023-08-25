@@ -76,7 +76,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
@@ -914,7 +913,7 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	uploadId, multipartId := splitIds(id)
 
 	// Create a temporary file for holding the concatenated data
-	file, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-concat-tmp-")
+	file, err := os.CreateTemp(store.TemporaryDirectory, "tusd-s3-concat-tmp-")
 	if err != nil {
 		return err
 	}
@@ -1078,7 +1077,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 	}
 	defer incompleteUploadObject.Body.Close()
 
-	partFile, err := ioutil.TempFile(store.TemporaryDirectory, "tusd-s3-tmp-")
+	partFile, err := os.CreateTemp(store.TemporaryDirectory, "tusd-s3-tmp-")
 	if err != nil {
 		return nil, err
 	}

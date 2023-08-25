@@ -295,6 +295,10 @@ func TestReadObject(t *testing.T) {
 		Bucket: "test-bucket",
 		ID:     "test-name",
 	})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
 
 	if reader.Size() != 30 {
 		t.Errorf("Object size does not match expected value: %+v", reader)
@@ -474,7 +478,7 @@ func TestFilterObject(t *testing.T) {
 	defer gock.Off()
 
 	resp := googleBucketResponse{[]googleObjectResponse{
-		googleObjectResponse{Name: "test_directory/test-prefix_1"},
+		{Name: "test_directory/test-prefix_1"},
 	}}
 
 	gock.New("https://storage.googleapis.com").

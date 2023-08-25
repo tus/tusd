@@ -377,7 +377,7 @@ loop:
 			names = append(names, objAttrs.Name)
 			continue
 		default:
-			err := errors.New("Invalid filter format for object name")
+			err := errors.New("invalid filter format for object name")
 			return nil, err
 		}
 

@@ -9,7 +9,7 @@ import (
 )
 
 func TestHead(t *testing.T) {
-	SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockFullLocker(ctrl)
@@ -31,7 +31,7 @@ func TestHead(t *testing.T) {
 			lock.EXPECT().Unlock().Return(nil),
 		)
 
-		composer = NewStoreComposer()
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 

@@ -2,7 +2,6 @@ package filelocker
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ var _ handler.Locker = &FileLocker{}
 func TestMemoryLocker_LockAndUnlock(t *testing.T) {
 	a := assert.New(t)
 
-	dir, err := ioutil.TempDir("", "tusd-file-locker")
+	dir, err := os.MkdirTemp("", "tusd-file-locker")
 	a.NoError(err)
 
 	locker := New(dir)
@@ -36,7 +35,7 @@ func TestMemoryLocker_LockAndUnlock(t *testing.T) {
 func TestFileLocker_Timeout(t *testing.T) {
 	a := assert.New(t)
 
-	dir, err := ioutil.TempDir("", "tusd-file-locker")
+	dir, err := os.MkdirTemp("", "tusd-file-locker")
 	a.NoError(err)
 
 	locker := New(dir)
@@ -64,7 +63,7 @@ func TestFileLocker_Timeout(t *testing.T) {
 func TestMemoryLocker_RequestUnlock(t *testing.T) {
 	a := assert.New(t)
 
-	dir, err := ioutil.TempDir("", "tusd-file-locker")
+	dir, err := os.MkdirTemp("", "tusd-file-locker")
 	a.NoError(err)
 
 	locker := New(dir)

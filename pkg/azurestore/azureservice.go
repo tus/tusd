@@ -254,7 +254,7 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 
 	// If the file does not exist, it will not return an error, but a 404 status and body
 	if downloadResponse != nil && downloadResponse.StatusCode() == 404 {
-		return nil, fmt.Errorf("File %s does not exist", infoBlob.Blob.ToBlockBlobURL())
+		return nil, fmt.Errorf("file %s does not exist", infoBlob.Blob.ToBlockBlobURL())
 	}
 	if err != nil {
 		if isAzureError(err, "BlobNotFound") {

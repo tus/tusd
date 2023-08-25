@@ -2,7 +2,7 @@ package s3store
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -28,13 +28,13 @@ func (m UploadPartInputMatcher) Matches(x interface{}) bool {
 	inputBody := input.Body
 	expectBody := m.expect.Body
 
-	i, err := ioutil.ReadAll(inputBody)
+	i, err := io.ReadAll(inputBody)
 	if err != nil {
 		panic(err)
 	}
 	inputBody.Seek(0, 0)
 
-	e, err := ioutil.ReadAll(expectBody)
+	e, err := io.ReadAll(expectBody)
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +51,7 @@ func (m UploadPartInputMatcher) Matches(x interface{}) bool {
 }
 
 func (m UploadPartInputMatcher) String() string {
-	body, _ := ioutil.ReadAll(m.expect.Body)
+	body, _ := io.ReadAll(m.expect.Body)
 	m.expect.Body.Seek(0, 0)
 	return fmt.Sprintf("UploadPartInput(%d: %s)", *m.expect.PartNumber, body)
 }
@@ -75,13 +75,13 @@ func (m PutObjectInputMatcher) Matches(x interface{}) bool {
 	inputBody := input.Body
 	expectBody := m.expect.Body
 
-	i, err := ioutil.ReadAll(inputBody)
+	i, err := io.ReadAll(inputBody)
 	if err != nil {
 		panic(err)
 	}
 	inputBody.Seek(0, 0)
 
-	e, err := ioutil.ReadAll(expectBody)
+	e, err := io.ReadAll(expectBody)
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +98,7 @@ func (m PutObjectInputMatcher) Matches(x interface{}) bool {
 }
 
 func (m PutObjectInputMatcher) String() string {
-	body, _ := ioutil.ReadAll(m.expect.Body)
+	body, _ := io.ReadAll(m.expect.Body)
 	m.expect.Body.Seek(0, 0)
 	return fmt.Sprintf(`PutObjectInput(Body: "%s")`, body)
 }

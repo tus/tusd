@@ -1477,10 +1477,6 @@ func extractIDFromPath(url string) (string, error) {
 	return result[1], nil
 }
 
-func i64toa(num int64) string {
-	return strconv.FormatInt(num, 10)
-}
-
 // getRequestId returns the value of the X-Request-ID header, if available,
 // and also takes care of truncating the input.
 func getRequestId(r *http.Request) string {

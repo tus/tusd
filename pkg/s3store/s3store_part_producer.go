@@ -3,7 +3,6 @@ package s3store
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -86,7 +85,7 @@ outerloop:
 func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 	if spp.tmpDir != TEMP_DIR_USE_MEMORY {
 		// Create a temporary file to store the part
-		file, err := ioutil.TempFile(spp.tmpDir, "tusd-s3-tmp-")
+		file, err := os.CreateTemp(spp.tmpDir, "tusd-s3-tmp-")
 		if err != nil {
 			return fileChunk{}, false, err
 		}

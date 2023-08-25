@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 
-	"github.com/Acconut/go-httptest-recorder"
+	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
@@ -116,8 +115,8 @@ func (m readerMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	bytes, err := ioutil.ReadAll(input)
-	// Handle closed pipes similar to how EOF are handled by ioutil.ReadAll,
+	bytes, err := io.ReadAll(input)
+	// Handle closed pipes similar to how EOF are handled by io.ReadAll,
 	// we handle this error as if the stream ended normally.
 	if err == io.ErrClosedPipe {
 		err = nil

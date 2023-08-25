@@ -8,8 +8,8 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	SubTest(t, "Discovery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		composer = NewStoreComposer()
+	SubTest(t, "Discovery", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		composer := NewStoreComposer()
 		composer.UseCore(store)
 
 		handler, _ := NewHandler(Config{
