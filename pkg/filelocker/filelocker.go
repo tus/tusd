@@ -6,6 +6,14 @@
 // is unable to release it on its own because the process is not alive anymore.
 // For more information, consult the documentation for handler.LockerDataStore
 // interface, which is implemented by FileLocker.
+//
+// If somebody tries to acquire a lock that is already held, the `requestRelease`
+// callback will be invoked that was provided when the lock was successfully
+// acquired the first time. The lock holder should then cease its operation and
+// release the lock properly, so somebody else can acquire it. Under the hood, this
+// is implemented using an additional file. When an already held lock should be
+// released, a `.stop` file is created on disk. The lock holder regularly checks
+// if this file exists. If so, it will call its `requestRelease` function.
 package filelocker
 
 import (
@@ -26,7 +34,14 @@ type FileLocker struct {
 	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
 
-	HolderPollInterval   time.Duration
+	// HolderPollInterval specifies how often the holder of a lock should check
+	// if it should release the lock. The check involves querying if a `.stop`
+	// file exists on disk. Defaults to 1 second.
+	HolderPollInterval time.Duration
+
+	// AcquirerPollInterval specifies how often the acquirer of a lock should
+	// check if the lock has already been released. The checks are stopped if
+	// the context provided to Lock is cancelled. Defaults to 3 seconds.
 	AcquirerPollInterval time.Duration
 }
 
@@ -35,6 +50,7 @@ type FileLocker struct {
 // whether the path exists, use os.MkdirAll to ensure.
 // In addition, a locking mechanism is provided.
 func New(path string) FileLocker {
+	// TODO: Make configurable and check defaults
 	return FileLocker{path, time.Second, 3 * time.Second}
 }
 

@@ -1,6 +1,5 @@
 // Package memorylocker provides an in-memory locking mechanism.
 //
-// TODO: Update comment
 // When multiple processes are attempting to access an upload, whether it be
 // by reading or writing, a synchronization mechanism is required to prevent
 // data corruption, especially to ensure correct offset values and the proper
@@ -9,6 +8,11 @@
 // MemoryLocker persists locks using memory and therefore allowing a simple and
 // cheap mechanism. Locks will only exist as long as this object is kept in
 // reference and will be erased if the program exits.
+//
+// If somebody tries to acquire a lock that is already held, the `requestRelease`
+// callback will be invoked that was provided when the lock was successfully
+// acquired the first time. The lock holder should then cease its operation and
+// release the lock properly, so somebody else can acquire it.
 package memorylocker
 
 import (
