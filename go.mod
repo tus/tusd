@@ -6,7 +6,7 @@ module github.com/tus/tusd
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.31.0
+	cloud.google.com/go/storage v1.32.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/aws/aws-sdk-go v1.44.313
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
