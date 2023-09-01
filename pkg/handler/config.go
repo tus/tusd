@@ -81,6 +81,11 @@ type Config struct {
 	// See HookEvent.Context for more details.
 	// Defaults to 10s.
 	GracefulRequestCompletionDuration time.Duration
+	// AcquireLockTimeout is the duration that a request handler will wait to acquire a lock for
+	// an upload. If the timeout is reached, it will stop waiting and send an error response to the
+	// client.
+	// Defaults to 10s.
+	AcquireLockTimeout time.Duration
 }
 
 func (config *Config) validate() error {
@@ -120,6 +125,10 @@ func (config *Config) validate() error {
 
 	if config.GracefulRequestCompletionDuration <= 0 {
 		config.GracefulRequestCompletionDuration = 10 * time.Second
+	}
+
+	if config.AcquireLockTimeout <= 0 {
+		config.AcquireLockTimeout = 10 * time.Second
 	}
 
 	return nil

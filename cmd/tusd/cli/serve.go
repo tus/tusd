@@ -40,6 +40,7 @@ func Serve() {
 		DisableCors:                Flags.DisableCors,
 		StoreComposer:              Composer,
 		UploadProgressInterval:     time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
+		AcquireLockTimeout:         time.Duration(Flags.AcquireLockTimeout) * time.Millisecond,
 	}
 
 	var handler *tushandler.Handler

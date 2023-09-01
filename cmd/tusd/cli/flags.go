@@ -62,6 +62,7 @@ var Flags struct {
 	TLSKeyFile              string
 	TLSMode                 string
 	ShutdownTimeout         int64
+	AcquireLockTimeout      int64
 	ExperimentalProtocol    bool
 }
 
@@ -117,6 +118,7 @@ func ParseFlags() {
 	flag.StringVar(&Flags.TLSKeyFile, "tls-key", "", "Path to the file containing the key for the TLS certificate.")
 	flag.StringVar(&Flags.TLSMode, "tls-mode", "tls12", "Specify which TLS mode to use; valid modes are tls13, tls12, and tls12-strong.")
 	flag.Int64Var(&Flags.ShutdownTimeout, "shutdown-timeout", 10*1000, "Timeout in milliseconds for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
+	flag.Int64Var(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 10*1000, "Timeout in milliseconds for a request handler to wait for acquiring the upload lock.")
 	flag.BoolVar(&Flags.ExperimentalProtocol, "enable-experimental-protocol", false, "Enable support for the new resumable upload protocol draft from the IETF's HTTP working group, next to the current tus v1 protocol. (experimental and may be removed/changed in the future)")
 
 	flag.Parse()

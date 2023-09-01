@@ -1345,8 +1345,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 		return nil, err
 	}
 
-	// TODO: Make lock timeout configurable
-	ctx, cancelContext := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancelContext := context.WithTimeout(c, handler.config.AcquireLockTimeout)
 	defer cancelContext()
 
 	// TODO: Wrap this in sync.OnceFunc if we upgrade to Go 1.21
