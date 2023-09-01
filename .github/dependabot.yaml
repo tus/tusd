@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: monthly
     groups:
-      all:
+      gha:
         patterns:
           - '*'
 
@@ -14,7 +14,7 @@ updates:
     schedule:
       interval: monthly
     groups:
-      all:
+      docker:
         patterns:
           - '*'
 
@@ -23,6 +23,6 @@ updates:
     schedule:
       interval: monthly
     groups:
-      all:
+      go:
         patterns:
           - '*'
