@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	tushandler "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
@@ -39,8 +38,8 @@ func Serve() {
 		DisableTermination:         Flags.DisableTermination,
 		DisableCors:                Flags.DisableCors,
 		StoreComposer:              Composer,
-		UploadProgressInterval:     time.Duration(Flags.ProgressHooksInterval) * time.Millisecond,
-		AcquireLockTimeout:         time.Duration(Flags.AcquireLockTimeout) * time.Millisecond,
+		UploadProgressInterval:     Flags.ProgressHooksInterval,
+		AcquireLockTimeout:         Flags.AcquireLockTimeout,
 	}
 
 	var handler *tushandler.Handler
@@ -108,12 +107,10 @@ func Serve() {
 	}
 
 	var listener net.Listener
-	timeoutDuration := time.Duration(Flags.Timeout) * time.Millisecond
-
 	if Flags.HttpSock != "" {
-		listener, err = NewUnixListener(address, timeoutDuration, timeoutDuration)
+		listener, err = NewUnixListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
 	} else {
-		listener, err = NewListener(address, timeoutDuration, timeoutDuration)
+		listener, err = NewListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
 	}
 
 	if err != nil {
@@ -227,7 +224,7 @@ func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan
 		}()
 
 		// Shutdown the server, but with a user-specified timeout
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Flags.ShutdownTimeout)*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), Flags.ShutdownTimeout)
 		defer cancel()
 
 		err := server.Shutdown(ctx)

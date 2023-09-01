@@ -19,7 +19,7 @@ import (
 type HttpHook struct {
 	Endpoint       string
 	MaxRetries     int
-	Backoff        int
+	Backoff        time.Duration
 	ForwardHeaders []string
 
 	client *pester.Client
@@ -31,7 +31,7 @@ func (h *HttpHook) Setup() error {
 	client.KeepLog = true
 	client.MaxRetries = h.MaxRetries
 	client.Backoff = func(_ int) time.Duration {
-		return time.Duration(h.Backoff) * time.Second
+		return h.Backoff
 	}
 
 	h.client = client

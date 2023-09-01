@@ -4,6 +4,7 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"golang.org/x/exp/slices"
@@ -20,7 +21,7 @@ var Flags struct {
 	DisableDownload         bool
 	DisableTermination      bool
 	DisableCors             bool
-	Timeout                 int64
+	ReadTimeout             time.Duration
 	S3Bucket                string
 	S3ObjectPrefix          string
 	S3Endpoint              string
@@ -42,12 +43,12 @@ var Flags struct {
 	HttpHooksEndpoint       string
 	HttpHooksForwardHeaders string
 	HttpHooksRetry          int
-	HttpHooksBackoff        int
+	HttpHooksBackoff        time.Duration
 	GrpcHooksEndpoint       string
 	GrpcHooksRetry          int
-	GrpcHooksBackoff        int
+	GrpcHooksBackoff        time.Duration
 	EnabledHooks            []hooks.HookType
-	ProgressHooksInterval   int64
+	ProgressHooksInterval   time.Duration
 	ShowVersion             bool
 	ExposeMetrics           bool
 	MetricsPath             string
@@ -61,8 +62,8 @@ var Flags struct {
 	TLSCertFile             string
 	TLSKeyFile              string
 	TLSMode                 string
-	ShutdownTimeout         int64
-	AcquireLockTimeout      int64
+	ShutdownTimeout         time.Duration
+	AcquireLockTimeout      time.Duration
 	ExperimentalProtocol    bool
 }
 
@@ -117,7 +118,7 @@ func ParseFlags() {
 
 	// General hook options
 	flag.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
-	flag.Int64Var(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1000, "Interval in milliseconds at which the post-receive progress hooks are emitted for each active upload")
+	flag.DurationVar(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1*time.Second, "Interval at which the post-receive progress hooks are emitted for each active upload")
 
 	// Specific hook options
 	flag.StringVar(&Flags.PluginHookPath, "hooks-plugin", "", "Path to a Go plugin for loading hook functions")
@@ -125,10 +126,10 @@ func ParseFlags() {
 	flag.StringVar(&Flags.HttpHooksEndpoint, "hooks-http", "", "An HTTP endpoint to which hook events will be sent to")
 	flag.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 	flag.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
-	flag.IntVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1, "Number of seconds to wait before retrying each retry")
+	flag.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
 	flag.StringVar(&Flags.GrpcHooksEndpoint, "hooks-grpc", "", "An gRPC endpoint to which hook events will be sent to")
 	flag.IntVar(&Flags.GrpcHooksRetry, "hooks-grpc-retry", 3, "Number of times to retry on a server error or network timeout")
-	flag.IntVar(&Flags.GrpcHooksBackoff, "hooks-grpc-backoff", 1, "Number of seconds to wait before retrying each retry")
+	flag.DurationVar(&Flags.GrpcHooksBackoff, "hooks-grpc-backoff", 1*time.Second, "Wait period before retrying each retry")
 
 	// Monitoring and profiling
 	flag.BoolVar(&Flags.ExposeMetrics, "expose-metrics", true, "Expose metrics about tusd usage")
@@ -144,9 +145,9 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 
 	// Timeouts
-	flag.Int64Var(&Flags.Timeout, "timeout", 6*1000, "Read timeout for connections in milliseconds.  A zero value means that reads will not timeout")
-	flag.Int64Var(&Flags.ShutdownTimeout, "shutdown-timeout", 10*1000, "Timeout in milliseconds for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
-	flag.Int64Var(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 10*1000, "Timeout in milliseconds for a request handler to wait for acquiring the upload lock.")
+	flag.DurationVar(&Flags.ReadTimeout, "read-timeout", 6*time.Second, "Read timeout for connections. A zero value means that network reads will not time out.")
+	flag.DurationVar(&Flags.ShutdownTimeout, "shutdown-timeout", 10*time.Second, "Timeout for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
+	flag.DurationVar(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 10*time.Second, "Timeout for a request handler to wait for acquiring the upload lock.")
 
 	flag.Parse()
 

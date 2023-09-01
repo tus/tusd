@@ -18,13 +18,13 @@ import (
 type GrpcHook struct {
 	Endpoint   string
 	MaxRetries int
-	Backoff    int
+	Backoff    time.Duration
 	Client     pb.HookHandlerClient
 }
 
 func (g *GrpcHook) Setup() error {
 	opts := []grpc_retry.CallOption{
-		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(time.Duration(g.Backoff) * time.Second)),
+		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(g.Backoff)),
 		grpc_retry.WithMax(uint(g.MaxRetries)),
 	}
 	grpcOpts := []grpc.DialOption{
