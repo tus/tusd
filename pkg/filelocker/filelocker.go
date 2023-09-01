@@ -71,7 +71,7 @@ func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 	return &fileUploadLock{
 		file: lockfile.Lockfile(path),
 
-		requesrReleaseFile:   filepath.Join(locker.Path, id+".stop"),
+		requestReleaseFile:   filepath.Join(locker.Path, id+".stop"),
 		holderPollInterval:   locker.HolderPollInterval,
 		acquirerPollInterval: locker.AcquirerPollInterval,
 		stopHolderPoll:       make(chan struct{}),
@@ -81,7 +81,7 @@ func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 type fileUploadLock struct {
 	file lockfile.Lockfile
 
-	requesrReleaseFile   string
+	requestReleaseFile   string
 	holderPollInterval   time.Duration
 	acquirerPollInterval time.Duration
 	stopHolderPoll       chan struct{}
@@ -101,7 +101,7 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 
 		// If we are here, the lock is already held by another entity.
 		// We create the .stop file to signal the lock holder to release the lock.
-		file, err := os.Create(lock.requesrReleaseFile)
+		file, err := os.Create(lock.requestReleaseFile)
 		if err != nil {
 			return err
 		}
@@ -124,7 +124,7 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 			case <-lock.stopHolderPoll:
 				return
 			case <-time.After(lock.holderPollInterval):
-				_, err := os.Stat(lock.requesrReleaseFile)
+				_, err := os.Stat(lock.requestReleaseFile)
 				if err == nil {
 					// Somebody created the file, so we should request the handler
 					// to stop the current request
@@ -153,7 +153,7 @@ func (lock fileUploadLock) Unlock() error {
 
 	// Try removing the file that is used for requesting a release. The error is
 	// ignored on purpose.
-	_ = os.Remove(lock.requesrReleaseFile)
+	_ = os.Remove(lock.requestReleaseFile)
 
 	return err
 }
