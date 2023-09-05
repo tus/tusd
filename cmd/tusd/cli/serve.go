@@ -26,6 +26,7 @@ func Serve() {
 	config := handler.Config{
 		MaxSize:                    Flags.MaxSize,
 		BasePath:                   Flags.Basepath,
+		CorsOrigin:                 Flags.CorsOrigin,
 		RespectForwardedHeaders:    Flags.BehindProxy,
 		EnableExperimentalProtocol: Flags.ExperimentalProtocol,
 		DisableDownload:            Flags.DisableDownload,
@@ -104,6 +105,10 @@ func Serve() {
 	protocol := "http"
 	if Flags.TLSCertFile != "" && Flags.TLSKeyFile != "" {
 		protocol = "https"
+	}
+
+	if Flags.CorsOrigin != "" {
+		stdout.Printf("CORS origin header is %s", Flags.CorsOrigin)
 	}
 
 	if Flags.HttpSock == "" {

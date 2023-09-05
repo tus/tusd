@@ -226,22 +226,32 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		header := w.Header()
 
 		if origin := r.Header.Get("Origin"); !handler.config.DisableCors && origin != "" {
-			header.Set("Access-Control-Allow-Origin", origin)
+			var configuredOrigin = handler.config.CorsOrigin
+			if configuredOrigin == "*" {
+				origin = "*"
+			}
+			if configuredOrigin == origin {
+				header.Set("Access-Control-Allow-Origin", origin)
+				header.Set("Vary", "Origin")
 
-			if r.Method == "OPTIONS" {
-				allowedMethods := "POST, HEAD, PATCH, OPTIONS"
-				if !handler.config.DisableDownload {
-					allowedMethods += ", GET"
+				if r.Method == "OPTIONS" {
+					allowedMethods := "POST, HEAD, PATCH, OPTIONS"
+					if !handler.config.DisableDownload {
+						allowedMethods += ", GET"
+					}
+
+					if !handler.config.DisableTermination {
+						allowedMethods += ", DELETE"
+					}
+
+					// Preflight request
+					header.Add("Access-Control-Allow-Methods", allowedMethods)
+					header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
+					header.Set("Access-Control-Max-Age", "86400")
+				} else {
+					// Actual request
+					header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 				}
-
-				if !handler.config.DisableTermination {
-					allowedMethods += ", DELETE"
-				}
-
-				// Preflight request
-				header.Add("Access-Control-Allow-Methods", allowedMethods)
-				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
-				header.Set("Access-Control-Max-Age", "86400")
 
 			} else {
 				// Actual request
