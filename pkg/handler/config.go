@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"regexp"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
@@ -32,9 +33,10 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
-	// Disable cors headers. If set to true, tusd will not send any CORS related header.
-	// This is useful if you have a proxy sitting in front of tusd that handles CORS.
-	DisableCors bool
+	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
+	// See the CorsConfig struct for more details.
+	/// Defaults to DefaultCorsConfig.
+	Cors *CorsConfig
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
 	NotifyCompleteUploads bool
@@ -49,10 +51,6 @@ type Config struct {
 	NotifyCreatedUploads bool
 	// Logger is the logger to use internally, mostly for printing requests.
 	Logger *log.Logger
-	// Explicitly set Access-Control-Allow-Origin in cases where RespectForwardedHeaders
-	// doesn't give you the desired result. This can be the case with some reverse proxies
-	// or a kubernetes setup with complex network routing rules
-	CorsOrigin string
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
@@ -66,6 +64,30 @@ type Config struct {
 	// a response is returned to the client. Error responses from the callback will be passed
 	// back to the client. This can be used to implement post-processing validation.
 	PreFinishResponseCallback func(hook HookEvent) error
+}
+
+// CorsConfig provides a way to customize the the handling of Cross-Origin Resource Sharing (CORS).
+type CorsConfig struct {
+	// Disable instructs the handler to ignore all CORS-related headers and never set a
+	// CORS-related header in a response. This is useful if CORS is already handled by a proxy.
+	Disable bool
+	//
+	AllowOrigin      *regexp.Regexp
+	AllowCredentials bool
+	AllowMethods     string
+	AllowHeaders     string
+	MaxAge           string
+	ExposeHeaders    string
+}
+
+var DefaultCorsConfig = CorsConfig{
+	Disable:          false,
+	AllowOrigin:      regexp.MustCompile(".*"),
+	AllowCredentials: false,
+	AllowMethods:     "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
+	AllowHeaders:     "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
+	MaxAge:           "86400",
+	ExposeHeaders:    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
 }
 
 func (config *Config) validate() error {
@@ -99,11 +121,8 @@ func (config *Config) validate() error {
 		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
 	}
 
-	if config.CorsOrigin != "" && config.CorsOrigin != "*" && config.CorsOrigin != "null" {
-		_, err := url.ParseRequestURI(config.CorsOrigin)
-		if err != nil {
-			return errors.New("tusd: CorsOrigin is not a valid URL")
-		}
+	if config.Cors == nil {
+		config.Cors = &DefaultCorsConfig
 	}
 
 	return nil

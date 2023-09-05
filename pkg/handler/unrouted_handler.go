@@ -72,6 +72,7 @@ var (
 	ErrUploadLengthAndUploadDeferLength = NewHTTPError(errors.New("provided both Upload-Length and Upload-Defer-Length"), http.StatusBadRequest)
 	ErrInvalidUploadDeferLength         = NewHTTPError(errors.New("invalid Upload-Defer-Length header"), http.StatusBadRequest)
 	ErrUploadStoppedByServer            = NewHTTPError(errors.New("upload has been stopped by server"), http.StatusBadRequest)
+	ErrOriginNotAllowed                 = NewHTTPError(errors.New("request origin is not allowed"), http.StatusForbidden)
 
 	errReadTimeout     = errors.New("read tcp: i/o timeout")
 	errConnectionReset = errors.New("read tcp: connection reset by peer")
@@ -225,37 +226,29 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		header := w.Header()
 
-		if origin := r.Header.Get("Origin"); !handler.config.DisableCors && origin != "" {
-			var configuredOrigin = handler.config.CorsOrigin
-			if configuredOrigin == "*" {
-				origin = "*"
+		cors := handler.config.Cors
+		if origin := r.Header.Get("Origin"); !cors.Disable && origin != "" {
+			originIsAllowed := cors.AllowOrigin.MatchString(origin)
+			if !originIsAllowed {
+				handler.sendError(w, r, ErrOriginNotAllowed)
+				return
 			}
-			if configuredOrigin == origin {
-				header.Set("Access-Control-Allow-Origin", origin)
-				header.Set("Vary", "Origin")
 
-				if r.Method == "OPTIONS" {
-					allowedMethods := "POST, HEAD, PATCH, OPTIONS"
-					if !handler.config.DisableDownload {
-						allowedMethods += ", GET"
-					}
+			header.Set("Access-Control-Allow-Origin", origin)
+			header.Set("Vary", "Origin")
 
-					if !handler.config.DisableTermination {
-						allowedMethods += ", DELETE"
-					}
+			if cors.AllowCredentials {
+				header.Add("Access-Control-Allow-Credentials", "true")
+			}
 
-					// Preflight request
-					header.Add("Access-Control-Allow-Methods", allowedMethods)
-					header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
-					header.Set("Access-Control-Max-Age", "86400")
-				} else {
-					// Actual request
-					header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
-				}
-
+			if r.Method == "OPTIONS" {
+				// Preflight request
+				header.Add("Access-Control-Allow-Methods", cors.AllowMethods)
+				header.Add("Access-Control-Allow-Headers", cors.AllowHeaders)
+				header.Set("Access-Control-Max-Age", cors.MaxAge)
 			} else {
 				// Actual request
-				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
+				header.Add("Access-Control-Expose-Headers", cors.ExposeHeaders)
 			}
 		}
 
