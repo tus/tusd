@@ -41,7 +41,7 @@ type Config struct {
 	DisableCors bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
-	/// Defaults to DefaultCorsConfig.
+	// Defaults to DefaultCorsConfig.
 	Cors *CorsConfig
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
@@ -73,19 +73,37 @@ type Config struct {
 }
 
 // CorsConfig provides a way to customize the the handling of Cross-Origin Resource Sharing (CORS).
+// More details about CORS are available at https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS.
 type CorsConfig struct {
 	// Disable instructs the handler to ignore all CORS-related headers and never set a
 	// CORS-related header in a response. This is useful if CORS is already handled by a proxy.
 	Disable bool
-	//
-	AllowOrigin      *regexp.Regexp
+	// AllowOrigin is a regular expression used to check if a request is allowed to participate in the
+	// CORS protocol. If the request's Origin header matches the regular expression, CORS is allowed.
+	// If not, a 403 Forbidden response is sent, rejecting the CORS request.
+	AllowOrigin *regexp.Regexp
+	// AllowCredentials defines whether the `Access-Control-Allow-Credentials: true` header should be
+	// included in CORS responses. This allows clients to share credentials using the Cookie and
+	// Authorization header
 	AllowCredentials bool
-	AllowMethods     string
-	AllowHeaders     string
-	MaxAge           string
-	ExposeHeaders    string
+	// AllowMethods defines the value for the `Access-Control-Allow-Methods` header in the response to
+	// preflight requests. You can add custom methods here, but make sure that all tus-specific methods
+	// from DefaultConfig.AllowMethods are included as well.
+	AllowMethods string
+	// AllowHeaders defines the value for the `Access-Control-Allow-Headers` header in the response to
+	// preflight requests. You can add custom headers here, but make sure that all tus-specific header
+	// from DefaultConfig.AllowHeaders are included as well.
+	AllowHeaders string
+	// MaxAge defines the value for the `Access-Control-Max-Age` header in the response to preflight
+	// requests.
+	MaxAge string
+	// ExposeHeaders defines the value for the `Access-Control-Expose-Headers` header in the response to
+	// actual requests. You can add custom headers here, but make sure that all tus-specific header
+	// from DefaultConfig.ExposeHeaders are included as well.
+	ExposeHeaders string
 }
 
+// DefaultCorsConfig is the configuration that will be used in none is provided.
 var DefaultCorsConfig = CorsConfig{
 	Disable:          false,
 	AllowOrigin:      regexp.MustCompile(".*"),
