@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -32,11 +33,11 @@ func Serve() {
 	config := tushandler.Config{
 		MaxSize:                    Flags.MaxSize,
 		BasePath:                   Flags.Basepath,
+		Cors:                       getCorsConfig(),
 		RespectForwardedHeaders:    Flags.BehindProxy,
 		EnableExperimentalProtocol: Flags.ExperimentalProtocol,
 		DisableDownload:            Flags.DisableDownload,
 		DisableTermination:         Flags.DisableTermination,
-		DisableCors:                Flags.DisableCors,
 		StoreComposer:              Composer,
 		UploadProgressInterval:     Flags.ProgressHooksInterval,
 		AcquireLockTimeout:         Flags.AcquireLockTimeout,
@@ -244,4 +245,31 @@ func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan
 	}()
 
 	return shutdownComplete
+}
+
+func getCorsConfig() *tushandler.CorsConfig {
+	config := tushandler.DefaultCorsConfig
+	config.Disable = Flags.DisableCors
+	config.AllowCredentials = Flags.CorsAllowCredentials
+	config.MaxAge = Flags.CorsMaxAge
+
+	var err error
+	config.AllowOrigin, err = regexp.Compile(Flags.CorsAllowOrigin)
+	if err != nil {
+		stderr.Fatalf("Invalid regular expression for -cors-allow-origin flag: %s", err)
+	}
+
+	if Flags.CorsAllowHeaders != "" {
+		config.AllowHeaders += ", " + Flags.CorsAllowHeaders
+	}
+
+	if Flags.CorsAllowMethods != "" {
+		config.AllowMethods += ", " + Flags.CorsAllowMethods
+	}
+
+	if Flags.CorsExposeHeaders != "" {
+		config.ExposeHeaders += ", " + Flags.CorsExposeHeaders
+	}
+
+	return &config
 }

@@ -21,6 +21,12 @@ var Flags struct {
 	DisableDownload         bool
 	DisableTermination      bool
 	DisableCors             bool
+	CorsAllowOrigin         string
+	CorsAllowCredentials    bool
+	CorsAllowMethods        string
+	CorsAllowHeaders        string
+	CorsMaxAge              string
+	CorsExposeHeaders       string
 	ReadTimeout             time.Duration
 	S3Bucket                string
 	S3ObjectPrefix          string
@@ -87,6 +93,12 @@ func ParseFlags() {
 
 	// CORS
 	flag.BoolVar(&Flags.DisableCors, "disable-cors", false, "Disable CORS headers")
+	flag.StringVar(&Flags.CorsAllowOrigin, "cors-allow-origin", ".*", "Regular expression used to determine if the Origin header is allowed. If not, no CORS headers will be sent. By default, all origins are allowed.")
+	flag.BoolVar(&Flags.CorsAllowCredentials, "cors-allow-credentials", false, "Allow credentials by setting Access-Control-Allow-Credentials: true")
+	flag.StringVar(&Flags.CorsAllowMethods, "cors-allow-methods", "", "Comma-separated list of request methods that are included in Access-Control-Allow-Methods in addition to the ones required by tusd")
+	flag.StringVar(&Flags.CorsAllowHeaders, "cors-allow-headers", "", "Comma-separated list of headers that are included in Access-Control-Allow-Headers in addition to the ones required by tusd")
+	flag.StringVar(&Flags.CorsMaxAge, "cors-max-age", "86400", "Value of the Access-Control-Max-Age header to control the cache duration of CORS responses.")
+	flag.StringVar(&Flags.CorsExposeHeaders, "cors-expose-headers", "", "Comma-separated list of headers that are included in Access-Control-Expose-Headers in addition to the ones required by tusd")
 
 	// General storage options
 	flag.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")

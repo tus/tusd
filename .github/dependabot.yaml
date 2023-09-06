@@ -4,13 +4,25 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      gha:
+        patterns:
+          - '*'
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    groups:
+      docker:
+        patterns:
+          - '*'
 
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: monthly
+    groups:
+      go:
+        patterns:
+          - '*'

@@ -47,6 +47,7 @@ var (
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusInternalServerError)
+	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
 
 	// TODO: These two responses are 500 for backwards compatability. We should discuss
 	// whether it is better to more them to 4XX status codes.
@@ -168,10 +169,12 @@ func (handler *UnroutedHandler) SupportedExtensions() string {
 // this middleware.
 func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := handler.newContext(w, r)
+
 		// Allow overriding the HTTP method. The reason for this is
-		// that some libraries/environments to not support PATCH and
-		// DELETE requests, e.g. Flash in a browser and parts of Java
-		if newMethod := r.Header.Get("X-HTTP-Method-Override"); newMethod != "" {
+		// that some libraries/environments do not support PATCH and
+		// DELETE requests, e.g. Flash in a browser and parts of Java.
+		if newMethod := r.Header.Get("X-HTTP-Method-Override"); r.Method == "POST" && newMethod != "" {
 			r.Method = newMethod
 		}
 
@@ -181,27 +184,29 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 
 		header := w.Header()
 
-		if origin := r.Header.Get("Origin"); !handler.config.DisableCors && origin != "" {
+		cors := handler.config.Cors
+		if origin := r.Header.Get("Origin"); !cors.Disable && origin != "" {
+			originIsAllowed := cors.AllowOrigin.MatchString(origin)
+			if !originIsAllowed {
+				handler.sendError(c, ErrOriginNotAllowed)
+				return
+			}
+
 			header.Set("Access-Control-Allow-Origin", origin)
+			header.Set("Vary", "Origin")
+
+			if cors.AllowCredentials {
+				header.Add("Access-Control-Allow-Credentials", "true")
+			}
 
 			if r.Method == "OPTIONS" {
-				allowedMethods := "POST, HEAD, PATCH, OPTIONS"
-				if !handler.config.DisableDownload {
-					allowedMethods += ", GET"
-				}
-
-				if !handler.config.DisableTermination {
-					allowedMethods += ", DELETE"
-				}
-
 				// Preflight request
-				header.Add("Access-Control-Allow-Methods", allowedMethods)
-				header.Add("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
-				header.Set("Access-Control-Max-Age", "86400")
-
+				header.Add("Access-Control-Allow-Methods", cors.AllowMethods)
+				header.Add("Access-Control-Allow-Headers", cors.AllowHeaders)
+				header.Set("Access-Control-Max-Age", cors.MaxAge)
 			} else {
 				// Actual request
-				header.Add("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version")
+				header.Add("Access-Control-Expose-Headers", cors.ExposeHeaders)
 			}
 		}
 
@@ -233,7 +238,6 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			// will be ignored or interpreted as a rejection.
 			// For example, the Presto engine, which is used in older versions of
 			// Opera, Opera Mobile and Opera Mini, handles CORS this way.
-			c := handler.newContext(w, r)
 			handler.sendResp(c, HTTPResponse{
 				StatusCode: http.StatusOK,
 			})
@@ -244,7 +248,6 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// GET and HEAD methods are not checked since a browser may visit this URL and does
 		// not include this header. GET requests are not part of the specification.
 		if r.Method != "GET" && r.Method != "HEAD" && r.Header.Get("Tus-Resumable") != "1.0.0" && isTusV1 {
-			c := handler.newContext(w, r)
 			handler.sendError(c, ErrUnsupportedVersion)
 			return
 		}
