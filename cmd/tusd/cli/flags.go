@@ -157,7 +157,7 @@ func ParseFlags() {
 	flag.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
 
 	// Timeouts
-	flag.DurationVar(&Flags.ReadTimeout, "read-timeout", 6*time.Second, "Read timeout for connections. A zero value means that network reads will not time out.")
+	flag.DurationVar(&Flags.ReadTimeout, "read-timeout", 60*time.Second, "Network read timeout. If the tusd does not receive data for this duration, it will consider the connection dead. A zero value means that network reads will not time out.")
 	flag.DurationVar(&Flags.ShutdownTimeout, "shutdown-timeout", 10*time.Second, "Timeout for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
 	flag.DurationVar(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 10*time.Second, "Timeout for a request handler to wait for acquiring the upload lock.")
 
