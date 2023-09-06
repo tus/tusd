@@ -3,69 +3,238 @@ package handler_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	. "github.com/tus/tusd/pkg/handler"
 )
 
 func TestCORS(t *testing.T) {
-	SubTest(t, "Preflight", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "DefaultConfiguration", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
 		})
 
+		// Preflight request
 		(&httpTest{
 			Method: "OPTIONS",
 			ReqHeader: map[string]string{
-				"Origin": "tus.io",
+				"Origin": "https://tus.io",
 			},
 			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
-				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
-				"Access-Control-Max-Age":       "86400",
-				"Access-Control-Allow-Origin":  "tus.io",
+				"Access-Control-Allow-Headers":     "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
+				"Access-Control-Allow-Methods":     "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
+				"Access-Control-Max-Age":           "86400",
+				"Access-Control-Allow-Origin":      "https://tus.io",
+				"Vary":                             "Origin",
+				"Access-Control-Allow-Credentials": "",
 			},
 		}).Run(handler, t)
-	})
 
-	SubTest(t, "Conditional allow methods", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
-			StoreComposer:      composer,
-			DisableTermination: true,
-			DisableDownload:    true,
-		})
-
+		// Actual request
 		(&httpTest{
-			Method: "OPTIONS",
+			Method: "POST",
 			ReqHeader: map[string]string{
-				"Origin": "tus.io",
+				"Origin": "https://tus.io",
 			},
-			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Allow-Headers": "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
-				"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS",
-				"Access-Control-Max-Age":       "86400",
-				"Access-Control-Allow-Origin":  "tus.io",
+				"Access-Control-Allow-Origin":      "https://tus.io",
+				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
+				"Vary":                             "Origin",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Max-Age":           "",
+				"Access-Control-Allow-Credentials": "",
 			},
+			// Error response is expected
+			Code: http.StatusPreconditionFailed,
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "Request", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "CustomAllowedOrigin", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
+			Cors: &CorsConfig{
+				AllowOrigin:   regexp.MustCompile(`^https?://tus\.io$`),
+				AllowMethods:  DefaultCorsConfig.AllowMethods,
+				AllowHeaders:  DefaultCorsConfig.AllowHeaders,
+				ExposeHeaders: DefaultCorsConfig.ExposeHeaders,
+				MaxAge:        DefaultCorsConfig.MaxAge,
+			},
 		})
 
+		// Preflight request
 		(&httpTest{
-			Name:   "Actual request",
-			Method: "GET",
+			Method: "OPTIONS",
 			ReqHeader: map[string]string{
-				"Origin": "tus.io",
+				"Origin": "http://tus.io",
 			},
-			Code: http.StatusMethodNotAllowed,
+			Code: http.StatusOK,
 			ResHeader: map[string]string{
-				"Access-Control-Expose-Headers": "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
-				"Access-Control-Allow-Origin":   "tus.io",
+				"Access-Control-Allow-Headers":     "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
+				"Access-Control-Allow-Methods":     "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
+				"Access-Control-Max-Age":           "86400",
+				"Access-Control-Allow-Origin":      "http://tus.io",
+				"Vary":                             "Origin",
+				"Access-Control-Allow-Credentials": "",
+			},
+		}).Run(handler, t)
+
+		// Actual request
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Origin": "http://tus.io",
+			},
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "http://tus.io",
+				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Draft-Interop-Version",
+				"Vary":                             "Origin",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Allow-Credentials": "",
+				"Access-Control-Max-Age":           "",
+			},
+			// Error response is expected
+			Code: http.StatusPreconditionFailed,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "CustomForbiddenOrigin", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			Cors: &CorsConfig{
+				AllowOrigin: regexp.MustCompile(`^https?://tus\.io$`),
+			},
+		})
+
+		// Preflight request
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Origin": "http://example.com",
+			},
+			Code: http.StatusForbidden,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "",
+				"Access-Control-Expose-Headers":    "",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Allow-Credentials": "",
+				"Access-Control-Max-Age":           "",
+			},
+			ResBody: "request origin is not allowed\n",
+		}).Run(handler, t)
+
+		// Actual request
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Origin": "http://example.com",
+			},
+			Code: http.StatusForbidden,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "",
+				"Access-Control-Expose-Headers":    "",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Allow-Credentials": "",
+				"Access-Control-Max-Age":           "",
+			},
+			ResBody: "request origin is not allowed\n",
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "CustomConfig", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			Cors: &CorsConfig{
+				AllowOrigin:      regexp.MustCompile(`^https?://tus\.io$`),
+				AllowMethods:     "POST, PATCH",
+				AllowHeaders:     "A, B, C",
+				ExposeHeaders:    "D, E, F",
+				MaxAge:           "500",
+				AllowCredentials: true,
+			},
+		})
+
+		// Preflight request
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Origin": "http://tus.io",
+			},
+			Code: http.StatusOK,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Headers":     "A, B, C",
+				"Access-Control-Allow-Methods":     "POST, PATCH",
+				"Access-Control-Max-Age":           "500",
+				"Access-Control-Allow-Origin":      "http://tus.io",
+				"Access-Control-Allow-Credentials": "true",
+				"Vary":                             "Origin",
+			},
+		}).Run(handler, t)
+
+		// Actual request
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Origin": "http://tus.io",
+			},
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "http://tus.io",
+				"Access-Control-Expose-Headers":    "D, E, F",
+				"Access-Control-Allow-Credentials": "true",
+				"Vary":                             "Origin",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Max-Age":           "",
+			},
+			// Error response is expected
+			Code: http.StatusPreconditionFailed,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "DisabledConfig", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			Cors: &CorsConfig{
+				Disable: true,
+			},
+		})
+
+		// Preflight request
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Origin": "http://example.com",
+			},
+			Code: http.StatusOK,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "",
+				"Access-Control-Expose-Headers":    "",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Allow-Credentials": "",
+				"Access-Control-Max-Age":           "",
+			},
+		}).Run(handler, t)
+
+		// Actual request
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Origin": "http://example.com",
+			},
+			Code: http.StatusPreconditionFailed,
+			ResHeader: map[string]string{
+				"Access-Control-Allow-Origin":      "",
+				"Access-Control-Expose-Headers":    "",
+				"Access-Control-Allow-Methods":     "",
+				"Access-Control-Allow-Headers":     "",
+				"Access-Control-Allow-Credentials": "",
+				"Access-Control-Max-Age":           "",
 			},
 		}).Run(handler, t)
 	})
@@ -77,7 +246,7 @@ func TestCORS(t *testing.T) {
 
 		req, _ := http.NewRequest("OPTIONS", "", nil)
 		req.Header.Set("Tus-Resumable", "1.0.0")
-		req.Header.Set("Origin", "tus.io")
+		req.Header.Set("Origin", "https://tus.io")
 		req.Host = "tus.io"
 
 		res := httptest.NewRecorder()
@@ -95,21 +264,5 @@ func TestCORS(t *testing.T) {
 		if methods[0] != "METHOD" {
 			t.Errorf("expected header to contain METHOD but got: %#v", methods)
 		}
-	})
-
-	SubTest(t, "Disable CORS", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
-			StoreComposer: composer,
-			DisableCors:   true,
-		})
-
-		(&httpTest{
-			Method: "OPTIONS",
-			ReqHeader: map[string]string{
-				"Origin": "tus.io",
-			},
-			Code:      http.StatusOK,
-			ResHeader: map[string]string{},
-		}).Run(handler, t)
 	})
 }
