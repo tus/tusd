@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,12 +27,11 @@ func Serve() {
 	config := handler.Config{
 		MaxSize:                    Flags.MaxSize,
 		BasePath:                   Flags.Basepath,
-		CorsOrigin:                 Flags.CorsOrigin,
+		Cors:                       getCorsConfig(),
 		RespectForwardedHeaders:    Flags.BehindProxy,
 		EnableExperimentalProtocol: Flags.ExperimentalProtocol,
 		DisableDownload:            Flags.DisableDownload,
 		DisableTermination:         Flags.DisableTermination,
-		DisableCors:                Flags.DisableCors,
 		StoreComposer:              Composer,
 		NotifyCompleteUploads:      true,
 		NotifyTerminatedUploads:    true,
@@ -170,4 +170,31 @@ func Serve() {
 	if err = server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile); err != nil {
 		stderr.Fatalf("Unable to serve: %s", err)
 	}
+}
+
+func getCorsConfig() *handler.CorsConfig {
+	config := handler.DefaultCorsConfig
+	config.Disable = Flags.DisableCors
+	config.AllowCredentials = Flags.CorsAllowCredentials
+	config.MaxAge = Flags.CorsMaxAge
+
+	var err error
+	config.AllowOrigin, err = regexp.Compile(Flags.CorsAllowOrigin)
+	if err != nil {
+		stderr.Fatalf("Invalid regular expression for -cors-allow-origin flag: %s", err)
+	}
+
+	if Flags.CorsAllowHeaders != "" {
+		config.AllowHeaders += ", " + Flags.CorsAllowHeaders
+	}
+
+	if Flags.CorsAllowMethods != "" {
+		config.AllowMethods += ", " + Flags.CorsAllowMethods
+	}
+
+	if Flags.CorsExposeHeaders != "" {
+		config.ExposeHeaders += ", " + Flags.CorsExposeHeaders
+	}
+
+	return &config
 }
