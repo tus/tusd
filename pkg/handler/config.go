@@ -33,12 +33,6 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
-	// Disable cors headers. If set to true, tusd will not send any CORS related header.
-	// This is useful if you have a proxy sitting in front of tusd that handles CORS.
-	//
-	// Deprecated: All CORS-related settings are available in via the Cors field. Use
-	// Cors.Disable instead of DisableCors.
-	DisableCors bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
@@ -183,11 +177,6 @@ func (config *Config) validate() error {
 
 	if config.Cors == nil {
 		config.Cors = &DefaultCorsConfig
-	}
-
-	// Support previous settings for disabling CORS.
-	if config.DisableCors {
-		config.Cors.Disable = true
 	}
 
 	return nil
