@@ -50,8 +50,7 @@ type FileLocker struct {
 // whether the path exists, use os.MkdirAll to ensure.
 // In addition, a locking mechanism is provided.
 func New(path string) FileLocker {
-	// TODO: Make configurable and check defaults
-	return FileLocker{path, time.Second, 3 * time.Second}
+	return FileLocker{path, 5 * time.Second, 2 * time.Second}
 }
 
 // UseIn adds this locker to the passed composer.
