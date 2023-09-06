@@ -22,8 +22,8 @@ import (
 	"sync/atomic"
 
 	"cloud.google.com/go/storage"
-	"github.com/tus/tusd/internal/uid"
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/internal/uid"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 // See the handler.DataStore interface for documentation about the different
@@ -325,7 +325,7 @@ func (upload gcsUpload) Terminate(ctx context.Context) error {
 	return nil
 }
 
-func (upload gcsUpload) GetReader(ctx context.Context) (io.Reader, error) {
+func (upload gcsUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	id := upload.id
 	store := upload.store
 
@@ -334,12 +334,7 @@ func (upload gcsUpload) GetReader(ctx context.Context) (io.Reader, error) {
 		ID:     store.keyWithPrefix(id),
 	}
 
-	r, err := store.Service.ReadObject(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
+	return store.Service.ReadObject(ctx, params)
 }
 
 func (store GCSStore) keyWithPrefix(key string) string {

@@ -1,22 +1,24 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/tus/tusd/pkg/azurestore"
-	"github.com/tus/tusd/pkg/filelocker"
-	"github.com/tus/tusd/pkg/filestore"
-	"github.com/tus/tusd/pkg/gcsstore"
-	"github.com/tus/tusd/pkg/handler"
-	"github.com/tus/tusd/pkg/memorylocker"
-	"github.com/tus/tusd/pkg/s3store"
+	"github.com/tus/tusd/v2/pkg/azurestore"
+	"github.com/tus/tusd/v2/pkg/filelocker"
+	"github.com/tus/tusd/v2/pkg/filestore"
+	"github.com/tus/tusd/v2/pkg/gcsstore"
+	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/memorylocker"
+	"github.com/tus/tusd/v2/pkg/s3store"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var Composer *handler.StoreComposer
@@ -26,47 +28,48 @@ func CreateComposer() {
 	// If not, we default to storing them locally on disk.
 	Composer = handler.NewStoreComposer()
 	if Flags.S3Bucket != "" {
-		s3Config := aws.NewConfig()
-
-		if Flags.S3TransferAcceleration {
-			s3Config = s3Config.WithS3UseAccelerate(true)
-		}
-
-		if Flags.S3DisableContentHashes {
-			// Prevent the S3 service client from automatically
-			// adding the Content-MD5 header to S3 Object Put and Upload API calls.
-			s3Config = s3Config.WithS3DisableContentMD5Validation(true)
-		}
-
-		if Flags.S3DisableSSL {
-			// Disable HTTPS and only use HTTP (helpful for debugging requests).
-			s3Config = s3Config.WithDisableSSL(true)
+		// Derive credentials from default credential chain (env, shared, ec2 instance role)
+		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
+		s3Config, err := config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			stderr.Fatalf("Unable to load S3 configuration: %s", err)
 		}
 
 		if Flags.S3Endpoint == "" {
-
 			if Flags.S3TransferAcceleration {
 				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
 			} else {
 				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
 			}
-
 		} else {
 			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
-
-			s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
 		}
 
-		// Derive credentials from default credential chain (env, shared, ec2 instance role)
-		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
-		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
+		s3Client := s3.NewFromConfig(s3Config, func(o *s3.Options) {
+			o.UseAccelerate = Flags.S3TransferAcceleration
+
+			// Disable HTTPS and only use HTTP (helpful for debugging requests).
+			o.EndpointOptions.DisableHTTPS = Flags.S3DisableSSL
+
+			if Flags.S3Endpoint != "" {
+				o.BaseEndpoint = &Flags.S3Endpoint
+				o.UsePathStyle = true
+			}
+		})
+
+		store := s3store.New(Flags.S3Bucket, s3Client)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
+		store.MaxBufferedParts = Flags.S3MaxBufferedParts
 		store.DisableContentHashes = Flags.S3DisableContentHashes
+		store.SetConcurrentPartUploads(Flags.S3ConcurrentPartUploads)
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+
+		// Attach the metrics from S3 store to the global Prometheus registry
+		store.RegisterMetrics(prometheus.DefaultRegisterer)
 	} else if Flags.GCSBucket != "" {
 		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
 			stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
@@ -152,6 +155,8 @@ func CreateComposer() {
 		store.UseIn(Composer)
 
 		locker := filelocker.New(dir)
+		locker.AcquirerPollInterval = Flags.FilelockAcquirerPollInterval
+		locker.HolderPollInterval = Flags.FilelockHolderPollInterval
 		locker.UseIn(Composer)
 	}
 

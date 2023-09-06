@@ -1,19 +1,19 @@
 package handler_test
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"testing"
 
+	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-//go:generate mockgen -package handler_test -source utils_test.go -aux_files handler=datastore.go -destination=handler_mock_test.go
+//go:generate mockgen -package handler_test -source utils_test.go -destination=handler_mock_test.go
 
 // FullDataStore is an interface combining most interfaces for data stores.
 // This is used by mockgen(1) to generate a mocked data store used for testing
@@ -44,7 +44,8 @@ type FullLock interface {
 }
 
 type httpTest struct {
-	Name string
+	Name    string
+	Context context.Context
 
 	Method string
 	URL    string
@@ -57,8 +58,12 @@ type httpTest struct {
 	ResHeader map[string]string
 }
 
-func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.ResponseRecorder {
-	req, _ := http.NewRequest(test.Method, test.URL, test.ReqBody)
+func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptestrecorder.ResponseRecorder {
+	if test.Context == nil {
+		test.Context = context.Background()
+	}
+
+	req, _ := http.NewRequestWithContext(test.Context, test.Method, test.URL, test.ReqBody)
 	req.RequestURI = test.URL
 
 	// Add headers
@@ -67,7 +72,9 @@ func (test *httpTest) Run(handler http.Handler, t *testing.T) *httptest.Response
 	}
 
 	req.Host = "tus.io"
-	w := httptest.NewRecorder()
+	// We use a fork of the ResponseRecorder to get support for 1XX informational responses.
+	// See https://github.com/Acconut/go-httptest-recorder
+	w := httptestrecorder.NewRecorder()
 	handler.ServeHTTP(w, req)
 
 	if w.Code != test.Code {
@@ -108,8 +115,8 @@ func (m readerMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	bytes, err := ioutil.ReadAll(input)
-	// Handle closed pipes similar to how EOF are handled by ioutil.ReadAll,
+	bytes, err := io.ReadAll(input)
+	// Handle closed pipes similar to how EOF are handled by io.ReadAll,
 	// we handle this error as if the stream ended normally.
 	if err == io.ErrClosedPipe {
 		err = nil

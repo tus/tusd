@@ -13,12 +13,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/tus/tusd/internal/uid"
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/internal/uid"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 var defaultFilePerm = os.FileMode(0664)
@@ -88,7 +87,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	info := handler.FileInfo{}
-	data, err := ioutil.ReadFile(store.infoPath(id))
+	data, err := os.ReadFile(store.infoPath(id))
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -160,15 +159,20 @@ func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.R
 	if err != nil {
 		return 0, err
 	}
-	defer file.Close()
+	// Avoid the use of defer file.Close() here to ensure no errors are lost
+	// See https://github.com/tus/tusd/issues/698.
 
 	n, err := io.Copy(file, src)
-
 	upload.info.Offset += n
-	return n, err
+	if err != nil {
+		file.Close()
+		return n, err
+	}
+
+	return n, file.Close()
 }
 
-func (upload *fileUpload) GetReader(ctx context.Context) (io.Reader, error) {
+func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	return os.Open(upload.binPath)
 }
 
@@ -187,7 +191,14 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		// Ensure that close error is propagated, if it occurs.
+		// See https://github.com/tus/tusd/issues/698.
+		cerr := file.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 
 	for _, partialUpload := range uploads {
 		fileUpload := partialUpload.(*fileUpload)
@@ -217,7 +228,7 @@ func (upload *fileUpload) writeInfo() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(upload.infoPath, data, defaultFilePerm)
+	return os.WriteFile(upload.infoPath, data, defaultFilePerm)
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {

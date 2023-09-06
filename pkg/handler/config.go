@@ -2,10 +2,11 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"net/url"
-	"os"
 	"regexp"
+	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
@@ -13,7 +14,6 @@ type Config struct {
 	// StoreComposer points to the store composer from which the core data store
 	// and optional dependencies should be taken. May only be nil if DataStore is
 	// set.
-	// TODO: Remove pointer?
 	StoreComposer *StoreComposer
 	// MaxSize defines how many bytes may be stored in one single upload. If its
 	// value is is 0 or smaller no limit will be enforced.
@@ -33,12 +33,6 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
-	// Disable cors headers. If set to true, tusd will not send any CORS related header.
-	// This is useful if you have a proxy sitting in front of tusd that handles CORS.
-	//
-	// Deprecated: All CORS-related settings are available in via the Cors field. Use
-	// Cors.Disable instead of DisableCors.
-	DisableCors bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
@@ -55,21 +49,45 @@ type Config struct {
 	// NotifyCreatedUploads indicates whether sending notifications about
 	// the upload having been created using the CreatedUploads channel should be enabled.
 	NotifyCreatedUploads bool
+	// UploadProgressInterval specifies the interval at which the upload progress
+	// notifications are sent to the UploadProgress channel, if enabled.
+	// Defaults to 1s.
+	UploadProgressInterval time.Duration
 	// Logger is the logger to use internally, mostly for printing requests.
-	Logger *log.Logger
+	Logger *slog.Logger
 	// Respect the X-Forwarded-Host, X-Forwarded-Proto and Forwarded headers
 	// potentially set by proxies when generating an absolute URL in the
 	// response to POST requests.
 	RespectForwardedHeaders bool
 	// PreUploadCreateCallback will be invoked before a new upload is created, if the
-	// property is supplied. If the callback returns nil, the upload will be created.
-	// Otherwise the HTTP request will be aborted. This can be used to implement
-	// validation of upload metadata etc.
-	PreUploadCreateCallback func(hook HookEvent) error
+	// property is supplied. If the callback returns no error, the upload will be created
+	// and optional values from HTTPResponse will be contained in the HTTP response.
+	// If the error is non-nil, the upload will not be created. This can be used to implement
+	// validation of upload metadata etc. Furthermore, HTTPResponse will be ignored and
+	// the error value can contain values for the HTTP response.
+	// If the error is nil, FileInfoChanges can be filled out to specify individual properties
+	// that should be overwriten before the upload is create. See its type definition for
+	// more details on its behavior. If you do not want to make any changes, return an empty struct.
+	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, FileInfoChanges, error)
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
-	// a response is returned to the client. Error responses from the callback will be passed
-	// back to the client. This can be used to implement post-processing validation.
-	PreFinishResponseCallback func(hook HookEvent) error
+	// a response is returned to the client. This can be used to implement post-processing validation.
+	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.
+	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
+	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
+	PreFinishResponseCallback func(hook HookEvent) (HTTPResponse, error)
+	// GracefulRequestCompletionDuration is the timeout for operations to complete after an HTTP
+	// request has ended (successfully or by error). For example, if an HTTP request is interrupted,
+	// instead of stopping immediately, the handler and data store will be given some additional
+	// time to wrap up their operations and save any uploaded data. GracefulRequestCompletionDuration
+	// controls this time.
+	// See HookEvent.Context for more details.
+	// Defaults to 10s.
+	GracefulRequestCompletionDuration time.Duration
+	// AcquireLockTimeout is the duration that a request handler will wait to acquire a lock for
+	// an upload. If the timeout is reached, it will stop waiting and send an error response to the
+	// client.
+	// Defaults to 10s.
+	AcquireLockTimeout time.Duration
 }
 
 // CorsConfig provides a way to customize the the handling of Cross-Origin Resource Sharing (CORS).
@@ -116,7 +134,7 @@ var DefaultCorsConfig = CorsConfig{
 
 func (config *Config) validate() error {
 	if config.Logger == nil {
-		config.Logger = log.New(os.Stdout, "[tusd] ", log.Ldate|log.Lmicroseconds)
+		config.Logger = slog.Default()
 	}
 
 	base := config.BasePath
@@ -145,13 +163,20 @@ func (config *Config) validate() error {
 		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
 	}
 
-	if config.Cors == nil {
-		config.Cors = &DefaultCorsConfig
+	if config.UploadProgressInterval <= 0 {
+		config.UploadProgressInterval = 1 * time.Second
 	}
 
-	// Support previous settings for disabling CORS.
-	if config.DisableCors {
-		config.Cors.Disable = true
+	if config.GracefulRequestCompletionDuration <= 0 {
+		config.GracefulRequestCompletionDuration = 10 * time.Second
+	}
+
+	if config.AcquireLockTimeout <= 0 {
+		config.AcquireLockTimeout = 10 * time.Second
+	}
+
+	if config.Cors == nil {
+		config.Cors = &DefaultCorsConfig
 	}
 
 	return nil

@@ -1,14 +1,20 @@
 package cli
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
 	"strings"
-	"time"
+	"syscall"
 
-	"github.com/tus/tusd/pkg/handler"
+	tushandler "github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/hooks"
+	"github.com/tus/tusd/v2/pkg/hooks/plugin"
 )
 
 const (
@@ -24,7 +30,7 @@ const (
 // specified, in which case a different socket creation and binding mechanism
 // is put in place.
 func Serve() {
-	config := handler.Config{
+	config := tushandler.Config{
 		MaxSize:                    Flags.MaxSize,
 		BasePath:                   Flags.Basepath,
 		Cors:                       getCorsConfig(),
@@ -33,20 +39,31 @@ func Serve() {
 		DisableDownload:            Flags.DisableDownload,
 		DisableTermination:         Flags.DisableTermination,
 		StoreComposer:              Composer,
-		NotifyCompleteUploads:      true,
-		NotifyTerminatedUploads:    true,
-		NotifyUploadProgress:       true,
-		NotifyCreatedUploads:       true,
+		UploadProgressInterval:     Flags.ProgressHooksInterval,
+		AcquireLockTimeout:         Flags.AcquireLockTimeout,
 	}
 
-	if err := SetupPreHooks(&config); err != nil {
-		stderr.Fatalf("Unable to setup hooks for handler: %s", err)
-	}
+	var handler *tushandler.Handler
+	var err error
+	hookHandler := getHookHandler(&config)
+	if hookHandler != nil {
+		handler, err = hooks.NewHandlerWithHooks(&config, hookHandler, Flags.EnabledHooks)
 
-	handler, err := handler.NewHandler(config)
+		var enabledHooksString []string
+		for _, h := range Flags.EnabledHooks {
+			enabledHooksString = append(enabledHooksString, string(h))
+		}
+
+		stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
+
+	} else {
+		handler, err = tushandler.NewHandler(config)
+	}
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
+
+	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	basepath := Flags.Basepath
 	address := ""
@@ -61,23 +78,15 @@ func Serve() {
 
 	stdout.Printf("Using %s as the base path.\n", basepath)
 
-	SetupPostHooks(handler)
-
-	if Flags.ExposeMetrics {
-		SetupMetrics(handler)
-		SetupHookMetrics()
-	}
-
-	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
-
+	mux := http.NewServeMux()
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler
 		// and do not show a greeting.
-		http.Handle("/", http.StripPrefix("/", handler))
+		mux.Handle("/", http.StripPrefix("/", handler))
 	} else {
 		// If a custom basepath is defined, we show a greeting at the root path...
 		if Flags.ShowGreeting {
-			http.HandleFunc("/", DisplayGreeting)
+			mux.HandleFunc("/", DisplayGreeting)
 		}
 
 		// ... and register a route with and without the trailing slash, so we can
@@ -85,17 +94,24 @@ func Serve() {
 		basepathWithoutSlash := strings.TrimSuffix(basepath, "/")
 		basepathWithSlash := basepathWithoutSlash + "/"
 
-		http.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
-		http.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+		mux.Handle(basepathWithSlash, http.StripPrefix(basepathWithSlash, handler))
+		mux.Handle(basepathWithoutSlash, http.StripPrefix(basepathWithoutSlash, handler))
+	}
+
+	if Flags.ExposeMetrics {
+		SetupMetrics(mux, handler)
+		hooks.SetupHookMetrics()
+	}
+
+	if Flags.ExposePprof {
+		SetupPprof(mux)
 	}
 
 	var listener net.Listener
-	timeoutDuration := time.Duration(Flags.Timeout) * time.Millisecond
-
 	if Flags.HttpSock != "" {
-		listener, err = NewUnixListener(address, timeoutDuration, timeoutDuration)
+		listener, err = NewUnixListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
 	} else {
-		listener, err = NewListener(address, timeoutDuration, timeoutDuration)
+		listener, err = NewListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
 	}
 
 	if err != nil {
@@ -111,16 +127,33 @@ func Serve() {
 		stdout.Printf("You can now upload files to: %s://%s%s", protocol, address, basepath)
 	}
 
-	// If we're not using TLS just start the server and, if http.Serve() returns, just return.
-	if protocol == "http" {
-		if err = http.Serve(listener, nil); err != nil {
-			stderr.Fatalf("Unable to serve: %s", err)
-		}
-		return
+	server := &http.Server{
+		Handler: mux,
 	}
 
-	// Fall-through for TLS mode.
-	server := &http.Server{}
+	shutdownComplete := setupSignalHandler(server, handler)
+
+	if protocol == "http" {
+		// Non-TLS mode
+		err = server.Serve(listener)
+	} else {
+		// TLS mode
+		err = serveTLS(server, listener)
+	}
+
+	// Note: http.Server.Serve and http.Server.ServeTLS (in serveTLS) always return a non-nil error code. So
+	// we can assume from here that `err != nil`
+	if err == http.ErrServerClosed {
+		// ErrServerClosed means that http.Server.Shutdown was called due to an interruption signal.
+		// We wait until the interruption procedure is complete or times out and then exit main.
+		<-shutdownComplete
+	} else {
+		// Any other error is relayed to the user.
+		stderr.Fatalf("Unable to serve: %s", err)
+	}
+}
+
+func serveTLS(server *http.Server, listener net.Listener) error {
 	switch Flags.TLSMode {
 	case TLS13:
 		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13}
@@ -163,13 +196,59 @@ func Serve() {
 	// Disable HTTP/2; the default non-TLS mode doesn't support it
 	server.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
 
-	if err = server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile); err != nil {
-		stderr.Fatalf("Unable to serve: %s", err)
-	}
+	return server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile)
 }
 
-func getCorsConfig() *handler.CorsConfig {
-	config := handler.DefaultCorsConfig
+func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan struct{} {
+	shutdownComplete := make(chan struct{})
+
+	// We read up to two signals, so use a capacity of 2 here to not miss any signal
+	c := make(chan os.Signal, 2)
+
+	// os.Interrupt is mapped to SIGINT on Unix and to the termination instructions on Windows.
+	// On Unix we also listen to SIGTERM.
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Signal to the handler that it should stop all long running requests if we shut down
+	server.RegisterOnShutdown(handler.InterruptRequestHandling)
+
+	go func() {
+		// First interrupt signal
+		<-c
+		stdout.Println("Received interrupt signal. Shutting down tusd...")
+
+		// Wait for second interrupt signal, while also shutting down the existing server
+		go func() {
+			<-c
+			stdout.Println("Received second interrupt signal. Exiting immediately!")
+			os.Exit(1)
+		}()
+
+		// Shutdown the server, but with a user-specified timeout
+		ctx, cancel := context.WithTimeout(context.Background(), Flags.ShutdownTimeout)
+		defer cancel()
+
+		err := server.Shutdown(ctx)
+
+		if err == nil {
+			stdout.Println("Shutdown completed. Goodbye!")
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			stderr.Println("Shutdown timeout exceeded. Exiting immediately!")
+		} else {
+			stderr.Printf("Failed to shutdown gracefully: %s\n", err)
+		}
+
+		// Make sure that the plugins exit properly.
+		plugin.CleanupPlugins()
+
+		close(shutdownComplete)
+	}()
+
+	return shutdownComplete
+}
+
+func getCorsConfig() *tushandler.CorsConfig {
+	config := tushandler.DefaultCorsConfig
 	config.Disable = Flags.DisableCors
 	config.AllowCredentials = Flags.CorsAllowCredentials
 	config.MaxAge = Flags.CorsMaxAge

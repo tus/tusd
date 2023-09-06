@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/tus/tusd/pkg/filestore"
-	tusd "github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/filestore"
+	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 		NotifyCompleteUploads: true,
 	})
 	if err != nil {
-		panic(fmt.Errorf("Unable to create handler: %s", err))
+		panic(fmt.Errorf("unable to create handler: %s", err))
 	}
 
 	// Start another goroutine for receiving events from the handler whenever
@@ -53,6 +53,6 @@ func main() {
 	http.Handle("/files/", http.StripPrefix("/files/", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
-		panic(fmt.Errorf("Unable to listen: %s", err))
+		panic(fmt.Errorf("unable to listen: %s", err))
 	}
 }

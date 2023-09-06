@@ -26,6 +26,11 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       -
+        name: Clean module files
+        run: |
+          go mod tidy
+
+      -
         name: Test code
         run: |
           go test ./pkg/...

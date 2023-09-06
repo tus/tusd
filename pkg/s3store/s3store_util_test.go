@@ -2,10 +2,10 @@ package s3store
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"reflect"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 )
 
@@ -25,20 +25,20 @@ func (m UploadPartInputMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	inputBody := input.Body
-	expectBody := m.expect.Body
+	inputBody := input.Body.(io.ReadSeeker)
+	expectBody := m.expect.Body.(io.ReadSeeker)
 
-	i, err := ioutil.ReadAll(inputBody)
+	i, err := io.ReadAll(inputBody)
 	if err != nil {
 		panic(err)
 	}
 	inputBody.Seek(0, 0)
 
-	e, err := ioutil.ReadAll(expectBody)
+	e, err := io.ReadAll(expectBody)
 	if err != nil {
 		panic(err)
 	}
-	m.expect.Body.Seek(0, 0)
+	expectBody.Seek(0, 0)
 
 	if !reflect.DeepEqual(e, i) {
 		return false
@@ -51,9 +51,9 @@ func (m UploadPartInputMatcher) Matches(x interface{}) bool {
 }
 
 func (m UploadPartInputMatcher) String() string {
-	body, _ := ioutil.ReadAll(m.expect.Body)
-	m.expect.Body.Seek(0, 0)
-	return fmt.Sprintf("UploadPartInput(%d: %s)", *m.expect.PartNumber, body)
+	body, _ := io.ReadAll(m.expect.Body)
+	m.expect.Body.(io.ReadSeeker).Seek(0, 0)
+	return fmt.Sprintf("UploadPartInput(%d: %s)", m.expect.PartNumber, body)
 }
 
 type PutObjectInputMatcher struct {
@@ -72,20 +72,20 @@ func (m PutObjectInputMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	inputBody := input.Body
-	expectBody := m.expect.Body
+	inputBody := input.Body.(io.ReadSeeker)
+	expectBody := m.expect.Body.(io.ReadSeeker)
 
-	i, err := ioutil.ReadAll(inputBody)
+	i, err := io.ReadAll(inputBody)
 	if err != nil {
 		panic(err)
 	}
 	inputBody.Seek(0, 0)
 
-	e, err := ioutil.ReadAll(expectBody)
+	e, err := io.ReadAll(expectBody)
 	if err != nil {
 		panic(err)
 	}
-	m.expect.Body.Seek(0, 0)
+	expectBody.Seek(0, 0)
 
 	if !reflect.DeepEqual(e, i) {
 		return false
@@ -98,7 +98,7 @@ func (m PutObjectInputMatcher) Matches(x interface{}) bool {
 }
 
 func (m PutObjectInputMatcher) String() string {
-	body, _ := ioutil.ReadAll(m.expect.Body)
-	m.expect.Body.Seek(0, 0)
+	body, _ := io.ReadAll(m.expect.Body)
+	m.expect.Body.(io.ReadSeeker).Seek(0, 0)
 	return fmt.Sprintf(`PutObjectInput(Body: "%s")`, body)
 }

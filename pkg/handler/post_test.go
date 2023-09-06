@@ -2,15 +2,15 @@ package handler_test
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"strings"
 	"testing"
 
+	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/tus/tusd/pkg/handler"
+	. "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func TestPost(t *testing.T) {
@@ -20,7 +20,7 @@ func TestPost(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 				Size: 300,
 				MetaData: map[string]string{
 					"foo":   "hello",
@@ -28,7 +28,7 @@ func TestPost(t *testing.T) {
 					"empty": "",
 				},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:   "foo",
 				Size: 300,
 				MetaData: map[string]string{
@@ -76,16 +76,16 @@ func TestPost(t *testing.T) {
 		upload := NewMockFullUpload(ctrl)
 
 		gomock.InOrder(
-			store.EXPECT().NewUpload(context.Background(), FileInfo{
+			store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 				Size:     0,
 				MetaData: map[string]string{},
 			}).Return(upload, nil),
-			upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:       "foo",
 				Size:     0,
 				MetaData: map[string]string{},
 			}, nil),
-			upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+			upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
 		)
 
 		handler, _ := NewHandler(Config{
@@ -211,11 +211,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -248,11 +248,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -286,11 +286,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -326,11 +326,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -363,11 +363,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -396,8 +396,8 @@ func TestPost(t *testing.T) {
 		})
 	})
 
-	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		SubTest(t, "Create", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -405,14 +405,14 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size: 300,
 					MetaData: map[string]string{
 						"foo": "hello",
 						"bar": "world",
 					},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:   "foo",
 					Size: 300,
 					MetaData: map[string]string{
@@ -421,12 +421,12 @@ func TestPost(t *testing.T) {
 					},
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
-				lock.EXPECT().Lock().Return(nil),
-				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
+				lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
@@ -458,11 +458,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -492,11 +492,11 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					Size:     300,
 					MetaData: map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:       "foo",
 					Size:     300,
 					MetaData: map[string]string{},
@@ -546,7 +546,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -554,7 +554,7 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					SizeIsDeferred: false,
 					Size:           11,
 					MetaData: map[string]string{
@@ -562,7 +562,7 @@ func TestPost(t *testing.T) {
 						"filetype": "text/plain",
 					},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:             "foo",
 					SizeIsDeferred: false,
 					Size:           11,
@@ -572,13 +572,13 @@ func TestPost(t *testing.T) {
 					},
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
-				lock.EXPECT().Lock().Return(nil),
-				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
-				upload.EXPECT().FinishUpload(context.Background()).Return(nil),
+				lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
+				upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
@@ -588,7 +588,7 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			(&httpTest{
+			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
@@ -597,17 +597,28 @@ func TestPost(t *testing.T) {
 					"Content-Disposition":          "attachment; filename=hello.txt",
 				},
 				ReqBody: strings.NewReader("hello world"),
-				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
-				Code: 104,
+				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
 			}).Run(handler, t)
+
+			a := assert.New(t)
+			a.Equal([]httptestrecorder.InformationalResponse{
+				{
+					Code: 104,
+					Header: http.Header{
+						"Upload-Draft-Interop-Version": []string{"3"},
+						"Location":                     []string{"http://tus.io/files/foo"},
+						"X-Content-Type-Options":       []string{"nosniff"},
+					},
+				},
+			}, res.InformationalResponses)
 		})
 
-		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			locker := NewMockFullLocker(ctrl)
@@ -615,21 +626,21 @@ func TestPost(t *testing.T) {
 			upload := NewMockFullUpload(ctrl)
 
 			gomock.InOrder(
-				store.EXPECT().NewUpload(context.Background(), FileInfo{
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
 					SizeIsDeferred: true,
 					MetaData:       map[string]string{},
 				}).Return(upload, nil),
-				upload.EXPECT().GetInfo(context.Background()).Return(FileInfo{
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 					ID:             "foo",
 					SizeIsDeferred: true,
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
-				lock.EXPECT().Lock().Return(nil),
-				upload.EXPECT().WriteChunk(context.Background(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
+				lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
 				lock.EXPECT().Unlock().Return(nil),
 			)
 
-			composer = NewStoreComposer()
+			composer := NewStoreComposer()
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 			composer.UseLengthDeferrer(store)
@@ -640,21 +651,32 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			(&httpTest{
+			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Incomplete":            "?1",
 				},
 				ReqBody: strings.NewReader("hello world"),
-				// TODO: httptest.Recorder only captures the first informational response, so must expect a 104 and not a 201 here.
-				Code: 104,
+				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
 			}).Run(handler, t)
+
+			a := assert.New(t)
+			a.Equal([]httptestrecorder.InformationalResponse{
+				{
+					Code: 104,
+					Header: http.Header{
+						"Upload-Draft-Interop-Version": []string{"3"},
+						"Location":                     []string{"http://tus.io/files/foo"},
+						"X-Content-Type-Options":       []string{"nosniff"},
+					},
+				},
+			}, res.InformationalResponses)
 		})
 	})
 }

@@ -5,7 +5,7 @@
 > **tus** is a protocol based on HTTP for *resumable file uploads*. Resumable
 > means that an upload can be interrupted at any moment and can be resumed without
 > re-uploading the previous data again. An interruption may happen willingly, if
-> the user wants to pause, or by accident in case of an network issue or server
+> the user wants to pause, or by accident in case of a network issue or server
 > outage.
 
 tusd is the official reference implementation of the [tus resumable upload
@@ -30,6 +30,7 @@ breaking changes have been introduced, please look at the [0.14.0 tag](https://g
 * [Using the `tusd` binary](/docs/usage-binary.md)
   * [Monitoring the server](/docs/monitoring.md)
   * [Receiving events with hooks](/docs/hooks.md)
+  * [Managing upload locks](/docs/locks.md)
 * [Using the tusd package programmatically](/docs/usage-package.md)
 * [FAQ & Common issues](/docs/faq.md)
 

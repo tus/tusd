@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	. "github.com/tus/tusd/pkg/handler"
+	. "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func TestCORS(t *testing.T) {
@@ -124,7 +124,7 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Allow-Credentials": "",
 				"Access-Control-Max-Age":           "",
 			},
-			ResBody: "request origin is not allowed\n",
+			ResBody: "ERR_ORIGIN_NOT_ALLOWED: request origin is not allowed\n",
 		}).Run(handler, t)
 
 		// Actual request
@@ -142,7 +142,7 @@ func TestCORS(t *testing.T) {
 				"Access-Control-Allow-Credentials": "",
 				"Access-Control-Max-Age":           "",
 			},
-			ResBody: "request origin is not allowed\n",
+			ResBody: "ERR_ORIGIN_NOT_ALLOWED: request origin is not allowed\n",
 		}).Run(handler, t)
 	})
 

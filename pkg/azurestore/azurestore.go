@@ -10,8 +10,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tus/tusd/internal/uid"
-	"github.com/tus/tusd/pkg/handler"
+	"github.com/tus/tusd/v2/internal/uid"
+	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 type AzureStore struct {
@@ -96,8 +96,9 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 	if err != nil {
 		return nil, err
 	}
+	defer data.Close()
 
-	if err := json.Unmarshal(data, &info); err != nil {
+	if err := json.NewDecoder(data).Decode(&info); err != nil {
 		return nil, err
 	}
 
@@ -112,8 +113,12 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 	}
 
 	offset, err := blockBlob.GetOffset(ctx)
-	if err != nil && err != handler.ErrNotFound {
-		return nil, err
+	if err != nil {
+		// Unpack the error and see if it is a handler.ErrNotFound by comparing the
+		// error code. If it matches, we ignore the error, otherwise we return the error.
+		if handlerErr, ok := err.(handler.Error); !ok || handlerErr.ErrorCode != handler.ErrNotFound.ErrorCode {
+			return nil, err
+		}
 	}
 
 	info.Offset = offset
@@ -169,7 +174,7 @@ func (upload *AzUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 		return info, err
 	}
 
-	if err := json.Unmarshal(data, &info); err != nil {
+	if err := json.NewDecoder(data).Decode(&info); err != nil {
 		return info, err
 	}
 
@@ -178,12 +183,8 @@ func (upload *AzUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 }
 
 // Get the uploaded file from the Azure storage
-func (upload *AzUpload) GetReader(ctx context.Context) (io.Reader, error) {
-	b, err := upload.BlockBlob.Download(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(b), nil
+func (upload *AzUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
+	return upload.BlockBlob.Download(ctx)
 }
 
 // Finish the file upload and commit the block list
