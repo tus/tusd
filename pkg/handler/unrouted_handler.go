@@ -49,8 +49,8 @@ var (
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusInternalServerError)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
 
-	// TODO: These two responses are 500 for backwards compatability. We should discuss
-	// whether it is better to more them to 4XX status codes.
+	// These two responses are 500 for backwards compatability. Clients might receive a timeout response
+	// when the upload got interrupted. Most clients will not retry 4XX but only 5XX, so we responsd with 500 here.
 	ErrReadTimeout     = NewError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
 	ErrConnectionReset = NewError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
 )
@@ -650,7 +650,6 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
-		// TODO: We send a 200 OK here by default. Can we switch this to 204?
 		resp.StatusCode = http.StatusOK
 	} else {
 		if !info.SizeIsDeferred && info.Offset == info.Size {
@@ -1165,16 +1164,6 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 	if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
 		err = ErrConnectionReset
 	}
-
-	// TODO: Decide if we want to ignore connection reset errors all together.
-	// In some cases, the HTTP connection gets reset by the other peer. This is not
-	// necessarily the tus client but can also be a proxy in front of tusd, e.g. HAProxy 2
-	// is known to reset the connection to tusd, when the tus client closes the connection.
-	// To avoid erroring out in this case and loosing the uploaded data, we can ignore
-	// the error here without causing harm.
-	//if strings.Contains(err.Error(), "read: connection reset by peer") {
-	//	err = nil
-	//}
 
 	r := c.req
 
