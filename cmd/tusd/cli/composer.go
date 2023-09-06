@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,9 +15,8 @@ import (
 	"github.com/tus/tusd/v2/pkg/memorylocker"
 	"github.com/tus/tusd/v2/pkg/s3store"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -28,21 +28,11 @@ func CreateComposer() {
 	// If not, we default to storing them locally on disk.
 	Composer = handler.NewStoreComposer()
 	if Flags.S3Bucket != "" {
-		s3Config := aws.NewConfig()
-
-		if Flags.S3TransferAcceleration {
-			s3Config = s3Config.WithS3UseAccelerate(true)
-		}
-
-		// Note: We do not set s3Config.WithS3DisableContentMD5Validation(true) based
-		// on Flags.S3DisableContentHashes here because when terminating an upload,
-		// a signature is required. If not present, S3 will complain:
-		// InvalidRequest: Missing required header for this request: Content-MD5 OR x-amz-checksum-*
-		// So for now, this flag will only cause hashes to be disabled for the UploadPart operation (see s3store.go).
-
-		if Flags.S3DisableSSL {
-			// Disable HTTPS and only use HTTP (helpful for debugging requests).
-			s3Config = s3Config.WithDisableSSL(true)
+		// Derive credentials from default credential chain (env, shared, ec2 instance role)
+		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
+		s3Config, err := config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			stderr.Fatalf("Unable to load S3 configuration: %s", err)
 		}
 
 		if Flags.S3Endpoint == "" {
@@ -53,13 +43,21 @@ func CreateComposer() {
 			}
 		} else {
 			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
-
-			s3Config = s3Config.WithEndpoint(Flags.S3Endpoint).WithS3ForcePathStyle(true)
 		}
 
-		// Derive credentials from default credential chain (env, shared, ec2 instance role)
-		// as per https://github.com/aws/aws-sdk-go#configuring-credentials
-		store := s3store.New(Flags.S3Bucket, s3.New(session.Must(session.NewSession()), s3Config))
+		s3Client := s3.NewFromConfig(s3Config, func(o *s3.Options) {
+			o.UseAccelerate = Flags.S3TransferAcceleration
+
+			// Disable HTTPS and only use HTTP (helpful for debugging requests).
+			o.EndpointOptions.DisableHTTPS = Flags.S3DisableSSL
+
+			if Flags.S3Endpoint != "" {
+				o.BaseEndpoint = &Flags.S3Endpoint
+				o.UsePathStyle = true
+			}
+		})
+
+		store := s3store.New(Flags.S3Bucket, s3Client)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
 		store.MaxBufferedParts = Flags.S3MaxBufferedParts
