@@ -21,7 +21,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 	return &httpContext{
 		// We construct a new context which gets cancelled with a delay.
 		// See HookEvent.Context for more details.
-		Context: newDelayedContext(r.Context(), h.config.GracefulRequestCompletionDuration),
+		Context: newDelayedContext(r.Context(), h.config.GracefulRequestCompletionTimeout),
 		res:     w,
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests

@@ -31,16 +31,17 @@ const (
 // is put in place.
 func Serve() {
 	config := tushandler.Config{
-		MaxSize:                    Flags.MaxSize,
-		BasePath:                   Flags.Basepath,
-		Cors:                       getCorsConfig(),
-		RespectForwardedHeaders:    Flags.BehindProxy,
-		EnableExperimentalProtocol: Flags.ExperimentalProtocol,
-		DisableDownload:            Flags.DisableDownload,
-		DisableTermination:         Flags.DisableTermination,
-		StoreComposer:              Composer,
-		UploadProgressInterval:     Flags.ProgressHooksInterval,
-		AcquireLockTimeout:         Flags.AcquireLockTimeout,
+		MaxSize:                          Flags.MaxSize,
+		BasePath:                         Flags.Basepath,
+		Cors:                             getCorsConfig(),
+		RespectForwardedHeaders:          Flags.BehindProxy,
+		EnableExperimentalProtocol:       Flags.ExperimentalProtocol,
+		DisableDownload:                  Flags.DisableDownload,
+		DisableTermination:               Flags.DisableTermination,
+		StoreComposer:                    Composer,
+		UploadProgressInterval:           Flags.ProgressHooksInterval,
+		AcquireLockTimeout:               Flags.AcquireLockTimeout,
+		GracefulRequestCompletionTimeout: Flags.GracefulRequestCompletionTimeout,
 	}
 
 	var handler *tushandler.Handler

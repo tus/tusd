@@ -129,8 +129,8 @@ func TestContext(t *testing.T) {
 		)
 
 		handler, _ := NewHandler(Config{
-			StoreComposer:                     composer,
-			GracefulRequestCompletionDuration: 100 * time.Millisecond,
+			StoreComposer:                    composer,
+			GracefulRequestCompletionTimeout: 100 * time.Millisecond,
 		})
 
 		ctx, cancel := context.WithCancel(context.Background())

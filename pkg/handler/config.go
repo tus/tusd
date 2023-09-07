@@ -75,14 +75,14 @@ type Config struct {
 	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
 	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
 	PreFinishResponseCallback func(hook HookEvent) (HTTPResponse, error)
-	// GracefulRequestCompletionDuration is the timeout for operations to complete after an HTTP
+	// GracefulRequestCompletionTimeout is the timeout for operations to complete after an HTTP
 	// request has ended (successfully or by error). For example, if an HTTP request is interrupted,
 	// instead of stopping immediately, the handler and data store will be given some additional
-	// time to wrap up their operations and save any uploaded data. GracefulRequestCompletionDuration
+	// time to wrap up their operations and save any uploaded data. GracefulRequestCompletionTimeout
 	// controls this time.
 	// See HookEvent.Context for more details.
 	// Defaults to 10s.
-	GracefulRequestCompletionDuration time.Duration
+	GracefulRequestCompletionTimeout time.Duration
 	// AcquireLockTimeout is the duration that a request handler will wait to acquire a lock for
 	// an upload. If the timeout is reached, it will stop waiting and send an error response to the
 	// client.
@@ -167,8 +167,8 @@ func (config *Config) validate() error {
 		config.UploadProgressInterval = 1 * time.Second
 	}
 
-	if config.GracefulRequestCompletionDuration <= 0 {
-		config.GracefulRequestCompletionDuration = 10 * time.Second
+	if config.GracefulRequestCompletionTimeout <= 0 {
+		config.GracefulRequestCompletionTimeout = 10 * time.Second
 	}
 
 	if config.AcquireLockTimeout <= 0 {

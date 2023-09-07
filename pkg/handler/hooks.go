@@ -10,7 +10,7 @@ type HookEvent struct {
 	// not the exact value as the request context from http.Request.Context() but
 	// a similar context that retains the same values as the request context. In
 	// addition, Context will be cancelled after a short delay when the request context
-	// is done. This delay is controlled by Config.GracefulRequestCompletionDuration.
+	// is done. This delay is controlled by Config.GracefulRequestCompletionTimeout.
 	//
 	// The reason is that we want stores to be able to continue processing a request after
 	// its context has been cancelled. For example, assume a PATCH request is incoming. If

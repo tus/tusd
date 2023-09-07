@@ -12,68 +12,69 @@ import (
 )
 
 var Flags struct {
-	HttpHost                     string
-	HttpPort                     string
-	HttpSock                     string
-	MaxSize                      int64
-	UploadDir                    string
-	Basepath                     string
-	ShowGreeting                 bool
-	DisableDownload              bool
-	DisableTermination           bool
-	DisableCors                  bool
-	CorsAllowOrigin              string
-	CorsAllowCredentials         bool
-	CorsAllowMethods             string
-	CorsAllowHeaders             string
-	CorsMaxAge                   string
-	CorsExposeHeaders            string
-	ReadTimeout                  time.Duration
-	S3Bucket                     string
-	S3ObjectPrefix               string
-	S3Endpoint                   string
-	S3PartSize                   int64
-	S3MaxBufferedParts           int64
-	S3DisableContentHashes       bool
-	S3DisableSSL                 bool
-	S3ConcurrentPartUploads      int
-	GCSBucket                    string
-	GCSObjectPrefix              string
-	AzStorage                    string
-	AzContainerAccessType        string
-	AzBlobAccessTier             string
-	AzObjectPrefix               string
-	AzEndpoint                   string
-	EnabledHooksString           string
-	PluginHookPath               string
-	FileHooksDir                 string
-	HttpHooksEndpoint            string
-	HttpHooksForwardHeaders      string
-	HttpHooksRetry               int
-	HttpHooksBackoff             time.Duration
-	GrpcHooksEndpoint            string
-	GrpcHooksRetry               int
-	GrpcHooksBackoff             time.Duration
-	EnabledHooks                 []hooks.HookType
-	ProgressHooksInterval        time.Duration
-	ShowVersion                  bool
-	ExposeMetrics                bool
-	MetricsPath                  string
-	ExposePprof                  bool
-	PprofPath                    string
-	PprofBlockProfileRate        int
-	PprofMutexProfileRate        int
-	BehindProxy                  bool
-	VerboseOutput                bool
-	S3TransferAcceleration       bool
-	TLSCertFile                  string
-	TLSKeyFile                   string
-	TLSMode                      string
-	ShutdownTimeout              time.Duration
-	AcquireLockTimeout           time.Duration
-	FilelockHolderPollInterval   time.Duration
-	FilelockAcquirerPollInterval time.Duration
-	ExperimentalProtocol         bool
+	HttpHost                         string
+	HttpPort                         string
+	HttpSock                         string
+	MaxSize                          int64
+	UploadDir                        string
+	Basepath                         string
+	ShowGreeting                     bool
+	DisableDownload                  bool
+	DisableTermination               bool
+	DisableCors                      bool
+	CorsAllowOrigin                  string
+	CorsAllowCredentials             bool
+	CorsAllowMethods                 string
+	CorsAllowHeaders                 string
+	CorsMaxAge                       string
+	CorsExposeHeaders                string
+	ReadTimeout                      time.Duration
+	S3Bucket                         string
+	S3ObjectPrefix                   string
+	S3Endpoint                       string
+	S3PartSize                       int64
+	S3MaxBufferedParts               int64
+	S3DisableContentHashes           bool
+	S3DisableSSL                     bool
+	S3ConcurrentPartUploads          int
+	GCSBucket                        string
+	GCSObjectPrefix                  string
+	AzStorage                        string
+	AzContainerAccessType            string
+	AzBlobAccessTier                 string
+	AzObjectPrefix                   string
+	AzEndpoint                       string
+	EnabledHooksString               string
+	PluginHookPath                   string
+	FileHooksDir                     string
+	HttpHooksEndpoint                string
+	HttpHooksForwardHeaders          string
+	HttpHooksRetry                   int
+	HttpHooksBackoff                 time.Duration
+	GrpcHooksEndpoint                string
+	GrpcHooksRetry                   int
+	GrpcHooksBackoff                 time.Duration
+	EnabledHooks                     []hooks.HookType
+	ProgressHooksInterval            time.Duration
+	ShowVersion                      bool
+	ExposeMetrics                    bool
+	MetricsPath                      string
+	ExposePprof                      bool
+	PprofPath                        string
+	PprofBlockProfileRate            int
+	PprofMutexProfileRate            int
+	BehindProxy                      bool
+	VerboseOutput                    bool
+	S3TransferAcceleration           bool
+	TLSCertFile                      string
+	TLSKeyFile                       string
+	TLSMode                          string
+	ShutdownTimeout                  time.Duration
+	AcquireLockTimeout               time.Duration
+	FilelockHolderPollInterval       time.Duration
+	FilelockAcquirerPollInterval     time.Duration
+	GracefulRequestCompletionTimeout time.Duration
+	ExperimentalProtocol             bool
 }
 
 func ParseFlags() {
@@ -183,6 +184,7 @@ func ParseFlags() {
 		f.DurationVar(&Flags.ReadTimeout, "read-timeout", 60*time.Second, "Network read timeout. If the tusd does not receive data for this duration, it will consider the connection dead. A zero value means that network reads will not time out.")
 		f.DurationVar(&Flags.ShutdownTimeout, "shutdown-timeout", 10*time.Second, "Timeout for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
 		f.DurationVar(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 10*time.Second, "Timeout for a request handler to wait for acquiring the upload lock.")
+		f.DurationVar(&Flags.GracefulRequestCompletionTimeout, "request-completion-timeout", 10*time.Second, "Period after which all request operations are cancelled when the request is stopped by the client.")
 	})
 
 	fs.Parse()
