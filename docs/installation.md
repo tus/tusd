@@ -24,7 +24,7 @@ go build -o tusd cmd/tusd/main.go
 
 ## Kubernetes installation
 
-A Helm chart for installing Tusd on Kubernetes is available [here](https://github.com/sagikazarmark/helm-charts/tree/master/charts/tusd).
+A Helm chart for installing tusd on Kubernetes is available [here](https://github.com/sagikazarmark/helm-charts/tree/master/charts/tusd).
 
 You can install it by running the following commands:
 
