@@ -687,7 +687,10 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 		// AWS S3 returns NoSuchUpload, but other implementations, such as DigitalOcean
 		// Spaces, can also return NoSuchKey.
 
-		if isAwsError[*types.NoSuchUpload](err) || isAwsError[*types.NoSuchKey](err) {
+		// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,
+		// so we also need to check the error code itself.
+		// See https://github.com/aws/aws-sdk-go-v2/issues/1635
+		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) {
 			info.Offset = info.Size
 			err = nil
 		}
@@ -745,7 +748,10 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 		return nil, handler.NewError("ERR_INCOMPLETE_UPLOAD", "cannot stream non-finished upload", http.StatusBadRequest)
 	}
 
-	if isAwsError[*types.NoSuchUpload](err) {
+	// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,
+	// so we also need to check the error code itself.
+	// See https://github.com/aws/aws-sdk-go-v2/issues/1635
+	if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") {
 		// Neither the object nor the multipart upload exists, so we return a 404
 		return nil, handler.ErrNotFound
 	}
