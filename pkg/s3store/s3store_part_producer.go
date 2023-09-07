@@ -2,6 +2,7 @@ package s3store
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -95,6 +96,7 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 
 		n, err := io.Copy(file, limitedReader)
 		if err != nil {
+			cleanUpTempFile(file)
 			return fileChunk{}, false, err
 		}
 
@@ -116,7 +118,12 @@ func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {
 		return fileChunk{
 			reader: file,
 			closeReader: func() error {
-				if err := file.Close(); err != nil {
+				// The HTTP client already takes care of closing the request body
+				// (see https://pkg.go.dev/net/http#Request and https://pkg.go.dev/net/http#Client.Do).
+				// Since the file opened here are used for request bodies, it is not
+				// necessary to close them on our own, but we still do it just to be sure.
+				// However, a possible error from duplicate close operations is ignored on purpose.
+				if err := file.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
 					return err
 				}
 				return os.Remove(file.Name())
