@@ -250,7 +250,7 @@ func (service *GCSService) ComposeObjects(ctx context.Context, params GCSCompose
 	return nil
 }
 
-// GetObjectAttrs returns the associated attributes of a GCS object. See: https://godoc.org/cloud.google.com/go/storage#ObjectAttrs
+// GetObjectAttrs returns the associated attributes of a GCS object. See: https://pkg.go.dev/cloud.google.com/go/storage#ObjectAttrs
 func (service *GCSService) GetObjectAttrs(ctx context.Context, params GCSObjectParams) (*storage.ObjectAttrs, error) {
 	obj := service.Client.Bucket(params.Bucket).Object(params.ID)
 

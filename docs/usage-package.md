@@ -64,28 +64,28 @@ func main() {
 
 ```
 
-Please consult the [online documentation](https://godoc.org/github.com/tus/tusd/pkg) for more details about tusd's APIs and its sub-packages.
+Please consult the [online documentation](https://pkg.go.dev/github.com/tus/tusd/v2/pkg) for more details about tusd's APIs and its sub-packages.
 
 ## Implementing own storages
 
 The tusd server is built to be as flexible as possible and to allow the use of different upload storage mechanisms.
 
-If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`tusd.DataStore`](https://godoc.org/github.com/tus/tusd/pkg/#DataStore) interface and using the new struct in the [configuration object](https://godoc.org/github.com/tus/tusd/pkg/#Config). Please consult the documentation about detailed information about the required methods.
+If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`tusd.DataStore`](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/#DataStore) interface and using the new struct in the [configuration object](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/#Config). Please consult the documentation about detailed information about the required methods.
 
 ## Packages
 
 This repository does not only contain the HTTP server's code but also other
 useful tools:
 
-* [**s3store**](https://godoc.org/github.com/tus/tusd/pkg/s3store): A storage backend using AWS S3
-* [**filestore**](https://godoc.org/github.com/tus/tusd/pkg/filestore): A storage backend using the local file system
-* [**gcsstore**](https://godoc.org/github.com/tus/tusd/pkg/gcsstore): A storage backend using Google cloud storage
-* [**memorylocker**](https://godoc.org/github.com/tus/tusd/pkg/memorylocker): An in-memory locker for handling concurrent uploads
-* [**filelocker**](https://godoc.org/github.com/tus/tusd/pkg/filelocker): A disk-based locker for handling concurrent uploads
+* [**s3store**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/s3store): A storage backend using AWS S3
+* [**filestore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filestore): A storage backend using the local file system
+* [**gcsstore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/gcsstore): A storage backend using Google cloud storage
+* [**memorylocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/memorylocker): An in-memory locker for handling concurrent uploads
+* [**filelocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filelocker): A disk-based locker for handling concurrent uploads
 
 ### 3rd-Party tusd Packages
 
-The following packages are supported by 3rd-party maintainers outside of this repository. Please file issues respective to the packages in their respective repositories.
+The following packages are supported by 3rd-party maintainers outside this repository. Please file issues respective to the packages in their respective repositories.
 
 * [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
 * [**tusd-etcd3-locker**](https://github.com/tus/tusd-etcd3-locker): A locker using the distributed KV etcd3 store

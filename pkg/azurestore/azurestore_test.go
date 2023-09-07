@@ -15,7 +15,7 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-//go:generate mockgen -destination=./azurestore_mock_test.go -package=azurestore_test github.com/tus/tusd/pkg/azurestore AzService,AzBlob
+//go:generate mockgen -destination=./azurestore_mock_test.go -package=azurestore_test github.com/tus/tusd/v2/pkg/azurestore AzService,AzBlob
 
 // Test interface implementations
 var _ handler.DataStore = azurestore.AzureStore{}
