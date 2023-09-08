@@ -125,7 +125,7 @@ func Serve() {
 	}
 
 	if Flags.HttpSock == "" {
-		stdout.Printf("You can now upload files to: %s://%s%s", protocol, address, basepath)
+		stdout.Printf("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
 	}
 
 	server := &http.Server{
