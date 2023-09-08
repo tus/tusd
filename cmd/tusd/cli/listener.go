@@ -25,6 +25,26 @@ func (l *Listener) Accept() (net.Conn, error) {
 
 	go MetricsOpenConnections.Inc()
 
+	// Set the timeout when the connection is accepted. They will
+	// get updated after successful read and write operations.
+	if l.ReadTimeout > 0 {
+		err = c.SetReadDeadline(time.Now().Add(l.ReadTimeout))
+	} else {
+		err = c.SetReadDeadline(time.Time{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if l.WriteTimeout > 0 {
+		err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout))
+	} else {
+		err = c.SetWriteDeadline(time.Time{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	tc := &Conn{
 		Conn:         c,
 		ReadTimeout:  l.ReadTimeout,
@@ -47,33 +67,31 @@ type Conn struct {
 }
 
 func (c *Conn) Read(b []byte) (int, error) {
-	var err error
-	if c.ReadTimeout > 0 {
-		err = c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
-	} else {
-		err = c.Conn.SetReadDeadline(time.Time{})
+	n, err := c.Conn.Read(b)
+	// If the read did not time out (i.e. no timeout error was returned),
+	// we update the read deadline to allow for the next operation.
+	if !isTimeoutError(err) && c.ReadTimeout > 0 {
+		err2 := c.Conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+		if err == nil {
+			err = err2
+		}
 	}
 
-	if err != nil {
-		return 0, err
-	}
-
-	return c.Conn.Read(b)
+	return n, err
 }
 
 func (c *Conn) Write(b []byte) (int, error) {
-	var err error
-	if c.WriteTimeout > 0 {
-		err = c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
-	} else {
-		err = c.Conn.SetWriteDeadline(time.Time{})
+	n, err := c.Conn.Write(b)
+	// If the write did not time out (i.e. no timeout error was returned),
+	// we update the write deadline to allow for the next operation.
+	if !isTimeoutError(err) && c.WriteTimeout > 0 {
+		err2 := c.Conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
+		if err == nil {
+			err = err2
+		}
 	}
 
-	if err != nil {
-		return 0, err
-	}
-
-	return c.Conn.Write(b)
+	return n, err
 }
 
 func (c *Conn) Close() error {
@@ -136,4 +154,18 @@ func NewUnixListener(path string, readTimeout, writeTimeout time.Duration) (net.
 	}
 
 	return tl, nil
+}
+
+// isTimeoutError checks if err is a network timeout error.
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	netErr, ok := err.(*net.OpError)
+	if !ok {
+		return false
+	}
+
+	return netErr.Timeout()
 }
