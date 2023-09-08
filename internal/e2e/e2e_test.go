@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,7 +27,9 @@ func init() {
 	toxiClient = toxiproxy.NewClient("localhost:8474")
 }
 
-func Test_SuccessfulUpload(t *testing.T) {
+// TestSuccessfulUpload tests that tusd can perform a single upload
+// from actual HTTP requests.
+func TestSuccessfulUpload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -79,7 +82,10 @@ func Test_SuccessfulUpload(t *testing.T) {
 	}
 }
 
-func Test_NetworkReadTimeout(t *testing.T) {
+// TestNetworkReadTimeout tests that tusd correctly stops a request if no
+// data has been received for the specified timeout. All data until this timeout
+// should be stored, however.
+func TestNetworkReadTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -141,7 +147,10 @@ func Test_NetworkReadTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	start := time.Now()
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Offset", "0")
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
 	go func() {
 		<-time.After(2 * time.Second)
 		proxy.AddToxic("timeout_upstream", "timeout", "upstream", 1, toxiproxy.Attributes{
@@ -149,10 +158,7 @@ func Test_NetworkReadTimeout(t *testing.T) {
 		})
 	}()
 
-	req.Header.Add("Tus-Resumable", "1.0.0")
-	req.Header.Add("Upload-Offset", "0")
-	req.Header.Add("Content-Type", "application/offset+octet-stream")
-
+	start := time.Now()
 	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -205,6 +211,107 @@ func Test_NetworkReadTimeout(t *testing.T) {
 	// out after 5s, so the entire request should have ran for 7s.
 	duration := time.Since(start)
 	if !isApprox(duration, 7*time.Second, 0.1) {
+		t.Fatalf("invalid request duration %v", duration)
+	}
+}
+
+// TestUnexpectedNetworkClose tests that tusd correctly saves the transmitted data
+// if the client connection gets interrupted unexpectedly during the upload.
+func TestUnexpectedNetworkClose(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, addr := spawnTusd(ctx, t)
+
+	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
+	defer proxy.Delete()
+
+	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
+	// from tusd is not limited. The upstream connection will be closed after sending
+	// 10KB.
+	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
+		"rate": 5,
+	})
+	proxy.AddToxic("", "limit_data", "upstream", 1, toxiproxy.Attributes{
+		"bytes": 10_000,
+	})
+
+	// Endpoint address point to toxiproxy
+	endpoint := "http://" + proxy.Listen + "/files/"
+
+	// 50KB of random upload data
+	length := 50 * 1024
+	data := make([]byte, length)
+	_, err := rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create upload
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(length))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatal("invalid response code")
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	req, err = http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Offset", "0")
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	// Send the PATCH request. The connection will be closed by the toxiproxy,
+	// so we can an EOF error here.
+	start := time.Now()
+	_, err = http.DefaultClient.Do(req)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("unexpected error %s", err)
+	}
+
+	// Send HEAD request to fetch offset
+	req, err = http.NewRequest("HEAD", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	offset, err := strconv.Atoi(res.Header.Get("Upload-Offset"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 10KB were allowed before toxiproxy cut the connection. Accounting
+	// the overhead of HTTP request, tusd should have received about 10KB.
+	if !isApprox(offset, 10_000, 0.1) {
+		t.Fatalf("invalid offset %d", offset)
+	}
+
+	// Data was allowed to flow for 2s.
+	duration := time.Since(start)
+	if !isApprox(duration, 2*time.Second, 0.1) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
