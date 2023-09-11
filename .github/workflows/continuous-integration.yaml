@@ -31,6 +31,12 @@ jobs:
           go mod tidy
 
       -
+        name: Compile tusd binary
+        run: |
+          export TUSD_BINARY=$PWD/tusd
+          go build -o $TUSD_BINARY ./cmd/tusd/main.go
+
+      -
         name: Test code
         run: |
           go test ./pkg/...
