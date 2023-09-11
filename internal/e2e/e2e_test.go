@@ -696,6 +696,72 @@ func TestShutdown(t *testing.T) {
 	}
 }
 
+// TestUploadLengthExceeded asserts that uploading appending requests are limited to
+// the length specified in the upload. If more data is transmitted, tusd just ignores
+// the remaining data.
+func TestUploadLengthExceeded(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, addr, _ := spawnTusd(ctx, t)
+
+	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
+	defer proxy.Delete()
+
+	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
+	// from tusd is not limited.
+	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
+		"rate": 5,
+	})
+
+	// Endpoint address point to toxiproxy
+	endpoint := "http://" + proxy.Listen + "/files/"
+
+	// We specify an upload length of 10KB, but supply 50KB of random upload data.
+	uploadLength := 10 * 1024
+	payloadLength := 50 * 1024
+	data := make([]byte, payloadLength)
+	_, err := rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create upload
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(uploadLength))
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	// Note: This is important! By default, http.NewRequest will inspect the body and fill
+	// ContentLength automatically. This causes the Content-Length header to be set. However,
+	// in this case, we want to test how tusd behaves without a pre-known request body size.
+	// But setting it to -1, we do not use Content-Length but Transfer-Encoding: chunked, so
+	// tusd does not know the request size upfront.
+	req.ContentLength = -1
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	// tusd must only read the amount specified in Upload-Length.
+	if res.Header.Get("Upload-Offset") != strconv.Itoa(uploadLength) {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	// TODO: Assert that the request is stopped after 2s already instead of
+	// waiting for all 50KB to be transmitted. Right now, this is not the case.
+}
+
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	args = append([]string{"-port=0"}, args...)
 	cmd = exec.CommandContext(ctx, TUSD_BINARY, args...)
