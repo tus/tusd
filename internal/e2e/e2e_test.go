@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,14 +18,47 @@ import (
 	"testing"
 	"time"
 
+	toxiproxy_server "github.com/Shopify/toxiproxy/v2"
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"golang.org/x/exp/constraints"
 )
 
 var toxiClient *toxiproxy.Client
+var TUSD_BINARY string
+var TUSD_ENDPOINT_RE = regexp.MustCompile(`You can now upload files to: (https?://([^/]+)/\S*)`)
 
-func init() {
-	toxiClient = toxiproxy.NewClient("localhost:8474")
+func TestMain(m *testing.M) {
+	// Fetch path to compiled tusd binary
+	TUSD_BINARY = os.Getenv("TUSD_BINARY")
+	if TUSD_BINARY == "" {
+		fmt.Println(`The TUSD_BINARY environment variable is missing. It must to the location of a compiled tusd binary and can be obtained by running:
+	export TUSD_BINARY=$PWD/tusd
+	go build -o $TUSD_BINARY cmd/tusd/main.go`)
+		os.Exit(1)
+	}
+
+	// Create a new toxiproxy server instance
+	metrics := toxiproxy_server.NewMetricsContainer(prometheus.NewRegistry())
+	logger := zerolog.New(os.Stderr).Level(zerolog.ErrorLevel)
+	server := toxiproxy_server.NewServer(metrics, logger)
+
+	addr := "localhost:8474"
+	go func(server *toxiproxy_server.ApiServer, addr string) {
+		if err := server.Listen(addr); err != nil {
+			log.Fatalf("failed to start toxiproxy: %s", err)
+		}
+	}(server, addr)
+
+	// Create a new toxiproxy client instance
+	toxiClient = toxiproxy.NewClient(addr)
+
+	// Run actual tests
+	exitVal := m.Run()
+
+	server.Shutdown()
+	os.Exit(exitVal)
 }
 
 // TestSuccessfulUpload tests that tusd can perform a single upload
@@ -661,11 +695,6 @@ func TestShutdown(t *testing.T) {
 		t.Fatalf("invalid response body %s", string(body))
 	}
 }
-
-// TODO: This should be an env var
-const TUSD_BINARY = "../../tusd"
-
-var TUSD_ENDPOINT_RE = regexp.MustCompile(`You can now upload files to: (https?://([^/]+)/\S*)`)
 
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	args = append([]string{"-port=0"}, args...)
