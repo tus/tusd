@@ -33,7 +33,7 @@ func TestSuccessfulUpload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	endpoint, addr := spawnTusd(ctx, t)
+	endpoint, addr, _ := spawnTusd(ctx, t)
 	fmt.Println(endpoint, addr)
 
 	data := bytes.NewBufferString("hello world")
@@ -91,7 +91,7 @@ func TestNetworkReadTimeout(t *testing.T) {
 
 	// We configure tusd with a read timeout of 5s, meaning that if no data
 	// is received for 5s, it terminates the connection.
-	_, addr := spawnTusd(ctx, t, "-network-timeout=5s")
+	_, addr, _ := spawnTusd(ctx, t, "-network-timeout=5s")
 
 	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
 	defer proxy.Delete()
@@ -227,7 +227,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, addr := spawnTusd(ctx, t)
+	_, addr, _ := spawnTusd(ctx, t)
 
 	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
 	defer proxy.Delete()
@@ -333,7 +333,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 // 	ctx, cancel := context.WithCancel(context.Background())
 // 	defer cancel()
 
-// 	endpoint, _ := spawnTusd(ctx, t)
+// 	endpoint, _, _, _ := spawnTusd(ctx, t)
 
 // 	dialer := &net.Dialer{
 // 		Timeout:   30 * time.Second,
@@ -460,7 +460,7 @@ func TestLockRelease(t *testing.T) {
 
 	// We configure tusd with low poll intervals for the filelocker to get
 	// a quick test run and more predictable results
-	_, addr := spawnTusd(ctx, t, "-filelock-holder-poll-interval=1s", "-filelock-acquirer-poll-interval=1s")
+	_, addr, _ := spawnTusd(ctx, t, "-filelock-holder-poll-interval=1s", "-filelock-acquirer-poll-interval=1s")
 
 	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
 	defer proxy.Delete()
@@ -595,21 +595,82 @@ func TestLockRelease(t *testing.T) {
 	// }
 }
 
+func TestShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// We configure tusd with a read timeout of 5s, meaning that if no data
+	// is received for 5s, it terminates the connection.
+	_, addr, cmd := spawnTusd(ctx, t)
+
+	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
+	defer proxy.Delete()
+
+	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
+	// from tusd is not limited.
+	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
+		"rate": 5,
+	})
+
+	// Endpoint address point to toxiproxy
+	endpoint := "http://" + proxy.Listen + "/files/"
+
+	// 50KB of random upload data
+	length := 50 * 1024
+	data := make([]byte, length)
+	_, err := rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create upload
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(length))
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	go func() {
+		<-time.After(2 * time.Second)
+		cmd.Process.Signal(os.Interrupt)
+	}()
+
+	res, err := http.DefaultClient.Do(req)
+	// Error should be nil. If it is io.EOF, it is possible that the request was not shut down properly
+	// and that the shutdown timeout kicked in and stopped the process forcefully.
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	// Assert the response to see if tusd correctly emitted a timeout.
+	// In reality, clients may often not receive this message due to network issues.
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(body), "ERR_SERVER_SHUTDOWN") {
+		t.Fatalf("invalid response body %s", string(body))
+	}
+}
+
 // TODO: This should be an env var
 const TUSD_BINARY = "../../tusd"
 
 var TUSD_ENDPOINT_RE = regexp.MustCompile(`You can now upload files to: (https?://([^/]+)/\S*)`)
 
-func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string) {
+func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	args = append([]string{"-port=0"}, args...)
-	cmd := exec.CommandContext(ctx, TUSD_BINARY, args...)
+	cmd = exec.CommandContext(ctx, TUSD_BINARY, args...)
 	cmd.Stderr = os.Stderr
-	// cmd.Stdout = os.Stdout
-
-	// cmd.Start()
-
-	// <-time.After(100 * time.Millisecond)
-	// return "http://localhost:1080/files", "localhost:1080"
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
