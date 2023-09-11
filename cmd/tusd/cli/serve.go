@@ -136,9 +136,14 @@ func Serve() {
 		WriteTimeout:      Flags.NetworkTimeout,
 		IdleTimeout:       Flags.NetworkTimeout,
 		MaxHeaderBytes:    http.DefaultMaxHeaderBytes,
-		// TODO: Track open (and/or active) connections using ConnState
-		// See https://stackoverflow.com/questions/51317122/how-to-get-number-of-idle-and-active-connections-in-go
-		// go MetricsOpenConnections.Inc()
+		ConnState: func(_ net.Conn, cs http.ConnState) {
+			switch cs {
+			case http.StateNew:
+				MetricsOpenConnections.Inc()
+			case http.StateClosed, http.StateHijacked:
+				MetricsOpenConnections.Dec()
+			}
+		},
 	}
 
 	shutdownComplete := setupSignalHandler(server, handler)
