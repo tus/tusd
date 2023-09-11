@@ -33,7 +33,11 @@ jobs:
       -
         name: Set tusd output
         run: |
-          echo "TUSD_BINARY=$PWD/tusd" >> $GITHUB_ENV
+          TUSD_BINARY=$PWD/tusd
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            TUSD_BINARY="$TUSD_BINARY.exe"
+          fi
+          echo "TUSD_BINARY=$TUSD_BINARY" >> $GITHUB_ENV
         shell: bash
 
       -
