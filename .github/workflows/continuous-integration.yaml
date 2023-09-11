@@ -34,11 +34,13 @@ jobs:
         name: Set tusd output
         run: |
           echo "TUSD_BINARY=$PWD/tusd" >> $GITHUB_ENV
+        shell: bash
 
       -
         name: Compile tusd binary
         run: |
           go build -o $TUSD_BINARY ./cmd/tusd/main.go
+        shell: bash
 
       -
         name: Test code
