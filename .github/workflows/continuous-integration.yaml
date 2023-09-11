@@ -31,9 +31,13 @@ jobs:
           go mod tidy
 
       -
+        name: Set tusd output
+        run: |
+          echo "TUSD_BINARY=$PWD/tusd" >> $GITHUB_ENV
+
+      -
         name: Compile tusd binary
         run: |
-          export TUSD_BINARY=$PWD/tusd
           go build -o $TUSD_BINARY ./cmd/tusd/main.go
 
       -
