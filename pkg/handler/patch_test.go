@@ -801,7 +801,7 @@ func TestPatch(t *testing.T) {
 				"Upload-Offset": "0",
 			},
 			ReqBody: reader,
-			Code:    http.StatusInternalServerError,
+			Code:    http.StatusServiceUnavailable,
 			ResHeader: map[string]string{
 				"Upload-Offset": "",
 			},
