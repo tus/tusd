@@ -42,6 +42,7 @@ func Serve() {
 		UploadProgressInterval:           Flags.ProgressHooksInterval,
 		AcquireLockTimeout:               Flags.AcquireLockTimeout,
 		GracefulRequestCompletionTimeout: Flags.GracefulRequestCompletionTimeout,
+		NetworkTimeout:                   Flags.NetworkTimeout,
 	}
 
 	var handler *tushandler.Handler
@@ -110,9 +111,9 @@ func Serve() {
 
 	var listener net.Listener
 	if Flags.HttpSock != "" {
-		listener, err = NewUnixListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
+		listener, err = NewUnixListener(address)
 	} else {
-		listener, err = NewListener(address, Flags.ReadTimeout, Flags.ReadTimeout)
+		listener, err = NewListener(address)
 	}
 
 	if err != nil {
@@ -129,7 +130,15 @@ func Serve() {
 	}
 
 	server := &http.Server{
-		Handler: mux,
+		Handler:           mux,
+		ReadTimeout:       0,
+		ReadHeaderTimeout: Flags.NetworkTimeout,
+		WriteTimeout:      Flags.NetworkTimeout,
+		IdleTimeout:       Flags.NetworkTimeout,
+		MaxHeaderBytes:    http.DefaultMaxHeaderBytes,
+		// TODO: Track open (and/or active) connections using ConnState
+		// See https://stackoverflow.com/questions/51317122/how-to-get-number-of-idle-and-active-connections-in-go
+		// go MetricsOpenConnections.Inc()
 	}
 
 	shutdownComplete := setupSignalHandler(server, handler)

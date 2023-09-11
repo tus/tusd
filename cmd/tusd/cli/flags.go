@@ -28,7 +28,7 @@ var Flags struct {
 	CorsAllowHeaders                 string
 	CorsMaxAge                       string
 	CorsExposeHeaders                string
-	ReadTimeout                      time.Duration
+	NetworkTimeout                   time.Duration
 	S3Bucket                         string
 	S3ObjectPrefix                   string
 	S3Endpoint                       string
@@ -181,7 +181,7 @@ func ParseFlags() {
 	})
 
 	fs.AddGroup("Timeout options", func(f *flag.FlagSet) {
-		f.DurationVar(&Flags.ReadTimeout, "read-timeout", 60*time.Second, "Network read timeout. If the tusd does not receive data for this duration, it will consider the connection dead. A zero value means that network reads will not time out.")
+		f.DurationVar(&Flags.NetworkTimeout, "network-timeout", 60*time.Second, "Timeout for reading the request and writing the response. If the tusd does not receive data for this duration, it will consider the connection dead.")
 		f.DurationVar(&Flags.ShutdownTimeout, "shutdown-timeout", 10*time.Second, "Timeout for closing connections gracefully during shutdown. After the timeout, tusd will exit regardless of any open connection.")
 		f.DurationVar(&Flags.AcquireLockTimeout, "acquire-lock-timeout", 20*time.Second, "Timeout for a request handler to wait for acquiring the upload lock.")
 		f.DurationVar(&Flags.GracefulRequestCompletionTimeout, "request-completion-timeout", 10*time.Second, "Period after which all request operations are cancelled when the request is stopped by the client.")
