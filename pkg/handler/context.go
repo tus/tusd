@@ -13,6 +13,7 @@ type httpContext struct {
 	context.Context
 
 	res  http.ResponseWriter
+	resC *http.ResponseController
 	req  *http.Request
 	body *bodyReader
 }
@@ -23,6 +24,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 		// See HookEvent.Context for more details.
 		Context: newDelayedContext(r.Context(), h.config.GracefulRequestCompletionTimeout),
 		res:     w,
+		resC:    http.NewResponseController(w),
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests
 	}

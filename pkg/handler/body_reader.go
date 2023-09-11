@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"io"
+	"net/http"
+	"os"
 	"sync/atomic"
 )
 
@@ -17,12 +20,14 @@ type bodyReader struct {
 	closer       io.Closer
 	err          error
 	bytesCounter int64
+	onReadDone   func()
 }
 
 func newBodyReader(r io.ReadCloser, maxSize int64) *bodyReader {
 	return &bodyReader{
-		reader: io.LimitReader(r, maxSize),
-		closer: r,
+		reader:     io.LimitReader(r, maxSize),
+		closer:     r,
+		onReadDone: func() {},
 	}
 }
 
@@ -33,15 +38,22 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 
 	n, err := r.reader.Read(b)
 	atomic.AddInt64(&r.bytesCounter, int64(n))
+	if !errors.Is(err, os.ErrDeadlineExceeded) {
+		// If the timeout wasn't exceeded (due to SetReadDeadline), invoke
+		// the callback so the deadline can be
+		r.onReadDone()
+
+	}
 	if err != nil {
 		// We can ignore some of these errors:
 		// - io.EOF means that the request body was fully read
-		// - io.ErrClosedPipe means that the bodyReader closed the request body because the upload is
+		// - io.ErrBodyReadAfterClose means that the bodyReader closed the request body because the upload is
 		//   is stopped or the server shuts down.
+		// - io.ErrClosedPipe is returned in the package's unit test with io.Pipe()
 		// - io.UnexpectedEOF means that the client aborted the request.
 		// In all of those cases, we do not forward the error to the storage,
 		// but act like the body just ended naturally.
-		if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
 			return n, io.EOF
 		}
 

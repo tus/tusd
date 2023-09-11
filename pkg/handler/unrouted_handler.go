@@ -171,6 +171,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := handler.newContext(w, r)
 
+		// Set the initial read deadline for consuming the request body. All headers have already been read,
+		// so this is only for reading the request body. While reading, we regularly update the read deadline
+		// so this deadline is usually not final. See the bodyReader and writeChunk.
+		if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
+			handler.logger.Warn("NetworkTimeoutError", "method", r.Method, "path", r.URL.Path, "error", err)
+		}
+
+		// TODO: Consider if we want to c.resC.EnableFullDuplex()? Maybe this also
+		// helps with faster response times for the e2e TESTLockRelease?
+
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments do not support PATCH and
 		// DELETE requests, e.g. Flash in a browser and parts of Java.
@@ -844,6 +854,13 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	if r.Body != nil {
 		// Limit the data read from the request's body to the allowed maximum
 		c.body = newBodyReader(r.Body, maxSize)
+		c.body.onReadDone = func() {
+			// Update the read deadline for every successful read operation. This ensures that the request handler
+			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
+			if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
+				handler.logger.Warn("NetworkTimeoutErorr", "method", r.Method, "path", r.URL.Path, "error", err)
+			}
+		}
 
 		// We use a channel to allow the hook system to cancel an upload. The channel
 		// is closed, so that the goroutine can exit when the upload completes normally.

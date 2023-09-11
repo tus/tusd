@@ -88,6 +88,14 @@ type Config struct {
 	// client.
 	// Defaults to 20s.
 	AcquireLockTimeout time.Duration
+	// NetworkTimeout is the timeout for individual read operations on the request body. If the
+	// read operation succeeds in this time window, the handler will continue consuming the body.
+	// If a read operation times out, the handler will stop reading and close the request.
+	// This ensures that an upload is consumed while data is being transmitted, while also closing
+	// dead connections.
+	// Under the hood, this is passed to ResponseController.SetReadDeadline
+	// Defaults to 60s
+	NetworkTimeout time.Duration
 }
 
 // CorsConfig provides a way to customize the the handling of Cross-Origin Resource Sharing (CORS).
@@ -173,6 +181,10 @@ func (config *Config) validate() error {
 
 	if config.AcquireLockTimeout <= 0 {
 		config.AcquireLockTimeout = 20 * time.Second
+	}
+
+	if config.NetworkTimeout <= 0 {
+		config.NetworkTimeout = 60 * time.Second
 	}
 
 	if config.Cors == nil {
