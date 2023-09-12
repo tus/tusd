@@ -26,6 +26,9 @@ func NewError(errCode string, message string, statusCode int) Error {
 			Body:       errCode + ": " + message + "\n",
 			Header: HTTPHeader{
 				"Content-Type": "text/plain; charset=utf-8",
+				// Indicate that we want to close the connection. This is helpful
+				// if we respond while the request body is still incoming.
+				"Connection": "close",
 			},
 		},
 	}

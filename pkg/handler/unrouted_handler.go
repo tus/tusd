@@ -1368,6 +1368,11 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	releaseLock := func() {
 		if c.body != nil {
 			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+			// SetReadDeadline with the current time causes concurrent reads to the body to time out,
+			// so the body will be closed sooner with less delay.
+			if err := c.resC.SetReadDeadline(time.Now()); err != nil {
+				handler.logger.Warn("NetworkControlError", "method", c.req.Method, "path", c.req.URL.Path, "error", err)
+			}
 			c.body.closeWithError(ErrUploadInterrupted)
 		}
 	}
