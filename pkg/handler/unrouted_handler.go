@@ -1188,13 +1188,6 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
-	// Errors for connnection resets also contain TCP details, we don't need, e.g:
-	// read tcp 127.0.0.1:1080->127.0.0.1:10023: read: connection reset by peer
-	// Therefore, we also trim those down.
-	if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
-		err = ErrConnectionReset
-	}
-
 	r := c.req
 
 	detailedErr, ok := err.(Error)

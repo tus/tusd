@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 )
 
@@ -51,9 +52,11 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		//   is stopped or the server shuts down.
 		// - io.ErrClosedPipe is returned in the package's unit test with io.Pipe()
 		// - io.UnexpectedEOF means that the client aborted the request.
+		// - "connection reset by peer" if we get a TCP RST flag, forcefully closing the connection.
 		// In all of those cases, we do not forward the error to the storage,
 		// but act like the body just ended naturally.
-		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
+		// TODO: Log this using the WARN level
+		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF || strings.HasSuffix(err.Error(), "read: connection reset by peer") {
 			return n, io.EOF
 		}
 
