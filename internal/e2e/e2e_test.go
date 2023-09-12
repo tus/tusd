@@ -342,137 +342,109 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	}
 }
 
-// // TestUnexpectedNetworkReset tests that tusd correctly saves the transmitted data
-// // if the client connection gets interrupted unexpectedly by a TCP RST.
-// func TestUnexpectedNetworkReset(t *testing.T) {
-// 	// Skip the test for now because the reset_peer toxic does not work as hoped.
-// 	// It does not let any data through, but we need it to pass data through
-// 	// until the connection is reset.
-// 	// t.SkipNow()
+// TestUnexpectedNetworkReset tests that tusd correctly saves the transmitted data
+// if the client connection gets interrupted unexpectedly by a TCP RST.
+func TestUnexpectedNetworkReset(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	defer cancel()
+	endpoint, addr, _ := spawnTusd(ctx, t)
 
-// 	endpoint, _, _, _ := spawnTusd(ctx, t)
+	// We don't use toxiproxy here because we have to control the TCP RST
+	// flag directly.
 
-// 	dialer := &net.Dialer{
-// 		Timeout:   30 * time.Second,
-// 		KeepAlive: 30 * time.Second,
-// 	}
-// 	httpTransport := &http.Transport{
-// 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-// 			c, err := dialer.DialContext(ctx, network, addr)
-// 			if err != nil {
-// 				return nil, err
-// 			}
+	// We create an upload of 10KB, but only provide 5KB before cutting the connection.
+	uploadLength := 10 * 1024
+	payloadLength := 5 * 1024
+	data := make([]byte, payloadLength)
+	_, err := rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 			tcpConn, ok := c.(*net.TCPConn)
-// 			if !ok {
-// 				panic("unable to cast into TCP connection")
-// 			}
+	// Create upload
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 			tcpConn.SetLinger(0)
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(uploadLength))
 
-// 			go func() {
-// 				<-time.After(2 * time.Second)
-// 				tcpConn.Close()
-// 			}()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 			return c, nil
-// 		},
-// 		ForceAttemptHTTP2:     true,
-// 		MaxIdleConns:          100,
-// 		IdleConnTimeout:       90 * time.Second,
-// 		TLSHandshakeTimeout:   10 * time.Second,
-// 		ExpectContinueTimeout: 1 * time.Second,
-// 	}
-// 	httpClient := &http.Client{
-// 		Transport: httpTransport,
-// 	}
+	if res.StatusCode != http.StatusCreated {
+		t.Fatal("invalid response code")
+	}
 
-// 	// 10KB of random upload data
-// 	length := 10 * 1024
-// 	data := make([]byte, length/2)
-// 	_, err := rand.Read(data)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	uploadUrlStr := res.Header.Get("Location")
+	uploadUrl, err := url.Parse(uploadUrlStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	// Create upload
-// 	req, err := http.NewRequest("POST", endpoint, nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Send upload data via a PATCH request. We directly open a TCP socket and write the HTTP
+	// request manually because it allows us to use SetLinger directly and we can send a smaller
+	// body than advertised in the Content-Length header.
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	req.Header.Add("Tus-Resumable", "1.0.0")
-// 	req.Header.Add("Upload-Length", strconv.Itoa(length))
+	// SetLinger(0) causes a RST to be sent instead of a normal FIN handshake.
+	tcpConn := conn.(*net.TCPConn)
+	if err := tcpConn.SetLinger(0); err != nil {
+		t.Fatal(err)
+	}
 
-// 	res, err := httpClient.Do(req)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if _, err := fmt.Fprintf(conn, `PATCH %s HTTP/1.1
+Host: %s
+Content-Length: %d
+Content-Type: application/offset+octet-stream
+Tus-Resumable: 1.0.0
+Upload-Offset: 0
 
-// 	if res.StatusCode != http.StatusCreated {
-// 		t.Fatal("invalid response code")
-// 	}
+`, uploadUrl.Path, uploadUrl.Host, uploadLength); err != nil {
+		t.Fatal(err)
+	}
 
-// 	uploadUrl := res.Header.Get("Location")
+	// Only write the 5KB of data
+	if _, err := conn.Write(data); err != nil {
+		t.Fatal(err)
+	}
 
-// 	reader, writer := io.Pipe()
-// 	go func() {
-// 		writer.Write(data)
-// 		<-time.After(3 * time.Second)
-// 		writer.Close()
-// 	}()
-// 	req, err = http.NewRequest("PATCH", uploadUrl, reader)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Close the connection using RST, thanks to SetLinger.
+	if err := tcpConn.Close(); err != nil {
+		t.Fatal(err)
+	}
 
-// 	req.Header.Add("Tus-Resumable", "1.0.0")
-// 	req.Header.Add("Upload-Offset", "0")
-// 	req.Header.Add("Content-Type", "application/offset+octet-stream")
+	// Send HEAD request to fetch offset
+	req, err = http.NewRequest("HEAD", uploadUrlStr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	// Send the PATCH request. The connection will be closed by the toxiproxy,
-// 	// so we can an EOF error here.
-// 	start := time.Now()
-// 	_, err = httpClient.Do(req)
-// 	fmt.Println("After patch")
-// 	if err == nil || !strings.Contains(err.Error(), "connection reset by peer") {
-// 		t.Fatalf("unexpected error %s", err)
-// 	}
+	req.Header.Add("Tus-Resumable", "1.0.0")
 
-// 	// Send HEAD request to fetch offset
-// 	req, err = http.NewRequest("HEAD", uploadUrl, nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
 
-// 	req.Header.Add("Tus-Resumable", "1.0.0")
+	offset, err := strconv.Atoi(res.Header.Get("Upload-Offset"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	res, err = httpClient.Do(req)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer res.Body.Close()
-
-// 	offset, err := strconv.Atoi(res.Header.Get("Upload-Offset"))
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	// 10KB were allowed before toxiproxy cut the connection. Accounting
-// 	// the overhead of HTTP request, tusd should have received about 10KB.
-// 	if !isApprox(offset, 10_000, 0.1) {
-// 		t.Fatalf("invalid offset %d", offset)
-// 	}
-
-// 	// Data was allowed to flow for 2s.
-// 	duration := time.Since(start)
-// 	if !isApprox(duration, 2*time.Second, 0.1) {
-// 		t.Fatalf("invalid request duration %v", duration)
-// 	}
-// }
+	// 5KB were transmitted, all of which should be safed.
+	if !isApprox(offset, payloadLength, 0.1) {
+		t.Fatalf("invalid offset %d", offset)
+	}
+}
 
 // TestLockRelease asserts that an incoming request will cause any ongoing request
 // for the same upload resource to be closed quickly and cleanly.
