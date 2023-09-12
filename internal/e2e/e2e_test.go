@@ -131,24 +131,18 @@ func TestNetworkReadTimeout(t *testing.T) {
 	defer proxy.Delete()
 
 	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
-	// from tusd is not limited. We also add a noop operation. When a new toxic is added
-	// (like we do later in the test), toxiproxy interrupts the last toxic in the chain
-	// to install the new toxic (see https://github.com/Shopify/toxiproxy/blob/3399ea0235ca3961e30ed9cb3a0ad52ddc8398c3/link.go#L177-L178)
-	// The bandwidth toxic would send all remaining data if it gets interrupted (see
-	// https://github.com/Shopify/toxiproxy/blob/3399ea0235ca3961e30ed9cb3a0ad52ddc8398c3/toxics/bandwidth.go#L51-L53),
-	// which means tusd would receive more data than intended. Adding the noop toxic
-	// solves this problem because the bandwidth toxic stays uninterrupted.
+	// from tusd is not limited.
 	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
 		"rate": 5,
 	})
-	proxy.AddToxic("", "noop", "upstream", 1, toxiproxy.Attributes{})
 
 	// Endpoint address point to toxiproxy
 	endpoint := "http://" + proxy.Listen + "/files/"
 
-	// 50KB of random upload data
-	length := 50 * 1024
-	data := make([]byte, length)
+	// We tell tusd to create a 50KB upload, but only upload 10KB of data.
+	payloadLength := 10 * 1024
+	uploadLength := 50 * 1024
+	data := make([]byte, payloadLength)
 	_, err := rand.Read(data)
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +155,7 @@ func TestNetworkReadTimeout(t *testing.T) {
 	}
 
 	req.Header.Add("Tus-Resumable", "1.0.0")
-	req.Header.Add("Upload-Length", strconv.Itoa(length))
+	req.Header.Add("Upload-Length", strconv.Itoa(uploadLength))
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -174,9 +168,16 @@ func TestNetworkReadTimeout(t *testing.T) {
 
 	uploadUrl := res.Header.Get("Location")
 
-	// Begin uploading data, but after 2s the upstream connection is interrupted silently.
-	// The TCP connection stays open but tusd does not receive any more data.
-	req, err = http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
+	// We write data using a pipe instead of bytes.Reader (or similar) to better simulate
+	// a network interruption. The writer is never closed and tusd does not
+	// know that we won't be sending the entire upload here.
+	// The write must happen in another goroutine because it waits for a suitable read.
+	reader, writer := io.Pipe()
+	go writer.Write(data)
+
+	// Begin uploading data. The 10KB are transmitted completely after 2s, after which no
+	// more data is received by tusd. The TCP connection stays open.
+	req, err = http.NewRequest("PATCH", uploadUrl, reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,42 +186,27 @@ func TestNetworkReadTimeout(t *testing.T) {
 	req.Header.Add("Upload-Offset", "0")
 	req.Header.Add("Content-Type", "application/offset+octet-stream")
 
-	go func() {
-		<-time.After(2 * time.Second)
-		proxy.AddToxic("timeout_upstream", "timeout", "upstream", 1, toxiproxy.Attributes{
-			"timeout": 0,
-		})
-	}()
-
 	start := time.Now()
-	_, err = http.DefaultClient.Do(req)
-	// TODO: Can EnableFullDuplex help to receive a response here?
-	if !errors.Is(err, io.EOF) {
-		t.Fatalf("unexpected error %s", err)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	// TODO: Attempt to obtain the response and see if we get the timeout error
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// defer res.Body.Close()
+	defer res.Body.Close()
 
 	// Assert the response to see if tusd correctly emitted a timeout.
 	// In reality, clients may often not receive this message due to network issues.
-	// if res.StatusCode != http.StatusInternalServerError {
-	// 	t.Fatalf("invalid response code %d", res.StatusCode)
-	// }
+	if res.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
 
-	// body, err := io.ReadAll(res.Body)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// if !strings.Contains(string(body), "ERR_READ_TIMEOUT") {
-	// 	t.Fatalf("invalid response body %s", string(body))
-	// }
-
-	proxy.RemoveToxic("timeout_upstream")
+	if !strings.Contains(string(body), "ERR_READ_TIMEOUT") {
+		t.Fatalf("invalid response body %s", string(body))
+	}
 
 	// Send HEAD request to fetch offset
 	req, err = http.NewRequest("HEAD", uploadUrl, nil)
@@ -317,7 +303,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	req.Header.Add("Content-Type", "application/offset+octet-stream")
 
 	// Send the PATCH request. The connection will be closed by the toxiproxy,
-	// so we can an EOF error here.
+	// so we get an EOF error here.
 	start := time.Now()
 	_, err = http.DefaultClient.Do(req)
 	if !errors.Is(err, io.EOF) {

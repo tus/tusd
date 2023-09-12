@@ -174,7 +174,12 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Set the initial read deadline for consuming the request body. All headers have already been read,
 		// so this is only for reading the request body. While reading, we regularly update the read deadline
 		// so this deadline is usually not final. See the bodyReader and writeChunk.
+		// We also update the write deadline, but makes sure that it is larger than the read deadline, so we
+		// can still write a response in the case of a read timeout.
 		if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
+			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
+		}
+		if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
 			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
 		}
 
@@ -858,6 +863,11 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
 			if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
+				handler.logger.Warn("NetworkTimeoutErorr", "method", r.Method, "path", r.URL.Path, "error", err)
+			}
+
+			// The write deadline is updated accordingly to ensure that we can also write responses.
+			if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
 				handler.logger.Warn("NetworkTimeoutErorr", "method", r.Method, "path", r.URL.Path, "error", err)
 			}
 		}
