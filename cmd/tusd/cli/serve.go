@@ -130,12 +130,18 @@ func Serve() {
 	}
 
 	server := &http.Server{
-		Handler:           mux,
-		ReadTimeout:       0,
+		Handler: mux,
+		// ReadHeaderTimeout is the timeout for reading the entire request
+		// header. This does not include reading a potential request body.
 		ReadHeaderTimeout: Flags.NetworkTimeout,
-		WriteTimeout:      Flags.NetworkTimeout,
-		IdleTimeout:       Flags.NetworkTimeout,
-		MaxHeaderBytes:    http.DefaultMaxHeaderBytes,
+		// ReadTimeout and WriteTimeout are absolute values that govern when
+		// reads/writes time out. Since the incoming requests have a flexible duration,
+		// we do not rely on these absolute values, but extend the timeouts
+		// dynamically as needed in UnroutedHandler via http.ResponseControler.SetRead/WriteDeadline.
+		ReadTimeout:    0,
+		WriteTimeout:   0,
+		IdleTimeout:    Flags.NetworkTimeout,
+		MaxHeaderBytes: http.DefaultMaxHeaderBytes,
 		ConnState: func(_ net.Conn, cs http.ConnState) {
 			switch cs {
 			case http.StateNew:
