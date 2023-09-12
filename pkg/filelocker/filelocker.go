@@ -93,6 +93,17 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 			// Lock has been aquired, so we are good to go.
 			break
 		}
+		if err == lockfile.ErrNotExist {
+			// ErrNotExist means that the file was not visible on disk yet. This
+			// might happen when the disk is under some load. Wait a short amount
+			// and retry.
+			select {
+			case <-ctx.Done():
+				return handler.ErrLockTimeout
+			case <-time.After(10 * time.Millisecond):
+				continue
+			}
+		}
 		if err != lockfile.ErrBusy {
 			// If we get something different than ErrBusy, bubble the error up.
 			return err
