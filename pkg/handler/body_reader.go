@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -52,12 +53,22 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		//   is stopped or the server shuts down.
 		// - io.ErrClosedPipe is returned in the package's unit test with io.Pipe()
 		// - io.UnexpectedEOF means that the client aborted the request.
-		// - "connection reset by peer" if we get a TCP RST flag, forcefully closing the connection.
 		// In all of those cases, we do not forward the error to the storage,
 		// but act like the body just ended naturally.
-		// TODO: Log this using the WARN level
-		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF || strings.HasSuffix(err.Error(), "read: connection reset by peer") {
+		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
 			return n, io.EOF
+		}
+
+		// Connection resets are not dropped silently, but responded to the client.
+		// We change the error because otherwise the message would contain the local address,
+		// which is unnecessary to be included in the response.
+		if strings.HasSuffix(err.Error(), "read: connection reset by peer") {
+			err = ErrConnectionReset
+		}
+
+		// For timeouts, we also send a nicer response to the clients.
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			err = ErrReadTimeout
 		}
 
 		// Other errors are stored for retrival with hasError, but is not returned
