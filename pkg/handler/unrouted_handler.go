@@ -175,7 +175,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// so this is only for reading the request body. While reading, we regularly update the read deadline
 		// so this deadline is usually not final. See the bodyReader and writeChunk.
 		if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
-			handler.logger.Warn("NetworkTimeoutError", "method", r.Method, "path", r.URL.Path, "error", err)
+			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
 		}
 
 		// TODO: Consider if we want to c.resC.EnableFullDuplex()? Maybe this also
@@ -872,6 +872,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		terminateUpload := false
 
 		go func() {
+			var cause Error
 			select {
 			case resp, ok := <-info.stopUpload:
 				// If the channel is closed, the request completed (successfully or not) and so
@@ -883,13 +884,18 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 				// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
 				terminateUpload = true
 
-				err := ErrUploadStoppedByServer
-				err.HTTPResponse = err.HTTPResponse.MergeWith(resp)
-				c.body.closeWithError(err)
+				cause = ErrUploadStoppedByServer
+				cause.HTTPResponse = cause.HTTPResponse.MergeWith(resp)
 			case <-handler.serverCtx:
 				// serverCtx is closed if the server is being shut down
-				c.body.closeWithError(ErrServerShutdown)
+				cause = ErrServerShutdown
 			}
+
+			// TODO: This should be done in closeWithError
+			if err := c.resC.SetReadDeadline(time.Now()); err != nil {
+				handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
+			}
+			c.body.closeWithError(cause)
 		}()
 
 		if handler.config.NotifyUploadProgress {
