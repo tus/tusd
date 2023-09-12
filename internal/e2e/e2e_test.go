@@ -64,6 +64,8 @@ func TestMain(m *testing.M) {
 // TestSuccessfulUpload tests that tusd can perform a single upload
 // from actual HTTP requests.
 func TestSuccessfulUpload(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -120,6 +122,8 @@ func TestSuccessfulUpload(t *testing.T) {
 // data has been received for the specified timeout. All data until this timeout
 // should be stored, however.
 func TestNetworkReadTimeout(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -244,6 +248,8 @@ func TestNetworkReadTimeout(t *testing.T) {
 // TestUnexpectedNetworkClose tests that tusd correctly saves the transmitted data
 // if the client connection gets interrupted unexpectedly during the upload.
 func TestUnexpectedNetworkClose(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -345,6 +351,8 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 // TestUnexpectedNetworkReset tests that tusd correctly saves the transmitted data
 // if the client connection gets interrupted unexpectedly by a TCP RST.
 func TestUnexpectedNetworkReset(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -449,6 +457,8 @@ Upload-Offset: 0
 // TestLockRelease asserts that an incoming request will cause any ongoing request
 // for the same upload resource to be closed quickly and cleanly.
 func TestLockRelease(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -590,6 +600,8 @@ func TestLockRelease(t *testing.T) {
 // TestShutdown asserts that tusd closes all ongoing upload requests and shuts down
 // cleanly on its own when receiving a signal to stop.
 func TestShutdown(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -669,6 +681,8 @@ func TestShutdown(t *testing.T) {
 // the length specified in the upload. If more data is transmitted, tusd just ignores
 // the remaining data.
 func TestUploadLengthExceeded(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
