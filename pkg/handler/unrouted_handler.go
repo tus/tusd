@@ -1248,6 +1248,7 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 // every second, indicating how much data has been transfered to the server.
 // It will stop sending these instances once the returned channel has been
 // closed.
+// TODO: Use the request context for stopping emitting progress messages.
 func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bodyReader) chan<- struct{} {
 	previousOffset := int64(0)
 	originalOffset := hook.Upload.Offset
