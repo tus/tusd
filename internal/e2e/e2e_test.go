@@ -629,12 +629,12 @@ func TestLockRelease(t *testing.T) {
 	// }
 }
 
+// TestShutdown asserts that tusd closes all ongoing upload requests and shuts down
+// cleanly on its own when receiving a signal to stop.
 func TestShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// We configure tusd with a read timeout of 5s, meaning that if no data
-	// is received for 5s, it terminates the connection.
 	_, addr, cmd := spawnTusd(ctx, t)
 
 	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
@@ -657,7 +657,7 @@ func TestShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create upload
+	// Create upload and send data in one request. We do not need the upload URL.
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
@@ -668,20 +668,19 @@ func TestShutdown(t *testing.T) {
 	req.Header.Add("Content-Type", "application/offset+octet-stream")
 
 	go func() {
+		// After 2s, tell tusd to shut down.
 		<-time.After(2 * time.Second)
 		cmd.Process.Signal(os.Interrupt)
 	}()
 
+	start := time.Now()
 	res, err := http.DefaultClient.Do(req)
-	// Error should be nil. If it is io.EOF, it is possible that the request was not shut down properly
-	// and that the shutdown timeout kicked in and stopped the process forcefully.
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
 
-	// Assert the response to see if tusd correctly emitted a timeout.
-	// In reality, clients may often not receive this message due to network issues.
+	// Assert the response to see if tusd correctly emitted the shutdown response.
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("invalid response code %d", res.StatusCode)
 	}
@@ -694,6 +693,18 @@ func TestShutdown(t *testing.T) {
 	if !strings.Contains(string(body), "ERR_SERVER_SHUTDOWN") {
 		t.Fatalf("invalid response body %s", string(body))
 	}
+
+	// Wait until tusd exits on its own. It should exit as soon as the request is finished.
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	// tusd should close the request and exit immediately after the signal.
+	duration := time.Since(start)
+	if !isApprox(duration, 2*time.Second, 0.1) {
+		t.Fatalf("invalid request duration %v", duration)
+	}
+
 }
 
 // TestUploadLengthExceeded asserts that uploading appending requests are limited to
