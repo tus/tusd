@@ -132,6 +132,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			Header: handler.HTTPHeader{
 				"X-Hello":      "here",
 				"Content-Type": "text/plain; charset=utf-8",
+				"Connection":   "close",
 			},
 		},
 	}, err)
