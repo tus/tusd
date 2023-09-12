@@ -740,12 +740,14 @@ func TestUploadLengthExceeded(t *testing.T) {
 	// tusd does not know the request size upfront.
 	req.ContentLength = -1
 
+	start := time.Now()
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
 
+	// tusd does not respond with an error here, but just silently ignores the additional data.
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("invalid response code %d", res.StatusCode)
 	}
@@ -755,8 +757,12 @@ func TestUploadLengthExceeded(t *testing.T) {
 		t.Fatalf("invalid response code %d", res.StatusCode)
 	}
 
-	// TODO: Assert that the request is stopped after 2s already instead of
-	// waiting for all 50KB to be transmitted. Right now, this is not the case.
+	// The request should be stopped immediately after 10KB have been transmitted instead of waiting for
+	// the entire request body. With 5KB/s, that is 2s.
+	duration := time.Since(start)
+	if !isApprox(duration, 2*time.Second, 0.1) {
+		t.Fatalf("invalid request duration %v", duration)
+	}
 }
 
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {

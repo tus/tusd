@@ -183,8 +183,14 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
 		}
 
-		// TODO: Consider if we want to c.resC.EnableFullDuplex()? Maybe this also
-		// helps with faster response times for the e2e TESTLockRelease?
+		// Enabling full duplex mode allows us to write responses while the request is still being transmitted.
+		// This is handy when we want to return an error while the client is still uploading data (e.g. when
+		// the upload length is exceeded). Without duplex mode, tusd and the client would have to wait for the
+		// response until the entire request is written, which can take a long time for big uploads.
+		// Note: Some say that some HTTP/1.1 clients have problems with this. Let's see if we run into any issue.
+		if err := c.resC.EnableFullDuplex(); err != nil {
+			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
+		}
 
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments do not support PATCH and
