@@ -488,6 +488,8 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 // 	}
 // }
 
+// TestLockRelease asserts that an incoming request will cause any ongoing request
+// for the same upload resource to be closed quickly and cleanly.
 func TestLockRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -537,8 +539,6 @@ func TestLockRelease(t *testing.T) {
 	uploadUrl := postRes.Header.Get("Location")
 
 	// Begin the upload
-	// TODO: What happens if there is no data for the PATCH incoming? Just radio silence?
-	// Is the handler able to unblock the read calls?
 	patchReq, err := http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
@@ -577,7 +577,7 @@ func TestLockRelease(t *testing.T) {
 		close(headErrChan)
 	}()
 
-	// start := time.Now()
+	start := time.Now()
 	patchRes, err := http.DefaultClient.Do(patchReq)
 	if err != nil {
 		t.Fatal(err)
@@ -620,13 +620,13 @@ func TestLockRelease(t *testing.T) {
 		t.Fatalf("invalid offset %d", offset)
 	}
 
-	// TODO: Assert the request duration as an additional test. However, we see
-	// delays in unblocking the Read calls so some unknown reason right now.
-	// Let's enable this once we figure those out.
-	// duration := time.Since(start)
-	// if !isApprox(duration, 7*time.Second, 0.1) {
-	// 	t.Fatalf("invalid request duration %v", duration)
-	// }
+	// The interrupting request is sent after 2s, but with the poll intervals it might
+	// take some more time for the requests to be finished, so the duration should be
+	// 3s +/- 1s.
+	duration := time.Since(start)
+	if !isApprox(duration, 3*time.Second, 0.3) {
+		t.Fatalf("invalid request duration %v", duration)
+	}
 }
 
 // TestShutdown asserts that tusd closes all ongoing upload requests and shuts down
