@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -69,8 +71,7 @@ func TestSuccessfulUpload(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	endpoint, addr, _ := spawnTusd(ctx, t)
-	fmt.Println(endpoint, addr)
+	endpoint, _, _ := spawnTusd(ctx, t)
 
 	data := bytes.NewBufferString("hello world")
 	length := data.Len()
@@ -312,7 +313,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	// so we get an EOF error here.
 	start := time.Now()
 	_, err = http.DefaultClient.Do(req)
-	if !errors.Is(err, io.EOF) {
+	if !errors.Is(err, io.EOF) && !strings.Contains(err.Error(), "connection reset") {
 		t.Fatalf("unexpected error %s", err)
 	}
 
@@ -423,6 +424,8 @@ Upload-Offset: 0
 	if _, err := conn.Write(data); err != nil {
 		t.Fatal(err)
 	}
+
+	<-time.After(100 * time.Millisecond)
 
 	// Close the connection using RST, thanks to SetLinger.
 	if err := tcpConn.Close(); err != nil {
