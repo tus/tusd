@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"mime"
-	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -1189,14 +1188,6 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
-	// Errors for read timeouts contain too much information which is not
-	// necessary for us and makes grouping for the metrics harder. The error
-	// message looks like: read tcp 127.0.0.1:1080->127.0.0.1:53673: i/o timeout
-	// Therefore, we use a common error message for all of them.
-	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-		err = ErrReadTimeout
-	}
-
 	// Errors for connnection resets also contain TCP details, we don't need, e.g:
 	// read tcp 127.0.0.1:1080->127.0.0.1:10023: read: connection reset by peer
 	// Therefore, we also trim those down.
