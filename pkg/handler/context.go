@@ -16,6 +16,8 @@ type httpContext struct {
 	resC *http.ResponseController
 	req  *http.Request
 	body *bodyReader
+
+	// TODO: Add structured logger
 }
 
 func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *httpContext {
