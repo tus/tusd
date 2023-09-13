@@ -810,6 +810,12 @@ func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint stri
 		t.Fatalf("failed to get stdout pipe: %s", err)
 	}
 
+	// Ensure that stdout is closed, when child process is stopped.
+	cmd.Cancel = func() error {
+		stdout.Close()
+		return cmd.Process.Kill()
+	}
+
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("failed to start tusd: %s", err)
 	}
