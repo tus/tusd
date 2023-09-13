@@ -60,10 +60,7 @@ func TestMain(m *testing.M) {
 	// Run actual tests
 	exitVal := m.Run()
 
-	fmt.Println("After run")
-
 	server.Shutdown()
-	fmt.Println("After shutdown")
 	os.Exit(exitVal)
 }
 
@@ -734,7 +731,6 @@ func TestStopUpload(t *testing.T) {
 
 	// Start a hook server that always instructs tusd to stop the upload.
 	hookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Hooook")
 		w.Write([]byte(`{"StopUpload":true}`))
 	}))
 	defer hookServer.Close()
@@ -863,7 +859,6 @@ func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint stri
 	scanner := bufio.NewScanner(stdout)
 
 	for scanner.Scan() {
-		// fmt.Println(scanner.Text()) // Println will add back the final '\n'
 		match := TUSD_ENDPOINT_RE.FindStringSubmatch(scanner.Text())
 		if match != nil {
 			endpoint = match[1]
