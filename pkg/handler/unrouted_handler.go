@@ -863,9 +863,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}
 
 		if handler.config.NotifyUploadProgress {
-			// TODO: StopUpload could call closeWithError directly
-			stopProgressEvents := handler.sendProgressMessages(newHookEvent(c, info), c.body)
-			defer close(stopProgressEvents)
+			handler.sendProgressMessages(c, info)
 		}
 
 		bytesWritten, err = upload.WriteChunk(c, offset, c.body)
@@ -1184,36 +1182,33 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 }
 
 // sendProgressMessage will send a notification over the UploadProgress channel
-// every second, indicating how much data has been transfered to the server.
-// It will stop sending these instances once the returned channel has been
-// closed.
-// TODO: Use the request context for stopping emitting progress messages.
-func (handler *UnroutedHandler) sendProgressMessages(hook HookEvent, reader *bodyReader) chan<- struct{} {
+// indicating how much data has been transfered to the server.
+// It will stop sending these instances once the provided context is done.
+func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileInfo) {
+	hook := newHookEvent(c, info)
+
 	previousOffset := int64(0)
 	originalOffset := hook.Upload.Offset
-	stop := make(chan struct{}, 1)
+
+	emitProgress := func() {
+		hook.Upload.Offset = originalOffset + c.body.bytesRead()
+		if hook.Upload.Offset != previousOffset {
+			handler.UploadProgress <- hook
+			previousOffset = hook.Upload.Offset
+		}
+	}
 
 	go func() {
 		for {
 			select {
-			case <-stop:
-				hook.Upload.Offset = originalOffset + reader.bytesRead()
-				if hook.Upload.Offset != previousOffset {
-					handler.UploadProgress <- hook
-					previousOffset = hook.Upload.Offset
-				}
+			case <-c.Done():
+				emitProgress()
 				return
 			case <-time.After(handler.config.UploadProgressInterval):
-				hook.Upload.Offset = originalOffset + reader.bytesRead()
-				if hook.Upload.Offset != previousOffset {
-					handler.UploadProgress <- hook
-					previousOffset = hook.Upload.Offset
-				}
+				emitProgress()
 			}
 		}
 	}()
-
-	return stop
 }
 
 // getHostAndProtocol extracts the host and used protocol (either HTTP or HTTPS)
