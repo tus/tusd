@@ -51,6 +51,7 @@ jobs:
         run: |
           go test ./pkg/...
           go test -v -p=1 ./internal/...
+        shell: bash
 
       -
         name: Vet code
