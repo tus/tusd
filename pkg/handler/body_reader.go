@@ -57,7 +57,6 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		// - io.UnexpectedEOF means that the client aborted the request.
 		// In all of those cases, we do not forward the error to the storage,
 		// but act like the body just ended naturally.
-		log.Println(n, err)
 		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
 			return n, io.EOF
 		}
