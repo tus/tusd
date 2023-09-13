@@ -741,9 +741,37 @@ func TestUploadLengthExceeded(t *testing.T) {
 		t.Fatalf("invalid response code %d", res.StatusCode)
 	}
 
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(body), "ERR_UPLOAD_SIZE_EXCEEDED") {
+		t.Fatalf("invalid response body %s", string(body))
+	}
+
+	// Send HEAD request to fetch offset
+	req, err = http.NewRequest("HEAD", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	offset, err := strconv.Atoi(res.Header.Get("Upload-Offset"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// tusd must only read the amount specified in Upload-Length.
-	if res.Header.Get("Upload-Offset") != strconv.Itoa(uploadLength) {
-		t.Fatalf("invalid response code %d", res.StatusCode)
+	if offset != uploadLength {
+		t.Fatalf("invalid offset %d", offset)
 	}
 
 	// The request should be stopped immediately after 10KB have been transmitted instead of waiting for
