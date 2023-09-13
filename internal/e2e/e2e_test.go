@@ -62,6 +62,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("After run")
 
 	server.Shutdown()
+	fmt.Println("After shutdown")
 	os.Exit(exitVal)
 }
 
