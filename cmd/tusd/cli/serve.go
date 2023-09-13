@@ -129,6 +129,7 @@ func Serve() {
 		stdout.Printf("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
 	}
 
+	serverCtx, cancelServerCtx := context.WithCancelCause(context.Background())
 	server := &http.Server{
 		Handler: mux,
 		// ReadHeaderTimeout is the timeout for reading the entire request
@@ -150,9 +151,12 @@ func Serve() {
 				MetricsOpenConnections.Dec()
 			}
 		},
+		BaseContext: func(_ net.Listener) context.Context {
+			return serverCtx
+		},
 	}
 
-	shutdownComplete := setupSignalHandler(server, handler)
+	shutdownComplete := setupSignalHandler(server, cancelServerCtx)
 
 	if protocol == "http" {
 		// Non-TLS mode
@@ -220,7 +224,7 @@ func serveTLS(server *http.Server, listener net.Listener) error {
 	return server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile)
 }
 
-func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan struct{} {
+func setupSignalHandler(server *http.Server, cancelServerCtx context.CancelCauseFunc) <-chan struct{} {
 	shutdownComplete := make(chan struct{})
 
 	// We read up to two signals, so use a capacity of 2 here to not miss any signal
@@ -230,8 +234,11 @@ func setupSignalHandler(server *http.Server, handler *tushandler.Handler) <-chan
 	// On Unix we also listen to SIGTERM.
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	// Signal to the handler that it should stop all long running requests if we shut down
-	server.RegisterOnShutdown(handler.InterruptRequestHandling)
+	// When closing the server, cancel its context so all open requests shut down as well.
+	// See context.go for the logic.
+	server.RegisterOnShutdown(func() {
+		cancelServerCtx(tushandler.ErrServerShutdown)
+	})
 
 	go func() {
 		// First interrupt signal

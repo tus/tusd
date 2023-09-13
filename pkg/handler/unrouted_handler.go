@@ -64,7 +64,6 @@ type UnroutedHandler struct {
 	basePath      string
 	logger        *slog.Logger
 	extensions    string
-	serverCtx     chan struct{}
 
 	// CompleteUploads is used to send notifications whenever an upload is
 	// completed by a user. The HookEvent will contain information about this
@@ -131,27 +130,9 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
-		serverCtx:         make(chan struct{}),
 	}
 
 	return handler, nil
-}
-
-// InterruptRequestHandling attempts to interrupt long running requests, so
-// the server can shutdown gracefully. This function should not be used on
-// its own, but as part of http.Server.Shutdown. For example:
-//
-//	server := &http.Server{
-//		Handler: handler,
-//	}
-//	server.RegisterOnShutdown(handler.InterruptRequestHandling)
-//	server.Shutdown(ctx)
-//
-// Note: currently, this function only interrupts POST and PATCH requests
-// with a request body. In the future, this might be extended to HEAD, DELETE
-// and GET requests.
-func (handler UnroutedHandler) InterruptRequestHandling() {
-	close(handler.serverCtx)
 }
 
 // SupportedExtensions returns a comma-separated list of the supported tus extensions.
@@ -881,27 +862,19 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		terminateUpload := false
 
 		go func() {
-			var cause Error
-			select {
-			case resp, ok := <-info.stopUpload:
-				// If the channel is closed, the request completed (successfully or not) and so
-				// we can stop waiting on the channels.
-				if !ok {
-					return
-				}
-
-				// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
-				terminateUpload = true
-
-				cause = ErrUploadStoppedByServer
-				cause.HTTPResponse = cause.HTTPResponse.MergeWith(resp)
-			case <-handler.serverCtx:
-				// serverCtx is closed if the server is being shut down
-				cause = ErrServerShutdown
+			resp, ok := <-info.stopUpload
+			// If the channel is closed, the request completed (successfully or not) and so
+			// we can stop waiting on the channels.
+			if !ok {
+				return
 			}
 
-			c.body.closeWithError(cause)
+			// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
+			terminateUpload = true
 
+			cause := ErrUploadStoppedByServer
+			cause.HTTPResponse = cause.HTTPResponse.MergeWith(resp)
+			c.body.closeWithError(cause)
 		}()
 
 		if handler.config.NotifyUploadProgress {

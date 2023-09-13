@@ -776,10 +776,12 @@ func TestPatch(t *testing.T) {
 		reader, writer := io.Pipe()
 		a := assert.New(t)
 
+		ctx, cancel := context.WithCancelCause(context.Background())
+
 		go func() {
 			writer.Write([]byte("first "))
 
-			handler.InterruptRequestHandling()
+			cancel(ErrServerShutdown)
 
 			// Wait a short time to ensure that the goroutine in the PATCH
 			// handler has received and processed the stop event.
@@ -791,8 +793,9 @@ func TestPatch(t *testing.T) {
 		}()
 
 		(&httpTest{
-			Method: "PATCH",
-			URL:    "yes",
+			Context: ctx,
+			Method:  "PATCH",
+			URL:     "yes",
 			ReqHeader: map[string]string{
 				"Tus-Resumable": "1.0.0",
 				"Content-Type":  "application/offset+octet-stream",

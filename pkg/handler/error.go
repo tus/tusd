@@ -13,6 +13,11 @@ func (e Error) Error() string {
 	return e.ErrorCode + ": " + e.Message
 }
 
+func (e1 Error) Is(target error) bool {
+	e2, ok := target.(Error)
+	return ok && e1.ErrorCode == e2.ErrorCode
+}
+
 // NewError constructs a new Error object with the given error code and message.
 // The corresponding HTTP response will have the provided status code
 // and a body consisting of the error details.

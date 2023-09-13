@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 )
@@ -20,16 +21,39 @@ type httpContext struct {
 	// TODO: Add structured logger
 }
 
+// TODO: Ensure that newContext is only called once.
 func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *httpContext {
-	return &httpContext{
-		// We construct a new context which gets cancelled with a delay.
-		// See HookEvent.Context for more details.
-		Context: newDelayedContext(r.Context(), h.config.GracefulRequestCompletionTimeout),
+	// requestCtx is the context from the native request instance. It gets cancelled
+	// if the connection closes, the request is cancelled (HTTP/2), ServeHTTP returns
+	// or the server's base context is cancelled.
+	requestCtx := r.Context()
+	// On top of requestCtx, we construct a context that we can cancel, for example when
+	// the post-receive hook stops an upload or if another uploads requests a lock to be released.
+	cancellableCtx, _ := context.WithCancelCause(requestCtx)
+	// On top of cancellableCtx, we construct a new context which gets cancelled with a delay.
+	// See HookEvent.Context for more details, but the gist is that we want to give data stores
+	// some more time to finish their buisness.
+	delayedCtx := newDelayedContext(cancellableCtx, h.config.GracefulRequestCompletionTimeout)
+
+	ctx := &httpContext{
+		Context: delayedCtx,
 		res:     w,
 		resC:    http.NewResponseController(w),
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests
 	}
+
+	go func() {
+		<-cancellableCtx.Done()
+
+		// If the cause is one of our own errors, close a potential body and relay the error.
+		cause := context.Cause(cancellableCtx)
+		if errors.Is(cause, ErrServerShutdown) && ctx.body != nil {
+			ctx.body.closeWithError(cause)
+		}
+	}()
+
+	return ctx
 }
 
 func (c httpContext) Value(key any) any {
