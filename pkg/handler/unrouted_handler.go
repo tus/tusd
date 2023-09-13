@@ -1332,12 +1332,10 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	ctx, cancelContext := context.WithTimeout(c, handler.config.AcquireLockTimeout)
 	defer cancelContext()
 
-	// TODO: Wrap this in sync.OnceFunc if we upgrade to Go 1.21
+	// No need to wrap this in a sync.OnceFunc because c.cancel will be a noop after the first call.
 	releaseLock := func() {
-		if c.body != nil {
-			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
-			c.body.closeWithError(ErrUploadInterrupted)
-		}
+		handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+		c.cancel(ErrUploadInterrupted)
 	}
 
 	if err := lock.Lock(ctx, releaseLock); err != nil {

@@ -18,6 +18,8 @@ type httpContext struct {
 	req  *http.Request
 	body *bodyReader
 
+	cancel context.CancelCauseFunc
+
 	// TODO: Add structured logger
 }
 
@@ -29,7 +31,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 	requestCtx := r.Context()
 	// On top of requestCtx, we construct a context that we can cancel, for example when
 	// the post-receive hook stops an upload or if another uploads requests a lock to be released.
-	cancellableCtx, _ := context.WithCancelCause(requestCtx)
+	cancellableCtx, cancelHandling := context.WithCancelCause(requestCtx)
 	// On top of cancellableCtx, we construct a new context which gets cancelled with a delay.
 	// See HookEvent.Context for more details, but the gist is that we want to give data stores
 	// some more time to finish their buisness.
@@ -41,6 +43,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 		resC:    http.NewResponseController(w),
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests
+		cancel:  cancelHandling,
 	}
 
 	go func() {
@@ -48,7 +51,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 
 		// If the cause is one of our own errors, close a potential body and relay the error.
 		cause := context.Cause(cancellableCtx)
-		if errors.Is(cause, ErrServerShutdown) && ctx.body != nil {
+		if (errors.Is(cause, ErrServerShutdown) || errors.Is(cause, ErrUploadInterrupted)) && ctx.body != nil {
 			ctx.body.closeWithError(cause)
 		}
 	}()
