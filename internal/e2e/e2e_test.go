@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -719,6 +720,118 @@ func TestUploadLengthExceeded(t *testing.T) {
 	// The request should be stopped immediately after 10KB have been transmitted instead of waiting for
 	// the entire request body. With 5KB/s, that is 2s.
 	if !isApprox(duration, 2*time.Second, 0.2) {
+		t.Fatalf("invalid request duration %v", duration)
+	}
+}
+
+// TestSuccessfulUpload asserts that ongoing upload requests get properly
+// closed when the hooks instruct tusd to stop the upload.
+func TestStopUpload(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start a hook server that always instructs tusd to stop the upload.
+	hookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Hooook")
+		w.Write([]byte(`{"StopUpload":true}`))
+	}))
+	defer hookServer.Close()
+
+	_, addr, _ := spawnTusd(ctx, t, "-hooks-http", hookServer.URL, "-hooks-enabled-events=post-receive", "-progress-hooks-interval=3s")
+
+	proxy, _ := toxiClient.CreateProxy("tusd_"+t.Name(), "", addr)
+	defer proxy.Delete()
+
+	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
+	// from tusd is not limited.
+	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
+		"rate": 5,
+	})
+
+	// Endpoint address point to toxiproxy
+	endpoint := "http://" + proxy.Listen + "/files/"
+
+	// We specify an upload length of 50KB.
+	uploadLength := 50 * 1024
+	data := make([]byte, uploadLength)
+	_, err := rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create upload
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(uploadLength))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatal("invalid response code")
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	req, err = http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Offset", "0")
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	start := time.Now()
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	duration := time.Since(start)
+
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(body), "ERR_UPLOAD_STOPPED") {
+		t.Fatalf("invalid response body %s", string(body))
+	}
+
+	// Send HEAD request to check if upload was terminated
+	req, err = http.NewRequest("HEAD", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	// The first post-receive hook is sent after 3s (due to the progress-hooks-interval flag).
+	// The upload should then be quickly stoppped and terminated.
+	if !isApprox(duration, 3*time.Second, 0.3) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
