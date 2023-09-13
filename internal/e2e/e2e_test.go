@@ -822,6 +822,12 @@ func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint stri
 		if match != nil {
 			endpoint = match[1]
 			address = match[2]
+
+			go func() {
+				for scanner.Scan() {
+					fmt.Println(scanner.Text()) // Println will add back the final '\n'
+				}
+			}()
 			return
 		}
 	}
