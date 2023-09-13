@@ -726,7 +726,7 @@ func TestUploadLengthExceeded(t *testing.T) {
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	args = append([]string{"-port=0"}, args...)
 	cmd = exec.CommandContext(ctx, TUSD_BINARY, args...)
-	cmd.Stderr = os.Stderr
+	// cmd.Stderr = os.Stderr
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
