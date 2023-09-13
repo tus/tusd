@@ -857,7 +857,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// http.MaxBytesReader instead of io.LimitedReader because it returns an error
 		// if too much data is provided (handled in bodyReader) and also stops the server
 		// from reading the remaining request body.
-		c.body = newBodyReader(http.MaxBytesReader(c.res, r.Body, maxSize))
+		c.body = newBodyReader(http.MaxBytesReader(c.res, r.Body, maxSize), c.resC)
 		c.body.onReadDone = func() {
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
@@ -900,14 +900,12 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 				cause = ErrServerShutdown
 			}
 
-			// TODO: This should be done in closeWithError
-			if err := c.resC.SetReadDeadline(time.Now()); err != nil {
-				handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
-			}
 			c.body.closeWithError(cause)
+
 		}()
 
 		if handler.config.NotifyUploadProgress {
+			// TODO: StopUpload could call closeWithError directly
 			stopProgressEvents := handler.sendProgressMessages(newHookEvent(c, info), c.body)
 			defer close(stopProgressEvents)
 		}
@@ -1365,11 +1363,6 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	releaseLock := func() {
 		if c.body != nil {
 			handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
-			// SetReadDeadline with the current time causes concurrent reads to the body to time out,
-			// so the body will be closed sooner with less delay.
-			if err := c.resC.SetReadDeadline(time.Now()); err != nil {
-				handler.logger.Warn("NetworkControlError", "method", c.req.Method, "path", c.req.URL.Path, "error", err)
-			}
 			c.body.closeWithError(ErrUploadInterrupted)
 		}
 	}

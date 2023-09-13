@@ -3,11 +3,13 @@ package handler
 import (
 	"errors"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // bodyReader is an io.Reader, which is intended to wrap the request
@@ -21,12 +23,14 @@ type bodyReader struct {
 	reader       io.ReadCloser
 	err          error
 	bytesCounter int64
+	resC         *http.ResponseController
 	onReadDone   func()
 }
 
-func newBodyReader(r io.ReadCloser) *bodyReader {
+func newBodyReader(r io.ReadCloser, rc *http.ResponseController) *bodyReader {
 	return &bodyReader{
 		reader:     r,
+		resC:       rc,
 		onReadDone: func() {},
 	}
 }
@@ -40,7 +44,7 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 	atomic.AddInt64(&r.bytesCounter, int64(n))
 	if !errors.Is(err, os.ErrDeadlineExceeded) {
 		// If the timeout wasn't exceeded (due to SetReadDeadline), invoke
-		// the callback so the deadline can be
+		// the callback so the deadline can be extended
 		r.onReadDone()
 
 	}
@@ -53,6 +57,7 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		// - io.UnexpectedEOF means that the client aborted the request.
 		// In all of those cases, we do not forward the error to the storage,
 		// but act like the body just ended naturally.
+		log.Println(n, err)
 		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
 			return n, io.EOF
 		}
@@ -77,8 +82,10 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		}
 
 		// Other errors are stored for retrival with hasError, but is not returned
-		// to the consumer.
-		r.err = err
+		// to the consumer. We do not overwrite an error if it has been set already.
+		if r.err == nil {
+			r.err = err
+		}
 	}
 
 	return n, nil
@@ -97,6 +104,14 @@ func (r *bodyReader) bytesRead() int64 {
 }
 
 func (r *bodyReader) closeWithError(err error) {
-	r.reader.Close()
 	r.err = err
+
+	// SetReadDeadline with the current time causes concurrent reads to the body to time out,
+	// so the body will be closed sooner with less delay.
+	if err := r.resC.SetReadDeadline(time.Now()); err != nil {
+		// TODO: Replace with better logging
+		log.Println("NetworkTimeoutErorr", "error", err)
+	}
+
+	r.reader.Close()
 }
