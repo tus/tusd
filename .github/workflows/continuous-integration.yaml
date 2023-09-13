@@ -43,7 +43,7 @@ jobs:
       -
         name: Compile tusd binary
         run: |
-          go build -o $TUSD_BINARY ./cmd/tusd/main.go
+          go build -o $TUSD_BINARY -x ./cmd/tusd/main.go
         shell: bash
 
       -
