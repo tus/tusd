@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
+	"golang.org/x/exp/slog"
 )
 
 // httpContext is wrapper around context.Context that also carries the
@@ -13,14 +15,21 @@ import (
 type httpContext struct {
 	context.Context
 
+	// res and req are the native request and response instances
 	res  http.ResponseWriter
 	resC *http.ResponseController
 	req  *http.Request
+
+	// body is nil by default and set by the user if the request body is consumed.
 	body *bodyReader
 
+	// cancel allows a user to cancel the internal request context, causing
+	// the request body to be closed.
 	cancel context.CancelCauseFunc
 
-	// TODO: Add structured logger
+	// log is the logger for this request. It gets extended with more properties as the
+	// request progresses and is identified.
+	log *slog.Logger
 }
 
 // TODO: Ensure that newContext is only called once.
@@ -44,6 +53,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 		req:     r,
 		body:    nil, // body can be filled later for PATCH requests
 		cancel:  cancelHandling,
+		log:     h.logger.With("method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r)),
 	}
 
 	go func() {

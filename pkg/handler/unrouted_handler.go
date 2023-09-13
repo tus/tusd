@@ -158,10 +158,10 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// We also update the write deadline, but makes sure that it is larger than the read deadline, so we
 		// can still write a response in the case of a read timeout.
 		if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
-			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
+			c.log.Warn("NetworkControlError", "error", err)
 		}
 		if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
-			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
+			c.log.Warn("NetworkControlError", "error", err)
 		}
 
 		// Allow overriding the HTTP method. The reason for this is
@@ -171,7 +171,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		handler.logger.Info("RequestIncoming", "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+		c.log.Info("RequestIncoming")
 
 		handler.Metrics.incRequestsTotal(r.Method)
 
@@ -372,7 +372,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	resp.Header["Location"] = url
 
 	handler.Metrics.incUploadsCreated()
-	handler.logger.Info("UploadCreated", "id", id, "size", size, "url", url)
+	c.log = c.log.With("id", id)
+	c.log.Info("UploadCreated", "id", id, "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(c, info)
@@ -521,8 +522,8 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
-
-	handler.logger.Info("UploadCreated", "id", id, "size", info.Size, "url", url)
+	c.log = c.log.With("id", id)
+	c.log.Info("UploadCreated", "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(c, info)
@@ -585,6 +586,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		handler.sendError(c, err)
 		return
 	}
+	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(c, id)
@@ -686,6 +688,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		handler.sendError(c, err)
 		return
 	}
+	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(c, id)
@@ -804,7 +807,6 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	r := c.req
 	length := r.ContentLength
 	offset := info.Offset
-	id := info.ID
 
 	// Test if this upload fits into the file's size
 	if !info.SizeIsDeferred && offset+length > info.Size {
@@ -828,7 +830,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		maxSize = length
 	}
 
-	handler.logger.Info("ChunkWriteStart", "id", id, "maxSize", maxSize, "offset", offset)
+	c.log.Info("ChunkWriteStart", "maxSize", maxSize, "offset", offset)
 
 	var bytesWritten int64
 	var err error
@@ -839,17 +841,17 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// http.MaxBytesReader instead of io.LimitedReader because it returns an error
 		// if too much data is provided (handled in bodyReader) and also stops the server
 		// from reading the remaining request body.
-		c.body = newBodyReader(http.MaxBytesReader(c.res, r.Body, maxSize), c.resC)
+		c.body = newBodyReader(c, maxSize)
 		c.body.onReadDone = func() {
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
 			if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
-				handler.logger.Warn("NetworkTimeoutErorr", "method", r.Method, "path", r.URL.Path, "error", err)
+				c.log.Warn("NetworkTimeoutErorr", "error", err)
 			}
 
 			// The write deadline is updated accordingly to ensure that we can also write responses.
 			if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
-				handler.logger.Warn("NetworkTimeoutErorr", "method", r.Method, "path", r.URL.Path, "error", err)
+				c.log.Warn("NetworkTimeoutErorr", "error", err)
 			}
 		}
 
@@ -872,7 +874,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// it in the response, if the store did not also return an error.
 		bodyErr := c.body.hasError()
 		if bodyErr != nil {
-			handler.logger.Error("BodyReadError", "id", id, "error", bodyErr.Error())
+			c.log.Error("BodyReadError", "error", bodyErr.Error())
 			if err == nil {
 				err = bodyErr
 			}
@@ -884,12 +886,12 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
-				handler.logger.Error("UploadStopTerminateError", "id", id, "error", terminateErr.Error())
+				c.log.Error("UploadStopTerminateError", "error", terminateErr.Error())
 			}
 		}
 	}
 
-	handler.logger.Info("ChunkWriteComplete", "id", id, "bytesWritten", bytesWritten)
+	c.log.Info("ChunkWriteComplete", "bytesWritten", bytesWritten)
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
@@ -927,7 +929,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 			resp = resp.MergeWith(resp2)
 		}
 
-		handler.logger.Info("UploadFinished", "id", info.ID, "size", info.Size)
+		c.log.Info("UploadFinished", "size", info.Size)
 		handler.Metrics.incUploadsFinished()
 
 		// ... send the info out to the channel
@@ -949,6 +951,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		handler.sendError(c, err)
 		return
 	}
+	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(c, id)
@@ -1078,6 +1081,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		handler.sendError(c, err)
 		return
 	}
+	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
 		lock, err := handler.lockUpload(c, id)
@@ -1132,7 +1136,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 		handler.TerminatedUploads <- newHookEvent(c, info)
 	}
 
-	handler.logger.Info("UploadTerminated", "id", info.ID)
+	c.log.Info("UploadTerminated")
 	handler.Metrics.incUploadsTerminated()
 
 	return nil
@@ -1145,7 +1149,7 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 
 	detailedErr, ok := err.(Error)
 	if !ok {
-		handler.logger.Error("InternalServerError", "message", err.Error(), "method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r))
+		c.log.Error("InternalServerError", "message", err.Error())
 		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
@@ -1163,7 +1167,7 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 func (handler *UnroutedHandler) sendResp(c *httpContext, resp HTTPResponse) {
 	resp.writeTo(c.res)
 
-	handler.logger.Info("ResponseOutgoing", "status", resp.StatusCode, "method", c.req.Method, "path", c.req.URL.Path, "requestId", getRequestId(c.req), "body", resp.Body)
+	c.log.Info("ResponseOutgoing", "status", resp.StatusCode, "body", resp.Body)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -1316,7 +1320,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 
 	// No need to wrap this in a sync.OnceFunc because c.cancel will be a noop after the first call.
 	releaseLock := func() {
-		handler.logger.Info("UploadInterrupted", "id", id, "requestId", getRequestId(c.req))
+		c.log.Info("UploadInterrupted")
 		c.cancel(ErrUploadInterrupted)
 	}
 

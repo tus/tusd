@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -20,17 +19,17 @@ import (
 // the error but this can instead be done in the handler.
 // In addition, the bodyReader keeps track of how many bytes were read.
 type bodyReader struct {
+	ctx          *httpContext
 	reader       io.ReadCloser
 	err          error
 	bytesCounter int64
-	resC         *http.ResponseController
 	onReadDone   func()
 }
 
-func newBodyReader(r io.ReadCloser, rc *http.ResponseController) *bodyReader {
+func newBodyReader(c *httpContext, maxSize int64) *bodyReader {
 	return &bodyReader{
-		reader:     r,
-		resC:       rc,
+		ctx:        c,
+		reader:     http.MaxBytesReader(c.res, c.req.Body, maxSize),
 		onReadDone: func() {},
 	}
 }
@@ -107,9 +106,8 @@ func (r *bodyReader) closeWithError(err error) {
 
 	// SetReadDeadline with the current time causes concurrent reads to the body to time out,
 	// so the body will be closed sooner with less delay.
-	if err := r.resC.SetReadDeadline(time.Now()); err != nil {
-		// TODO: Replace with better logging
-		log.Println("NetworkTimeoutErorr", "error", err)
+	if err := r.ctx.resC.SetReadDeadline(time.Now()); err != nil {
+		r.ctx.log.Warn("NetworkTimeoutErorr", "error", err)
 	}
 
 	r.reader.Close()
