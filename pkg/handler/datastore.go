@@ -33,9 +33,9 @@ type FileInfo struct {
 	// store is used. This map may also be nil.
 	Storage map[string]string
 
-	// stopUpload is a channel for communicating that an upload should by stopped
+	// stopUpload is a callback for communicating that an upload should by stopped
 	// and interrupt the writes to DataStore#WriteChunk.
-	stopUpload chan HTTPResponse
+	stopUpload func(HTTPResponse)
 }
 
 // StopUpload interrupts a running upload from the server-side. This means that
@@ -46,7 +46,7 @@ type FileInfo struct {
 // optionally modified by providing values in the HTTPResponse struct.
 func (f FileInfo) StopUpload(response HTTPResponse) {
 	if f.stopUpload != nil {
-		f.stopUpload <- response
+		f.stopUpload(response)
 	}
 }
 

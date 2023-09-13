@@ -51,7 +51,7 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 
 		// If the cause is one of our own errors, close a potential body and relay the error.
 		cause := context.Cause(cancellableCtx)
-		if (errors.Is(cause, ErrServerShutdown) || errors.Is(cause, ErrUploadInterrupted)) && ctx.body != nil {
+		if (errors.Is(cause, ErrServerShutdown) || errors.Is(cause, ErrUploadInterrupted) || errors.Is(cause, ErrUploadStoppedByServer)) && ctx.body != nil {
 			ctx.body.closeWithError(cause)
 		}
 	}()

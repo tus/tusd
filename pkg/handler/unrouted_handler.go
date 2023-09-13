@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"io"
 	"math"
 	"mime"
@@ -852,30 +853,14 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			}
 		}
 
-		// We use a channel to allow the hook system to cancel an upload. The channel
-		// is closed, so that the goroutine can exit when the upload completes normally.
-		info.stopUpload = make(chan HTTPResponse)
-		defer close(info.stopUpload)
-
-		// terminateUpload specifies whether the upload should be deleted after
-		// the write has finished
-		terminateUpload := false
-
-		go func() {
-			resp, ok := <-info.stopUpload
-			// If the channel is closed, the request completed (successfully or not) and so
-			// we can stop waiting on the channels.
-			if !ok {
-				return
-			}
-
-			// Otherwise, the upload is stopped by a post-receive hook and resp contains the response.
-			terminateUpload = true
-
+		// We use a callback to allow the hook system to cancel an upload. The callback
+		// cancels the request context causing the request body to be closed with the
+		// provided error.
+		info.stopUpload = func(res HTTPResponse) {
 			cause := ErrUploadStoppedByServer
-			cause.HTTPResponse = cause.HTTPResponse.MergeWith(resp)
-			c.body.closeWithError(cause)
-		}()
+			cause.HTTPResponse = cause.HTTPResponse.MergeWith(res)
+			c.cancel(cause)
+		}
 
 		if handler.config.NotifyUploadProgress {
 			// TODO: StopUpload could call closeWithError directly
@@ -887,14 +872,16 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
 		// it in the response, if the store did not also return an error.
-		if bodyErr := c.body.hasError(); bodyErr != nil {
+		bodyErr := c.body.hasError()
+		if bodyErr != nil {
 			handler.logger.Error("BodyReadError", "id", id, "error", bodyErr.Error())
 			if err == nil {
 				err = bodyErr
 			}
 		}
 
-		// Terminate the upload if it was stopped.
+		// Terminate the upload if it was stopped, as indicated by the ErrUploadStoppedByServer error.
+		terminateUpload := errors.Is(bodyErr, ErrUploadStoppedByServer)
 		if terminateUpload && handler.composer.UsesTerminater {
 			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
