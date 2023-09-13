@@ -726,6 +726,10 @@ func TestUploadLengthExceeded(t *testing.T) {
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	args = append([]string{"-port=0"}, args...)
 	cmd = exec.CommandContext(ctx, TUSD_BINARY, args...)
+	// Note: Leave stderr alone. It is not a good idea to connect the
+	// child's output to the test's output because this can lead to deadlocks.
+	// In Go <1.21, tests can just hang forever. In Go >=1.21, it will fail
+	// with an error. See https://github.com/golang/go/issues/24050
 	// cmd.Stderr = os.Stderr
 
 	stdout, err := cmd.StdoutPipe()
