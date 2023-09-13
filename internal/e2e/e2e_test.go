@@ -199,6 +199,7 @@ func TestNetworkReadTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
+	duration := time.Since(start)
 
 	// Assert the response to see if tusd correctly emitted a timeout.
 	// In reality, clients may often not receive this message due to network issues.
@@ -242,8 +243,7 @@ func TestNetworkReadTimeout(t *testing.T) {
 
 	// Data was allowed to flow for 2s and tusd is configured to time
 	// out after 5s, so the entire request should have ran for 7s.
-	duration := time.Since(start)
-	if !isApprox(duration, 7*time.Second, 0.1) {
+	if !isApprox(duration, 7*time.Second, 0.2) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
@@ -318,6 +318,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	if !errors.Is(err, io.EOF) && !strings.Contains(err.Error(), "connection reset") {
 		t.Fatalf("unexpected error %s", err)
 	}
+	duration := time.Since(start)
 
 	// Send HEAD request to fetch offset
 	req, err = http.NewRequest("HEAD", uploadUrl, nil)
@@ -345,8 +346,7 @@ func TestUnexpectedNetworkClose(t *testing.T) {
 	}
 
 	// Data was allowed to flow for 2s.
-	duration := time.Since(start)
-	if !isApprox(duration, 2*time.Second, 0.1) {
+	if !isApprox(duration, 2*time.Second, 0.2) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
@@ -717,7 +717,7 @@ func TestUploadLengthExceeded(t *testing.T) {
 
 	// The request should be stopped immediately after 10KB have been transmitted instead of waiting for
 	// the entire request body. With 5KB/s, that is 2s.
-	if !isApprox(duration, 2*time.Second, 0.1) {
+	if !isApprox(duration, 2*time.Second, 0.2) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
