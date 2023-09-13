@@ -713,13 +713,32 @@ func TestUploadLengthExceeded(t *testing.T) {
 	}
 
 	// Create upload
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
+	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req.Header.Add("Tus-Resumable", "1.0.0")
 	req.Header.Add("Upload-Length", strconv.Itoa(uploadLength))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatal("invalid response code")
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	req, err = http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Offset", "0")
 	req.Header.Add("Content-Type", "application/offset+octet-stream")
 
 	// Note: This is important! By default, http.NewRequest will inspect the body and fill
@@ -730,14 +749,13 @@ func TestUploadLengthExceeded(t *testing.T) {
 	req.ContentLength = -1
 
 	start := time.Now()
-	res, err := http.DefaultClient.Do(req)
+	res, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
 
-	// tusd does not respond with an error here, but just silently ignores the additional data.
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Fatalf("invalid response code %d", res.StatusCode)
 	}
 
