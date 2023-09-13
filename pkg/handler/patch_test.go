@@ -296,10 +296,8 @@ func TestPatch(t *testing.T) {
 				"Upload-Offset": "5",
 			},
 			ReqBody: body,
-			Code:    http.StatusNoContent,
-			ResHeader: map[string]string{
-				"Upload-Offset": "20",
-			},
+			Code:    http.StatusRequestEntityTooLarge,
+			ResBody: "ERR_UPLOAD_SIZE_EXCEEDED: upload's size exceeded\n",
 		}).Run(handler, t)
 	})
 

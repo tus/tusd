@@ -18,17 +18,15 @@ import (
 // the error but this can instead be done in the handler.
 // In addition, the bodyReader keeps track of how many bytes were read.
 type bodyReader struct {
-	reader       io.Reader
-	closer       io.Closer
+	reader       io.ReadCloser
 	err          error
 	bytesCounter int64
 	onReadDone   func()
 }
 
-func newBodyReader(r io.ReadCloser, maxSize int64) *bodyReader {
+func newBodyReader(r io.ReadCloser) *bodyReader {
 	return &bodyReader{
-		reader:     io.LimitReader(r, maxSize),
-		closer:     r,
+		reader:     r,
 		onReadDone: func() {},
 	}
 }
@@ -71,6 +69,13 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 			err = ErrReadTimeout
 		}
 
+		// MaxBytesError is returned from http.MaxBytesReader, which we use to limit
+		// the request body size.
+		maxBytesErr := &http.MaxBytesError{}
+		if errors.As(err, &maxBytesErr) {
+			err = ErrSizeExceeded
+		}
+
 		// Other errors are stored for retrival with hasError, but is not returned
 		// to the consumer.
 		r.err = err
@@ -92,6 +97,6 @@ func (r *bodyReader) bytesRead() int64 {
 }
 
 func (r *bodyReader) closeWithError(err error) {
-	r.closer.Close()
+	r.reader.Close()
 	r.err = err
 }

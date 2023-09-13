@@ -182,15 +182,6 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
 		}
 
-		// Enabling full duplex mode allows us to write responses while the request is still being transmitted.
-		// This is handy when we want to return an error while the client is still uploading data (e.g. when
-		// the upload length is exceeded). Without duplex mode, tusd and the client would have to wait for the
-		// response until the entire request is written, which can take a long time for big uploads.
-		// Note: Some say that some HTTP/1.1 clients have problems with this. Let's see if we run into any issue.
-		if err := c.resC.EnableFullDuplex(); err != nil {
-			handler.logger.Warn("NetworkControlError", "method", r.Method, "path", r.URL.Path, "error", err)
-		}
-
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments do not support PATCH and
 		// DELETE requests, e.g. Flash in a browser and parts of Java.
@@ -862,8 +853,11 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	// Prevent a nil pointer dereference when accessing the body which may not be
 	// available in the case of a malicious request.
 	if r.Body != nil {
-		// Limit the data read from the request's body to the allowed maximum
-		c.body = newBodyReader(r.Body, maxSize)
+		// Limit the data read from the request's body to the allowed maximum. We use
+		// http.MaxBytesReader instead of io.LimitedReader because it returns an error
+		// if too much data is provided (handled in bodyReader) and also stops the server
+		// from reading the remaining request body.
+		c.body = newBodyReader(http.MaxBytesReader(c.res, r.Body, maxSize))
 		c.body.onReadDone = func() {
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
@@ -941,17 +935,20 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 	handler.logger.Info("ChunkWriteComplete", "id", id, "bytesWritten", bytesWritten)
 
-	if err != nil {
-		return resp, err
-	}
-
 	// Send new offset to client
 	newOffset := offset + bytesWritten
 	resp.Header["Upload-Offset"] = strconv.FormatInt(newOffset, 10)
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
-	return handler.finishUploadIfComplete(c, resp, upload, info)
+	// We try to finish the upload, even if an error occurred. If we have a previous error,
+	// we return it and its HTTP response.
+	finishResp, finishErr := handler.finishUploadIfComplete(c, resp, upload, info)
+	if err != nil {
+		return resp, err
+	}
+
+	return finishResp, finishErr
 }
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
