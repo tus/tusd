@@ -676,6 +676,7 @@ func TestUploadLengthExceeded(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
+	duration := time.Since(start)
 
 	if res.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Fatalf("invalid response code %d", res.StatusCode)
@@ -716,7 +717,6 @@ func TestUploadLengthExceeded(t *testing.T) {
 
 	// The request should be stopped immediately after 10KB have been transmitted instead of waiting for
 	// the entire request body. With 5KB/s, that is 2s.
-	duration := time.Since(start)
 	if !isApprox(duration, 2*time.Second, 0.1) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
