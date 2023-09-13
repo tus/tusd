@@ -59,6 +59,8 @@ func TestMain(m *testing.M) {
 	// Run actual tests
 	exitVal := m.Run()
 
+	fmt.Println("After run")
+
 	server.Shutdown()
 	os.Exit(exitVal)
 }
