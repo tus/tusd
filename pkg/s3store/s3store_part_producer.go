@@ -2,6 +2,7 @@ package s3store
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -16,7 +17,6 @@ const TEMP_DIR_USE_MEMORY = "_memory"
 type s3PartProducer struct {
 	tmpDir                  string
 	files                   chan fileChunk
-	done                    chan struct{}
 	err                     error
 	r                       io.Reader
 	diskWriteDurationMetric prometheus.Summary
@@ -30,7 +30,6 @@ type fileChunk struct {
 
 func newS3PartProducer(source io.Reader, backlog int64, tmpDir string, diskWriteDurationMetric prometheus.Summary) (s3PartProducer, <-chan fileChunk) {
 	fileChan := make(chan fileChunk, backlog)
-	doneChan := make(chan struct{})
 
 	if os.Getenv("TUSD_S3STORE_TEMP_MEMORY") == "1" {
 		tmpDir = TEMP_DIR_USE_MEMORY
@@ -38,7 +37,6 @@ func newS3PartProducer(source io.Reader, backlog int64, tmpDir string, diskWrite
 
 	partProducer := s3PartProducer{
 		tmpDir:                  tmpDir,
-		done:                    doneChan,
 		files:                   fileChan,
 		r:                       source,
 		diskWriteDurationMetric: diskWriteDurationMetric,
@@ -47,19 +45,7 @@ func newS3PartProducer(source io.Reader, backlog int64, tmpDir string, diskWrite
 	return partProducer, fileChan
 }
 
-// stop should always be called by the consumer to ensure that the channels
-// are properly closed and emptied.
-func (spp *s3PartProducer) stop() {
-	close(spp.done)
-
-	// If we return while there are still files in the channel, then
-	// we may leak file descriptors. Let's ensure that those are cleaned up.
-	for fileChunk := range spp.files {
-		fileChunk.closeReader()
-	}
-}
-
-func (spp *s3PartProducer) produce(partSize int64) {
+func (spp *s3PartProducer) produce(ctx context.Context, partSize int64) {
 outerloop:
 	for {
 		file, ok, err := spp.nextPart(partSize)
@@ -74,13 +60,19 @@ outerloop:
 		}
 		select {
 		case spp.files <- file:
-		case <-spp.done:
+		case <-ctx.Done():
 			// We are told to stop producing. Stop producing.
 			break outerloop
 		}
 	}
 
+	// First, close the channel.
 	close(spp.files)
+
+	// And then empty all entries to ensure that we close the file descriptors.
+	for fileChunk := range spp.files {
+		fileChunk.closeReader()
+	}
 }
 
 func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {

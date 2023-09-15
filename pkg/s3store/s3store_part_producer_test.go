@@ -1,6 +1,7 @@
 package s3store
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -28,7 +29,10 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	expectedStr := "test"
 	r := strings.NewReader(expectedStr)
 	pp, fileChan := newS3PartProducer(r, 0, "", testSummary)
-	go pp.produce(1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go pp.produce(ctx, 1)
 
 	actualStr := ""
 	b := make([]byte, 1)
@@ -57,16 +61,17 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	}
 }
 
-func TestPartProducerExitsWhenProducerIsStopped(t *testing.T) {
+func TestPartProducerExitsWhenContextIsCancelled(t *testing.T) {
 	pp, fileChan := newS3PartProducer(InfiniteZeroReader{}, 0, "", testSummary)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	completedChan := make(chan struct{})
 	go func() {
-		pp.produce(10)
+		pp.produce(ctx, 10)
 		completedChan <- struct{}{}
 	}()
 
-	pp.stop()
+	cancel()
 
 	select {
 	case <-completedChan:
@@ -83,7 +88,7 @@ func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
 
 	completedChan := make(chan struct{})
 	go func() {
-		pp.produce(10)
+		pp.produce(context.Background(), 10)
 		completedChan <- struct{}{}
 	}()
 

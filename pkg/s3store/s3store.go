@@ -461,8 +461,10 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	nextPartNum := int32(numParts + 1)
 
 	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory, store.diskWriteDurationMetric)
-	defer partProducer.stop()
-	go partProducer.produce(optimalPartSize)
+
+	producerCtx, cancelProducer := context.WithCancel(ctx)
+	defer cancelProducer()
+	go partProducer.produce(producerCtx, optimalPartSize)
 
 	var wg sync.WaitGroup
 	var uploadErr error
