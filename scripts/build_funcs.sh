@@ -17,7 +17,7 @@ function compile {
   mkdir -p "$dir"
   GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build \
     -trimpath \
-    -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
+    -ldflags="-X github.com/tus/tusd/v2/cmd/tusd/cli.VersionName=${version} -X github.com/tus/tusd/v2/cmd/tusd/cli.GitCommit=${commit} -X 'github.com/tus/tusd/v2/cmd/tusd/cli.BuildDate=$(date --utc)'" \
     -o "$dir/tusd$ext" ./cmd/tusd/main.go
 }
 
