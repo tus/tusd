@@ -96,6 +96,11 @@ func (g *HookHandlerRPC) Setup() error {
 }
 
 func (g *HookHandlerRPC) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err error) {
+	// Empty the context field because it is no usable in the plugin and
+	// we would get runtime errors like:
+	//  gob: type not registered for interface: context.cancelCtx
+	req.Event.Context = nil
+
 	err = g.client.Call("Plugin.InvokeHook", req, &res)
 	return res, err
 }
