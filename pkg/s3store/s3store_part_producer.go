@@ -45,6 +45,16 @@ func newS3PartProducer(source io.Reader, backlog int64, tmpDir string, diskWrite
 	return partProducer, fileChan
 }
 
+// closeUnreadFiles should always be called by the consumer to ensure that the channels
+// are properly closed and emptied.
+func (spp *s3PartProducer) closeUnreadFiles() {
+	// If we return while there are still files in the channel, then
+	// we may leak file descriptors. Let's ensure that those are cleaned up.
+	for fileChunk := range spp.files {
+		fileChunk.closeReader()
+	}
+}
+
 func (spp *s3PartProducer) produce(ctx context.Context, partSize int64) {
 outerloop:
 	for {
@@ -66,13 +76,7 @@ outerloop:
 		}
 	}
 
-	// First, close the channel.
 	close(spp.files)
-
-	// And then empty all entries to ensure that we close the file descriptors.
-	for fileChunk := range spp.files {
-		fileChunk.closeReader()
-	}
 }
 
 func (spp *s3PartProducer) nextPart(size int64) (fileChunk, bool, error) {

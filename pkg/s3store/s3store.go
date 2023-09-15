@@ -463,7 +463,10 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory, store.diskWriteDurationMetric)
 
 	producerCtx, cancelProducer := context.WithCancel(ctx)
-	defer cancelProducer()
+	defer func() {
+		cancelProducer()
+		partProducer.closeUnreadFiles()
+	}()
 	go partProducer.produce(producerCtx, optimalPartSize)
 
 	var wg sync.WaitGroup
