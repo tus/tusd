@@ -150,7 +150,10 @@ func (handler *UnroutedHandler) SupportedExtensions() string {
 // this middleware.
 func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Construct our own context and make it available in the request. Successive logic
+		// should use handler.getContext to retrieve it
 		c := handler.newContext(w, r)
+		r = r.WithContext(c)
 
 		// Set the initial read deadline for consuming the request body. All headers have already been read,
 		// so this is only for reading the request body. While reading, we regularly update the read deadline
@@ -258,7 +261,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	// Check for presence of application/offset+octet-stream. If another content
 	// type is defined, it will be ignored and treated as none was set because
@@ -426,7 +429,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
@@ -579,7 +582,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 // HeadFile returns the length and offset for the HEAD request
 func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request) {
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -666,7 +669,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 // PatchFile adds a chunk to an upload. This operation is only allowed
 // if enough space in the upload is left.
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
 
@@ -944,7 +947,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 // GetFile handles requests to download a file using a GET request. This is not
 // part of the specification.
 func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	id, err := extractIDFromPath(r.URL.Path)
 	if err != nil {
@@ -1068,7 +1071,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 
 // DelFile terminates an upload permanently.
 func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) {
-	c := handler.newContext(w, r)
+	c := handler.getContext(w, r)
 
 	// Abort the request handling if the required interface is not implemented
 	if !handler.composer.UsesTerminater {

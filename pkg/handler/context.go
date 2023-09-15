@@ -32,7 +32,8 @@ type httpContext struct {
 	log *slog.Logger
 }
 
-// TODO: Ensure that newContext is only called once.
+// newContext constructs a new httpContext for the given request. This should only be done once
+// per request and the context should be stored in the request, so it can be fetched with getContext.
 func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *httpContext {
 	// requestCtx is the context from the native request instance. It gets cancelled
 	// if the connection closes, the request is cancelled (HTTP/2), ServeHTTP returns
@@ -67,6 +68,16 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 	}()
 
 	return ctx
+}
+
+// getContext tries to retrieve a httpContext from the request or constructs a new one.
+func (h UnroutedHandler) getContext(w http.ResponseWriter, r *http.Request) *httpContext {
+	c, ok := r.Context().(*httpContext)
+	if !ok {
+		c = h.newContext(w, r)
+	}
+
+	return c
 }
 
 func (c httpContext) Value(key any) any {
