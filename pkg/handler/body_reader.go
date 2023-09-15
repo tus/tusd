@@ -107,7 +107,7 @@ func (r *bodyReader) closeWithError(err error) {
 	// SetReadDeadline with the current time causes concurrent reads to the body to time out,
 	// so the body will be closed sooner with less delay.
 	if err := r.ctx.resC.SetReadDeadline(time.Now()); err != nil {
-		r.ctx.log.Warn("NetworkTimeoutErorr", "error", err)
+		r.ctx.log.Warn("NetworkTimeoutError", "error", err)
 	}
 
 	r.reader.Close()
