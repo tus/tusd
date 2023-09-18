@@ -24,7 +24,7 @@ import (
 
 	"github.com/tus/tusd/v2/pkg/handler"
 
-	"gopkg.in/Acconut/lockfile.v1"
+	"github.com/tus/lockfile"
 )
 
 // See the handler.DataStore interface for documentation about the different

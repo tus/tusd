@@ -25,12 +25,12 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/sethgrid/pester v1.2.0
 	github.com/stretchr/testify v1.8.4
+	github.com/tus/lockfile v1.2.0
 	github.com/vimeo/go-util v1.4.1
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	google.golang.org/api v0.138.0
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
-	gopkg.in/Acconut/lockfile.v1 v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
 
