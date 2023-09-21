@@ -93,7 +93,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             // headers can be included multiple times, e.g. Cookies.
             "Header": {
                 "Host": [
-                    "localhost:1080"
+                    "localhost:8080"
                 ],
                 "Tus-Resumable": [
                     "1.0.0"
@@ -246,9 +246,9 @@ $ tusd --hooks-http http://localhost:8081/write --hooks-http-retry 5 --hooks-htt
 gRPC Hooks are the third type of hooks supported by tusd. It is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, whose service will be used:
 
 ```bash
-$ tusd --hooks-grpc localhost:8080
+$ tusd --hooks-grpc localhost:8081
 
-[tusd] Using 'localhost:8080' as the endpoint for gRPC hooks
+[tusd] Using 'localhost:8081' as the endpoint for gRPC hooks
 [tusd] Using './data' as directory storage.
 ...
 ```

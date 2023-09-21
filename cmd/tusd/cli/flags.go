@@ -82,7 +82,7 @@ func ParseFlags() {
 
 	fs.AddGroup("Listening options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.HttpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
-		f.StringVar(&Flags.HttpPort, "port", "1080", "Port to bind HTTP server to")
+		f.StringVar(&Flags.HttpPort, "port", "8080", "Port to bind HTTP server to")
 		f.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
 		f.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 		f.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")

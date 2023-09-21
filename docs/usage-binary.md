@@ -2,17 +2,17 @@
 
 Starting the tusd upload server is as simple as invoking a single command. For example, following
 snippet demonstrates how to start a tusd process which accepts tus uploads at
-`http://localhost:1080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
+`http://localhost:8080/files/` (notice the trailing slash) and stores them locally in the `./data` directory:
 
 ```
 $ tusd -upload-dir=./data
 [tusd] 2019/09/29 21:10:50 Using './data' as directory storage.
 [tusd] 2019/09/29 21:10:50 Using 0.00MB as maximum size.
-[tusd] 2019/09/29 21:10:50 Using 0.0.0.0:1080 as address to listen.
+[tusd] 2019/09/29 21:10:50 Using 0.0.0.0:8080 as address to listen.
 [tusd] 2019/09/29 21:10:50 Using /files/ as the base path.
 [tusd] 2019/09/29 21:10:50 Using /metrics as the metrics path.
 [tusd] 2019/09/29 21:10:50 Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
-[tusd] 2019/09/29 21:10:50 You can now upload files to: http://0.0.0.0:1080/files/
+[tusd] 2019/09/29 21:10:50 You can now upload files to: http://0.0.0.0:8080/files/
 ```
 
 Alternatively, if you want to store the uploads on an AWS S3 bucket, you only have to specify
@@ -27,11 +27,11 @@ $ export AWS_REGION=eu-west-1
 $ tusd -s3-bucket=my-test-bucket.com
 [tusd] 2019/09/29 21:11:23 Using 's3://my-test-bucket.com' as S3 bucket for storage.
 [tusd] 2019/09/29 21:11:23 Using 0.00MB as maximum size.
-[tusd] 2019/09/29 21:11:23 Using 0.0.0.0:1080 as address to listen.
+[tusd] 2019/09/29 21:11:23 Using 0.0.0.0:8080 as address to listen.
 [tusd] 2019/09/29 21:11:23 Using /files/ as the base path.
 [tusd] 2019/09/29 21:11:23 Using /metrics as the metrics path.
 [tusd] 2019/09/29 21:11:23 Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
-[tusd] 2019/09/29 21:11:23 You can now upload files to: http://0.0.0.0:1080/files/
+[tusd] 2019/09/29 21:11:23 You can now upload files to: http://0.0.0.0:8080/files/
 ```
 
 If your S3 bucket has been configured for AWS S3 Transfer Acceleration and you want to make use of that advanced service,
@@ -45,11 +45,11 @@ $ export AWS_REGION=eu-west-1
 $ tusd -s3-bucket=my-test-bucket.com -s3-transfer-acceleration
 [tusd] 2019/09/29 21:11:23 Using 's3://my-test-bucket.com' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.
 [tusd] 2019/09/29 21:11:23 Using 0.00MB as maximum size.
-[tusd] 2019/09/29 21:11:23 Using 0.0.0.0:1080 as address to listen.
+[tusd] 2019/09/29 21:11:23 Using 0.0.0.0:8080 as address to listen.
 [tusd] 2019/09/29 21:11:23 Using /files/ as the base path.
 [tusd] 2019/09/29 21:11:23 Using /metrics as the metrics path.
 [tusd] 2019/09/29 21:11:23 Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
-[tusd] 2019/09/29 21:11:23 You can now upload files to: http://0.0.0.0:1080/files/
+[tusd] 2019/09/29 21:11:23 You can now upload files to: http://0.0.0.0:8080/files/
 ```
 
 tusd is also able to read the credentials automatically from a shared credentials file (~/.aws/credentials) as described in https://github.com/aws/aws-sdk-go#configuring-credentials.
@@ -62,7 +62,7 @@ $ export GCS_SERVICE_ACCOUNT_FILE=./account.json
 $ tusd -gcs-bucket=my-test-bucket.com
 [tusd] Using 'gcs://my-test-bucket.com' as GCS bucket for storage.
 [tusd] Using 0.00MB as maximum size.
-[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using 0.0.0.0:8080 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
 ```
@@ -77,7 +77,7 @@ $ tusd -azure-storage my-test-container
 [tusd] 2023/02/13 16:13:20.937373 Custom Azure Endpoint not specified in flag variable azure-endpoint.
 Using endpoint https://xxxxx.blob.core.windows.net
 [tusd] Using 0.00MB as maximum size.
-[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using 0.0.0.0:8080 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
 ```
@@ -91,7 +91,7 @@ $ export AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UV
 $ tusd -azure-storage my-test-container -azure-endpoint https://my-custom-endpoint.com
 [tusd] 2023/02/13 16:15:18.641937 Using Azure endpoint http://127.0.0.1:10000/devstoreaccount1
 [tusd] Using 0.00MB as maximum size.
-[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using 0.0.0.0:8080 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
 ```
@@ -106,7 +106,7 @@ $ tusd -azure-storage my-test-container -azure-blob-access-tier cool
 [tusd] 2023/02/13 16:13:20.937373 Custom Azure Endpoint not specified in flag variable azure-endpoint.
 Using endpoint https://xxxxx.blob.core.windows.net
 [tusd] Using 0.00MB as maximum size.
-[tusd] Using 0.0.0.0:1080 as address to listen.
+[tusd] Using 0.0.0.0:8080 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
 ```
@@ -186,7 +186,7 @@ $ tusd -help
   -metrics-path string
       Path under which the metrics endpoint will be accessible (default "/metrics")
   -port string
-      Port to bind HTTP server to (default "1080")
+      Port to bind HTTP server to (default "8080")
   -s3-bucket string
       Use AWS S3 with this bucket as storage backend (requires the AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION environment variables to be set)
   -s3-disable-content-hashes
