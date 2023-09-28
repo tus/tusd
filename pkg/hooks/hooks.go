@@ -211,6 +211,19 @@ func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandl
 	return true, res, nil
 }
 
+// NewHandlerWithHooks creates a tusd request handler, whose notifcation channels and callbacks are configured to
+// emit the hooks on the provided hook handler. NewHandlerWithHooks will overwrite the `config.Notify*` and `config.*Callback`
+// fields depending on the enabled hooks. These can be controlled via the `enabledHooks` slice. Non-enabled hooks will
+// not be emitted.
+//
+// If you want to create an UnroutedHandler instead of the routed handler, you can first create a routed handler and then
+// extract an unrouted one:
+//   routedHandler := hooks.NewHandlerWithHooks(...)
+//   unroutedHandler := routedHandler.UnroutedHandler
+//
+// Note: NewHandlerWithHooks sets up a goroutine to consume the notfication channels (CompleteUploads, TerminatedUploads,
+// CreatedUploads, UploadProgress) on the created handler. These channels must not be consumed by the caller or otherwise
+// events might not be passed to the hook handler.
 func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enabledHooks []HookType) (*handler.Handler, error) {
 	if err := hookHandler.Setup(); err != nil {
 		return nil, fmt.Errorf("unable to setup hooks for handler: %s", err)
