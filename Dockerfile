@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.21.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.21.1-alpine AS builder
 WORKDIR /go/src/github.com/tus/tusd
 
 # Add gcc and libc-dev early so it is cached
@@ -29,7 +29,7 @@ RUN set -xe \
         -o /go/bin/tusd ./cmd/tusd/main.go
 
 # start a new stage that copies in the binary built in the previous stage
-FROM alpine:3.18.3
+FROM alpine:3.18.4
 WORKDIR /srv/tusd-data
 
 COPY ./docker/entrypoint.sh /usr/local/share/docker-entrypoint.sh
