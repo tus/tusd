@@ -619,7 +619,23 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			"Upload-Offset": strconv.FormatInt(info.Offset, 10),
 		},
 	}
-
+	// If file length was unkown but you decide to finish it by send this header then file will be ready to download
+	// this method is adviced to save data streams with unkown sizes with IoT protocols. 
+	// Watchout! you need to determine file length ("Upload-Length" Header) as "max" at first because Tusd supports max 18446744073709551615 byte for a single file.
+	if r.Header.Get("Finish-Incomplete-File") == "?1" {
+		info.Size = info.Offset
+		info.SizeIsDeferred = false
+		lengthDeclarableUpload := handler.composer.LengthDeferrer.AsLengthDeclarableUpload(upload)
+		if err := lengthDeclarableUpload.DeclareLength(c, info.Offset); err != nil {
+			handler.sendError(c, err)
+			return
+		}
+		resp, err = handler.finishUploadIfComplete(c, resp, upload, info)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
 	if !handler.isResumableUploadDraftRequest(r) {
 		// Add Upload-Concat header if possible
 		if info.IsPartial {
@@ -1288,6 +1304,8 @@ func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string)
 // Verify that the Upload-Length and Upload-Defer-Length headers are acceptable for creating a
 // new upload
 func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
+	// If file length unkown set size as "max" which sets to file length profile max bytle length of int64
+	isInfinite := uploadLengthHeader == "max"
 	haveBothLengthHeaders := uploadLengthHeader != "" && uploadDeferLengthHeader != ""
 	haveInvalidDeferHeader := uploadDeferLengthHeader != "" && uploadDeferLengthHeader != UploadLengthDeferred
 	lengthIsDeferred := uploadDeferLengthHeader == UploadLengthDeferred
@@ -1301,12 +1319,15 @@ func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeade
 	} else if lengthIsDeferred {
 		uploadLengthDeferred = true
 	} else {
-		uploadLength, err = strconv.ParseInt(uploadLengthHeader, 10, 64)
-		if err != nil || uploadLength < 0 {
-			err = ErrInvalidUploadLength
+		if isInfinite {
+			uploadLength = 18446744073709551615
+		} else {
+			uploadLength, err = strconv.ParseInt(uploadLengthHeader, 10, 64)
+			if err != nil || uploadLength < 0 {
+				err = ErrInvalidUploadLength
+			}
 		}
 	}
-
 	return
 }
 
