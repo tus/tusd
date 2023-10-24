@@ -1099,7 +1099,7 @@ func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId st
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
 
-	if err != nil && (isAwsError[*types.NoSuchKey](err) || isAwsError[*types.NotFound](err) || isAwsErrorCode(err, "AccessDenied")) {
+	if err != nil && (isAwsError[*types.NoSuchKey](err) || isAwsError[*types.NotFound](err) || isAwsErrorCode(err, "AccessDenied")) || isAwsErrorCode(err, "Forbidden") {
 		return nil, nil
 	}
 
@@ -1115,7 +1115,7 @@ func (store S3Store) headIncompletePartForUpload(ctx context.Context, uploadId s
 	store.observeRequestDuration(t, metricHeadPartObject)
 
 	if err != nil {
-		if isAwsError[*types.NoSuchKey](err) || isAwsError[*types.NotFound](err) || isAwsErrorCode(err, "AccessDenied") {
+		if isAwsError[*types.NoSuchKey](err) || isAwsError[*types.NotFound](err) || isAwsErrorCode(err, "AccessDenied") || isAwsErrorCode(err, "Forbidden") {
 			err = nil
 		}
 		return 0, err
