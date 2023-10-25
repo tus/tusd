@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -1440,6 +1441,9 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 
 // extractIDFromPath pulls the last segment from the url provided
 func extractIDFromPath(url string) (string, error) {
+	return url, nil
+
+	fmt.Println(">>>>>>>", url)
 	result := reExtractFileID.FindStringSubmatch(url)
 	if len(result) != 2 {
 		return "", ErrNotFound

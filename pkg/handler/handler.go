@@ -2,8 +2,6 @@ package handler
 
 import (
 	"net/http"
-
-	"github.com/bmizerany/pat"
 )
 
 // Handler is a ready to use handler with routing (using pat)
@@ -33,21 +31,25 @@ func NewHandler(config Config) (*Handler, error) {
 		UnroutedHandler: handler,
 	}
 
-	mux := pat.New()
+	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "":
+			handler.PostFile(w, r)
+		case r.Method == "HEAD" && r.URL.Path != "":
+			handler.HeadFile(w, r)
+		case r.Method == "PATCH" && r.URL.Path != "":
+			handler.PatchFile(w, r)
+		case r.Method == "GET" && r.URL.Path != "" && !config.DisableDownload:
+			handler.GetFile(w, r)
+		case r.Method == "DELETE" && r.URL.Path != "" && config.StoreComposer.UsesTerminater && !config.DisableTermination:
+			handler.DelFile(w, r)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`combination of path and method are not recognized`))
+		}
+	})
 
 	routedHandler.Handler = handler.Middleware(mux)
-
-	mux.Post("", http.HandlerFunc(handler.PostFile))
-	mux.Head(":id", http.HandlerFunc(handler.HeadFile))
-	mux.Add("PATCH", ":id", http.HandlerFunc(handler.PatchFile))
-	if !config.DisableDownload {
-		mux.Get(":id", http.HandlerFunc(handler.GetFile))
-	}
-
-	// Only attach the DELETE handler if the Terminate() method is provided
-	if config.StoreComposer.UsesTerminater && !config.DisableTermination {
-		mux.Del(":id", http.HandlerFunc(handler.DelFile))
-	}
 
 	return routedHandler, nil
 }
