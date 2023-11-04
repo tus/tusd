@@ -837,7 +837,7 @@ func TestPatch(t *testing.T) {
 				Method: "PATCH",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Offset":                "5",
 					"Upload-Complete":              "?1",
 				},
@@ -882,7 +882,7 @@ func TestPatch(t *testing.T) {
 				Method: "PATCH",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Offset":                "5",
 					"Upload-Complete":              "?1",
 				},
@@ -918,7 +918,7 @@ func TestPatch(t *testing.T) {
 				Method: "PATCH",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Offset":                "5",
 					"Upload-Complete":              "?0",
 				},
@@ -954,7 +954,7 @@ func TestPatch(t *testing.T) {
 				Method: "PATCH",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Offset":                "5",
 					"Upload-Complete":              "?0",
 				},

@@ -168,11 +168,11 @@ func TestHead(t *testing.T) {
 				Method: "HEAD",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 				},
 				Code: http.StatusNoContent,
 				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Complete":              "?0",
 					"Upload-Offset":                "5",
 				},
@@ -202,11 +202,11 @@ func TestHead(t *testing.T) {
 				Method: "HEAD",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 				},
 				Code: http.StatusNoContent,
 				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Complete":              "?1",
 					"Upload-Offset":                "10",
 				},
@@ -235,11 +235,11 @@ func TestHead(t *testing.T) {
 				Method: "HEAD",
 				URL:    "yes",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 				},
 				Code: http.StatusNoContent,
 				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Upload-Complete":              "?0",
 					"Upload-Offset":                "5",
 				},

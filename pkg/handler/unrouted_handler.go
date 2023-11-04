@@ -17,7 +17,7 @@ import (
 )
 
 const UploadLengthDeferred = "1"
-const currentUploadDraftInteropVersion = "3"
+const currentUploadDraftInteropVersion = "4"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
