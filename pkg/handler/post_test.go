@@ -592,7 +592,7 @@ func TestPost(t *testing.T) {
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
-					"Upload-Incomplete":            "?0",
+					"Upload-Complete":              "?1",
 					"Content-Type":                 "text/plain; charset=utf-8",
 					"Content-Disposition":          "attachment; filename=hello.txt",
 				},
@@ -655,7 +655,7 @@ func TestPost(t *testing.T) {
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
-					"Upload-Incomplete":            "?1",
+					"Upload-Complete":              "?0",
 				},
 				ReqBody: strings.NewReader("hello world"),
 				Code:    http.StatusCreated,

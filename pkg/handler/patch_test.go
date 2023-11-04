@@ -839,7 +839,7 @@ func TestPatch(t *testing.T) {
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Offset":                "5",
-					"Upload-Incomplete":            "?0",
+					"Upload-Complete":              "?1",
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusNoContent,
@@ -884,7 +884,7 @@ func TestPatch(t *testing.T) {
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Offset":                "5",
-					"Upload-Incomplete":            "?0",
+					"Upload-Complete":              "?1",
 				},
 				ReqBody: strings.NewReader("hello"),
 				Code:    http.StatusNoContent,
@@ -920,7 +920,7 @@ func TestPatch(t *testing.T) {
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Offset":                "5",
-					"Upload-Incomplete":            "?1",
+					"Upload-Complete":              "?0",
 				},
 				ReqBody: strings.NewReader("hel"),
 				Code:    http.StatusNoContent,
@@ -956,7 +956,7 @@ func TestPatch(t *testing.T) {
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
 					"Upload-Offset":                "5",
-					"Upload-Incomplete":            "?1",
+					"Upload-Complete":              "?0",
 				},
 				ReqBody: strings.NewReader("hel"),
 				Code:    http.StatusNoContent,
