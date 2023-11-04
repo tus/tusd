@@ -17,7 +17,7 @@ import (
 )
 
 const UploadLengthDeferred = "1"
-const currentUploadDraftInteropVersion = "3"
+const currentUploadDraftInteropVersion = "4"
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
@@ -434,7 +434,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
-	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
+	isComplete := r.Header.Get("Upload-Complete") == "?1"
 
 	info := FileInfo{
 		MetaData: make(MetaData),
@@ -652,9 +652,9 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	} else {
 		if !info.SizeIsDeferred && info.Offset == info.Size {
 			// Upload is complete if we know the size and it matches the offset.
-			resp.Header["Upload-Incomplete"] = "?0"
+			resp.Header["Upload-Complete"] = "?1"
 		} else {
-			resp.Header["Upload-Incomplete"] = "?1"
+			resp.Header["Upload-Complete"] = "?0"
 		}
 
 		resp.Header["Upload-Draft-Interop-Version"] = currentUploadDraftInteropVersion
@@ -726,7 +726,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO: If Upload-Incomplete: ?0 and Content-Length is set, we can
+	// TODO: If Upload-Complete: ?1 and Content-Length is set, we can
 	// - declare the length already here
 	// - validate that the length from this request matches info.Size if !info.SizeIsDeferred
 
@@ -773,7 +773,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
+	isComplete := r.Header.Get("Upload-Complete") == "?1"
 	if isComplete && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
