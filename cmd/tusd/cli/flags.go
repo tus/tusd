@@ -65,6 +65,7 @@ var Flags struct {
 	PprofMutexProfileRate            int
 	BehindProxy                      bool
 	VerboseOutput                    bool
+	LogFormat                        string
 	S3TransferAcceleration           bool
 	TLSCertFile                      string
 	TLSKeyFile                       string
@@ -178,6 +179,7 @@ func ParseFlags() {
 		f.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message")
 		f.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 		f.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
+		f.StringVar(&Flags.LogFormat, "log-format", "text", "Logging format (txt or json)")
 	})
 
 	fs.AddGroup("Timeout options", func(f *flag.FlagSet) {
