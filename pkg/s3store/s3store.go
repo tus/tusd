@@ -13,9 +13,9 @@
 //	s3:PutObject
 //
 // While this package uses the official AWS SDK for Go, S3Store is able
-// to work with any S3-compatible service such as Riak CS. In order to change
-// the HTTP endpoint used for sending requests to, consult the AWS Go SDK
-// (http://docs.aws.amazon.com/sdk-for-go/api/aws/Config.html#WithEndpoint-instance_method).
+// to work with any S3-compatible service such as MinIO. In order to change
+// the HTTP endpoint used for sending requests to, adjust the `BaseEndpoint`
+// option in the AWS SDK For Go V2 (https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3#Options).
 //
 // # Implementation
 //
