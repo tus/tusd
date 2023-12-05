@@ -1096,7 +1096,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 func (store S3Store) getIncompletePartForUpload(ctx context.Context, uploadId string) (*s3.GetObjectOutput, error) {
 	obj, err := store.Service.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 
 	if err != nil && (isAwsError[*types.NoSuchKey](err) || isAwsError[*types.NotFound](err) || isAwsErrorCode(err, "AccessDenied")) || isAwsErrorCode(err, "Forbidden") {
@@ -1110,7 +1110,7 @@ func (store S3Store) headIncompletePartForUpload(ctx context.Context, uploadId s
 	t := time.Now()
 	obj, err := store.Service.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	store.observeRequestDuration(t, metricHeadPartObject)
 
@@ -1128,7 +1128,7 @@ func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId st
 	t := time.Now()
 	_, err := store.Service.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 		Body:   file,
 	})
 	store.observeRequestDuration(t, metricPutPartObject)
@@ -1139,7 +1139,7 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 	t := time.Now()
 	_, err := store.Service.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(store.Bucket),
-		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
+		Key:    store.keyWithPrefix(uploadId + ".part"),
 	})
 	store.observeRequestDuration(t, metricPutPartObject)
 	return err
