@@ -25,7 +25,7 @@ ARG TARGETARCH
 
 RUN set -xe \
 	&& GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
-        -ldflags="-X github.com/tus/tusd/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/cmd/tusd/cli.BuildDate=$(date --utc)'" \
+        -ldflags="-X github.com/tus/tusd/v2/cmd/tusd/cli.VersionName=${GIT_VERSION} -X github.com/tus/tusd/v2/cmd/tusd/cli.GitCommit=${GIT_COMMIT} -X 'github.com/tus/tusd/v2/cmd/tusd/cli.BuildDate=$(date --utc)'" \
         -o /go/bin/tusd ./cmd/tusd/main.go
 
 # start a new stage that copies in the binary built in the previous stage
