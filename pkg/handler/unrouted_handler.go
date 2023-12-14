@@ -646,6 +646,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		} else {
 			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
+			resp.Header["Accept-Ranges"] = "bytes"
 		}
 
 		resp.StatusCode = http.StatusOK
@@ -999,6 +1000,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	src, err := upload.GetReader(c)
 	if err != nil {
 		handler.sendError(c, err)
+		return
+	}
+
+	if seeker, ok := src.(io.ReadSeeker); ok {
+		handler.sendResp(c, resp)
+		http.ServeContent(w, r, info.ID, time.Time{}, seeker)
+		_ = src.Close()
 		return
 	}
 
