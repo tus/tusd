@@ -9,7 +9,6 @@ import (
 	"mime"
 	"net/http"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,10 +23,6 @@ type DraftVersion string
 const (
 	Version3 DraftVersion = "3"
 	Version4 DraftVersion = "4"
-)
-
-var (
-	supportedUploadDraftInteropVersions = []DraftVersion{Version3, Version4}
 )
 
 var (
@@ -1372,7 +1367,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 // related to resumable upload draft from IETF (instead of tus v1)
 func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
 	interopVersionHeader := handler.getResumeableUploadDraftVersion(r)
-	supportedInteropVersion := slices.Contains(supportedUploadDraftInteropVersions, interopVersionHeader)
+	supportedInteropVersion := interopVersionHeader == Version3 || interopVersionHeader == Version4
 	return handler.config.EnableExperimentalProtocol && supportedInteropVersion
 }
 
