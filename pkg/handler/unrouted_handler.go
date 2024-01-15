@@ -449,7 +449,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	var isComplete bool
 	if currentUploadDraftInteropVersion == Version4 {
 		isComplete = r.Header.Get("Upload-Complete") == "?1"
-	} else {
+	} else if currentUploadDraftInteropVersion == Version3 {
 		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
 	}
 
@@ -675,7 +675,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			} else {
 				resp.Header["Upload-Complete"] = "?0"
 			}
-		} else {
+		} else if currentUploadDraftInteropVersion == Version3 {
 			if uploadComplete {
 				// Upload is complete if we know the size and it matches the offset.
 				resp.Header["Upload-Incomplete"] = "?0"
