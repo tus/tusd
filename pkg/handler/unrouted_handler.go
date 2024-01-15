@@ -699,6 +699,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	c := handler.getContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
+	currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
 
 	// Check for presence of application/offset+octet-stream
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -800,7 +801,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
+	var isComplete bool
+	if currentUploadDraftInteropVersion == Version4 {
+		isComplete = r.Header.Get("Upload-Complete") == "?1"
+	} else if currentUploadDraftInteropVersion == Version3 {
+		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
+	}
+
 	if isComplete && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
