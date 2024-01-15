@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +18,17 @@ import (
 )
 
 const UploadLengthDeferred = "1"
-const currentUploadDraftInteropVersion = "4"
+
+type DraftVersion string
+
+const (
+	Version3 DraftVersion = "3"
+	Version4 DraftVersion = "4"
+)
+
+var (
+	supportedUploadDraftInteropVersions = []DraftVersion{Version3, Version4}
+)
 
 var (
 	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
@@ -429,12 +440,18 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
+	currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
 	c := handler.getContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
-	isComplete := r.Header.Get("Upload-Complete") == "?1"
+	var isComplete bool
+	if currentUploadDraftInteropVersion == Version4 {
+		isComplete = r.Header.Get("Upload-Complete") == "?1"
+	} else {
+		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
+	}
 
 	info := FileInfo{
 		MetaData: make(MetaData),
@@ -521,7 +538,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// Send 104 response
 	w.Header().Set("Location", url)
-	w.Header().Set("Upload-Draft-Interop-Version", currentUploadDraftInteropVersion)
+	w.Header().Set("Upload-Draft-Interop-Version", string(currentUploadDraftInteropVersion))
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
@@ -650,14 +667,24 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 
 		resp.StatusCode = http.StatusOK
 	} else {
-		if !info.SizeIsDeferred && info.Offset == info.Size {
-			// Upload is complete if we know the size and it matches the offset.
-			resp.Header["Upload-Complete"] = "?1"
+		currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
+		uploadComplete := !info.SizeIsDeferred && info.Offset == info.Size
+		if currentUploadDraftInteropVersion == Version4 {
+			if uploadComplete {
+				resp.Header["Upload-Complete"] = "?1"
+			} else {
+				resp.Header["Upload-Complete"] = "?0"
+			}
 		} else {
-			resp.Header["Upload-Complete"] = "?0"
+			if uploadComplete {
+				// Upload is complete if we know the size and it matches the offset.
+				resp.Header["Upload-Incomplete"] = "?0"
+			} else {
+				resp.Header["Upload-Incomplete"] = "?1"
+			}
 		}
 
-		resp.Header["Upload-Draft-Interop-Version"] = currentUploadDraftInteropVersion
+		resp.Header["Upload-Draft-Interop-Version"] = string(currentUploadDraftInteropVersion)
 
 		// Draft requires a 204 No Content response
 		resp.StatusCode = http.StatusNoContent
@@ -726,7 +753,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO: If Upload-Complete: ?1 and Content-Length is set, we can
+	// TODO: If (Upload-Incomplete: ?0 OR Upload-Complete: ?1) and (Content-Length is set), we can
 	// - declare the length already here
 	// - validate that the length from this request matches info.Size if !info.SizeIsDeferred
 
@@ -773,7 +800,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	isComplete := r.Header.Get("Upload-Complete") == "?1"
+	isComplete := r.Header.Get("Upload-Incomplete") == "?0"
 	if isComplete && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
@@ -1337,7 +1364,19 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 // isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
 // related to resumable upload draft from IETF (instead of tus v1)
 func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
-	return handler.config.EnableExperimentalProtocol && r.Header.Get("Upload-Draft-Interop-Version") == currentUploadDraftInteropVersion
+	interopVersionHeader := handler.getResumeableUploadDraftVersion(r)
+	supportedInteropVersion := slices.Contains(supportedUploadDraftInteropVersions, interopVersionHeader)
+	return handler.config.EnableExperimentalProtocol && supportedInteropVersion
+}
+
+func (handler UnroutedHandler) getResumeableUploadDraftVersion(r *http.Request) DraftVersion {
+	version := DraftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
+	switch version {
+	case Version3, Version4:
+		return version
+	default:
+		return ""
+	}
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
