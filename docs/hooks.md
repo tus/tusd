@@ -91,6 +91,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "RemoteAddr": "127.0.0.1:59395",
             // All headers that were included in the request. The values are arrays of strings because
             // headers can be included multiple times, e.g. Cookies.
+            // The field names are canonicalized according to Go's rules: https://pkg.go.dev/net/http#CanonicalHeaderKey
             "Header": {
                 "Host": [
                     "localhost:8080"
