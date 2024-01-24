@@ -694,7 +694,9 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 		// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,
 		// so we also need to check the error code itself.
 		// See https://github.com/aws/aws-sdk-go-v2/issues/1635
-		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) {
+		// In addition, S3-compatible storages, like DigitalOcean Spaces, might cause
+		// types.NoSuchKey to not be returned as well.
+		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) || isAwsErrorCode(err, "NoSuchKey") {
 			info.Offset = info.Size
 			err = nil
 		}
