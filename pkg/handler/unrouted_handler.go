@@ -440,12 +440,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
-	var isComplete bool
-	if currentUploadDraftInteropVersion == InteropVersion4 {
-		isComplete = r.Header.Get("Upload-Complete") == "?1"
-	} else if currentUploadDraftInteropVersion == InteropVersion3 {
-		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
-	}
+	isComplete := isDraftVersionResumableUploadComplete(r)
 
 	info := FileInfo{
 		MetaData: make(MetaData),
@@ -693,7 +688,6 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	c := handler.getContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
-	currentUploadDraftInteropVersion := getResumableUploadDraftVersion(r)
 
 	// Check for presence of application/offset+octet-stream
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -795,13 +789,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var isComplete bool
-	if currentUploadDraftInteropVersion == InteropVersion4 {
-		isComplete = r.Header.Get("Upload-Complete") == "?1"
-	} else if currentUploadDraftInteropVersion == InteropVersion3 {
-		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
-	}
-
+	isComplete := isDraftVersionResumableUploadComplete(r)
 	if isComplete && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
@@ -1378,6 +1366,16 @@ func getResumableUploadDraftVersion(r *http.Request) draftVersion {
 	default:
 		return ""
 	}
+}
+
+func isDraftVersionResumableUploadComplete(r *http.Request) bool {
+	currentUploadDraftInteropVersion := getResumableUploadDraftVersion(r)
+	if currentUploadDraftInteropVersion == InteropVersion4 {
+		return r.Header.Get("Upload-Complete") == "?1"
+	} else if currentUploadDraftInteropVersion == InteropVersion3 {
+		return r.Header.Get("Upload-Incomplete") == "?0"
+	}
+	return false
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
