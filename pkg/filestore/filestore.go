@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/tus/tusd/v2/internal/uid"
@@ -230,19 +229,19 @@ func (upload *fileUpload) FinishUpload(ctx context.Context) error {
 
 // createFile creates the file with the content. If the corresponding directory does not exist,
 // it is created. If the file already exists, its content is removed.
-func createFile(filepath string, content []byte) error {
-	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+func createFile(path string, content []byte) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// An upload ID containing slashes is mapped onto different directories on disk,
 			// for example, `myproject/uploadA` should be put into a folder called `myproject`.
 			// If we get an error indicating that a directory is missing, we try to create it.
-			if err := os.MkdirAll(path.Dir(filepath), defaultDirectoryPerm); err != nil {
-				return fmt.Errorf("failed to create directory for %s: %s", filepath, err)
+			if err := os.MkdirAll(filepath.Dir(path), defaultDirectoryPerm); err != nil {
+				return fmt.Errorf("failed to create directory for %s: %s", path, err)
 			}
 
 			// Try creating the file again.
-			file, err = os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+			file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
 			if err != nil {
 				// If that still doesn't work, error out.
 				return err

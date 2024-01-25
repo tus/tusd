@@ -129,11 +129,11 @@ func TestCreateDirectories(t *testing.T) {
 	reader.(io.Closer).Close()
 
 	// Check that the file and directory exists on disk
-	statInfo, err := os.Stat(tmp + "/hello/world/123")
+	statInfo, err := os.Stat(filepath.Join(tmp, "hello/world/123"))
 	a.NoError(err)
 	a.True(statInfo.Mode().IsRegular())
 	a.EqualValues(11, statInfo.Size())
-	statInfo, err = os.Stat(tmp + "/hello/world/")
+	statInfo, err = os.Stat(filepath.Join(tmp, "hello/world/"))
 	a.NoError(err)
 	a.True(statInfo.Mode().IsDir())
 
