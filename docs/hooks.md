@@ -148,6 +148,8 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     "ChangeFileInfo": {
         // Provides a custom upload ID, which influences the destination where the
         // upload is stored and the upload URL that is sent to the client.
+        // The ID can contain forward slashes (/) to store uploads in a hierarchical
+        // structure, such as nested directories.
         // Its exact effect depends on each data store.
         "ID": "my-custom-upload-id",
         // Set custom meta data that is saved with the upload and also accessible to
