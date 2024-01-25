@@ -55,7 +55,7 @@ func TestNewUpload(t *testing.T) {
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: 241,
+			ContentLength: aws.Int64(241),
 		}),
 	)
 
@@ -100,7 +100,7 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("my/uploaded/files/uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`)),
-			ContentLength: 253,
+			ContentLength: aws.Int64(253),
 		}),
 	)
 
@@ -146,7 +146,7 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("my/metadata/uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`)),
-			ContentLength: 253,
+			ContentLength: aws.Int64(253),
 		}),
 	)
 
@@ -187,13 +187,13 @@ func TestEmptyUpload(t *testing.T) {
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
 			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: 208,
+			ContentLength: aws.Int64(208),
 		}),
 		s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
 			Key:        aws.String("uploadId"),
 			UploadId:   aws.String("multipartId"),
-			PartNumber: 1,
+			PartNumber: aws.Int32(1),
 			Body:       bytes.NewReader([]byte("")),
 		})).Return(&s3.UploadPartOutput{
 			ETag: aws.String("etag"),
@@ -206,7 +206,7 @@ func TestEmptyUpload(t *testing.T) {
 				Parts: []types.CompletedPart{
 					{
 						ETag:       aws.String("etag"),
-						PartNumber: 1,
+						PartNumber: aws.Int32(1),
 					},
 				},
 			},
@@ -300,19 +300,19 @@ func TestGetInfo(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				PartNumber: 1,
-				Size:       100,
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-1"),
 			},
 			{
-				PartNumber: 2,
-				Size:       200,
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(200),
 				ETag:       aws.String("etag-2"),
 			},
 		},
 		NextPartNumberMarker: aws.String("2"),
 		// Simulate a truncated response, so s3store should send a second request
-		IsTruncated: true,
+		IsTruncated: aws.Bool(true),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -322,8 +322,8 @@ func TestGetInfo(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				PartNumber: 3,
-				Size:       100,
+				PartNumber: aws.Int32(3),
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-3"),
 			},
 		},
@@ -371,19 +371,19 @@ func TestGetInfoWithMetadataObjectPrefix(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				PartNumber: 1,
-				Size:       100,
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-1"),
 			},
 			{
-				PartNumber: 2,
-				Size:       200,
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(200),
 				ETag:       aws.String("etag-2"),
 			},
 		},
 		NextPartNumberMarker: aws.String("2"),
 		// Simulate a truncated response, so s3store should send a second request
-		IsTruncated: true,
+		IsTruncated: aws.Bool(true),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -393,8 +393,8 @@ func TestGetInfoWithMetadataObjectPrefix(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				PartNumber: 3,
-				Size:       100,
+				PartNumber: aws.Int32(3),
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-3"),
 			},
 		},
@@ -443,7 +443,7 @@ func TestGetInfoWithIncompletePart(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.HeadObjectOutput{
-		ContentLength: 10,
+		ContentLength: aws.Int64(10),
 	}, nil)
 
 	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
@@ -529,7 +529,7 @@ func TestGetReaderNotFound(t *testing.T) {
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),
-			MaxParts: 0,
+			MaxParts: aws.Int32(0),
 		}).Return(nil, &types.NoSuchUpload{}),
 	)
 
@@ -558,7 +558,7 @@ func TestGetReaderNotFinished(t *testing.T) {
 			Bucket:   aws.String("bucket"),
 			Key:      aws.String("uploadId"),
 			UploadId: aws.String("multipartId"),
-			MaxParts: 0,
+			MaxParts: aws.Int32(0),
 		}).Return(&s3.ListPartsOutput{
 			Parts: []types.Part{},
 		}, nil),
@@ -602,7 +602,7 @@ func TestDeclareLength(t *testing.T) {
 		Bucket:        aws.String("bucket"),
 		Key:           aws.String("uploadId.info"),
 		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-		ContentLength: 208,
+		ContentLength: aws.Int64(208),
 	})
 
 	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
@@ -637,18 +637,18 @@ func TestFinishUpload(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				Size:       100,
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-1"),
-				PartNumber: 1,
+				PartNumber: aws.Int32(1),
 			},
 			{
-				Size:       200,
+				Size:       aws.Int64(200),
 				ETag:       aws.String("etag-2"),
-				PartNumber: 2,
+				PartNumber: aws.Int32(2),
 			},
 		},
 		NextPartNumberMarker: aws.String("2"),
-		IsTruncated:          true,
+		IsTruncated:          aws.Bool(true),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -658,9 +658,9 @@ func TestFinishUpload(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				Size:       100,
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-3"),
-				PartNumber: 3,
+				PartNumber: aws.Int32(3),
 			},
 		},
 	}, nil)
@@ -676,15 +676,15 @@ func TestFinishUpload(t *testing.T) {
 			Parts: []types.CompletedPart{
 				{
 					ETag:       aws.String("etag-1"),
-					PartNumber: 1,
+					PartNumber: aws.Int32(1),
 				},
 				{
 					ETag:       aws.String("etag-2"),
-					PartNumber: 2,
+					PartNumber: aws.Int32(2),
 				},
 				{
 					ETag:       aws.String("etag-3"),
-					PartNumber: 3,
+					PartNumber: aws.Int32(3),
 				},
 			},
 		},
@@ -725,14 +725,14 @@ func TestWriteChunk(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				Size:       100,
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-1"),
-				PartNumber: 1,
+				PartNumber: aws.Int32(1),
 			},
 			{
-				Size:       200,
+				Size:       aws.Int64(200),
 				ETag:       aws.String("etag-2"),
-				PartNumber: 2,
+				PartNumber: aws.Int32(2),
 			},
 		},
 	}, nil)
@@ -746,7 +746,7 @@ func TestWriteChunk(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 3,
+		PartNumber: aws.Int32(3),
 		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-3"),
@@ -755,7 +755,7 @@ func TestWriteChunk(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 4,
+		PartNumber: aws.Int32(4),
 		Body:       bytes.NewReader([]byte("5678")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-4"),
@@ -764,7 +764,7 @@ func TestWriteChunk(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 5,
+		PartNumber: aws.Int32(5),
 		Body:       bytes.NewReader([]byte("90AB")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-5"),
@@ -805,14 +805,14 @@ func TestWriteChunkWriteIncompletePartBecauseTooSmall(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				Size:       100,
+				Size:       aws.Int64(100),
 				ETag:       aws.String("etag-1"),
-				PartNumber: 1,
+				PartNumber: aws.Int32(1),
 			},
 			{
-				Size:       200,
+				Size:       aws.Int64(200),
 				ETag:       aws.String("etag-2"),
-				PartNumber: 2,
+				PartNumber: aws.Int32(2),
 			},
 		},
 	}, nil)
@@ -866,13 +866,13 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.HeadObjectOutput{
-		ContentLength: 3,
+		ContentLength: aws.Int64(3),
 	}, nil)
 	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.GetObjectOutput{
-		ContentLength: 3,
+		ContentLength: aws.Int64(3),
 		Body:          io.NopCloser(bytes.NewReader([]byte("123"))),
 	}, nil)
 	s3obj.EXPECT().DeleteObject(context.Background(), &s3.DeleteObjectInput{
@@ -884,7 +884,7 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 1,
+		PartNumber: aws.Int32(1),
 		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-1"),
@@ -893,7 +893,7 @@ func TestWriteChunkPrependsIncompletePart(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 2,
+		PartNumber: aws.Int32(2),
 		Body:       bytes.NewReader([]byte("5")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-2"),
@@ -936,13 +936,13 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.HeadObjectOutput{
-		ContentLength: 3,
+		ContentLength: aws.Int64(3),
 	}, nil)
 	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
 	}).Return(&s3.GetObjectOutput{
-		ContentLength: 3,
+		ContentLength: aws.Int64(3),
 		Body:          io.NopCloser(bytes.NewReader([]byte("123"))),
 	}, nil)
 	s3obj.EXPECT().DeleteObject(context.Background(), &s3.DeleteObjectInput{
@@ -954,7 +954,7 @@ func TestWriteChunkPrependsIncompletePartAndWritesANewIncompletePart(t *testing.
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 1,
+		PartNumber: aws.Int32(1),
 		Body:       bytes.NewReader([]byte("1234")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-1"),
@@ -996,13 +996,13 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 	}).Return(&s3.ListPartsOutput{
 		Parts: []types.Part{
 			{
-				PartNumber: 1,
-				Size:       400,
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(400),
 				ETag:       aws.String("etag-1"),
 			},
 			{
-				PartNumber: 2,
-				Size:       90,
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(90),
 				ETag:       aws.String("etag-2"),
 			},
 		},
@@ -1015,7 +1015,7 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 		Bucket:     aws.String("bucket"),
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
-		PartNumber: 3,
+		PartNumber: aws.Int32(3),
 		Body:       bytes.NewReader([]byte("1234567890")),
 	})).Return(&s3.UploadPartOutput{
 		ETag: aws.String("etag-3"),
@@ -1061,7 +1061,7 @@ func TestTerminate(t *testing.T) {
 					Key: aws.String("uploadId.info"),
 				},
 			},
-			Quiet: true,
+			Quiet: aws.Bool(true),
 		},
 	}).Return(&s3.DeleteObjectsOutput{}, nil)
 
@@ -1102,7 +1102,7 @@ func TestTerminateWithErrors(t *testing.T) {
 					Key: aws.String("uploadId.info"),
 				},
 			},
-			Quiet: true,
+			Quiet: aws.Bool(true),
 		},
 	}).Return(&s3.DeleteObjectsOutput{
 		Errors: []types.Error{
@@ -1142,7 +1142,7 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 		Bucket:        aws.String("bucket"),
 		Key:           aws.String("uploadId.info"),
 		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":true,"PartialUploads":["aaa+AAA","bbb+BBB","ccc+CCC"],"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-		ContentLength: 234,
+		ContentLength: aws.Int64(234),
 	})
 
 	// Calls from ConcatUploads
@@ -1151,7 +1151,7 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
 		CopySource: aws.String("bucket/aaa"),
-		PartNumber: 1,
+		PartNumber: aws.Int32(1),
 	}).Return(&s3.UploadPartCopyOutput{
 		CopyPartResult: &types.CopyPartResult{
 			ETag: aws.String("etag-1"),
@@ -1163,7 +1163,7 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
 		CopySource: aws.String("bucket/bbb"),
-		PartNumber: 2,
+		PartNumber: aws.Int32(2),
 	}).Return(&s3.UploadPartCopyOutput{
 		CopyPartResult: &types.CopyPartResult{
 			ETag: aws.String("etag-2"),
@@ -1175,7 +1175,7 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 		Key:        aws.String("uploadId"),
 		UploadId:   aws.String("multipartId"),
 		CopySource: aws.String("bucket/ccc"),
-		PartNumber: 3,
+		PartNumber: aws.Int32(3),
 	}).Return(&s3.UploadPartCopyOutput{
 		CopyPartResult: &types.CopyPartResult{
 			ETag: aws.String("etag-3"),
@@ -1191,15 +1191,15 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 			Parts: []types.CompletedPart{
 				{
 					ETag:       aws.String("etag-1"),
-					PartNumber: 1,
+					PartNumber: aws.Int32(1),
 				},
 				{
 					ETag:       aws.String("etag-2"),
-					PartNumber: 2,
+					PartNumber: aws.Int32(2),
 				},
 				{
 					ETag:       aws.String("etag-3"),
-					PartNumber: 3,
+					PartNumber: aws.Int32(3),
 				},
 			},
 		},

@@ -13,9 +13,9 @@
 //	s3:PutObject
 //
 // While this package uses the official AWS SDK for Go, S3Store is able
-// to work with any S3-compatible service such as Riak CS. In order to change
-// the HTTP endpoint used for sending requests to, consult the AWS Go SDK
-// (http://docs.aws.amazon.com/sdk-for-go/api/aws/Config.html#WithEndpoint-instance_method).
+// to work with any S3-compatible service such as MinIO. In order to change
+// the HTTP endpoint used for sending requests to, adjust the `BaseEndpoint`
+// option in the AWS SDK For Go V2 (https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3#Options).
 //
 // # Implementation
 //
@@ -391,7 +391,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 		Bucket:        aws.String(store.Bucket),
 		Key:           store.metadataKeyWithPrefix(upload.objectId + ".info"),
 		Body:          bytes.NewReader(infoJson),
-		ContentLength: int64(len(infoJson)),
+		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
 	store.observeRequestDuration(t, metricPutInfoObject)
 
@@ -507,7 +507,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 					Bucket:     aws.String(store.Bucket),
 					Key:        store.keyWithPrefix(upload.objectId),
 					UploadId:   aws.String(upload.multipartId),
-					PartNumber: part.number,
+					PartNumber: aws.Int32(part.number),
 				}
 				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, part.size)
 				store.observeRequestDuration(t, metricUploadPart)
@@ -694,7 +694,9 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 		// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,
 		// so we also need to check the error code itself.
 		// See https://github.com/aws/aws-sdk-go-v2/issues/1635
-		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) {
+		// In addition, S3-compatible storages, like DigitalOcean Spaces, might cause
+		// types.NoSuchKey to not be returned as well.
+		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) || isAwsErrorCode(err, "NoSuchKey") {
 			info.Offset = info.Size
 			err = nil
 		}
@@ -743,7 +745,7 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(upload.objectId),
 		UploadId: aws.String(upload.multipartId),
-		MaxParts: 0,
+		MaxParts: aws.Int32(0),
 	})
 	if err == nil {
 		// The multipart upload still exists, which means we cannot download it yet
@@ -800,7 +802,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 						Key: store.metadataKeyWithPrefix(upload.objectId + ".info"),
 					},
 				},
-				Quiet: true,
+				Quiet: aws.Bool(true),
 			},
 		})
 
@@ -842,7 +844,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 			Bucket:     aws.String(store.Bucket),
 			Key:        store.keyWithPrefix(upload.objectId),
 			UploadId:   aws.String(upload.multipartId),
-			PartNumber: 1,
+			PartNumber: aws.Int32(1),
 			Body:       bytes.NewReader([]byte{}),
 		})
 		if err != nil {
@@ -866,7 +868,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	for index, part := range parts {
 		completedParts[index] = types.CompletedPart{
 			ETag:       aws.String(part.etag),
-			PartNumber: part.number,
+			PartNumber: aws.Int32(part.number),
 		}
 	}
 
@@ -992,7 +994,7 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(upload.objectId),
 				UploadId:   aws.String(upload.multipartId),
-				PartNumber: partNumber,
+				PartNumber: aws.Int32(partNumber),
 				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(sourceObject)),
 			})
 			if err != nil {
@@ -1044,13 +1046,13 @@ func (store S3Store) listAllParts(ctx context.Context, objectId string, multipar
 		parts = slices.Grow(parts, len(parts)+len((*listPtr).Parts))
 		for _, part := range (*listPtr).Parts {
 			parts = append(parts, &s3Part{
-				number: part.PartNumber,
-				size:   part.Size,
+				number: *part.PartNumber,
+				size:   *part.Size,
 				etag:   *part.ETag,
 			})
 		}
 
-		if listPtr.IsTruncated {
+		if listPtr.IsTruncated != nil && *listPtr.IsTruncated {
 			partMarker = listPtr.NextPartNumberMarker
 		} else {
 			break
@@ -1081,7 +1083,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 	if err != nil {
 		return nil, err
 	}
-	if n < incompleteUploadObject.ContentLength {
+	if n < *incompleteUploadObject.ContentLength {
 		return nil, errors.New("short read of incomplete upload")
 	}
 
@@ -1121,7 +1123,7 @@ func (store S3Store) headIncompletePartForUpload(ctx context.Context, uploadId s
 		return 0, err
 	}
 
-	return obj.ContentLength, nil
+	return *obj.ContentLength, nil
 }
 
 func (store S3Store) putIncompletePartForUpload(ctx context.Context, uploadId string, file io.ReadSeeker) error {

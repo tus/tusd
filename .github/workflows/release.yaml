@@ -21,7 +21,7 @@ jobs:
       -
         name: Docker meta
         id: docker_meta
-        uses: docker/metadata-action@v5.0.0
+        uses: docker/metadata-action@v5.4.0
         with:
           images: |
             ghcr.io/tus/tusd
@@ -82,7 +82,7 @@ jobs:
 
       -
         name: Install Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 'stable'
 

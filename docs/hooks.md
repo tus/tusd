@@ -91,6 +91,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "RemoteAddr": "127.0.0.1:59395",
             // All headers that were included in the request. The values are arrays of strings because
             // headers can be included multiple times, e.g. Cookies.
+            // The field names are canonicalized according to Go's rules: https://pkg.go.dev/net/http#CanonicalHeaderKey
             "Header": {
                 "Host": [
                     "localhost:8080"
@@ -175,10 +176,10 @@ With file hooks enabled, tusd will execute scripts or other executable files in 
 
 #### Hook Directory
 
-By default, the file hook system is disabled. To enable it, pass the `--hooks-dir` option to the tusd binary. The flag's value will be a path, the **hook directory**, relative to the current working directory, pointing to the folder containing the executable **hook files**:
+By default, the file hook system is disabled. To enable it, pass the `-hooks-dir` option to the tusd binary. The flag's value will be a path, the **hook directory**, relative to the current working directory, pointing to the folder containing the executable **hook files**:
 
 ```bash
-$ tusd --hooks-dir ./path/to/hooks/
+$ tusd -hooks-dir ./path/to/hooks/
 
 [tusd] Using './path/to/hooks/' for hooks
 [tusd] Using './data' as directory storage.
@@ -206,10 +207,10 @@ An example is available at [/examples/hooks/file](/examples/hooks/file).
 
 ### HTTP(S) Hooks
 
-HTTP(S) Hooks are the second type of hooks supported by tusd. It is disabled by default. To enable it, pass the `--hooks-http` option to the tusd binary. The flag's value will be an HTTP(S) URL endpoint, which the tusd binary will send POST requests to:
+HTTP(S) Hooks are the second type of hooks supported by tusd. It is disabled by default. To enable it, pass the `-hooks-http` option to the tusd binary. The flag's value will be an HTTP(S) URL endpoint, which the tusd binary will send POST requests to:
 
 ```bash
-$ tusd --hooks-http http://localhost:8081/write
+$ tusd -hooks-http http://localhost:8081/write
 
 [tusd] Using 'http://localhost:8081/write' as the endpoint for hooks
 [tusd] Using './data' as directory storage.
@@ -234,19 +235,19 @@ An example is available at [/examples/hooks/http](/examples/hooks/http).
 
 #### Retries
 
-Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a `500 Internal Server Error` response or network error, with a 1 second backoff. This can be configured with the flags `--hooks-http-retry` and `--hooks-http-backoff`, like so:
+Tusd uses the [Pester library](https://github.com/sethgrid/pester) to issue requests and handle retries. By default, tusd will retry 3 times on a `500 Internal Server Error` response or network error, with a 1 second backoff. This can be configured with the flags `-hooks-http-retry` and `-hooks-http-backoff`, like so:
 
 ```bash
 # Retrying 5 times with a 2 second backoff
-$ tusd --hooks-http http://localhost:8081/write --hooks-http-retry 5 --hooks-http-backoff 2
+$ tusd -hooks-http http://localhost:8081/write -hooks-http-retry 5 -hooks-http-backoff 2
 ```
 
 ### gRPC Hooks
 
-gRPC Hooks are the third type of hooks supported by tusd. It is disabled by default. To enable it, pass the `--hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, whose service will be used:
+gRPC Hooks are the third type of hooks supported by tusd. It is disabled by default. To enable it, pass the `-hooks-grpc` option to the tusd binary. The flag's value will be a gRPC endpoint, whose service will be used:
 
 ```bash
-$ tusd --hooks-grpc localhost:8081
+$ tusd -hooks-grpc localhost:8081
 
 [tusd] Using 'localhost:8081' as the endpoint for gRPC hooks
 [tusd] Using './data' as directory storage.
@@ -257,11 +258,11 @@ The endpoint must implement the hook handler service as specified in [/pkg/hooks
 
 #### Retries
 
-By default, tusd will retry 3 times based on the gRPC status response or network error, with a 1 second backoff. This can be configured with the flags `--hooks-grpc-retry` and `--hooks-grpc-backoff`, like so:
+By default, tusd will retry 3 times based on the gRPC status response or network error, with a 1 second backoff. This can be configured with the flags `-hooks-grpc-retry` and `-hooks-grpc-backoff`, like so:
 
 ```bash
 # Retrying 5 times with a 2 second backoff
-$ tusd --hooks-grpc localhost:8081/ --hooks-grpc-retry 5 --hooks-grpc-backoff 2
+$ tusd -hooks-grpc localhost:8081/ -hooks-grpc-retry 5 -hooks-grpc-backoff 2
 ```
 
 ### Plugin Hooks

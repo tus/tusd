@@ -591,15 +591,15 @@ func TestPost(t *testing.T) {
 			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
-					"Upload-Incomplete":            "?0",
+					"Upload-Draft-Interop-Version": "4",
+					"Upload-Complete":              "?1",
 					"Content-Type":                 "text/plain; charset=utf-8",
 					"Content-Disposition":          "attachment; filename=hello.txt",
 				},
 				ReqBody: strings.NewReader("hello world"),
 				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
@@ -610,7 +610,7 @@ func TestPost(t *testing.T) {
 				{
 					Code: 104,
 					Header: http.Header{
-						"Upload-Draft-Interop-Version": []string{"3"},
+						"Upload-Draft-Interop-Version": []string{"4"},
 						"Location":                     []string{"http://tus.io/files/foo"},
 						"X-Content-Type-Options":       []string{"nosniff"},
 					},
@@ -654,13 +654,13 @@ func TestPost(t *testing.T) {
 			res := (&httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
-					"Upload-Incomplete":            "?1",
+					"Upload-Draft-Interop-Version": "4",
+					"Upload-Complete":              "?0",
 				},
 				ReqBody: strings.NewReader("hello world"),
 				Code:    http.StatusCreated,
 				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "3",
+					"Upload-Draft-Interop-Version": "4",
 					"Location":                     "http://tus.io/files/foo",
 					"Upload-Offset":                "11",
 				},
@@ -671,7 +671,7 @@ func TestPost(t *testing.T) {
 				{
 					Code: 104,
 					Header: http.Header{
-						"Upload-Draft-Interop-Version": []string{"3"},
+						"Upload-Draft-Interop-Version": []string{"4"},
 						"Location":                     []string{"http://tus.io/files/foo"},
 						"X-Content-Type-Options":       []string{"nosniff"},
 					},
