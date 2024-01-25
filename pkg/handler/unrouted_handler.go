@@ -20,7 +20,6 @@ const UploadLengthDeferred = "1"
 const currentUploadDraftInteropVersion = "4"
 
 var (
-	reExtractFileID  = regexp.MustCompile(`([^/]+)\/?$`)
 	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
