@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -277,7 +276,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader)
+	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader, handler.basePath)
 	if err != nil {
 		handler.sendError(c, err)
 		return
@@ -1399,7 +1398,7 @@ func SerializeMetadataHeader(meta map[string]string) string {
 // Parse the Upload-Concat header, e.g.
 // Upload-Concat: partial
 // Upload-Concat: final;http://tus.io/files/a /files/b/
-func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
+func parseConcat(header string, basePath string) (isPartial bool, isFinal bool, partialUploads []string, err error) {
 	if len(header) == 0 {
 		return
 	}
@@ -1420,7 +1419,7 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 				continue
 			}
 
-			id, extractErr := extractIDFromPath(value)
+			id, extractErr := extractIDFromURL(value, basePath)
 			if extractErr != nil {
 				err = extractErr
 				return
@@ -1439,16 +1438,25 @@ func parseConcat(header string) (isPartial bool, isFinal bool, partialUploads []
 	return
 }
 
-// extractIDFromPath pulls the last segment from the url provided
-func extractIDFromPath(url string) (string, error) {
-	return url, nil
+// extractIDFromPath extracts the upload ID from a path, which has already
+// been stripped of the base path (done by the user). Effectively, we only
+// remove leading and trailing slashes.
+func extractIDFromPath(path string) (string, error) {
+	return strings.Trim(path, "/"), nil
+}
 
-	fmt.Println(">>>>>>>", url)
-	result := reExtractFileID.FindStringSubmatch(url)
-	if len(result) != 2 {
+// extractIDFromURL extracts the upload ID from a full URL or a full path
+// (including the base path). For example:
+//
+//	https://example.com/files/1234/5678 -> 1234/5678
+//	/files/1234/5678 -> 1234/5678
+func extractIDFromURL(url string, basePath string) (string, error) {
+	_, id, ok := strings.Cut(url, basePath)
+	if !ok {
 		return "", ErrNotFound
 	}
-	return result[1], nil
+
+	return extractIDFromPath(id)
 }
 
 // getRequestId returns the value of the X-Request-ID header, if available,
