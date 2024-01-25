@@ -18,11 +18,10 @@ import (
 
 const UploadLengthDeferred = "1"
 
-type DraftVersion string
-
+type draftVersion string
 const (
-	Version3 DraftVersion = "3"
-	Version4 DraftVersion = "4"
+	InteropVersion3 draftVersion = "3" // From draft version -01
+	InteropVersion4 draftVersion = "4" // From draft version -02
 )
 
 var (
@@ -435,16 +434,16 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
-	currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
+	currentUploadDraftInteropVersion := getResumableUploadDraftVersion(r)
 	c := handler.getContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
 	var isComplete bool
-	if currentUploadDraftInteropVersion == Version4 {
+	if currentUploadDraftInteropVersion == InteropVersion4 {
 		isComplete = r.Header.Get("Upload-Complete") == "?1"
-	} else if currentUploadDraftInteropVersion == Version3 {
+	} else if currentUploadDraftInteropVersion == InteropVersion3 {
 		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
 	}
 
@@ -662,15 +661,15 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 
 		resp.StatusCode = http.StatusOK
 	} else {
-		currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
+		currentUploadDraftInteropVersion := getResumableUploadDraftVersion(r)
 		uploadComplete := !info.SizeIsDeferred && info.Offset == info.Size
-		if currentUploadDraftInteropVersion == Version4 {
+		if currentUploadDraftInteropVersion == InteropVersion4 {
 			if uploadComplete {
 				resp.Header["Upload-Complete"] = "?1"
 			} else {
 				resp.Header["Upload-Complete"] = "?0"
 			}
-		} else if currentUploadDraftInteropVersion == Version3 {
+		} else if currentUploadDraftInteropVersion == InteropVersion3 {
 			if uploadComplete {
 				// Upload is complete if we know the size and it matches the offset.
 				resp.Header["Upload-Incomplete"] = "?0"
@@ -694,7 +693,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	c := handler.getContext(w, r)
 
 	isTusV1 := !handler.isResumableUploadDraftRequest(r)
-	currentUploadDraftInteropVersion := handler.getResumeableUploadDraftVersion(r)
+	currentUploadDraftInteropVersion := getResumableUploadDraftVersion(r)
 
 	// Check for presence of application/offset+octet-stream
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -797,9 +796,9 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 
 	var isComplete bool
-	if currentUploadDraftInteropVersion == Version4 {
+	if currentUploadDraftInteropVersion == InteropVersion4 {
 		isComplete = r.Header.Get("Upload-Complete") == "?1"
-	} else if currentUploadDraftInteropVersion == Version3 {
+	} else if currentUploadDraftInteropVersion == InteropVersion3 {
 		isComplete = r.Header.Get("Upload-Incomplete") == "?0"
 	}
 
@@ -1366,15 +1365,15 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 // isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
 // related to resumable upload draft from IETF (instead of tus v1)
 func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
-	interopVersionHeader := handler.getResumeableUploadDraftVersion(r)
-	supportedInteropVersion := interopVersionHeader == Version3 || interopVersionHeader == Version4
+	interopVersionHeader := getResumableUploadDraftVersion(r)
+	supportedInteropVersion := interopVersionHeader == InteropVersion3 || interopVersionHeader == InteropVersion4
 	return handler.config.EnableExperimentalProtocol && supportedInteropVersion
 }
 
-func (handler UnroutedHandler) getResumeableUploadDraftVersion(r *http.Request) DraftVersion {
-	version := DraftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
+func getResumableUploadDraftVersion(r *http.Request) draftVersion {
+	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case Version3, Version4:
+	case InteropVersion3, InteropVersion4:
 		return version
 	default:
 		return ""

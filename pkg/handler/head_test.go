@@ -144,7 +144,7 @@ func TestHead(t *testing.T) {
 		}).Run(handler, t)
 	})
 
-	SubTest(t, "ExperimentalProtocolV4", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+	SubTest(t, "ExperimentalProtocol-Draft-02",, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
@@ -246,7 +246,7 @@ func TestHead(t *testing.T) {
 			}).Run(handler, t)
 		})
 	})
-	SubTest(t, "ExperimentalProtocolV3", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+	SubTest(t, "ExperimentalProtocol-Draft-01", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
