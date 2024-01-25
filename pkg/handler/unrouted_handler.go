@@ -1352,14 +1352,14 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	return lock, nil
 }
 
-// isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
+// supportsDraftVersionResumableUploadRequest returns whether a HTTP request includes a sign that it is
 // related to resumable upload draft from IETF (instead of tus v1)
 func (handler UnroutedHandler) supportsDraftVersionResumableUploadRequest(r *http.Request) bool {
 	interopVersionHeader := getDraftVersionResumableUpload(r)
 	return handler.config.EnableExperimentalProtocol && interopVersionHeader != ""
 }
 
-// getResumableUploadDraftVersion returns the resumable upload draft version from the headers
+// getDraftVersionResumableUpload returns the resumable upload draft version from the headers
 // of a HTTP request
 func getDraftVersionResumableUpload(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
