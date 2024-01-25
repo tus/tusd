@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -23,6 +24,10 @@ var (
 	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
 	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
+	// We only allow certain URL-safe characters in upload IDs. URL-safe in this means
+	// that their are allowed in a URI's path component according to RFC 3986.
+	// See https://datatracker.ietf.org/doc/html/rfc3986#section-3.3
+	reValidUploadId = regexp.MustCompile(`^[A-Za-z0-9\-._~%!$'()*+,;=/:@]*$`)
 )
 
 var (
@@ -342,6 +347,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 		// Apply changes returned from the pre-create hook.
 		if changes.ID != "" {
+			if err := validateUploadId(changes.ID); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
 			info.ID = changes.ID
 		}
 
@@ -490,6 +500,11 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 		// Apply changes returned from the pre-create hook.
 		if changes.ID != "" {
+			if err := validateUploadId(changes.ID); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
 			info.ID = changes.ID
 		}
 
@@ -1473,4 +1488,27 @@ func getRequestId(r *http.Request) string {
 	}
 
 	return reqId
+}
+
+// validateUploadId checks whether an ID included in a FileInfoChange struct is allowed.
+func validateUploadId(newId string) error {
+	if newId == "" {
+		// An empty ID from FileInfoChanges is allowed. The store will then
+		// just pick an ID.
+		return nil
+	}
+
+	if strings.HasPrefix(newId, "/") || strings.HasSuffix(newId, "/") {
+		// Disallow leading and trailing slashes, as these would be
+		// stripped away by extractIDFromPath, which can cause problems and confusion.
+		return fmt.Errorf("validation error in FileInfoChanges: ID must not begin or end with a forward slash (got: %s)", newId)
+	}
+
+	if !reValidUploadId.MatchString(newId) {
+		// Disallow some non-URL-safe characters in the upload ID to
+		// prevent issues with URL parsing, which are though to debug for users.
+		return fmt.Errorf("validation error in FileInfoChanges: ID must contain only URL-safe character: %s (got: %s)", reValidUploadId.String(), newId)
+	}
+
+	return nil
 }
