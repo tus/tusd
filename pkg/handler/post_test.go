@@ -547,12 +547,12 @@ func TestPost(t *testing.T) {
 
 	completeUploadTests := []struct {
 		name     string
-		request  httpTest
+		httpTest httpTest
 		response []httptestrecorder.InformationalResponse
 	}{
 		{
 			name: "experimentalProtocol-draft-02 Complete Upload Test",
-			request: httpTest{
+			httpTest: httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "4",
@@ -582,7 +582,7 @@ func TestPost(t *testing.T) {
 
 		{
 			name: "experimentalProtocol-draft-01 Complete Upload Test with Upload-Length",
-			request: httpTest{
+			httpTest: httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
@@ -654,7 +654,7 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			res := (&tc.request).Run(handler, t)
+			res := (&tc.httpTest).Run(handler, t)
 			a := assert.New(t)
 			a.Equal(tc.response, res.InformationalResponses)
 		})
@@ -662,12 +662,12 @@ func TestPost(t *testing.T) {
 
 	incompleteUploadTests := []struct {
 		name     string
-		request  httpTest
+		httpTest httpTest
 		response []httptestrecorder.InformationalResponse
 	}{
 		{
 			name: "experimentalProtocol-draft-01 Incomplete Upload Test with Upload-Length",
-			request: httpTest{
+			httpTest: httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "3",
@@ -694,7 +694,7 @@ func TestPost(t *testing.T) {
 		},
 		{
 			name: "experimentalProtocol-draft-02 Incomplete Upload Test",
-			request: httpTest{
+			httpTest: httpTest{
 				Method: "POST",
 				ReqHeader: map[string]string{
 					"Upload-Draft-Interop-Version": "4",
@@ -755,7 +755,7 @@ func TestPost(t *testing.T) {
 				EnableExperimentalProtocol: true,
 			})
 
-			res := (&tc.request).Run(handler, t)
+			res := (&tc.httpTest).Run(handler, t)
 			a := assert.New(t)
 			a.Equal(tc.response, res.InformationalResponses)
 		})
