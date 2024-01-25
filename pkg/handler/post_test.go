@@ -545,7 +545,7 @@ func TestPost(t *testing.T) {
 		})
 	})
 
-	SubTest(t, "ExperimentalProtocol-Draft-02",, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+	SubTest(t, "ExperimentalProtocol-Draft-02", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
