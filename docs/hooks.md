@@ -147,10 +147,14 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // This value is only respected for pre-create hooks.
     "ChangeFileInfo": {
         // Provides a custom upload ID, which influences the destination where the
-        // upload is stored and the upload URL that is sent to the client.
-        // The ID can contain forward slashes (/) to store uploads in a hierarchical
-        // structure, such as nested directories.
-        // Its exact effect depends on each data store.
+        // upload is stored and the upload URL that is sent to the client. The ID
+        // can contain forward slashes (/) to store uploads in a hierarchical structure,
+        // such as nested directories. Its exact effect depends on each data store.
+        //
+        // Note: The ID must only consist characters that are deemed safe in a URI's
+        // path component according to RFC 3986 (https://datatracker.ietf.org/doc/html/rfc3986#section-3.3).
+        // These are: A-Z a-z 0-9 - . _ ~ % ! $ ' ( ) * + , ; = / : @
+        // In addition, IDs must not begin or end with a forward slash (/).
         "ID": "my-custom-upload-id",
         // Set custom meta data that is saved with the upload and also accessible to
         // all future hooks. Note that this information is also visible to the client
