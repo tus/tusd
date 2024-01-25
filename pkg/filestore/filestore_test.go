@@ -76,16 +76,74 @@ func TestFilestore(t *testing.T) {
 	a.Equal(handler.ErrNotFound, err)
 }
 
-func TestMissingPath(t *testing.T) {
+// TestCreateDirectories tests whether an upload with a slash in its ID causes
+// the correct directories to be created.
+func TestCreateDirectories(t *testing.T) {
 	a := assert.New(t)
 
-	store := FileStore{"./path-that-does-not-exist"}
+	tmp, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	store := FileStore{tmp}
 	ctx := context.Background()
 
-	upload, err := store.NewUpload(ctx, handler.FileInfo{})
-	a.Error(err)
-	a.Equal("upload directory does not exist: ./path-that-does-not-exist", err.Error())
+	// Create new upload
+	upload, err := store.NewUpload(ctx, handler.FileInfo{
+		ID:   "hello/world/123",
+		Size: 42,
+		MetaData: map[string]string{
+			"hello": "world",
+		},
+	})
+	a.NoError(err)
+	a.NotEqual(nil, upload)
+
+	// Check info without writing
+	info, err := upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
+	a.Equal(2, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
+
+	// Write data to upload
+	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
+	a.NoError(err)
+	a.EqualValues(len("hello world"), bytesWritten)
+
+	// Check new offset
+	info, err = upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(11, info.Offset)
+
+	// Read content
+	reader, err := upload.GetReader(ctx)
+	a.NoError(err)
+
+	content, err := io.ReadAll(reader)
+	a.NoError(err)
+	a.Equal("hello world", string(content))
+	reader.(io.Closer).Close()
+
+	// Check that the file and directory exists on disk
+	statInfo, err := os.Stat(tmp + "/hello/world/123")
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
+	a.EqualValues(11, statInfo.Size())
+	statInfo, err = os.Stat(tmp + "/hello/world/")
+	a.NoError(err)
+	a.True(statInfo.Mode().IsDir())
+
+	// Terminate upload
+	a.NoError(store.AsTerminatableUpload(upload).Terminate(ctx))
+
+	// Test if upload is deleted
+	upload, err = store.GetUpload(ctx, info.ID)
 	a.Equal(nil, upload)
+	a.Equal(handler.ErrNotFound, err)
 }
 
 func TestNotFound(t *testing.T) {
