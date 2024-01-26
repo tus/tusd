@@ -749,6 +749,14 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		Header:     make(HTTPHeader, 1), // Initialize map, so writeChunk can set the Upload-Offset header.
 	}
 
+	if handler.config.PreUploadResumeCallback != nil {
+		err := handler.config.PreUploadResumeCallback(newHookEvent(c, info))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
+
 	// Do not proxy the call to the data store if the upload is already completed
 	if !info.SizeIsDeferred && info.Offset == info.Size {
 		resp.Header["Upload-Offset"] = strconv.FormatInt(offset, 10)

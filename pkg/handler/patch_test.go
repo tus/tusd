@@ -706,6 +706,52 @@ func TestPatch(t *testing.T) {
 		a.False(more)
 	})
 
+	SubTest(t, "RejectResumeUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   5,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			PreUploadResumeCallback: func(event HookEvent) error {
+				err := ErrUploadRejectedByServer
+				err.HTTPResponse = HTTPResponse{
+					StatusCode: http.StatusForbidden,
+					Body:       "upload is stopped because authorization hook failed",
+					Header: HTTPHeader{
+						"X-Foo": "bar",
+					},
+				}
+				return err
+			},
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Offset": "0",
+				"Content-Type":  "application/offset+octet-stream",
+			},
+			ReqBody: strings.NewReader("hello"),
+			Code:    http.StatusForbidden,
+			ResHeader: map[string]string{
+				"X-Foo": "bar",
+			},
+			ResBody: "upload is stopped because authorization hook failed",
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "BodyReadError", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		// This test ensure that error that occurr from reading the request body are not forwarded to the
 		// storage backend but are still causing an

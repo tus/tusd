@@ -17,6 +17,7 @@ The table below provides an overview of all available hooks.
 |----------------|-----------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|---------------------|
 | pre-create     | Yes       | before a new upload is created.                                        | validation of meta data, user authentication, specification of custom upload ID | Yes                 |
 | post-create    | No        | after a new upload is created.                                         | registering the upload with the main application, logging of upload begin       | Yes                 |
+| pre-resume     | Yes       | before an existing upload is continued.                                | validation of user authentication                                 | No                 |
 | post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | No                  |
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | Yes                 |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
@@ -135,9 +136,9 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     },
 
     // RejectUpload will cause the upload to be rejected and not be created during
-    // POST request. This value is only respected for pre-create hooks. For other hooks,
-    // it is ignored. Use the HTTPResponse field to send details about the rejection
-    // to the client.
+    // POST/PATCH request. This value is only respected for pre-create and pre-resume hooks.
+    // For other hooks, it is ignored. Use the HTTPResponse field to send details 
+    // the rejection to the client.
     "RejectUpload": false,
 
     // ChangeFileInfo can be set to change selected properties of an upload before
@@ -303,7 +304,7 @@ For example, assume that every upload must belong to a specific user project. Th
 
 ### Authenticating Users
 
-User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the `pre-create` hook, where the authorization tokens or cookies can be validated to authenticate the user.
+User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the `pre-create` and `pre-resume` hooks, where the authorization tokens or cookies can be validated to authenticate the user.
 
 If the authentication is successful, the hook can return an empty hook response to indicate tusd that the upload should continue as normal. If the authentication fails, the hook can instruct tusd to reject the upload and return a custom error response to the client. For example, this is a possible hook response:
 
@@ -321,7 +322,9 @@ If the authentication is successful, the hook can return an empty hook response 
 }
 ```
 
-Note that this handles authentication during the initial POST request when creating an upload. When tusd responds, it sends a random upload URL to the client, which is used to transmit the remaining data via PATCH and resume the upload via HEAD requests. Currently, there is no mechanism to ensure that the upload is resumed by the same user that created it. We plan on addressing this in the future. However, since the upload URL is randomly generated and only short-lived, it is hard to guess for uninvolved parties.
+Note that listen `pre-create` hook only handles authentication during the initial POST request when creating an upload. When tusd responds, it sends a random upload URL to the client, which is used to transmit the remaining data via PATCH and resume the upload via HEAD requests. Since the upload URL is randomly generated and only short-lived, it is hard to guess for uninvolved parties. 
+
+To have full protection, consider adding `pre-resume` hook too.
 
 ### Interrupting Uploads
 

@@ -90,11 +90,12 @@ const (
 	HookPostReceive   HookType = "post-receive"
 	HookPostCreate    HookType = "post-create"
 	HookPreCreate     HookType = "pre-create"
+	HookPreResume     HookType = "pre-resume"
 	HookPreFinish     HookType = "pre-finish"
 )
 
 // AvailableHooks is a slice of all hooks that are implemented by tusd.
-var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish}
+var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPreResume, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish}
 
 func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(HookPreCreate, event, hookHandler)
@@ -116,6 +117,25 @@ func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handle
 	// Pass any changes regarding file info from the hook to the handler.
 	changes := hookRes.ChangeFileInfo
 	return httpRes, changes, nil
+}
+
+func preResumeCallback(event handler.HookEvent, hookHandler HookHandler) error {
+	ok, hookRes, err := invokeHookSync(HookPreResume, event, hookHandler)
+	if !ok || err != nil {
+		return err
+	}
+
+	httpRes := hookRes.HTTPResponse
+
+	// If the hook response includes the instruction to reject the upload, reuse the error code
+	// and message from ErrUploadRejectedByServer, but also include custom HTTP response values.
+	if hookRes.RejectUpload {
+		err := handler.ErrUploadRejectedByServer
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return err
+	}
+	return nil
 }
 
 func preFinishCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, error) {
@@ -165,12 +185,14 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreResume)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreResume)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
 }
 
@@ -218,8 +240,9 @@ func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandl
 //
 // If you want to create an UnroutedHandler instead of the routed handler, you can first create a routed handler and then
 // extract an unrouted one:
-//   routedHandler := hooks.NewHandlerWithHooks(...)
-//   unroutedHandler := routedHandler.UnroutedHandler
+//
+//	routedHandler := hooks.NewHandlerWithHooks(...)
+//	unroutedHandler := routedHandler.UnroutedHandler
 //
 // Note: NewHandlerWithHooks sets up a goroutine to consume the notfication channels (CompleteUploads, TerminatedUploads,
 // CreatedUploads, UploadProgress) on the created handler. These channels must not be consumed by the caller or otherwise
@@ -239,6 +262,11 @@ func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enable
 	if slices.Contains(enabledHooks, HookPreCreate) {
 		config.PreUploadCreateCallback = func(event handler.HookEvent) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 			return preCreateCallback(event, hookHandler)
+		}
+	}
+	if slices.Contains(enabledHooks, HookPreResume) {
+		config.PreUploadResumeCallback = func(event handler.HookEvent) error {
+			return preResumeCallback(event, hookHandler)
 		}
 	}
 	if slices.Contains(enabledHooks, HookPreFinish) {

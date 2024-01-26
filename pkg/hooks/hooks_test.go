@@ -79,6 +79,19 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			RejectUpload: true,
 		}, nil),
 		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreResume,
+			Event: event,
+		}).Return(HookResponse{
+			HTTPResponse: response,
+		}, nil),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreResume,
+			Event: event,
+		}).Return(HookResponse{
+			HTTPResponse: response,
+			RejectUpload: true,
+		}, nil),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
 			Type:  HookPreFinish,
 			Event: event,
 		}).Return(HookResponse{
@@ -112,7 +125,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		Event: event,
 	})
 
-	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish})
+	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPreResume, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish})
 	a.NoError(err)
 
 	// Successful pre-create hook
@@ -137,6 +150,26 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	}, err)
 	a.Equal(handler.HTTPResponse{}, resp_got)
 	a.Equal(handler.FileInfoChanges{}, change_got)
+
+	// Successful pre-resume hook
+	err = config.PreUploadResumeCallback(event)
+	a.NoError(err)
+
+	// Pre-create hook with rejection
+	err = config.PreUploadResumeCallback(event)
+	a.Equal(handler.Error{
+		ErrorCode: handler.ErrUploadRejectedByServer.ErrorCode,
+		Message:   handler.ErrUploadRejectedByServer.Message,
+		HTTPResponse: handler.HTTPResponse{
+			StatusCode: 200,
+			Body:       "foobar",
+			Header: handler.HTTPHeader{
+				"X-Hello":      "here",
+				"Content-Type": "text/plain; charset=utf-8",
+			},
+		},
+	}, err)
+	a.Equal(handler.HTTPResponse{}, resp_got)
 
 	// Succesful pre-finish hook
 	resp_got, err = config.PreFinishResponseCallback(event)
