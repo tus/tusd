@@ -80,6 +80,11 @@ type HookResponse struct {
 	// it is ignored. Use the HTTPResponse field to send details about the stop
 	// to the client.
 	StopUpload bool
+
+	// In case of pre-access or pre-create (when Upload-Concat), reject access to upload
+	// When true, http request will end with 403 status code by default, changeable with
+	// HTTPResponse override
+	RejectAccess bool
 }
 
 type HookType string
@@ -218,8 +223,9 @@ func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandl
 //
 // If you want to create an UnroutedHandler instead of the routed handler, you can first create a routed handler and then
 // extract an unrouted one:
-//   routedHandler := hooks.NewHandlerWithHooks(...)
-//   unroutedHandler := routedHandler.UnroutedHandler
+//
+//	routedHandler := hooks.NewHandlerWithHooks(...)
+//	unroutedHandler := routedHandler.UnroutedHandler
 //
 // Note: NewHandlerWithHooks sets up a goroutine to consume the notfication channels (CompleteUploads, TerminatedUploads,
 // CreatedUploads, UploadProgress) on the created handler. These channels must not be consumed by the caller or otherwise

@@ -104,6 +104,17 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
                 ]
                 // and more ...
             }
+        },
+
+        // Information about the files that are begin accessed, to check authorization for instance
+        "Access": {
+            // read (Head/Get/Upload-Concat) or write (Patch/Delete)
+            "Mode": "read"
+            // All files info that will be access by http request
+            // Use an array because of Upload-Concat that may target several files
+            "Files": [
+                // same as Upload
+            ]
         }
     }
 }
@@ -169,6 +180,11 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // it is ignored. Use the HTTPResponse field to send details about the stop
     // to the client.
     "StopUpload": true
+
+	// In case of pre-access or pre-create (when Upload-Concat), reject access to uploads.
+	// When true, http request will end with 403 status code by default, changeable with
+	// HTTPResponse override
+    "RejectAccess": false,
 }
 ```
 

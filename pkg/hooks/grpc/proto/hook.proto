@@ -29,6 +29,9 @@ message Event {
 	// HTTPRequest contains details about the HTTP request that reached
 	// tusd.
 	HTTPRequest httpRequest = 2;
+
+	// Only use by pre-access and pre-create (when Upload-Concat) hook
+	AccessInfo access = 3;
 }
 
 // FileInfo contains information about a single upload resource.
@@ -56,6 +59,16 @@ message FileInfo {
 	// for example a file path. The available values vary depending on what data
 	// store is used. This map may also be nil.
 	map <string, string> storage = 9;
+}
+
+// For pre-access and pre-create (when Upload-Concat) hook to protect access for instance
+message AccessInfo {
+	// read (Head/Get/Upload-Concat) or write (Patch/Delete)
+	string mode = 1;
+
+	// All files that will be access by http request
+	// Use an array because of Upload-Concat that may target seeral files
+	repeated FileInfo files = 2;
 }
 
 // FileInfoChanges collects changes the should be made to a FileInfo object. This
@@ -130,6 +143,11 @@ message HookResponse {
 	// it is ignored. Use the HTTPResponse field to send details about the stop
 	// to the client.
 	bool stopUpload = 3;
+
+	// In case of pre-access or pre-create (when Upload-Concat), reject access to upload
+	// When true, http request will end with 403 status code by default, changeable with
+	// HTTPResponse override
+	bool rejectAccess = 5;
 }
 
 // HTTPResponse contains basic details of an outgoing HTTP response.
