@@ -293,6 +293,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	var size int64
 	var sizeIsDeferred bool
 	var partialUploads []Upload
+	var partialFileInfos []FileInfo
 	if isFinal {
 		// A final upload must not contain a chunk within the creation request
 		if containsChunk {
@@ -300,7 +301,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		partialUploads, size, err = handler.sizeOfUploads(c, partialUploadIDs)
+		partialUploads, partialFileInfos, size, err = handler.sizeOfUploads(c, partialUploadIDs)
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -339,7 +340,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, &info, nil))
+		access := newAccessInfo(AccessModeRead, partialFileInfos)
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, &info, &access))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -1310,27 +1312,29 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // The get sum of all sizes for a list of upload ids while checking whether
 // all of these uploads are finished yet. This is used to calculate the size
 // of a final resource.
-func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, size int64, err error) {
+func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, partialFileInfos []FileInfo, size int64, err error) {
 	partialUploads = make([]Upload, len(ids))
+	partialFileInfos = make([]FileInfo, len(ids))
 
 	for i, id := range ids {
 		upload, err := handler.composer.Core.GetUpload(ctx, id)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		info, err := upload.GetInfo(ctx)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		if info.SizeIsDeferred || info.Offset != info.Size {
 			err = ErrUploadNotFinished
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		size += info.Size
 		partialUploads[i] = upload
+		partialFileInfos[i] = info
 	}
 
 	return

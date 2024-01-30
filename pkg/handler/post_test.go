@@ -599,6 +599,48 @@ func TestPost(t *testing.T) {
 				},
 			}).Run(handler, t)
 		})
+
+		SubTest(t, "RejectAccessConcat", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:     "a",
+					Offset: 5,
+					Size:   5,
+				}, nil),
+
+				store.EXPECT().GetUpload(gomock.Any(), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:     "b",
+					Offset: 10,
+					Size:   10,
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer: composer,
+				BasePath:      "/files/",
+				PreUploadCreateCallback: func(event HookEvent) (HTTPResponse, FileInfoChanges, error) {
+					return HTTPResponse{}, FileInfoChanges{}, ErrAccessRejectedByServer
+				},
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;http://tus.io/files/a http://tus.io/files/b",
+				},
+				Code:      ErrAccessRejectedByServer.HTTPResponse.StatusCode,
+				ResHeader: ErrAccessRejectedByServer.HTTPResponse.Header,
+				ResBody:   ErrAccessRejectedByServer.HTTPResponse.Body,
+			}).Run(handler, t)
+		})
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
