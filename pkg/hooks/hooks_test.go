@@ -42,6 +42,27 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		},
 	}
 
+	preAccessEvent := handler.HookEvent{
+		HTTPRequest: handler.HTTPRequest{
+			Method: "POST",
+			URI:    "/files/",
+			Header: http.Header{
+				"X-Hello": []string{"there"},
+			},
+		},
+		Access: handler.AccessInfo{
+			Mode: handler.AccessModeRead,
+			Files: []handler.FileInfo{
+				{
+					ID: "id",
+					MetaData: handler.MetaData{
+						"hello": "world",
+					},
+				},
+			},
+		},
+	}
+
 	response := handler.HTTPResponse{
 		StatusCode: 200,
 		Body:       "foobar",
@@ -89,6 +110,25 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			Type:  HookPreFinish,
 			Event: event,
 		}).Return(HookResponse{}, error),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreAccess,
+			Event: preAccessEvent,
+		}).Return(HookResponse{
+			HTTPResponse: response,
+		}, nil),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreAccess,
+			Event: preAccessEvent,
+		}).Return(HookResponse{
+			RejectAccess: true,
+		}, nil),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreAccess,
+			Event: preAccessEvent,
+		}).Return(HookResponse{
+			HTTPResponse: response,
+			RejectAccess: true,
+		}, nil),
 	)
 
 	// The hooks are executed asynchronously, so we don't know their execution order.
@@ -112,7 +152,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		Event: event,
 	})
 
-	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish})
+	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish, HookPreAccess})
 	a.NoError(err)
 
 	// Successful pre-create hook
@@ -146,6 +186,35 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	// Pre-finish hook with error
 	resp_got, err = config.PreFinishResponseCallback(event)
 	a.Equal(error, err)
+	a.Equal(handler.HTTPResponse{}, resp_got)
+
+	// Successful pre-access hook
+	err = config.PreUploadAccessCallback(preAccessEvent)
+	a.NoError(err)
+
+	// Pre-access hook with rejection
+	err = config.PreUploadAccessCallback(preAccessEvent)
+	a.Equal(handler.Error{
+		ErrorCode:    handler.ErrAccessRejectedByServer.ErrorCode,
+		Message:      handler.ErrAccessRejectedByServer.Message,
+		HTTPResponse: handler.ErrAccessRejectedByServer.HTTPResponse,
+	}, err)
+	a.Equal(handler.HTTPResponse{}, resp_got)
+
+	// Pre-access hook with rejection and http override
+	err = config.PreUploadAccessCallback(preAccessEvent)
+	a.Equal(handler.Error{
+		ErrorCode: handler.ErrAccessRejectedByServer.ErrorCode,
+		Message:   handler.ErrAccessRejectedByServer.Message,
+		HTTPResponse: handler.HTTPResponse{
+			StatusCode: 200,
+			Body:       "foobar",
+			Header: handler.HTTPHeader{
+				"X-Hello":      "here",
+				"Content-Type": "text/plain; charset=utf-8",
+			},
+		},
+	}, err)
 	a.Equal(handler.HTTPResponse{}, resp_got)
 
 	// Successful post-* hooks

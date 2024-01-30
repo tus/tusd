@@ -144,6 +144,37 @@ func TestHead(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "RejectAccess", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				SizeIsDeferred: true,
+				Size:           0,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			PreUploadAccessCallback: func(event HookEvent) error {
+				return ErrAccessRejectedByServer
+			},
+		})
+
+		(&httpTest{
+			Method: "HEAD",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code:      ErrAccessRejectedByServer.HTTPResponse.StatusCode,
+			ResHeader: ErrAccessRejectedByServer.HTTPResponse.Header,
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)

@@ -50,6 +50,7 @@ var (
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
+	ErrAccessRejectedByServer           = NewError("ERR_ACCESS_REJECTED", "upload access has been rejected by server", http.StatusForbidden)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
 
@@ -627,6 +628,15 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if handler.config.PreUploadAccessCallback != nil {
+		access := newAccessInfo(AccessModeRead, []FileInfo{info})
+		err := handler.config.PreUploadAccessCallback(newHookEvent(c, nil, &access))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
+
 	resp := HTTPResponse{
 		Header: HTTPHeader{
 			"Cache-Control": "no-store",
@@ -727,6 +737,15 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		handler.sendError(c, err)
 		return
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		access := newAccessInfo(AccessModeWrite, []FileInfo{info})
+		err := handler.config.PreUploadAccessCallback(newHookEvent(c, nil, &access))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
 	}
 
 	// Modifying a final upload is not allowed
@@ -992,6 +1011,15 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if handler.config.PreUploadAccessCallback != nil {
+		access := newAccessInfo(AccessModeRead, []FileInfo{info})
+		err := handler.config.PreUploadAccessCallback(newHookEvent(c, nil, &access))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
+
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
@@ -1117,8 +1145,17 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var info FileInfo
-	if handler.config.NotifyTerminatedUploads {
+	if handler.config.NotifyTerminatedUploads || handler.config.PreUploadAccessCallback != nil {
 		info, err = upload.GetInfo(c)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		access := newAccessInfo(AccessModeWrite, []FileInfo{info})
+		err := handler.config.PreUploadAccessCallback(newHookEvent(c, nil, &access))
 		if err != nil {
 			handler.sendError(c, err)
 			return

@@ -96,10 +96,11 @@ const (
 	HookPostCreate    HookType = "post-create"
 	HookPreCreate     HookType = "pre-create"
 	HookPreFinish     HookType = "pre-finish"
+	HookPreAccess     HookType = "pre-access"
 )
 
 // AvailableHooks is a slice of all hooks that are implemented by tusd.
-var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish}
+var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish, HookPreAccess}
 
 func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(HookPreCreate, event, hookHandler)
@@ -121,6 +122,25 @@ func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handle
 	// Pass any changes regarding file info from the hook to the handler.
 	changes := hookRes.ChangeFileInfo
 	return httpRes, changes, nil
+}
+
+func preAccessCallback(event handler.HookEvent, hookHandler HookHandler) error {
+	ok, hookRes, err := invokeHookSync(HookPreAccess, event, hookHandler)
+	if !ok || err != nil {
+		return err
+	}
+
+	httpRes := hookRes.HTTPResponse
+
+	// If the hook response includes the instruction to reject access, reuse the error code
+	// and message from ErrAccessRejectedByServer, but also include custom HTTP response values.
+	if hookRes.RejectAccess {
+		err := handler.ErrAccessRejectedByServer
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return err
+	}
+	return nil
 }
 
 func preFinishCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, error) {
@@ -171,12 +191,14 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreAccess)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreAccess)).Add(0)
 }
 
 func invokeHookAsync(typ HookType, event handler.HookEvent, hookHandler HookHandler) {
@@ -250,6 +272,11 @@ func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enable
 	if slices.Contains(enabledHooks, HookPreFinish) {
 		config.PreFinishResponseCallback = func(event handler.HookEvent) (handler.HTTPResponse, error) {
 			return preFinishCallback(event, hookHandler)
+		}
+	}
+	if slices.Contains(enabledHooks, HookPreAccess) {
+		config.PreUploadAccessCallback = func(event handler.HookEvent) error {
+			return preAccessCallback(event, hookHandler)
 		}
 	}
 
