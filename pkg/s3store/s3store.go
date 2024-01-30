@@ -1225,7 +1225,9 @@ func (store S3Store) calcOptimalPartSize(size int64) (optimalPartSize int64, err
 
 func (store S3Store) keyWithPrefix(ctx context.Context, key string) *string {
 	prefix := store.ObjectPrefix
-	prefix = prefix + store.ObjectPrefixGenerator(ctx)
+	if store.ObjectPrefixGenerator != nil {
+		prefix = prefix + store.ObjectPrefixGenerator(ctx)
+	}
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
