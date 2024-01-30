@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	. "github.com/Nealsoni00/tusd/v2/pkg/handler"
 	"github.com/golang/mock/gomock"
-	. "github.com/tus/tusd/v2/pkg/handler"
 )
 
 func TestHead(t *testing.T) {

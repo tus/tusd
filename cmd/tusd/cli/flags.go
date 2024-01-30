@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tus/tusd/v2/internal/grouped_flags"
-	"github.com/tus/tusd/v2/pkg/hooks"
+	"github.com/Nealsoni00/tusd/v2/internal/grouped_flags"
+	"github.com/Nealsoni00/tusd/v2/pkg/hooks"
 	"golang.org/x/exp/slices"
 )
 

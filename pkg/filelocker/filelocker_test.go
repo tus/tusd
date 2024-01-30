@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Nealsoni00/tusd/v2/pkg/handler"
 	"github.com/stretchr/testify/assert"
-	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 var _ handler.Locker = &FileLocker{}

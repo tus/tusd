@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	gcsstore "github.com/tus/tusd/v2/pkg/gcsstore"
+	gcsstore "github.com/Nealsoni00/tusd/v2/pkg/gcsstore"
 )
 
 // MockGCSReader is a mock of GCSReader interface.

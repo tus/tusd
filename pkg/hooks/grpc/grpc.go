@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Nealsoni00/tusd/v2/pkg/hooks"
+	pb "github.com/Nealsoni00/tusd/v2/pkg/hooks/grpc/proto"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	"github.com/tus/tusd/v2/pkg/hooks"
-	pb "github.com/tus/tusd/v2/pkg/hooks/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

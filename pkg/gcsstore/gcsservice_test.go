@@ -9,7 +9,7 @@ import (
 	"gopkg.in/h2non/gock.v1"
 
 	"cloud.google.com/go/storage"
-	. "github.com/tus/tusd/v2/pkg/gcsstore"
+	. "github.com/Nealsoni00/tusd/v2/pkg/gcsstore"
 	"google.golang.org/api/option"
 )
 

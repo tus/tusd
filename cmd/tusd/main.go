@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/tus/tusd/v2/cmd/tusd/cli"
+	"github.com/Nealsoni00/tusd/v2/cmd/tusd/cli"
 )
 
 func main() {

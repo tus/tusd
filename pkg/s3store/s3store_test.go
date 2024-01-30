@@ -18,10 +18,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 
-	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/Nealsoni00/tusd/v2/pkg/handler"
 )
 
-//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store github.com/tus/tusd/v2/pkg/s3store S3API
+//go:generate mockgen -destination=./s3store_mock_test.go -package=s3store github.com/Nealsoni00/tusd/v2/pkg/s3store S3API
 
 // Test interface implementations
 var _ handler.DataStore = S3Store{}

@@ -3,9 +3,9 @@ package cli
 import (
 	"net/http"
 
-	"github.com/tus/tusd/v2/pkg/handler"
-	"github.com/tus/tusd/v2/pkg/hooks"
-	"github.com/tus/tusd/v2/pkg/prometheuscollector"
+	"github.com/Nealsoni00/tusd/v2/pkg/handler"
+	"github.com/Nealsoni00/tusd/v2/pkg/hooks"
+	"github.com/Nealsoni00/tusd/v2/pkg/prometheuscollector"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

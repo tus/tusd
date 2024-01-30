@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/tus/tusd/v2/pkg/handler"
+	. "github.com/Nealsoni00/tusd/v2/pkg/handler"
 )
 
 func TestConcat(t *testing.T) {
