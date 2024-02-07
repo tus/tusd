@@ -99,8 +99,9 @@ func TestDeleteObjectWithFilter(t *testing.T) {
 	}
 
 	err = service.DeleteObjectsWithFilter(ctx, GCSFilterParams{
-		Bucket: "test-bucket",
-		Prefix: "test-prefix",
+		Bucket:            "test-bucket",
+		Prefix:            "test-prefix",
+		IncludeInfoObject: true,
 	})
 
 	if err != nil {
@@ -510,8 +511,9 @@ func TestFilterObject(t *testing.T) {
 	}
 
 	objects, err := service.FilterObjects(ctx, GCSFilterParams{
-		Bucket: "test-bucket",
-		Prefix: "test-prefix",
+		Bucket:            "test-bucket",
+		Prefix:            "test-prefix",
+		IncludeInfoObject: false,
 	})
 
 	if err != nil {

@@ -43,6 +43,9 @@ type GCSFilterParams struct {
 
 	// Prefix specifies the prefix of which you want to filter object names with.
 	Prefix string
+
+	// IncludeInfoObject indicates whether to include or ignore the info object.
+	IncludeInfoObject bool
 }
 
 // GCSReader implements cloud.google.com/go/storage.Reader.
@@ -202,8 +205,9 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 		// Remove all the temporary composition objects
 		prefix := fmt.Sprintf("%s_tmp", params.Destination)
 		filterParams := GCSFilterParams{
-			Bucket: params.Bucket,
-			Prefix: prefix,
+			Bucket:            params.Bucket,
+			Prefix:            prefix,
+			IncludeInfoObject: false,
 		}
 
 		err = service.DeleteObjectsWithFilter(ctx, filterParams)
@@ -352,7 +356,7 @@ loop:
 			return nil, err
 		}
 
-		if strings.HasSuffix(objAttrs.Name, "info") {
+		if !params.IncludeInfoObject && strings.HasSuffix(objAttrs.Name, "info") {
 			continue
 		}
 

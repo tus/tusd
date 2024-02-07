@@ -145,8 +145,9 @@ func TestGetInfo(t *testing.T) {
 	r := MockGetInfoReader{}
 
 	filterParams := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: mockID,
+		Bucket:            store.Bucket,
+		Prefix:            mockID,
+		IncludeInfoObject: false,
 	}
 
 	mockObjectParams0 := gcsstore.GCSObjectParams{
@@ -288,8 +289,9 @@ func TestTerminate(t *testing.T) {
 	assert.Equal(store.Bucket, mockBucket)
 
 	filterParams := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: mockID,
+		Bucket:            store.Bucket,
+		Prefix:            mockID,
+		IncludeInfoObject: true,
 	}
 
 	ctx := context.Background()
@@ -313,13 +315,15 @@ func TestFinishUpload(t *testing.T) {
 	assert.Equal(store.Bucket, mockBucket)
 
 	filterParams := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: fmt.Sprintf("%s_", mockID),
+		Bucket:            store.Bucket,
+		Prefix:            fmt.Sprintf("%s_", mockID),
+		IncludeInfoObject: false,
 	}
 
 	filterParams2 := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: mockID,
+		Bucket:            store.Bucket,
+		Prefix:            mockID,
+		IncludeInfoObject: false,
 	}
 
 	composeParams := gcsstore.GCSComposeParams{
@@ -406,8 +410,9 @@ func TestWriteChunk(t *testing.T) {
 
 	// filter objects
 	filterParams := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: fmt.Sprintf("%s_", mockID),
+		Bucket:            store.Bucket,
+		Prefix:            fmt.Sprintf("%s_", mockID),
+		IncludeInfoObject: false,
 	}
 
 	var partials = []string{mockPartial0}
