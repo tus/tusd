@@ -161,6 +161,10 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // in the Upload-Metadata header in HEAD responses.
         "MetaData": {
           "my-custom-field": "..."
+        },
+        // TODO: Document
+        "Storage": {
+
         }
     },
 
