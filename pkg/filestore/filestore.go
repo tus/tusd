@@ -100,7 +100,6 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 		return nil, err
 	}
 
-	// TODO: Test whether this works with uploads created from previous tusd versions.
 	binPath := store.binPath(id)
 	if info.Storage != nil && info.Storage["Path"] != "" {
 		binPath = info.Storage["Path"]
