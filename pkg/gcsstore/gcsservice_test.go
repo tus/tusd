@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	reflect "reflect"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"
@@ -480,6 +481,7 @@ func TestFilterObject(t *testing.T) {
 
 	resp := googleBucketResponse{[]googleObjectResponse{
 		{Name: "test_directory/test-prefix_1"},
+		{Name: "test_directory/test-prefix_2"},
 	}}
 
 	gock.New("https://storage.googleapis.com").
@@ -521,7 +523,60 @@ func TestFilterObject(t *testing.T) {
 		return
 	}
 
-	if len(objects) != 2 {
-		t.Errorf("Didn't get appropriate amount of objects back: got %v from %v", len(objects), objects)
+	if !reflect.DeepEqual(objects, []string{"", "test_directory/test-prefix_1", "test_directory/test-prefix_2"}) {
+		t.Errorf("Didn't get appropriate objects back: got %v from %v", len(objects), objects)
+	}
+}
+
+func TestFilterObject_IncludeInfoObject(t *testing.T) {
+	defer gock.Off()
+
+	resp := googleBucketResponse{[]googleObjectResponse{
+		{Name: "test_directory/test-prefix_1"},
+		{Name: "test_directory/test-prefix.info"},
+		{Name: "test_directory/test-prefix_2"},
+	}}
+
+	gock.New("https://storage.googleapis.com").
+		Get("/storage/v1/b/test-bucket/o").
+		MatchParam("alt", "json").
+		MatchParam("pageToken", "").
+		MatchParam("prefix", "test-prefix").
+		MatchParam("projection", "full").
+		Reply(200).
+		JSON(resp)
+
+	gock.New("https://accounts.google.com/").
+		Post("/o/oauth2/token").Reply(200).JSON(map[string]string{
+		"access_token":  "H3l5321N123sdI4HLY/RF39FjrCRF39FjrCRF39FjrCRF39FjrC_RF39FjrCRF39FjrC",
+		"token_type":    "Bearer",
+		"refresh_token": "1/smWJksmWJksmWJksmWJksmWJk_smWJksmWJksmWJksmWJksmWJk",
+		"expiry_date":   "1425333671141",
+	})
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, option.WithHTTPClient(http.DefaultClient), option.WithAPIKey("foo"))
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	service := GCSService{
+		Client: client,
+	}
+
+	objects, err := service.FilterObjects(ctx, GCSFilterParams{
+		Bucket:            "test-bucket",
+		Prefix:            "test-prefix",
+		IncludeInfoObject: true,
+	})
+
+	if err != nil {
+		t.Errorf("Error: %v", err)
+		return
+	}
+
+	if !reflect.DeepEqual(objects, []string{"", "test_directory/test-prefix_1", "test_directory/test-prefix.info", "test_directory/test-prefix_2"}) {
+		t.Errorf("Didn't get appropriate objects back: got %v from %v", len(objects), objects)
 	}
 }
