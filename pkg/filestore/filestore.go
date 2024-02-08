@@ -52,7 +52,15 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
+
+	// The .info file's location can directly be deduced from the upload ID
+	infoPath := store.infoPath(info.ID)
+	// The binary file's location might be modified by the pre-create hook.
 	binPath := store.binPath(info.ID)
+	if info.Storage != nil && info.Storage["Path"] != "" {
+		binPath = filepath.Join(store.Path, info.Storage["Path"])
+	}
+
 	info.Storage = map[string]string{
 		"Type": "filestore",
 		"Path": binPath,
@@ -65,7 +73,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 	upload := &fileUpload{
 		info:     info,
-		infoPath: store.infoPath(info.ID),
+		infoPath: infoPath,
 		binPath:  binPath,
 	}
 
@@ -78,8 +86,8 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 }
 
 func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	info := handler.FileInfo{}
-	data, err := os.ReadFile(store.infoPath(id))
+	infoPath := store.infoPath(id)
+	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -87,12 +95,16 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 		}
 		return nil, err
 	}
+	var info handler.FileInfo
 	if err := json.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}
 
+	// TODO: Test whether this works with uploads created from previous tusd versions.
 	binPath := store.binPath(id)
-	infoPath := store.infoPath(id)
+	if info.Storage != nil && info.Storage["Path"] != "" {
+		binPath = info.Storage["Path"]
+	}
 	stat, err := os.Stat(binPath)
 	if err != nil {
 		if os.IsNotExist(err) {
