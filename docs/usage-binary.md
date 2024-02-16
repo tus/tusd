@@ -1,3 +1,8 @@
+---
+title: Usage as a program
+layout: default
+---
+
 # Running tusd
 
 Starting the tusd upload server is as simple as invoking a single command. For example, following

@@ -1,3 +1,8 @@
+---
+title: FAQ
+layout: default
+---
+
 # FAQ
 
 ### How can I access tusd using HTTPS?

@@ -1,3 +1,8 @@
+---
+title: Installation
+layout: default
+---
+
 # Installation
 
 ## Download pre-builts binaries (recommended)

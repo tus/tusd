@@ -1,3 +1,8 @@
+---
+title: Usage as a package
+layout: default
+---
+
 # Using the tusd package programmatically
 
 Besides from running tusd using the provided binary, you can embed it into your own Go program:

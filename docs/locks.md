@@ -1,3 +1,8 @@
+---
+title: Locks
+layout: default
+---
+
 # Upload Locks
 
 ## Why are locks necessary?
