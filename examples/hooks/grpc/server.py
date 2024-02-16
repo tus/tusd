@@ -41,8 +41,8 @@ class HookHandler(pb2_grpc.HookHandlerServicer):
 	    # Example: Use the pre-access hook to print each upload access
         if hook_request.type == 'pre-access':
             mode    = hook_request.event.access.mode
-            id      = hook_request.event.access.files[0].id
-            size    = hook_request.event.access.files[0].size
+            id      = hook_request.event.access.uploads[0].id
+            size    = hook_request.event.access.uploads[0].size
             print(f'Access {id} (mode={mode}, size={size} bytes)')
 
         # Example: Use the post-finish hook to print information about a completed upload,

@@ -21,7 +21,7 @@ The table below provides an overview of all available hooks.
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | Yes                 |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
-| pre-access     | Yes       | before an existing upload is access (Head/Get/Patch/Delete).           | validation of user authentication                                 | No                 |
+| pre-access     | Yes       | before an existing upload is access (Head/Get/Patch/Delete/Upload-Concat). | validation of user authentication                                 | No                 |
 
 Users should be aware of following things:
 - If a hook is _blocking_, tusd will wait with further processing until the hook is completed. This is useful for validation and authentication, where further processing should be stopped if the hook determines to do so. However, long execution time may impact the user experience because the upload processing is blocked while the hook executes.
@@ -113,7 +113,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "Mode": "read"
             // All files info that will be access by http request
             // Use an array because of Upload-Concat that may target several files
-            "Files": [
+            "Uploads": [
                 // same as Upload
             ]
         }
@@ -320,7 +320,7 @@ For example, assume that every upload must belong to a specific user project. Th
 
 ### Authenticating Users
 
-User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the `pre-create` and `pre-access` hooks, where the authorization tokens or cookies can be validated to authenticate the user.
+User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the  `pre-access` hook, where the authorization tokens or cookies can be validated to authenticate the user.
 
 If the authentication is successful, the hook can return an empty hook response to indicate tusd that the upload should continue as normal. If the authentication fails, the hook can instruct tusd to reject the upload and return a custom error response to the client. For example, this is a possible hook response:
 

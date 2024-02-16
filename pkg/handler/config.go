@@ -70,7 +70,7 @@ type Config struct {
 	// more details on its behavior. If you do not want to make any changes, return an empty struct.
 	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, FileInfoChanges, error)
 	// PreUploadAccessCallback will be invoked before accessing an upload, if the
-	// property is supplied, on Get/Head/Patch/Delete requests.
+	// property is supplied, on Get/Head/Patch/Delete/Upload-Concat requests.
 	// If the callback returns no error, the requests will continue.
 	// If the error is non-nil, the requests will be rejected. This can be used to implement
 	// authorization.

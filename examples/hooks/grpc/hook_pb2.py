@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='hook.proto',
   package='proto',
   syntax='proto3',
-  serialized_pb=_b('\n\nhook.proto\x12\x05proto\"8\n\x0bHookRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x1b\n\x05\x65vent\x18\x02 \x01(\x0b\x32\x0c.proto.Event\"t\n\x05\x45vent\x12\x1f\n\x06upload\x18\x01 \x01(\x0b\x32\x0f.proto.FileInfo\x12\'\n\x0bhttpRequest\x18\x02 \x01(\x0b\x32\x12.proto.HTTPRequest\x12!\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32\x11.proto.AccessInfo\"\xc9\x02\n\x08\x46ileInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x16\n\x0esizeIsDeferred\x18\x03 \x01(\x08\x12\x0e\n\x06offset\x18\x04 \x01(\x03\x12/\n\x08metaData\x18\x05 \x03(\x0b\x32\x1d.proto.FileInfo.MetaDataEntry\x12\x11\n\tisPartial\x18\x06 \x01(\x08\x12\x0f\n\x07isFinal\x18\x07 \x01(\x08\x12\x16\n\x0epartialUploads\x18\x08 \x03(\t\x12-\n\x07storage\x18\t \x03(\x0b\x32\x1c.proto.FileInfo.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\":\n\nAccessInfo\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12\x1e\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x0f.proto.FileInfo\"\xec\x01\n\x0f\x46ileInfoChanges\x12\n\n\x02id\x18\x01 \x01(\t\x12\x36\n\x08metaData\x18\x02 \x03(\x0b\x32$.proto.FileInfoChanges.MetaDataEntry\x12\x34\n\x07storage\x18\x03 \x03(\x0b\x32#.proto.FileInfoChanges.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9d\x01\n\x0bHTTPRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0b\n\x03uri\x18\x02 \x01(\t\x12\x12\n\nremoteAddr\x18\x03 \x01(\t\x12.\n\x06header\x18\x04 \x03(\x0b\x32\x1e.proto.HTTPRequest.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa9\x01\n\x0cHookResponse\x12)\n\x0chttpResponse\x18\x01 \x01(\x0b\x32\x13.proto.HTTPResponse\x12\x14\n\x0crejectUpload\x18\x02 \x01(\x08\x12.\n\x0e\x63hangeFileInfo\x18\x04 \x01(\x0b\x32\x16.proto.FileInfoChanges\x12\x12\n\nstopUpload\x18\x03 \x01(\x08\x12\x14\n\x0crejectAccess\x18\x05 \x01(\x08\"\x90\x01\n\x0cHTTPResponse\x12\x12\n\nstatusCode\x18\x01 \x01(\x03\x12/\n\x06header\x18\x02 \x03(\x0b\x32\x1f.proto.HTTPResponse.HeaderEntry\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\x46\n\x0bHookHandler\x12\x37\n\nInvokeHook\x12\x12.proto.HookRequest\x1a\x13.proto.HookResponse\"\x00\x42\x12Z\x10hooks/grpc/protob\x06proto3')
+  serialized_pb=_b('\n\nhook.proto\x12\x05proto\"8\n\x0bHookRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x1b\n\x05\x65vent\x18\x02 \x01(\x0b\x32\x0c.proto.Event\"t\n\x05\x45vent\x12\x1f\n\x06upload\x18\x01 \x01(\x0b\x32\x0f.proto.FileInfo\x12\'\n\x0bhttpRequest\x18\x02 \x01(\x0b\x32\x12.proto.HTTPRequest\x12!\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32\x11.proto.AccessInfo\"\xc9\x02\n\x08\x46ileInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x16\n\x0esizeIsDeferred\x18\x03 \x01(\x08\x12\x0e\n\x06offset\x18\x04 \x01(\x03\x12/\n\x08metaData\x18\x05 \x03(\x0b\x32\x1d.proto.FileInfo.MetaDataEntry\x12\x11\n\tisPartial\x18\x06 \x01(\x08\x12\x0f\n\x07isFinal\x18\x07 \x01(\x08\x12\x16\n\x0epartialUploads\x18\x08 \x03(\t\x12-\n\x07storage\x18\t \x03(\x0b\x32\x1c.proto.FileInfo.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"<\n\nAccessInfo\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12 \n\x07uploads\x18\x02 \x03(\x0b\x32\x0f.proto.FileInfo\"\xec\x01\n\x0f\x46ileInfoChanges\x12\n\n\x02id\x18\x01 \x01(\t\x12\x36\n\x08metaData\x18\x02 \x03(\x0b\x32$.proto.FileInfoChanges.MetaDataEntry\x12\x34\n\x07storage\x18\x03 \x03(\x0b\x32#.proto.FileInfoChanges.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9d\x01\n\x0bHTTPRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0b\n\x03uri\x18\x02 \x01(\t\x12\x12\n\nremoteAddr\x18\x03 \x01(\t\x12.\n\x06header\x18\x04 \x03(\x0b\x32\x1e.proto.HTTPRequest.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa9\x01\n\x0cHookResponse\x12)\n\x0chttpResponse\x18\x01 \x01(\x0b\x32\x13.proto.HTTPResponse\x12\x14\n\x0crejectUpload\x18\x02 \x01(\x08\x12.\n\x0e\x63hangeFileInfo\x18\x04 \x01(\x0b\x32\x16.proto.FileInfoChanges\x12\x12\n\nstopUpload\x18\x03 \x01(\x08\x12\x14\n\x0crejectAccess\x18\x05 \x01(\x08\"\x90\x01\n\x0cHTTPResponse\x12\x12\n\nstatusCode\x18\x01 \x01(\x03\x12/\n\x06header\x18\x02 \x03(\x0b\x32\x1f.proto.HTTPResponse.HeaderEntry\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\x46\n\x0bHookHandler\x12\x37\n\nInvokeHook\x12\x12.proto.HookRequest\x1a\x13.proto.HookResponse\"\x00\x42\x12Z\x10hooks/grpc/protob\x06proto3')
 )
 
 
@@ -284,7 +284,7 @@ _ACCESSINFO = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='files', full_name='proto.AccessInfo.files', index=1,
+      name='uploads', full_name='proto.AccessInfo.uploads', index=1,
       number=2, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -303,7 +303,7 @@ _ACCESSINFO = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=529,
-  serialized_end=587,
+  serialized_end=589,
 )
 
 
@@ -421,8 +421,8 @@ _FILEINFOCHANGES = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=590,
-  serialized_end=826,
+  serialized_start=592,
+  serialized_end=828,
 )
 
 
@@ -459,8 +459,8 @@ _HTTPREQUEST_HEADERENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=941,
-  serialized_end=986,
+  serialized_start=943,
+  serialized_end=988,
 )
 
 _HTTPREQUEST = _descriptor.Descriptor(
@@ -510,8 +510,8 @@ _HTTPREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=829,
-  serialized_end=986,
+  serialized_start=831,
+  serialized_end=988,
 )
 
 
@@ -569,8 +569,8 @@ _HOOKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=989,
-  serialized_end=1158,
+  serialized_start=991,
+  serialized_end=1160,
 )
 
 
@@ -607,8 +607,8 @@ _HTTPRESPONSE_HEADERENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=941,
-  serialized_end=986,
+  serialized_start=943,
+  serialized_end=988,
 )
 
 _HTTPRESPONSE = _descriptor.Descriptor(
@@ -651,8 +651,8 @@ _HTTPRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1161,
-  serialized_end=1305,
+  serialized_start=1163,
+  serialized_end=1307,
 )
 
 _HOOKREQUEST.fields_by_name['event'].message_type = _EVENT
@@ -663,7 +663,7 @@ _FILEINFO_METADATAENTRY.containing_type = _FILEINFO
 _FILEINFO_STORAGEENTRY.containing_type = _FILEINFO
 _FILEINFO.fields_by_name['metaData'].message_type = _FILEINFO_METADATAENTRY
 _FILEINFO.fields_by_name['storage'].message_type = _FILEINFO_STORAGEENTRY
-_ACCESSINFO.fields_by_name['files'].message_type = _FILEINFO
+_ACCESSINFO.fields_by_name['uploads'].message_type = _FILEINFO
 _FILEINFOCHANGES_METADATAENTRY.containing_type = _FILEINFOCHANGES
 _FILEINFOCHANGES_STORAGEENTRY.containing_type = _FILEINFOCHANGES
 _FILEINFOCHANGES.fields_by_name['metaData'].message_type = _FILEINFOCHANGES_METADATAENTRY
@@ -810,8 +810,8 @@ _HOOKHANDLER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=1307,
-  serialized_end=1377,
+  serialized_start=1309,
+  serialized_end=1379,
   methods=[
   _descriptor.MethodDescriptor(
     name='InvokeHook',

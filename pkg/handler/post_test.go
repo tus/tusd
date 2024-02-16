@@ -625,8 +625,8 @@ func TestPost(t *testing.T) {
 			handler, _ := NewHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
-				PreUploadCreateCallback: func(event HookEvent) (HTTPResponse, FileInfoChanges, error) {
-					return HTTPResponse{}, FileInfoChanges{}, ErrAccessRejectedByServer
+				PreUploadAccessCallback: func(event HookEvent) error {
+					return ErrAccessRejectedByServer
 				},
 			})
 

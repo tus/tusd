@@ -52,7 +52,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		},
 		Access: handler.AccessInfo{
 			Mode: handler.AccessModeRead,
-			Files: []handler.FileInfo{
+			Uploads: []handler.FileInfo{
 				{
 					ID: "id",
 					MetaData: handler.MetaData{

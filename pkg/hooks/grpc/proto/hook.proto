@@ -68,7 +68,7 @@ message AccessInfo {
 
 	// All files that will be access by http request
 	// Use an array because of Upload-Concat that may target seeral files
-	repeated FileInfo files = 2;
+	repeated FileInfo uploads = 2;
 }
 
 // FileInfoChanges collects changes the should be made to a FileInfo object. This

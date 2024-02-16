@@ -76,8 +76,8 @@ func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 				Header:     getHeader(event.HTTPRequest.Header),
 			},
 			Access: &pb.AccessInfo{
-				Mode:  event.Access.Mode,
-				Files: getAccessFiles(event.Access.Files),
+				Mode:    event.Access.Mode,
+				Uploads: getAccessFiles(event.Access.Uploads),
 			},
 		},
 	}

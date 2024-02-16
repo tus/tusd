@@ -44,10 +44,10 @@ type AccessInfo struct {
 
 	// All files info that will be access by http request
 	// Use an array because of Upload-Concat that may target several files
-	Files []FileInfo
+	Uploads []FileInfo
 }
 
-func newHookEvent(c *httpContext, info *FileInfo, accessInfo *AccessInfo) HookEvent {
+func newHookEvent(c *httpContext, info *FileInfo) HookEvent {
 	// The Host header field is not present in the header map, see https://pkg.go.dev/net/http#Request:
 	// > For incoming requests, the Host header is promoted to the
 	// > Request.Host field and removed from the Header map.
@@ -58,10 +58,6 @@ func newHookEvent(c *httpContext, info *FileInfo, accessInfo *AccessInfo) HookEv
 	if info != nil {
 		upload = *info
 	}
-	var access AccessInfo
-	if accessInfo != nil {
-		access = *accessInfo
-	}
 	return HookEvent{
 		Context: c,
 		Upload:  upload,
@@ -71,13 +67,15 @@ func newHookEvent(c *httpContext, info *FileInfo, accessInfo *AccessInfo) HookEv
 			RemoteAddr: c.req.RemoteAddr,
 			Header:     c.req.Header,
 		},
-		Access: access,
+		Access: AccessInfo{},
 	}
 }
 
-func newAccessInfo(mode AccessMode, files []FileInfo) AccessInfo {
-	return AccessInfo{
-		Mode:  mode,
-		Files: files,
+func newHookAccessEvent(c *httpContext, mode AccessMode, uploads []FileInfo) HookEvent {
+	event := newHookEvent(c, nil)
+	event.Access = AccessInfo{
+		Mode:    mode,
+		Uploads: uploads,
 	}
+	return event
 }

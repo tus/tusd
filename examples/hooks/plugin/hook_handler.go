@@ -44,8 +44,8 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 	// Example: Use the pre-access hook to print each upload access
 	if req.Type == hooks.HookPreAccess {
 		mode := req.Event.Access.Mode
-		id := req.Event.Access.Files[0].ID
-		size := req.Event.Access.Files[0].Size
+		id := req.Event.Access.Uploads[0].ID
+		size := req.Event.Access.Uploads[0].Size
 
 		log.Printf("Access %s (mode=%s, size=%d bytes) \n", id, mode, size)
 	}
