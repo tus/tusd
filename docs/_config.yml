@@ -1,8 +1,28 @@
-title: Just the Docs Template
-description: A starter template for a Jeykll site using the Just the Docs theme!
+title: tusd documentation
+description: Reference server implementation in Go of tus, the open protocol for resumable file uploads.
 theme: just-the-docs
 
 url: https://just-the-docs.github.io
 
-aux_links:
-  Template Repository: https://github.com/just-the-docs/just-the-docs-template
+# Custom color scheme from _sass/color_schemes/custom.scss
+color_scheme: custom
+
+logo: "/assets/images/logo.png"
+favicon_ico: "/assets/images/favicon.png"
+
+# External navigation links
+nav_external_links:
+  - title: tusd on GitHub
+    url: https://github.com/tus/tusd
+    opens_in_new_tab: true
+  - title: tus.io project
+    url: https://tus.io
+    opens_in_new_tab: true
+
+# Footer "Edit this page on GitHub" link text
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub."
+gh_edit_repository: "https://github.com/tus/tusd"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "edit"
