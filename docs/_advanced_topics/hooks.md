@@ -1,9 +1,17 @@
 ---
-title: Hooks
+title: Customizatio via Hooks
 layout: default
+nav_order: 1
 ---
 
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
 # Hooks
+{: .no_toc }
 
 When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files.
 

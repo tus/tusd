@@ -26,3 +26,25 @@ gh_edit_repository: "https://github.com/tus/tusd"
 gh_edit_branch: "main"
 gh_edit_source: docs
 gh_edit_view_mode: "edit"
+
+# Define Jekyll collections
+collections:
+  advanced_topics:
+    permalink: "/:collection/:path/"
+    output: true
+  storage_backends:
+    permalink: "/:collection/:path/"
+    output: true
+  getting_started:
+    permalink: "/:collection/:path/"
+    output: true
+
+just_the_docs:
+  # Define which collections are used in just-the-docs
+  collections:
+    getting_started:
+      name: Getting Started
+    storage_backends:
+      name: Storage Backends
+    advanced_topics:
+      name: Advanced Topics

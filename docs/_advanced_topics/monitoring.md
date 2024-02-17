@@ -1,6 +1,7 @@
 ---
-title: Monitoring
+title: Monitoring tusd
 layout: default
+nav_order: 3
 ---
 
 # Monitoring tusd

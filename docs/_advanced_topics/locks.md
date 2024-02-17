@@ -1,6 +1,7 @@
 ---
-title: Locks
+title: Upload Locks
 layout: default
+nav_order: 2
 ---
 
 # Upload Locks

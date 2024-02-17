@@ -1,6 +1,7 @@
 ---
-title: Usage as a program
+title: Usage
 layout: default
+nav_order: 2
 ---
 
 # Running tusd
