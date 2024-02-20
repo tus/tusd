@@ -4,7 +4,14 @@ layout: default
 nav_order: 2
 ---
 
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
 # FAQ
+{: .no_toc }
 
 ### How can I access tusd using HTTPS?
 
@@ -14,15 +21,7 @@ If your needs are more complex than provided for here, you will need to use a re
 
 ### Can I run tusd behind a reverse proxy?
 
-Yes, it is absolutely possible to do so. Firstly, you should execute the tusd binary using the `-behind-proxy` flag indicating it to pay attention to special headers which are only relevant when used in conjunction with a proxy. Furthermore, there are additional details which should be kept in mind, depending on the used software:
-
-- *Disable request buffering.* Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed while it's being transfered. Therefore, such as feature should be disabled.
-
-- *Adjust maximum request size.* Some proxies have default values for how big a request may be in order to protect your services. Be sure to check these settings to match the requirements of your application.
-
-- *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
-
-Explicit examples for the above points can be found in the [Nginx configuration](/examples/nginx.conf) which is used to power the [tusd.tusdemo.net](https://tusd.tusdemo.net) instace.
+Yes, it is absolutely possible to do so. Please consult the [section about configuration regarding proxies](/getting_started/configuration/#proxies).
 
 ### Can I run custom verification/authentication checks before an upload begins?
 

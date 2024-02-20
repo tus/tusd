@@ -1,5 +1,5 @@
 ---
-title: Upload Locks
+title: Upload locks
 layout: default
 nav_order: 2
 ---

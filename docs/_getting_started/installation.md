@@ -16,7 +16,7 @@ Windows in various formats of the
 
 The only requirement for building tusd is [Go](http://golang.org/doc/install).
 We only test and support the [two latest major releases](https://go.dev/dl/) of
-Go, although tusd might also run with other versions.
+Go, although tusd might also run with older versions.
 
 Once a recent Go version is installed, you can clone the git repository, install
 the remaining dependencies and build the binary:
@@ -26,6 +26,15 @@ git clone https://github.com/tus/tusd.git
 cd tusd
 
 go build -o tusd cmd/tusd/main.go
+```
+
+## Docker container
+
+Each release of tusd is also published as a Docker image on Docker Hub. You can use it by running:
+
+```bash
+docker pull tusproject/tusd:latest
+docker run tusproject/tusd:latest # append CLI flags for tusd here
 ```
 
 ## Kubernetes installation

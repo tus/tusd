@@ -1,5 +1,5 @@
 ---
-title: Customizatio via Hooks
+title: Customization via hooks
 layout: default
 nav_order: 1
 ---
