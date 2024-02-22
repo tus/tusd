@@ -50,6 +50,7 @@ var (
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
+	ErrAccessRejectedByServer           = NewError("ERR_ACCESS_REJECTED", "upload access has been rejected by server", http.StatusForbidden)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
 
@@ -292,6 +293,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	var size int64
 	var sizeIsDeferred bool
 	var partialUploads []Upload
+	var partialFileInfos []FileInfo
 	if isFinal {
 		// A final upload must not contain a chunk within the creation request
 		if containsChunk {
@@ -299,10 +301,18 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		partialUploads, size, err = handler.sizeOfUploads(c, partialUploadIDs)
+		partialUploads, partialFileInfos, size, err = handler.sizeOfUploads(c, partialUploadIDs)
 		if err != nil {
 			handler.sendError(c, err)
 			return
+		}
+
+		if handler.config.PreUploadAccessCallback != nil {
+			err := handler.config.PreUploadAccessCallback(newHookAccessEvent(c, AccessModeRead, partialFileInfos))
+			if err != nil {
+				handler.sendError(c, err)
+				return
+			}
 		}
 	} else {
 		uploadLengthHeader := r.Header.Get("Upload-Length")
@@ -338,7 +348,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, &info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -388,7 +398,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	c.log.Info("UploadCreated", "id", id, "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(c, info)
+		handler.CreatedUploads <- newHookEvent(c, &info)
 	}
 
 	if isFinal {
@@ -400,7 +410,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		info.Offset = size
 
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+			handler.CompleteUploads <- newHookEvent(c, &info)
 		}
 	}
 
@@ -491,7 +501,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// 1. Create upload resource
 	if handler.config.PreUploadCreateCallback != nil {
-		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, info))
+		resp2, changes, err := handler.config.PreUploadCreateCallback(newHookEvent(c, &info))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -543,7 +553,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	c.log.Info("UploadCreated", "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(c, info)
+		handler.CreatedUploads <- newHookEvent(c, &info)
 	}
 
 	// 2. Lock upload
@@ -625,6 +635,14 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		handler.sendError(c, err)
 		return
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		err := handler.config.PreUploadAccessCallback(newHookAccessEvent(c, AccessModeRead, []FileInfo{info}))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
 	}
 
 	resp := HTTPResponse{
@@ -727,6 +745,14 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		handler.sendError(c, err)
 		return
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		err := handler.config.PreUploadAccessCallback(newHookAccessEvent(c, AccessModeWrite, []FileInfo{info}))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
 	}
 
 	// Modifying a final upload is not allowed
@@ -939,7 +965,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... allow the hook callback to run before sending the response
 		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
+			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, &info))
 			if err != nil {
 				return resp, err
 			}
@@ -951,7 +977,7 @@ func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTP
 
 		// ... send the info out to the channel
 		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+			handler.CompleteUploads <- newHookEvent(c, &info)
 		}
 	}
 
@@ -990,6 +1016,14 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		handler.sendError(c, err)
 		return
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		err := handler.config.PreUploadAccessCallback(newHookAccessEvent(c, AccessModeRead, []FileInfo{info}))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
 	}
 
 	contentType, contentDisposition := filterContentType(info)
@@ -1117,8 +1151,16 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var info FileInfo
-	if handler.config.NotifyTerminatedUploads {
+	if handler.config.NotifyTerminatedUploads || handler.config.PreUploadAccessCallback != nil {
 		info, err = upload.GetInfo(c)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+	}
+
+	if handler.config.PreUploadAccessCallback != nil {
+		err := handler.config.PreUploadAccessCallback(newHookAccessEvent(c, AccessModeWrite, []FileInfo{info}))
 		if err != nil {
 			handler.sendError(c, err)
 			return
@@ -1150,7 +1192,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 	}
 
 	if handler.config.NotifyTerminatedUploads {
-		handler.TerminatedUploads <- newHookEvent(c, info)
+		handler.TerminatedUploads <- newHookEvent(c, &info)
 	}
 
 	c.log.Info("UploadTerminated")
@@ -1206,7 +1248,7 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 // indicating how much data has been transfered to the server.
 // It will stop sending these instances once the provided context is done.
 func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileInfo) {
-	hook := newHookEvent(c, info)
+	hook := newHookEvent(c, &info)
 
 	previousOffset := int64(0)
 	originalOffset := hook.Upload.Offset
@@ -1273,27 +1315,29 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // The get sum of all sizes for a list of upload ids while checking whether
 // all of these uploads are finished yet. This is used to calculate the size
 // of a final resource.
-func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, size int64, err error) {
+func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, partialFileInfos []FileInfo, size int64, err error) {
 	partialUploads = make([]Upload, len(ids))
+	partialFileInfos = make([]FileInfo, len(ids))
 
 	for i, id := range ids {
 		upload, err := handler.composer.Core.GetUpload(ctx, id)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		info, err := upload.GetInfo(ctx)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		if info.SizeIsDeferred || info.Offset != info.Size {
 			err = ErrUploadNotFinished
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
 
 		size += info.Size
 		partialUploads[i] = upload
+		partialFileInfos[i] = info
 	}
 
 	return

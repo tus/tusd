@@ -26,23 +26,56 @@ type HookEvent struct {
 	// HTTPRequest contains details about the HTTP request that reached
 	// tusd.
 	HTTPRequest HTTPRequest
+	// Only use by pre-access and pre-create (when Upload-Concat) hook,
+	// for uploads protection for instance
+	Access AccessInfo
 }
 
-func newHookEvent(c *httpContext, info FileInfo) HookEvent {
+type AccessMode = string
+
+const (
+	AccessModeRead  AccessMode = "read"
+	AccessModeWrite AccessMode = "write"
+)
+
+type AccessInfo struct {
+	// read (Head/Get/Upload-Concat) or write (Patch/Delete)
+	Mode AccessMode
+
+	// All files info that will be access by http request
+	// Use an array because of Upload-Concat that may target several files
+	Uploads []FileInfo
+}
+
+func newHookEvent(c *httpContext, info *FileInfo) HookEvent {
 	// The Host header field is not present in the header map, see https://pkg.go.dev/net/http#Request:
 	// > For incoming requests, the Host header is promoted to the
 	// > Request.Host field and removed from the Header map.
 	// That's why we add it back manually.
 	c.req.Header.Set("Host", c.req.Host)
 
+	var upload FileInfo
+	if info != nil {
+		upload = *info
+	}
 	return HookEvent{
 		Context: c,
-		Upload:  info,
+		Upload:  upload,
 		HTTPRequest: HTTPRequest{
 			Method:     c.req.Method,
 			URI:        c.req.RequestURI,
 			RemoteAddr: c.req.RemoteAddr,
 			Header:     c.req.Header,
 		},
+		Access: AccessInfo{},
 	}
+}
+
+func newHookAccessEvent(c *httpContext, mode AccessMode, uploads []FileInfo) HookEvent {
+	event := newHookEvent(c, nil)
+	event.Access = AccessInfo{
+		Mode:    mode,
+		Uploads: uploads,
+	}
+	return event
 }

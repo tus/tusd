@@ -100,4 +100,36 @@ func TestTerminate(t *testing.T) {
 			Code: http.StatusNotImplemented,
 		}).Run(http.HandlerFunc(handler.DelFile), t)
 	})
+
+	SubTest(t, "RejectAccess", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				Size:   20,
+				Offset: 20,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			PreUploadAccessCallback: func(event HookEvent) error {
+				return ErrAccessRejectedByServer
+			},
+		})
+
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code:      ErrAccessRejectedByServer.HTTPResponse.StatusCode,
+			ResHeader: ErrAccessRejectedByServer.HTTPResponse.Header,
+			ResBody:   ErrAccessRejectedByServer.HTTPResponse.Body,
+		}).Run(handler, t)
+	})
 }

@@ -37,6 +37,14 @@ class HookHandler(pb2_grpc.HookHandlerServicer):
                 hook_response.changeFileInfo.metaData['filename'] = metaData['filename']
                 hook_response.changeFileInfo.metaData['creation_time'] = time.ctime()
 
+
+	    # Example: Use the pre-access hook to print each upload access
+        if hook_request.type == 'pre-access':
+            mode    = hook_request.event.access.mode
+            id      = hook_request.event.access.uploads[0].id
+            size    = hook_request.event.access.uploads[0].size
+            print(f'Access {id} (mode={mode}, size={size} bytes)')
+
         # Example: Use the post-finish hook to print information about a completed upload,
         # including its storage location.
         if hook_request.type == 'post-finish':

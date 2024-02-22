@@ -9,6 +9,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	pb "github.com/tus/tusd/v2/pkg/hooks/grpc/proto"
 	"google.golang.org/grpc"
@@ -74,6 +75,10 @@ func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 				RemoteAddr: event.HTTPRequest.RemoteAddr,
 				Header:     getHeader(event.HTTPRequest.Header),
 			},
+			Access: &pb.AccessInfo{
+				Mode:    event.Access.Mode,
+				Uploads: getAccessFiles(event.Access.Uploads),
+			},
 		},
 	}
 }
@@ -88,9 +93,28 @@ func getHeader(httpHeader http.Header) (hookHeader map[string]string) {
 	return hookHeader
 }
 
+func getAccessFiles(files []handler.FileInfo) (hookFiles []*pb.FileInfo) {
+	hookFiles = make([]*pb.FileInfo, len(files))
+	for i, file := range files {
+		hookFiles[i] = &pb.FileInfo{
+			Id:             file.ID,
+			Size:           file.Size,
+			SizeIsDeferred: file.SizeIsDeferred,
+			Offset:         file.Offset,
+			MetaData:       file.MetaData,
+			IsPartial:      file.IsPartial,
+			IsFinal:        file.IsFinal,
+			PartialUploads: file.PartialUploads,
+			Storage:        file.Storage,
+		}
+	}
+	return hookFiles
+}
+
 func unmarshal(res *pb.HookResponse) (hookRes hooks.HookResponse) {
 	hookRes.RejectUpload = res.RejectUpload
 	hookRes.StopUpload = res.StopUpload
+	hookRes.RejectAccess = res.RejectAccess
 
 	httpRes := res.HttpResponse
 	if httpRes != nil {

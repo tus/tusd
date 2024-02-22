@@ -164,4 +164,78 @@ func TestGet(t *testing.T) {
 			ResBody: "",
 		}).Run(handler, t)
 	})
+
+	SubTest(t, "RejectAccess", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				Size:   20,
+				Offset: 20,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			PreUploadAccessCallback: func(event HookEvent) error {
+				return ErrAccessRejectedByServer
+			},
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code:      ErrAccessRejectedByServer.HTTPResponse.StatusCode,
+			ResHeader: ErrAccessRejectedByServer.HTTPResponse.Header,
+			ResBody:   ErrAccessRejectedByServer.HTTPResponse.Body,
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "RejectAccessCustomResponse", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				Size:   20,
+				Offset: 20,
+			}, nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			PreUploadAccessCallback: func(event HookEvent) error {
+				err := ErrAccessRejectedByServer
+				err.HTTPResponse = HTTPResponse{
+					StatusCode: 409,
+					Body:       "Custom response",
+					Header: HTTPHeader{
+						"X-Foo": "bar",
+					},
+				}
+				return err
+			},
+		})
+
+		(&httpTest{
+			Method: "GET",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code: 409,
+			ResHeader: map[string]string{
+				"X-Foo": "bar",
+			},
+			ResBody: "Custom response",
+		}).Run(handler, t)
+	})
 }

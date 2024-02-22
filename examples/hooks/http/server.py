@@ -50,6 +50,12 @@ class HTTPHookHandler(BaseHTTPRequestHandler):
                     'creation_time': time.ctime(),
                 }
 
+	    # Example: Use the pre-access hook to print each upload access
+        if hook_request['Type'] == 'pre-access':
+            mode    = hook_request['Event']['Access']['Mode']
+            id      = hook_request['Event']['Access']['Uploads'][0]['ID']
+            size    = hook_request['Event']['Access']['Uploads'][0]['Size']
+            print(f'Access {id} (mode={mode}, size={size} bytes)')
 
         # Example: Use the post-finish hook to print information about a completed upload,
         # including its storage location.

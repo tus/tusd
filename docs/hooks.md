@@ -21,6 +21,7 @@ The table below provides an overview of all available hooks.
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | Yes                 |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
+| pre-access     | Yes       | before an existing upload is access (Head/Get/Patch/Delete/Upload-Concat). | validation of user authentication                                 | No                 |
 
 Users should be aware of following things:
 - If a hook is _blocking_, tusd will wait with further processing until the hook is completed. This is useful for validation and authentication, where further processing should be stopped if the hook determines to do so. However, long execution time may impact the user experience because the upload processing is blocked while the hook executes.
@@ -104,6 +105,17 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
                 ]
                 // and more ...
             }
+        },
+
+        // Information about the files that are begin accessed, to check authorization for instance
+        "Access": {
+            // read (Head/Get/Upload-Concat) or write (Patch/Delete)
+            "Mode": "read"
+            // All files info that will be access by http request
+            // Use an array because of Upload-Concat that may target several files
+            "Uploads": [
+                // same as Upload
+            ]
         }
     }
 }
@@ -169,6 +181,11 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // it is ignored. Use the HTTPResponse field to send details about the stop
     // to the client.
     "StopUpload": true
+
+	// In case of pre-access or pre-create (when Upload-Concat), reject access to uploads.
+	// When true, http request will end with 403 status code by default, changeable with
+	// HTTPResponse override
+    "RejectAccess": false,
 }
 ```
 
@@ -303,7 +320,7 @@ For example, assume that every upload must belong to a specific user project. Th
 
 ### Authenticating Users
 
-User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the `pre-create` hook, where the authorization tokens or cookies can be validated to authenticate the user.
+User authentication can be achieved by two ways: Either, user tokens can be included in the upload meta data, as described in the above example. Alternatively, traditional header fields, such as `Authorization` or `Cookie` can be used to carry user-identifying information. These header values are also present for the hook requests and are accessible for the  `pre-access` hook, where the authorization tokens or cookies can be validated to authenticate the user.
 
 If the authentication is successful, the hook can return an empty hook response to indicate tusd that the upload should continue as normal. If the authentication fails, the hook can instruct tusd to reject the upload and return a custom error response to the client. For example, this is a possible hook response:
 
@@ -321,7 +338,9 @@ If the authentication is successful, the hook can return an empty hook response 
 }
 ```
 
-Note that this handles authentication during the initial POST request when creating an upload. When tusd responds, it sends a random upload URL to the client, which is used to transmit the remaining data via PATCH and resume the upload via HEAD requests. Currently, there is no mechanism to ensure that the upload is resumed by the same user that created it. We plan on addressing this in the future. However, since the upload URL is randomly generated and only short-lived, it is hard to guess for uninvolved parties.
+Note that listen `pre-create` hook only handles authentication during the initial POST request when creating an upload. When tusd responds, it sends a random upload URL to the client, which is used to transmit the remaining data via PATCH and resume the upload via HEAD requests. Since the upload URL is randomly generated and only short-lived, it is hard to guess for uninvolved parties. 
+
+To have full protection, consider adding `pre-access` hook too.
 
 ### Interrupting Uploads
 

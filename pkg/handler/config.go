@@ -69,6 +69,12 @@ type Config struct {
 	// that should be overwriten before the upload is create. See its type definition for
 	// more details on its behavior. If you do not want to make any changes, return an empty struct.
 	PreUploadCreateCallback func(hook HookEvent) (HTTPResponse, FileInfoChanges, error)
+	// PreUploadAccessCallback will be invoked before accessing an upload, if the
+	// property is supplied, on Get/Head/Patch/Delete/Upload-Concat requests.
+	// If the callback returns no error, the requests will continue.
+	// If the error is non-nil, the requests will be rejected. This can be used to implement
+	// authorization.
+	PreUploadAccessCallback func(hook HookEvent) error
 	// PreFinishResponseCallback will be invoked after an upload is completed but before
 	// a response is returned to the client. This can be used to implement post-processing validation.
 	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.
