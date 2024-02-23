@@ -92,11 +92,11 @@ $ tusd -disable-termination
 
 ## Storage backend
 
-Tusd has been designed with flexible storage backends in mind and can store the received uploads on local disk or various cloud provides (AWS S3, Azure Cloud Storage, and Google Cloud Storage). By default, tusd will store uploads in the directory specified by the `-upload-dir` flag (which defaults to `./data`). Please consult the dedicated [Storage Backends section](/storage_backends/overview/) for details on how to use different storage backend and configure them.
+Tusd has been designed with flexible storage backends in mind and can store the received uploads on local disk or various cloud provides (AWS S3, Azure Cloud Storage, and Google Cloud Storage). By default, tusd will store uploads in the directory specified by the `-upload-dir` flag (which defaults to `./data`). Please consult the dedicated [Storage Backends section](/storage-backends/overview/) for details on how to use different storage backend and configure them.
 
 ## Integrations into applications with hooks
 
-When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files. Please consult the dedicated [Storage Backends section](/advanced_topics/hooks/) for details on how to use the hook system.
+When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files. Please consult the dedicated [Storage Backends section](/advanced-topics/hooks/) for details on how to use the hook system.
 
 ## Cross-Origin Resource Sharing (CORS)
 

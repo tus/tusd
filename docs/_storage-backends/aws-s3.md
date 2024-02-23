@@ -68,7 +68,7 @@ s3:PutObject
 
 Uploads on S3 are stored using multiple objects:
 
-- An informational object with the `.info` extension holds meta information about the uploads, as described in [the section for all storage backends](/storage_backends/overview/#storage-format).
+- An informational object with the `.info` extension holds meta information about the uploads, as described in [the section for all storage backends](/storage-backends/overview/#storage-format).
 - An [S3 multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html) is used to transfer the file piece-by-piece to S3 and reassemble the original file once the upload is finished. It is removed once the upload is finished.
 - A file object will contain the uploaded file. It will only be created once the entire upload is finished. 
 - A temporary object with the `.part` extension may be created when the upload has been paused to store some temporary data which cannot be transferred to the S3 multipart upload due to its small size. Once the upload is resumed, the temporary object will be gone.

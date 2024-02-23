@@ -31,12 +31,12 @@ The last line from tusd's output indicates the *upload creation URL*:
 You can now upload files to: http://[::]:8080/files/
 ```
 
-This URL can be used by clients to create new uploads. If you want to customize its host, port, or base path, please use the [Network configuration options](/getting_started/configuration/#network-configuration).
+This URL can be used by clients to create new uploads. If you want to customize its host, port, or base path, please use the [Network configuration options](/getting-started/configuration/#network-configuration).
 
 {: .note }
 The `[::]` section in the URL indicates that tusd is accepting connections on all network interfaces, including IPv6. If the client and tusd are on running on the same machine, it can be replaced with `localhost` to form a URL, such as `http://localhost:8080/files/`.
 
-Uploaded files will be stored by default in the directory specified with the `-upload-dir` options. It defaults to the `data` directory in the current working directory. Alternatively, tusd can also store uploads directly on various cloud storage services. Please consult the [Storage Backends section](/storage_backends/overview/) for more details.
+Uploaded files will be stored by default in the directory specified with the `-upload-dir` options. It defaults to the `data` directory in the current working directory. Alternatively, tusd can also store uploads directly on various cloud storage services. Please consult the [Storage Backends section](/storage-backends/overview/) for more details.
 
 # Connecting clients
 

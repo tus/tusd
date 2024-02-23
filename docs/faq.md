@@ -21,7 +21,7 @@ If your needs are more complex than provided for here, you will need to use a re
 
 ### Can I run tusd behind a reverse proxy?
 
-Yes, it is absolutely possible to do so. Please consult the [section about configuration regarding proxies](/getting_started/configuration/#proxies).
+Yes, it is absolutely possible to do so. Please consult the [section about configuration regarding proxies](/getting-started/configuration/#proxies).
 
 ### Can I run custom verification/authentication checks before an upload begins?
 

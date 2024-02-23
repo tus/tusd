@@ -29,24 +29,24 @@ gh_edit_view_mode: "edit"
 
 # Define Jekyll collections
 collections:
-  advanced_topics:
+  advanced-topics:
     permalink: "/:collection/:path/"
     output: true
-  storage_backends:
+  storage-backends:
     permalink: "/:collection/:path/"
     output: true
-  getting_started:
+  getting-started:
     permalink: "/:collection/:path/"
     output: true
 
 just_the_docs:
   # Define which collections are used in just-the-docs
   collections:
-    getting_started:
+    getting-started:
       name: Getting Started
-    storage_backends:
+    storage-backends:
       name: Storage Backends
-    advanced_topics:
+    advanced-topics:
       name: Advanced Topics
 
 callouts:

@@ -18,22 +18,22 @@ protocol](http://www.tus.io/protocols/resumable-upload.html):
 ## Highlights
 
 - Multiple storage options:
-    - [Local disk](/storage_backends/local-disk/)
-    - [AWS S3](/storage_backends/aws-s3/)
-    - [Azure Blob Storage](/storage_backends/azure-blob-storage/)
-    - [Google Cloud Storage](/storage_backends/google-cloud-storage/)
-- Fully customize using [hook system](/advanced_topics/hooks/) via [scripts](/advanced_topics/hooks/#file-hooks), [HTTP requests](/advanced_topics/hooks/#https-hooks), or [gRPC](/advanced_topics/hooks/#grpc-hooks):
-    - [Upload validation](/advanced_topics/hooks/#receiving-and-validating-user-data)
-    - [User authentication and authorization](/advanced_topics/hooks/#authenticating-users)
-    - [File post-processing](/advanced_topics/hooks/#post-processing-files)
+    - [Local disk](/storage-backends/local-disk/)
+    - [AWS S3](/storage-backends/aws-s3/)
+    - [Azure Blob Storage](/storage-backends/azure-blob-storage/)
+    - [Google Cloud Storage](/storage-backends/google-cloud-storage/)
+- Fully customize using [hook system](/advanced-topics/hooks/) via [scripts](/advanced-topics/hooks/#file-hooks), [HTTP requests](/advanced-topics/hooks/#https-hooks), or [gRPC](/advanced-topics/hooks/#grpc-hooks):
+    - [Upload validation](/advanced-topics/hooks/#receiving-and-validating-user-data)
+    - [User authentication and authorization](/advanced-topics/hooks/#authenticating-users)
+    - [File post-processing](/advanced-topics/hooks/#post-processing-files)
 - Supports arbitrarily large files
 - Can receive uploads from any [tus-compatible client](https://tus.io/implementations)
-- Distributed as a [single binary without needing a runtime](/getting_started/installation/#download-pre-builts-binaries-recommended)
-- Easily [embedded in Go applications](/advanced_topics/usage-package/)
+- Distributed as a [single binary without needing a runtime](/getting-started/installation/#download-pre-builts-binaries-recommended)
+- Easily [embedded in Go applications](/advanced-topics/usage-package/)
 
 ## Getting Started
 
-To get started, have a look at the available [installation methods](/getting_started/installation/) for tusd. Once that's done, you can check out the [usage guide](/getting_started/usage/) to get tusd running and connect clients to it. Further details are available in the [configuration section](/getting_started/configuration/) and the [storage overview](/storage_backends/overview/).
+To get started, have a look at the available [installation methods](/getting-started/installation/) for tusd. Once that's done, you can check out the [usage guide](/getting-started/usage/) to get tusd running and connect clients to it. Further details are available in the [configuration section](/getting-started/configuration/) and the [storage overview](/storage-backends/overview/).
 
 ## Help
 
