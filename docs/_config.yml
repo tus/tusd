@@ -1,0 +1,66 @@
+title: tusd documentation
+description: Reference server implementation in Go of tus, the open protocol for resumable file uploads.
+theme: just-the-docs
+
+url: https://just-the-docs.github.io
+
+# Custom color scheme from _sass/color_schemes/custom.scss
+color_scheme: custom
+
+logo: "/assets/images/logo.png"
+favicon_ico: "/assets/images/favicon.png"
+
+# External navigation links
+nav_external_links:
+  - title: tusd on GitHub
+    url: https://github.com/tus/tusd
+    opens_in_new_tab: true
+  - title: tus.io project
+    url: https://tus.io
+    opens_in_new_tab: true
+
+# Footer "Edit this page on GitHub" link text
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub."
+gh_edit_repository: "https://github.com/tus/tusd"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "edit"
+
+# Define Jekyll collections
+collections:
+  advanced-topics:
+    permalink: "/:collection/:path/"
+    output: true
+  storage-backends:
+    permalink: "/:collection/:path/"
+    output: true
+  getting-started:
+    permalink: "/:collection/:path/"
+    output: true
+
+just_the_docs:
+  # Define which collections are used in just-the-docs
+  collections:
+    getting-started:
+      name: Getting Started
+    storage-backends:
+      name: Storage Backends
+    advanced-topics:
+      name: Advanced Topics
+
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
