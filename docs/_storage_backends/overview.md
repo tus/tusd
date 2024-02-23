@@ -10,7 +10,7 @@ Tusd can store the uploaded files either on local disk or various cloud storage 
 
 - [Local disk](/storage_backends/local-disk/)
 - [AWS S3 (and S3-compatible services)](/storage_backends/aws-s3/)
-- [Azure Cloud Storage](/storage_backends/azure-cloud-storage/)
+- [Azure Blob Storage](/storage_backends/azure-blob-storage/)
 - [Google Cloud Storage](/storage_backends/google-cloud-storage/)
 
 ## Storage format
