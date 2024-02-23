@@ -43,8 +43,22 @@ Each release of tusd is also published as a Docker image on Docker Hub. You can 
 
 ```bash
 docker pull tusproject/tusd:latest
-docker run tusproject/tusd:latest # append CLI flags for tusd here
+docker run tusproject/tusd:latest # append CLI flags for tusd here, for example:
+# docker run tusproject/tusd:latest -s3-bucket=my-bucket
 ```
+
+### Using Docker Secrets for credentials (Swarm mode only)
+{: .no_toc }
+
+Example usage with credentials for the S3-compatible Minio service. Create the secrets:
+
+```bash
+printf "minio" | docker secret create minio-username -
+printf "miniosecret" | docker secret create minio-password -
+```
+
+Those commands create two secrets which are used inside the example [docker-compose.yml](https://github.com/tus/tusd/blob/main/examples/docker-compose.yml) file. The provided example assumes, that you also have a service named `minio` inside the same Docker Network.
+We just append a `_FILE` suffix to the corresponding environment variables. The contents of the mounted file will be added to the environment variable without `_FILE` suffix.
 
 ## Kubernetes installation
 

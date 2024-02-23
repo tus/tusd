@@ -100,9 +100,9 @@ When integrating tusd into an application, it is important to establish a commun
 
 ## Cross-Origin Resource Sharing (CORS)
 
-When tusd is used in a web application and the tusd server is reachable under a different origin (domain, scheme, or port) than the frontend itself, browsers put restrictions on cross-origin requests for security reasons. Using the [Cross-Origin Resource Sharing (CORS) mechanism](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS), the server can instruct the browser to allow cross-origin requests.
+When tusd is used in a web application and the tusd server is reachable under a different origin (domain, scheme, or port) than the frontend itself, browsers put restrictions on cross-origin requests for security reasons. For example, your main application is running on `https://example.org` but your tusd server is hosted at `https://uploads.example.org`. In this case, the server needs to use the [Cross-Origin Resource Sharing (CORS) mechanism](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) to signal the browser that it will accept requests from `https://example.org`.
 
-By default, tusd will allow cross-origin requests from any origin. All methods and header fields necessary for the tus protocol are allowed in these requests.
+To make your setup easier, tusd already includes the necessary CORS configuration to allow communication with tus clients. By default, tusd will allow cross-origin requests from any origin.
 
 If you want to restrict the origins or add additional header fields to the CORS configuration, utilize the `-cors-*` flags:
 
@@ -132,7 +132,13 @@ If you want tusd to be accessible via HTTPS, there are two options:
 
 1. Use a TLS-terminating reverse proxy, such as Nginx. The proxy is configured to accept HTTPS requests from the clients and forwards unencrypted HTTP requests to tusd. This approach is the most flexible and recommended approach as such proxies provide detailed configuration options for HTTPS and are well tested. Please see the [section on proxies](#proxies) for additional details when using tusd with proxies.
 
-2. Tusd itself provies basic TLS support for HTTPS connections. In contrast to dedicated TLS-terminating proxies, tusd provides less configuration options for tuning the TLS setup. However, the built-in HTTPS support is useful for development, testing and encrypting internal traffic. The HTTPS support which can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate. The default configuration supports TLSv1.2 and TLSv1.3. It is possible to use only TLSv1.3 with `-tls-mode=tls13`. Alternately, it is possible to disable TLSv1.3 and use only 256-bit AES ciphersuites with `-tls-mode=tls12-strong`. The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address. Such a self-signed certificate is not appropriate for production use. Note also that the key file must not be encrypted/require a passphrase.
+2. Tusd itself provides basic TLS support for HTTPS connections. In contrast to dedicated TLS-terminating proxies, tusd supports less configuration options for tuning the TLS setup.
+However, the built-in HTTPS support is useful for development, testing and encrypting internal traffic. It can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate and that the key file must not be encrypted/require a passphrase. The available modes are:
+- TLSv1.3+TLSv1.2 with support cipher suites per the guidelines on [Mozilla's SSL Configuration Generator](https://ssl-config.mozilla.org/#server=go&version=1.14.4&config=intermediate&guideline=5.6) (`-tls-mode=tls12`, the default mode)
+- TLSv1.2 with 256-bit AES ciphers only (`-tls-mode=tls12-strong`)
+- TLSv1.3-only (`-tls-mode=tls13`)
+
+The following example generates a self-signed certificate for `localhost` and then uses it to serve files on the loopback address. Such a self-signed certificate is not appropriate for production use.
 
 ```bash
 # Generate self-signed certificate
