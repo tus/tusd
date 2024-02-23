@@ -5,12 +5,21 @@ nav_order: 1
 ---
 
 # Installation
+{: .no_toc }
+
+There are multiple methods for installing tusd. Please choose one that fits your needs:
+
+1. TOC
+{:toc}
+
 
 ## Download pre-builts binaries (recommended)
 
 You can download ready-to-use packages including binaries for OS X, Linux and
 Windows in various formats of the
 [latest release](https://github.com/tus/tusd/releases/latest).
+
+Once the archive is extracted, the file `tusd` (or `tusd.exe`) is ready to be executed.
 
 ## Compile from source
 
