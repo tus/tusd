@@ -58,7 +58,3 @@ By default, the objects are stored at the root of the container. For example the
 
 - `abcdef123.info`: Informational object
 - `abcdef123`: File object
-
-# Local setup with Azurite
-
-TODO

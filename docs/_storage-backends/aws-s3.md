@@ -93,7 +93,3 @@ In addition, the metadata is also stored in the informational object, which can 
 # Considerations
 
 When receiving a `PATCH` request, parts of its body will be temporarily stored on disk before they can be transferred to S3. This is necessary to meet the minimum part size for an S3 multipart upload enforced by S3 and to allow the AWS SDK to calculate a checksum. Once the part has been uploaded to S3, the temporary file will be removed immediately. Therefore, please ensure that the server running this storage backend has enough disk space available to hold these temporary files.
-
-# Local setup with Minio
-
-TODO
