@@ -2,7 +2,8 @@ title: tusd documentation
 description: Reference server implementation in Go of tus, the open protocol for resumable file uploads.
 theme: just-the-docs
 
-url: https://just-the-docs.github.io
+url: https://tus.github.io
+baseurl: /tusd
 
 # Custom color scheme from _sass/color_schemes/custom.scss
 color_scheme: custom

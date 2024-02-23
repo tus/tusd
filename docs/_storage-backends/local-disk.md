@@ -15,11 +15,11 @@ $ tusd -upload-dir=./uploads
 When a new upload is created, for example with the upload ID `abcdef123`, tusd creates two files:
 
 - `./uploads/abcdef123` to hold the file content that is uploaded
-- `./uploads/abcdef123.info` to hold [meta information about the upload](/storage-backends/overview/#storage-format)
+- `./uploads/abcdef123.info` to hold [meta information about the upload]({{ site.baseurl }}/storage-backends/overview/#storage-format)
 
 ## Issues with NFS and shared folders
 
-Tusd maintains [upload locks](/advanced-topics/locks/) on disk to ensure exclusive access to uploads and prevent data corruption. These disk-based locks utilize hard links, which might not supported by older NFS versions or when a folder is shared in a VM using VirtualBox or Vagrant. In these cases, you might get errors like this:
+Tusd maintains [upload locks]({{ site.baseurl }}/advanced-topics/locks/) on disk to ensure exclusive access to uploads and prevent data corruption. These disk-based locks utilize hard links, which might not supported by older NFS versions or when a folder is shared in a VM using VirtualBox or Vagrant. In these cases, you might get errors like this:
 
 ```
 TemporaryErrors (Lockfile created, but doesn't exist)

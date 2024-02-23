@@ -222,7 +222,7 @@ When the process exits with the zero exit code, tusd reads the process' stdout a
 
 The process' stderr is redirected to tusd's stderr and can be used for logging from inside the hook.
 
-An example is available at [/examples/hooks/file](/examples/hooks/file).
+An example is available at [/examples/hooks/file]({{ site.baseurl }}/examples/hooks/file).
 
 ### HTTP(S) Hooks
 
@@ -250,7 +250,7 @@ When the endpoint responds with a non-2XX status code, tusd interprets this as a
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads.
 
-An example is available at [/examples/hooks/http](/examples/hooks/http).
+An example is available at [/examples/hooks/http]({{ site.baseurl }}/examples/hooks/http).
 
 #### Retries
 
@@ -273,7 +273,7 @@ $ tusd -hooks-grpc localhost:8081
 ...
 ```
 
-The endpoint must implement the hook handler service as specified in [/pkg/hooks/grpc/proto/hook.proto](/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+The endpoint must implement the hook handler service as specified in [/pkg/hooks/grpc/proto/hook.proto]({{ site.baseurl }}/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
 
 #### Retries
 
@@ -290,7 +290,7 @@ File hooks are an easy way to receive events from tusd, but can induce overhead 
 
 Plugin hooks provide a sweet spot between these two worlds. You can create a plugin with any programming language. tusd then loads this plugin by starting it as a standalone process, restarting it if necessary, and communicating with it over local sockets. This system is powered by [go-plugin](https://github.com/hashicorp/go-plugin), which is designed for Go, but provides cross-language support. The approach provides a low-overhead hook handler, which is still able to track state between hooks.
 
-To learn more, have a look at the example at [/examples/hooks/plugin](/examples/hooks/plugin).
+To learn more, have a look at the example at [/examples/hooks/plugin]({{ site.baseurl }}/examples/hooks/plugin).
 
 ## Common Uses
 

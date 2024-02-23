@@ -35,7 +35,7 @@ The used service account must have the `https://www.googleapis.com/auth/devstora
 
 Uploads are stored using multiple objects:
 
-- An informational object with the `.info` extension holds meta information about the uploads, as described in [the section for all storage backends](/storage-backends/overview/#storage-format).
+- An informational object with the `.info` extension holds meta information about the uploads, as described in [the section for all storage backends]({{ site.baseurl }}/storage-backends/overview/#storage-format).
 - A file object will contain the uploaded file. Data is appended to the object while the upload is performed. 
 
 By default, the objects are stored at the root of the bucket. For example the objects for the upload ID `abcdef123` will be:

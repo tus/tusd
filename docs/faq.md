@@ -15,23 +15,23 @@ nav_order: 2
 
 ### How can I access tusd using HTTPS?
 
-Yes, you can achieve this by either running tusd behind a TLS-terminating proxy (such as Nginx or Apache) or configuring tusd to serve HTTPS directly. Details on both approaches are given in the [configuration guide](/getting-started/configuration/#httpstls).
+Yes, you can achieve this by either running tusd behind a TLS-terminating proxy (such as Nginx or Apache) or configuring tusd to serve HTTPS directly. Details on both approaches are given in the [configuration guide]({{ site.baseurl }}/getting-started/configuration/#httpstls).
 
 ### Can I run tusd behind a reverse proxy?
 
-Yes, it is absolutely possible to do so. Please consult the [section about configuration regarding proxies](/getting-started/configuration/#proxies).
+Yes, it is absolutely possible to do so. Please consult the [section about configuration regarding proxies]({{ site.baseurl }}/getting-started/configuration/#proxies).
 
 ### Can I run custom verification/authentication checks before an upload begins?
 
-Yes, this is made possible by the [hook system](/docs/hooks.md) inside the tusd binary. It enables custom routines to be executed when certain events occurs, such as a new upload being created which can be handled by the `pre-create` hook. Inside the corresponding hook file, you can run your own validations against the provided upload metadata to determine whether the action is actually allowed or should be rejected by tusd. Please have a look at the [corresponding documentation](/docs/hooks.md#pre-create) for a more detailed explanation.
+Yes, this is made possible by the [hook system]({{ site.baseurl }}/docs/hooks.md) inside the tusd binary. It enables custom routines to be executed when certain events occurs, such as a new upload being created which can be handled by the `pre-create` hook. Inside the corresponding hook file, you can run your own validations against the provided upload metadata to determine whether the action is actually allowed or should be rejected by tusd. Please have a look at the [corresponding documentation]({{ site.baseurl }}/docs/hooks.md#pre-create) for a more detailed explanation.
 
 ### I am getting TemporaryErrors (Lockfile created, but doesn't exist)! What can I do?
 
-This error can occur when you are running tusd's disk storage on a file system which does not support hard links. Please consult the [local disk storage documentation](/storage-backends/local-disk/#issues-with-nfs-and-shared-folders) for more details.
+This error can occur when you are running tusd's disk storage on a file system which does not support hard links. Please consult the [local disk storage documentation]({{ site.baseurl }}/storage-backends/local-disk/#issues-with-nfs-and-shared-folders) for more details.
 
 ### How can I prevent users from downloading the uploaded files?
 
-Tusd allows any user to retrieve a previously uploaded file by issuing a HTTP GET request to the corresponding upload URL. This is possible as long as the uploaded files on the datastore have not been deleted or moved to another location. This can be completely disabled using the [`-disable-download` flag](/getting-started/configuration/#disable-downloads).
+Tusd allows any user to retrieve a previously uploaded file by issuing a HTTP GET request to the corresponding upload URL. This is possible as long as the uploaded files on the datastore have not been deleted or moved to another location. This can be completely disabled using the [`-disable-download` flag]({{ site.baseurl }}/getting-started/configuration/#disable-downloads).
 
 ### How can I keep the original filename for the uploads?
 
@@ -39,4 +39,4 @@ tusd will generate a unique ID for every upload, e.g. `1881febb4343e9b806cad2e67
 
 ### Does tusd support Cross-Origin Resource Sharing (CORS)?
 
-Yes, tusd does have built-in support for CORS, which can be [fully customized](/getting-started/configuration/#cross-origin-resource-sharing-cors).
+Yes, tusd does have built-in support for CORS, which can be [fully customized]({{ site.baseurl }}/getting-started/configuration/#cross-origin-resource-sharing-cors).
