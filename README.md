@@ -26,13 +26,7 @@ breaking changes have been introduced, please look at the [1.13.0 tag](https://g
 
 ## Documentation
 
-* [Installation](/docs/installation.md)
-* [Using the `tusd` binary](/docs/usage-binary.md)
-  * [Monitoring the server](/docs/monitoring.md)
-  * [Receiving events with hooks](/docs/hooks.md)
-  * [Managing upload locks](/docs/locks.md)
-* [Using the tusd package programmatically](/docs/usage-package.md)
-* [FAQ & Common issues](/docs/faq.md)
+The entire documentation, including guides on installing, using, and configuring tusd can be found on the website: [tus.github.io/tusd](https://tus.github.io/tusd).
 
 ## Build status
 
