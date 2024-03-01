@@ -145,105 +145,106 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			upload := NewMockFullUpload(ctrl)
+		for _, interopVersion := range []string{"3", "4"} {
+			SubTest(t, "InteropVersion"+interopVersion, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+				SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+					ctrl := gomock.NewController(t)
+					defer ctrl.Finish()
+					upload := NewMockFullUpload(ctrl)
 
-			gomock.InOrder(
-				store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
-				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
-					SizeIsDeferred: false,
-					Size:           10,
-					Offset:         5,
-				}, nil),
-			)
+					gomock.InOrder(
+						store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+						upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+							SizeIsDeferred: false,
+							Size:           10,
+							Offset:         5,
+						}, nil),
+					)
 
-			handler, _ := NewHandler(Config{
-				StoreComposer:              composer,
-				EnableExperimentalProtocol: true,
+					handler, _ := NewHandler(Config{
+						StoreComposer:              composer,
+						EnableExperimentalProtocol: true,
+					})
+
+					(&httpTest{
+						Method: "HEAD",
+						URL:    "yes",
+						ReqHeader: map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+						},
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "5",
+						}, false, interopVersion),
+					}).Run(handler, t)
+				})
+
+				SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+					ctrl := gomock.NewController(t)
+					defer ctrl.Finish()
+					upload := NewMockFullUpload(ctrl)
+
+					gomock.InOrder(
+						store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+						upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+							SizeIsDeferred: false,
+							Size:           10,
+							Offset:         10,
+						}, nil),
+					)
+
+					handler, _ := NewHandler(Config{
+						StoreComposer:              composer,
+						EnableExperimentalProtocol: true,
+					})
+
+					(&httpTest{
+						Method: "HEAD",
+						URL:    "yes",
+						ReqHeader: map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+						},
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "10",
+						}, true, interopVersion),
+					}).Run(handler, t)
+				})
+
+				SubTest(t, "DeferredLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+					ctrl := gomock.NewController(t)
+					defer ctrl.Finish()
+					upload := NewMockFullUpload(ctrl)
+
+					gomock.InOrder(
+						store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+						upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+							SizeIsDeferred: true,
+							Offset:         5,
+						}, nil),
+					)
+
+					handler, _ := NewHandler(Config{
+						StoreComposer:              composer,
+						EnableExperimentalProtocol: true,
+					})
+
+					(&httpTest{
+						Method: "HEAD",
+						URL:    "yes",
+						ReqHeader: map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+						},
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "5",
+						}, false, interopVersion),
+					}).Run(handler, t)
+				})
 			})
-
-			(&httpTest{
-				Method: "HEAD",
-				URL:    "yes",
-				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-				},
-				Code: http.StatusNoContent,
-				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-					"Upload-Complete":              "?0",
-					"Upload-Offset":                "5",
-				},
-			}).Run(handler, t)
-		})
-
-		SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			upload := NewMockFullUpload(ctrl)
-
-			gomock.InOrder(
-				store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
-				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
-					SizeIsDeferred: false,
-					Size:           10,
-					Offset:         10,
-				}, nil),
-			)
-
-			handler, _ := NewHandler(Config{
-				StoreComposer:              composer,
-				EnableExperimentalProtocol: true,
-			})
-
-			(&httpTest{
-				Method: "HEAD",
-				URL:    "yes",
-				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-				},
-				Code: http.StatusNoContent,
-				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-					"Upload-Complete":              "?1",
-					"Upload-Offset":                "10",
-				},
-			}).Run(handler, t)
-		})
-
-		SubTest(t, "DeferredLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			upload := NewMockFullUpload(ctrl)
-
-			gomock.InOrder(
-				store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
-				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
-					SizeIsDeferred: true,
-					Offset:         5,
-				}, nil),
-			)
-
-			handler, _ := NewHandler(Config{
-				StoreComposer:              composer,
-				EnableExperimentalProtocol: true,
-			})
-
-			(&httpTest{
-				Method: "HEAD",
-				URL:    "yes",
-				ReqHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-				},
-				Code: http.StatusNoContent,
-				ResHeader: map[string]string{
-					"Upload-Draft-Interop-Version": "4",
-					"Upload-Complete":              "?0",
-					"Upload-Offset":                "5",
-				},
-			}).Run(handler, t)
-		})
+		}
 	})
 }
