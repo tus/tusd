@@ -453,12 +453,12 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
-	isComplete := isIETFDraftUploadComplete(r)
+	willCompleteUpload := isIETFDraftUploadComplete(r)
 
 	info := FileInfo{
 		MetaData: make(MetaData),
 	}
-	if isComplete && r.ContentLength != -1 {
+	if willCompleteUpload && r.ContentLength != -1 {
 		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
 		info.Size = r.ContentLength
 	} else {
@@ -575,7 +575,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 4. Finish upload, if necessary
-	if isComplete && info.SizeIsDeferred {
+	if willCompleteUpload && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
@@ -675,17 +675,17 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		resp.StatusCode = http.StatusOK
 	} else {
 		currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
-		uploadComplete := !info.SizeIsDeferred && info.Offset == info.Size
+		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
 
 		switch currentUploadDraftInteropVersion {
 		case interopVersion3:
-			if uploadComplete {
+			if isUploadCompleteNow {
 				resp.Header["Upload-Incomplete"] = "?0"
 			} else {
 				resp.Header["Upload-Incomplete"] = "?1"
 			}
 		case interopVersion4:
-			if uploadComplete {
+			if isUploadCompleteNow {
 				resp.Header["Upload-Complete"] = "?1"
 			} else {
 				resp.Header["Upload-Complete"] = "?0"
@@ -808,8 +808,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	isComplete := isIETFDraftUploadComplete(r)
-	if isComplete && info.SizeIsDeferred {
+	willCompleteUpload := isIETFDraftUploadComplete(r)
+	if willCompleteUpload && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
