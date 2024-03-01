@@ -674,25 +674,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 
 		resp.StatusCode = http.StatusOK
 	} else {
-		currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
-
-		switch currentUploadDraftInteropVersion {
-		case interopVersion3:
-			if isUploadCompleteNow {
-				resp.Header["Upload-Incomplete"] = "?0"
-			} else {
-				resp.Header["Upload-Incomplete"] = "?1"
-			}
-		case interopVersion4:
-			if isUploadCompleteNow {
-				resp.Header["Upload-Complete"] = "?1"
-			} else {
-				resp.Header["Upload-Complete"] = "?0"
-			}
-		}
-
-		resp.Header["Upload-Draft-Interop-Version"] = string(currentUploadDraftInteropVersion)
+		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
 
 		// Draft requires a 204 No Content response
 		resp.StatusCode = http.StatusNoContent
@@ -1399,6 +1382,29 @@ func isIETFDraftUploadComplete(r *http.Request) bool {
 	default:
 		return false
 	}
+}
+
+// setIETFDraftUploadComplete sets the Upload-Complete (Upload-Incomplete) to the provided
+// value, depending on the interop version used in the request.
+func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete bool) {
+	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
+
+	switch currentUploadDraftInteropVersion {
+	case interopVersion3:
+		if isComplete {
+			resp.Header["Upload-Incomplete"] = "?0"
+		} else {
+			resp.Header["Upload-Incomplete"] = "?1"
+		}
+	case interopVersion4:
+		if isComplete {
+			resp.Header["Upload-Complete"] = "?1"
+		} else {
+			resp.Header["Upload-Complete"] = "?0"
+		}
+	}
+
+	resp.Header["Upload-Draft-Interop-Version"] = string(currentUploadDraftInteropVersion)
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
