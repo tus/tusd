@@ -166,26 +166,17 @@ func TestHead(t *testing.T) {
 						EnableExperimentalProtocol: true,
 					})
 
-					resHeaders := map[string]string{
-						"Upload-Draft-Interop-Version": interopVersion,
-						"Upload-Offset":                "5",
-					}
-
-					if interopVersion == "3" {
-						resHeaders["Upload-Incomplete"] = "?1"
-
-					} else if interopVersion == "4" {
-						resHeaders["Upload-Complete"] = "?0"
-					}
-
 					(&httpTest{
 						Method: "HEAD",
 						URL:    "yes",
 						ReqHeader: map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 						},
-						Code:      http.StatusNoContent,
-						ResHeader: resHeaders,
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "5",
+						}, false, interopVersion),
 					}).Run(handler, t)
 				})
 
@@ -208,26 +199,17 @@ func TestHead(t *testing.T) {
 						EnableExperimentalProtocol: true,
 					})
 
-					resHeaders := map[string]string{
-						"Upload-Draft-Interop-Version": interopVersion,
-						"Upload-Offset":                "10",
-					}
-
-					if interopVersion == "3" {
-						resHeaders["Upload-Incomplete"] = "?0"
-
-					} else if interopVersion == "4" {
-						resHeaders["Upload-Complete"] = "?1"
-					}
-
 					(&httpTest{
 						Method: "HEAD",
 						URL:    "yes",
 						ReqHeader: map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 						},
-						Code:      http.StatusNoContent,
-						ResHeader: resHeaders,
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "10",
+						}, true, interopVersion),
 					}).Run(handler, t)
 				})
 
@@ -249,26 +231,17 @@ func TestHead(t *testing.T) {
 						EnableExperimentalProtocol: true,
 					})
 
-					resHeaders := map[string]string{
-						"Upload-Draft-Interop-Version": interopVersion,
-						"Upload-Offset":                "5",
-					}
-
-					if interopVersion == "3" {
-						resHeaders["Upload-Incomplete"] = "?1"
-
-					} else if interopVersion == "4" {
-						resHeaders["Upload-Complete"] = "?0"
-					}
-
 					(&httpTest{
 						Method: "HEAD",
 						URL:    "yes",
 						ReqHeader: map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 						},
-						Code:      http.StatusNoContent,
-						ResHeader: resHeaders,
+						Code: http.StatusNoContent,
+						ResHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Upload-Offset":                "5",
+						}, false, interopVersion),
 					}).Run(handler, t)
 				})
 			})

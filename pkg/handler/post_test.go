@@ -590,24 +590,15 @@ func TestPost(t *testing.T) {
 						EnableExperimentalProtocol: true,
 					})
 
-					reqHeaders := map[string]string{
-						"Upload-Draft-Interop-Version": interopVersion,
-						"Content-Type":                 "text/plain; charset=utf-8",
-						"Content-Disposition":          "attachment; filename=hello.txt",
-					}
-
-					if interopVersion == "3" {
-						reqHeaders["Upload-Incomplete"] = "?0"
-
-					} else if interopVersion == "4" {
-						reqHeaders["Upload-Complete"] = "?1"
-					}
-
 					res := (&httpTest{
-						Method:    "POST",
-						ReqHeader: reqHeaders,
-						ReqBody:   strings.NewReader("hello world"),
-						Code:      http.StatusCreated,
+						Method: "POST",
+						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Content-Type":                 "text/plain; charset=utf-8",
+							"Content-Disposition":          "attachment; filename=hello.txt",
+						}, true, interopVersion),
+						ReqBody: strings.NewReader("hello world"),
+						Code:    http.StatusCreated,
 						ResHeader: map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
@@ -661,22 +652,13 @@ func TestPost(t *testing.T) {
 						EnableExperimentalProtocol: true,
 					})
 
-					reqHeaders := map[string]string{
-						"Upload-Draft-Interop-Version": interopVersion,
-					}
-
-					if interopVersion == "3" {
-						reqHeaders["Upload-Incomplete"] = "?1"
-
-					} else if interopVersion == "4" {
-						reqHeaders["Upload-Complete"] = "?0"
-					}
-
 					res := (&httpTest{
-						Method:    "POST",
-						ReqHeader: reqHeaders,
-						ReqBody:   strings.NewReader("hello world"),
-						Code:      http.StatusCreated,
+						Method: "POST",
+						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+						}, false, interopVersion),
+						ReqBody: strings.NewReader("hello world"),
+						Code:    http.StatusCreated,
 						ResHeader: map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
