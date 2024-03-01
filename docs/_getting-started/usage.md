@@ -16,13 +16,13 @@ Starting the tusd upload server is as simple as invoking a single command. For e
 
 ```
 $ tusd -upload-dir=./data
-2024/02/19 12:10:48.069284 Using '/Users/marius/workspace/tus/tusd/data' as directory storage.
-2024/02/19 12:10:48.069576 Using 0.00MB as maximum size.
-2024/02/19 12:10:48.069634 Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
-2024/02/19 12:10:48.069638 Using 0.0.0.0:8080 as address to listen.
-2024/02/19 12:10:48.069639 Using /files/ as the base path.
-2024/02/19 12:10:48.069658 Using /metrics as the metrics path.
-2024/02/19 12:10:48.069982 You can now upload files to: http://[::]:8080/files/
+Using '/Users/marius/workspace/tus/tusd/data' as directory storage.
+Using 0.00MB as maximum size.
+Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
+Using 0.0.0.0:8080 as address to listen.
+Using /files/ as the base path.
+Using /metrics as the metrics path.
+You can now upload files to: http://[::]:8080/files/
 ```
 
 The last line from tusd's output indicates the *upload creation URL*:
@@ -40,7 +40,7 @@ Uploaded files will be stored by default in the directory specified with the `-u
 
 # Connecting clients
 
-Once tusd is running, any tus-compatible client can connect to tusd and upload files. Usually, the only required client configuration is point the client's endpoint setting to tusd's upload creation URL.
+Once tusd is running, any tus-compatible client can connect to tusd and upload files. To achieve this, point the client's endpoint setting to tusd's upload creation URL.
 
 Below you can find a few examples for common tus client, assuming that tusd is accepting uploads at `http://localhost:8080/files/`, which is the default upload creation URL.
 
@@ -78,7 +78,7 @@ new Uppy()
 
 ## tus-java-client
 
-For [tus-java-client](https://github.com/tus/tus-java-client), pass the upload creation URL in the [`TusClient#setUploadCreationURL` method](https://javadoc.io/doc/io.tus.java.client/tus-java-client/latest/io/tus/java/client/TusClient.html):
+For [tus-java-client](https://github.com/tus/tus-java-client), pass the upload creation URL to the [`TusClient#setUploadCreationURL` method](https://javadoc.io/doc/io.tus.java.client/tus-java-client/latest/io/tus/java/client/TusClient.html):
 
 ```java
 TusClient client = new TusClient();

@@ -12,11 +12,11 @@ nav_order: 3
 
 ## Configuration options
 
-tusd can be configured and customized by passing flags when starting the process. Please consult the output of `tusd -help` for all available flags.
+Tusd can be configured and customized by passing flags when starting the process. Please consult the output of `tusd -help` for all available flags.
 
 ## Network configuration
 
-By default, tusd listens on port 8080 and all available interface. This can be changed by the `-host` and `-port` flags:
+By default, tusd listens on port 8080 and all available interfaces. This can be changed using the `-host` and `-port` flags:
 
 ```bash
 $ tusd -host 127.0.0.1 -port 1337
@@ -34,7 +34,7 @@ $ tusd -unix-sock /var/my-tusd.sock
 
 ### Base path
 
-Uploads can be created by sending a `POST` request to the upload creation endpoint. This endpoint is, by default, available under the `/files/` path, e.g. `http://localhost:8080/files/`. Other paths cannot be used to create uploads. This path can be customized using the `-base-path` flag:
+Uploads can be created by sending a [`POST` request](https://tus.io/protocols/resumable-upload#creation) to the upload creation endpoint. This endpoint is, by default, available under the `/files/` path, e.g. `http://localhost:8080/files/`. Paths other than the base path cannot be used to create uploads. The base path can be customized using the `-base-path` flag:
 
 ```bash
 # Upload creation at http://localhost:8080/api/uploads/
@@ -45,29 +45,29 @@ $ tusd -base-path /
 
 ### Proxies
 
-When tusd is utilized behind a reverse proxy (Nginx, HAProxy etc), tusd and the proxy must be configured appropriate to works together.
+In some cases, it is necessary to run tusd behind a reverse proxy (Nginx, HAProxy etc), for example for TLS termination or serving multiple services on the same hostname. To properly do this, tusd and the proxy must be configured appropriately.
 
-Firstly, you must set `-behind-proxy` flag indicating tusd that it a reverse proxy is in use and it should respect the `X-Forwarded-*`/`Forwarded` headers:
+Firstly, you must set the `-behind-proxy` flag indicating tusd that a reverse proxy is in use and that it should respect the `X-Forwarded-*`/`Forwarded` headers:
 
 ```bash
 $ tusd -behind-proxy
 ```
 
-Secondly, some of the reverse proxy's settings should be adjusted, depending on the used software:
+Secondly, some of the reverse proxy's settings should be adjusted. The exact steps depend on the used proxy, but the following points should be checked:
 
-- *Disable request buffering.* Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed while it's being transferred. Therefore, such as feature should be disabled.
+- *Disable request buffering.* Nginx, for example, reads the entire incoming HTTP request, including its body, before sending it to the backend, by default. This behavior defeats the purpose of resumability where an upload is processed and saved while it's being transferred, allowing it be resumed. Therefore, such a feature must be disabled.
 
 - *Adjust maximum request size.* Some proxies have default values for how big a request may be in order to protect your services. Be sure to check these settings to match the requirements of your application.
 
-- *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this confusion, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers.
+- *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this issue, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers. Configure the proxy to set these headers to the original hostname and protocol when forwarding requests to tusd.
 
 Explicit examples for the above points can be found in the [Nginx configuration](https://github.com/tus/tusd/blob/main/examples/nginx.conf) which is used to power the [tusd.tusdemo.net](https://tusd.tusdemo.net) instance.
 
-## Protocol extensions
+## Protocol settings
 
 ### Maximum upload size
 
-By default, tusd does not restrict the maximum size of a single upload. If you want to apply such a limit, use the `-max-size` flag:
+By default, tusd does not restrict the maximum size of a single upload and allows infinitely large files. If you want to apply such a limit, use the `-max-size` flag:
 
 ```bash
 # Allow uploads up to 1000000000 bytes (= 1GB)
@@ -76,7 +76,7 @@ $ tusd -max-size 1000000000
 
 ### Disable downloads
 
-tusd allows any user to retrieve a previously uploaded file by issuing an HTTP GET request to the corresponding upload URL. This is possible as long as the uploaded files have not been deleted or moved to another location in the storage backend. While it is a handy feature for debugging and testing your setup, there are situations where you don't want to allow downloads. To completely disable downloads, use the `-disable-download` flag:
+Tusd allows any user to retrieve a previously uploaded file by issuing an HTTP GET request to the corresponding upload URL. This is possible as long as the uploaded files have not been deleted or moved to another location in the storage backend. While it is a handy feature for debugging and testing your setup, there are situations where you don't want to allow downloads. To completely disable downloads, use the `-disable-download` flag:
 
 ```bash
 $ tusd -disable-download
@@ -84,7 +84,7 @@ $ tusd -disable-download
 
 ### Disable upload termination
 
-The [tus termination extensions](https://tus.io/protocols/resumable-upload#termination) allows clients to terminate uploads (complete or incomplete) they are no longer interested in. In this case, the associated files in the storage backend will be removed. If you don't want to allow users to delete uploads, use the `-disable-termination` flag to disable this extension:
+The [tus termination extension](https://tus.io/protocols/resumable-upload#termination) allows clients to terminate uploads (complete or incomplete) in which they are no longer interested. In this case, the associated files in the storage backend will be removed and the upload cannot be used anymore. If you don't want to allow users to delete uploads, use the `-disable-termination` flag to disable this extension:
 
 ```bash
 $ tusd -disable-termination
@@ -92,19 +92,19 @@ $ tusd -disable-termination
 
 ## Storage backend
 
-Tusd has been designed with flexible storage backends in mind and can store the received uploads on local disk or various cloud provides (AWS S3, Azure Cloud Storage, and Google Cloud Storage). By default, tusd will store uploads in the directory specified by the `-upload-dir` flag (which defaults to `./data`). Please consult the dedicated [Storage Backends section]({{ site.baseurl }}/storage-backends/overview/) for details on how to use different storage backend and configure them.
+Tusd has been designed with flexible storage backends in mind and can store the received uploads on local disk or various cloud provides (AWS S3, Azure Cloud Storage, and Google Cloud Storage). By default, tusd will store uploads in the directory specified by the `-upload-dir` flag (which defaults to `./data`). Please consult the dedicated [Storage Backends section]({{ site.baseurl }}/storage-backends/overview/) for details on how to use a different storage backend and configure them.
 
 ## Integrations into applications with hooks
 
-When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files. Please consult the dedicated [Storage Backends section]({{ site.baseurl }}/advanced-topics/hooks/) for details on how to use the hook system.
+When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files. Please consult the dedicated [hooks section]({{ site.baseurl }}/advanced-topics/hooks/) for details on how to use the hook system.
 
 ## Cross-Origin Resource Sharing (CORS)
 
-When tusd is used in a web application and the tusd server is reachable under a different origin (domain, scheme, or port) than the frontend itself, browsers put restrictions on cross-origin requests for security reasons. For example, your main application is running on `https://example.org` but your tusd server is hosted at `https://uploads.example.org`. In this case, the server needs to use the [Cross-Origin Resource Sharing (CORS) mechanism](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) to signal the browser that it will accept requests from `https://example.org`.
+When tusd is used in a web application and the tusd server is reachable under a different origin (domain, scheme, or port) than the frontend itself, browsers put restrictions on the cross-origin requests from the frontend to tusd for security reasons. For example, your main application is running on `https://example.org` but your tusd server is hosted at `https://uploads.example.org`. In this case, the server needs to use the [Cross-Origin Resource Sharing (CORS) mechanism](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) to signal the browser that it will accept requests from `https://example.org`.
 
-To make your setup easier, tusd already includes the necessary CORS configuration to allow communication with tus clients. By default, tusd will allow cross-origin requests from any origin.
+To make your setup easier, tusd already includes the necessary CORS configuration to allow communication with tus clients. By default, tusd will allow cross-origin requests from any origin. If these defaults work for your application, you don't have to change the CORS configuration.
 
-If you want to restrict the origins or add additional header fields to the CORS configuration, utilize the `-cors-*` flags:
+If you do want to restrict the origins or add additional header fields to the CORS configuration, utilize the `-cors-*` flags:
 
 ```bash
 $ tusd \
@@ -130,7 +130,7 @@ $ tusd -disable-cors
 
 If you want tusd to be accessible via HTTPS, there are two options:
 
-1. Use a TLS-terminating reverse proxy, such as Nginx. The proxy is configured to accept HTTPS requests from the clients and forwards unencrypted HTTP requests to tusd. This approach is the most flexible and recommended approach as such proxies provide detailed configuration options for HTTPS and are well tested. Please see the [section on proxies](#proxies) for additional details when using tusd with proxies.
+1. Use a TLS-terminating reverse proxy, such as Nginx. The proxy must be configured to accept HTTPS requests from clients and forward unencrypted HTTP requests to tusd. This approach is the most flexible and recommended method as such proxies provide detailed configuration options for HTTPS and are well tested. Please see the [section on proxies](#proxies) for additional considerations when using tusd with proxies.
 
 2. Tusd itself provides basic TLS support for HTTPS connections. In contrast to dedicated TLS-terminating proxies, tusd supports less configuration options for tuning the TLS setup.
 However, the built-in HTTPS support is useful for development, testing and encrypting internal traffic. It can be enabled by supplying a certificate and private key. Note that the certificate file must include the entire chain of certificates up to the CA certificate and that the key file must not be encrypted/require a passphrase. The available modes are:
@@ -167,6 +167,6 @@ If tusd receives a SIGINT or SIGTERM signal, it will initiate a graceful shutdow
 
 Once the graceful shutdown is started, tusd will stop listening on its port and won't accept new connections anymore. Idle connections are closed down. Already running requests will be given a grace period to complete before their connections are closed as well. PATCH and POST requests with a request body are interrupted, so that data stores can gracefully finish saving all the received data until that point. If all requests have been completed, tusd will exit.
 
-If not all requests have been completed in the period defined by the `-shutdown-timeout` flag, tusd will exit regardless. By default, tusd will give all requests 10 seconds to complete their processing. If you do not want to wait for requests, use `-shutdown-timeout=0`.
+If not all requests have been completed in the period defined by the `-shutdown-timeout` flag, tusd will exit regardless. By default, tusd will give all requests 10 seconds to complete their processing. If you do not want to wait for requests, use `-shutdown-timeout=0` to shut down immediately.
 
-tusd will also immediately exit if it receives a second SIGINT or SIGTERM signal. It will also always exit immediately if a SIGKILL is received.
+tusd will also immediately exit if it receives a second SIGINT or SIGTERM signal. It will also always exit immediately if a SIGKILL signal is received.

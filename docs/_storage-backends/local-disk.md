@@ -19,10 +19,10 @@ When a new upload is created, for example with the upload ID `abcdef123`, tusd c
 
 ## Issues with NFS and shared folders
 
-Tusd maintains [upload locks]({{ site.baseurl }}/advanced-topics/locks/) on disk to ensure exclusive access to uploads and prevent data corruption. These disk-based locks utilize hard links, which might not supported by older NFS versions or when a folder is shared in a VM using VirtualBox or Vagrant. In these cases, you might get errors like this:
+Tusd maintains [upload locks]({{ site.baseurl }}/advanced-topics/locks/) on disk to ensure exclusive access to uploads and prevent data corruption. These disk-based locks utilize hard links, which might not be supported by older NFS versions or when a folder is shared in a VM using VirtualBox or Vagrant. In these cases, you might get errors like this:
 
 ```
 TemporaryErrors (Lockfile created, but doesn't exist)
 ```
 
-We recommend you to ensure that your file system supports hard links, use a different file system, or use one of tusd's cloud storage abilities. If the problem still persists, please open a bug report.
+We recommend you to ensure that your file system supports hard links, use a different file system, or use one of tusd's cloud storage backends. If the problem still persists, please open a bug report.

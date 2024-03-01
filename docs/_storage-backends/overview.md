@@ -6,7 +6,7 @@ nav_order: 1
 
 # Storage backends
 
-Tusd can store the uploaded files either on local disk or various cloud storage services:
+Tusd can store the uploaded files either locally or on various cloud storage services:
 
 - [Local disk]({{ site.baseurl }}/storage-backends/local-disk/)
 - [AWS S3 (and S3-compatible services)]({{ site.baseurl }}/storage-backends/aws-s3/)
@@ -17,8 +17,8 @@ Tusd can store the uploaded files either on local disk or various cloud storage 
 
 While the exact details of how uploaded files are stored depend on the chosen backend, usually two files/objects are created and modified while the upload is progressing:
 
-- An informational file/object with the `.info` extension holds meta information about the upload, such as its size, its metadata, and whether it is used in conjunction with the [concatenation extension](https://tus.io/protocols/resumable-upload#concatenation). The data encoded using [JSON](https://www.json.org/json-en.html). More details can be found in the [documentation of the underlying data structure](https://pkg.go.dev/github.com/tus/tusd@v1.13.0/pkg/handler#FileInfo). 
-- Another file/object is created to store the actual file data. It does not have a characteristic extension and its name is either set by the [pre-create hook]({{ site.baseurl }}/advanced-topics/hooks/) or chosen by the storage backend. Once the upload is finished, it will contain the entire uploaded data. Please note depending on the storage backend (e.g. S3), this file/object might not be present until all data has been transferred.
+- An informational file/object with the `.info` extension holds meta information about the upload, such as its size, its metadata, and whether it is used in conjunction with the [concatenation extension](https://tus.io/protocols/resumable-upload#concatenation). The data is encoded using [JSON](https://www.json.org/json-en.html). A list of the stored properties and their purpose can be found in the [documentation of the underlying data structure](https://pkg.go.dev/github.com/tus/tusd/pkg/handler#FileInfo). 
+- Another file/object is created to store the actual file data. It does not have a characteristic extension and its name is either set by the [pre-create hook]({{ site.baseurl }}/advanced-topics/hooks/) or chosen by the storage backend. Once the upload is finished, it will contain the entire uploaded data. Please note that depending on the storage backend (e.g. S3), this file/object might not be present until all data has been transferred.
 
 Once an upload is finished, both files/objects are preserved for further processing depending on your application's needs. The informational file/object is useful to retrieve upload metadata and thus not automatically removed by tusd.
 

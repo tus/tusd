@@ -21,7 +21,7 @@ $ tusd -s3-bucket=my-test-bucket.com
 ...
 ```
 
-Credentials can also be loaded from a shared credentials file (`~/.aws/credentials`) as described in the [AWS SDK for Go](https://github.com/aws/aws-sdk-go#configuring-credentials). You still need to declare the `AWS_REGION` value which isn't conventionally associated with credentials.
+Credentials can also be loaded from a shared credentials file (`~/.aws/credentials`) as described in the [AWS SDK for Go](https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/#specifying-credentials). You still need to declare the `AWS_REGION` value which isn't conventionally associated with credentials.
 
 ### Alternative endpoints
 
@@ -43,7 +43,7 @@ $ tusd -s3-bucket=my-test-bucket.com -s3-object-prefix=uploads/
 
 ### AWS S3 Transfer Acceleration
 
-If your S3 bucket has been configured for [AWS S3 Transfer Acceleration](https://aws.amazon.com/s3/transfer-acceleration/) and you want to make use of that advanced service, you can direct tusd to automatically use the designated AWS acceleration endpoint for your bucket by including the optional
+If your S3 bucket has been configured for [AWS S3 Transfer Acceleration](https://aws.amazon.com/s3/transfer-acceleration/) and you want to make use of that service, you can direct tusd to automatically use the designated AWS acceleration endpoint for your bucket by including the optional
 command line flag `-s3-transfer-acceleration` as follows:
 
 ```bash
@@ -54,7 +54,7 @@ $ tusd -s3-bucket=my-test-bucket.com -s3-transfer-acceleration
 
 ## Permissions
 
-For full functionality of the S3 backend, the user accessing the bucket must have at least following AWS IAM policy permissions for the bucket and all of its subresources:
+For full functionality of the S3 backend, the user accessing the bucket must have at least the following AWS IAM policy permissions for the bucket and all of its subresources:
 
 ```
 s3:AbortMultipartUpload
@@ -85,8 +85,7 @@ The file object is not visible in the S3 bucket before the upload is finished be
 
 ### Metadata
 
-If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character
-with a question mark (for example, "Menü" will be "Men?").
+If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
 
 In addition, the metadata is also stored in the informational object, which can be used to retrieve the original metadata without any characters being replaced.
 
