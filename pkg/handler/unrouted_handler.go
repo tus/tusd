@@ -676,6 +676,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	} else {
 		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
 		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
+		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
 
 		// Draft requires a 204 No Content response
 		resp.StatusCode = http.StatusNoContent
@@ -1403,8 +1404,6 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 			resp.Header["Upload-Complete"] = "?0"
 		}
 	}
-
-	resp.Header["Upload-Draft-Interop-Version"] = string(currentUploadDraftInteropVersion)
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
