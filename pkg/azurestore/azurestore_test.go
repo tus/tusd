@@ -290,7 +290,12 @@ func TestWriteChunk(t *testing.T) {
 		infoBlob.EXPECT().Download(ctx).Return(newReadCloser(data), nil).Times(1),
 		service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
 		blockBlob.EXPECT().GetOffset(ctx).Return(offset, nil).Times(1),
-		blockBlob.EXPECT().Upload(ctx, bytes.NewReader([]byte(mockReaderData))).Return(nil).Times(1),
+		blockBlob.EXPECT().Upload(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, reader io.ReadSeeker) error {
+			actual, err := io.ReadAll(reader)
+			assert.Nil(err)
+			assert.Equal(mockReaderData, string(actual))
+			return nil
+		}).Times(1),
 	)
 
 	upload, err := store.GetUpload(ctx, mockID)

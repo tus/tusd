@@ -21,6 +21,7 @@ import (
 )
 
 var defaultFilePerm = os.FileMode(0664)
+var defaultDirectoryPerm = os.FileMode(0754)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
@@ -58,15 +59,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	// Create binary file with no content
-	file, err := os.OpenFile(binPath, os.O_CREATE|os.O_WRONLY, defaultFilePerm)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = fmt.Errorf("upload directory does not exist: %s", store.Path)
-		}
-		return nil, err
-	}
-	err = file.Close()
-	if err != nil {
+	if err := createFile(binPath, nil); err != nil {
 		return nil, err
 	}
 
@@ -77,8 +70,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	// writeInfo creates the file by itself if necessary
-	err = upload.writeInfo()
-	if err != nil {
+	if err := upload.writeInfo(); err != nil {
 		return nil, err
 	}
 
@@ -228,9 +220,42 @@ func (upload *fileUpload) writeInfo() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(upload.infoPath, data, defaultFilePerm)
+	return createFile(upload.infoPath, data)
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {
 	return nil
+}
+
+// createFile creates the file with the content. If the corresponding directory does not exist,
+// it is created. If the file already exists, its content is removed.
+func createFile(path string, content []byte) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// An upload ID containing slashes is mapped onto different directories on disk,
+			// for example, `myproject/uploadA` should be put into a folder called `myproject`.
+			// If we get an error indicating that a directory is missing, we try to create it.
+			if err := os.MkdirAll(filepath.Dir(path), defaultDirectoryPerm); err != nil {
+				return fmt.Errorf("failed to create directory for %s: %s", path, err)
+			}
+
+			// Try creating the file again.
+			file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+			if err != nil {
+				// If that still doesn't work, error out.
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	if content != nil {
+		if _, err := file.Write(content); err != nil {
+			return err
+		}
+	}
+
+	return file.Close()
 }

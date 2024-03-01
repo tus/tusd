@@ -326,5 +326,60 @@ func TestConcat(t *testing.T) {
 				Code: http.StatusBadRequest,
 			}).Run(handler, t)
 		})
+
+		// Test that we can concatenate uploads, whose IDs contain slashes.
+		SubTest(t, "UploadIDsWithSlashes", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "aaa/123").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().GetUpload(gomock.Any(), "bbb/123").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+					Size:           10,
+					IsPartial:      false,
+					IsFinal:        true,
+					PartialUploads: []string{"aaa/123", "bbb/123"},
+					MetaData:       make(map[string]string),
+				}).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:             "foo",
+					Size:           10,
+					IsPartial:      false,
+					IsFinal:        true,
+					PartialUploads: []string{"aaa/123", "bbb/123"},
+					MetaData:       make(map[string]string),
+				}, nil),
+				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
+				uploadC.EXPECT().ConcatUploads(gomock.Any(), []Upload{uploadA, uploadB}).Return(nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:      "files",
+				StoreComposer: composer,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final; http://tus.io/files/aaa/123 /files/bbb/123",
+				},
+				Code: http.StatusCreated,
+			}).Run(handler, t)
+		})
 	})
 }

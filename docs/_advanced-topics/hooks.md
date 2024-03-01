@@ -1,13 +1,26 @@
+---
+title: Customization via hooks
+layout: default
+nav_order: 1
+---
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
 # Hooks
+{: .no_toc }
 
 When integrating tusd into an application, it is important to establish a communication channel between tusd and your main application. For this purpose, tusd provides a hook system which triggers user-defined actions when certain events happen, for example when an upload is created or finished. This simple-but-powerful system enables many uses, such as logging, validation, authorization, and post-processing of the uploaded files.
 
 When a specific event happens during an upload, a corresponding hook is triggered. This hook is then delivered to you application using one of many ways:
 
-1. File hooks: tusd executes a provided executable file or script (similar to Git hooks).
-2. HTTP hooks: tusd sends HTTP POST request to a custom endpoint.
-3. gRPC hooks: tusd invokes a method on a remote gRPC endpoint.
-3. Plugin hooks: tusd loads a plugin from disk and invokes its methods.
+1. [File hooks](#file-hooks): tusd executes a provided executable file or script (similar to Git hooks).
+2. [HTTP hooks](#https-hooks): tusd sends HTTP POST request to a custom endpoint.
+3. [gRPC hooks](#grpc-hooks): tusd invokes a method on a remote gRPC endpoint.
+3. [Plugin hooks](#plugin-hooks): tusd loads a plugin from disk and invokes its methods.
 
 ## List of Available Hooks
 
@@ -25,7 +38,7 @@ The table below provides an overview of all available hooks.
 Users should be aware of following things:
 - If a hook is _blocking_, tusd will wait with further processing until the hook is completed. This is useful for validation and authentication, where further processing should be stopped if the hook determines to do so. However, long execution time may impact the user experience because the upload processing is blocked while the hook executes.
 - If a hook is _non-blocking_, tusd will continue processing the request while the hook is being executed. The hook is able to influence the upload in some way, but the hook must be aware that an HTTP response might already be sent. This is useful for logging upload progress or starting the post-processing of uploaded data.
-- During the lifecycle of an upload, multiple hooks may be triggered. Their execution can happen concurrently and in general the order of hooks is not guaranteed. This is especially true if hooks are delivered over the network. For example, the post-finish hook might be before post-create. Your hooks should be designed to not rely on an order. The only guarantees are that pre-create will always be the first hook for any upload and that post-finish is started after pre-finish has been completed.
+- During the lifecycle of an upload, multiple hooks may be triggered. Their execution can happen concurrently and in general the order of hooks is not guaranteed. This is especially true if hooks are delivered over the network. For example, the post-finish hook might be delivered before post-create. Your hooks should be designed to not rely on an order. The only guarantees are that pre-create will always be the first hook for any upload and that post-finish is started after pre-finish has been completed.
 - Not all hooks are enabled by default for performance reasons. You can enable/disable each hook individually using the `-hooks-enabled-events` flag.
 
 ## Hook Requests and Responses
@@ -91,6 +104,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "RemoteAddr": "127.0.0.1:59395",
             // All headers that were included in the request. The values are arrays of strings because
             // headers can be included multiple times, e.g. Cookies.
+            // The field names are canonicalized according to Go's rules: https://pkg.go.dev/net/http#CanonicalHeaderKey
             "Header": {
                 "Host": [
                     "localhost:8080"
@@ -146,8 +160,14 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // This value is only respected for pre-create hooks.
     "ChangeFileInfo": {
         // Provides a custom upload ID, which influences the destination where the
-        // upload is stored and the upload URL that is sent to the client.
-        // Its exact effect depends on each data store.
+        // upload is stored and the upload URL that is sent to the client. The ID
+        // can contain forward slashes (/) to store uploads in a hierarchical structure,
+        // such as nested directories. Its exact effect depends on each data store.
+        //
+        // Note: The ID must only consist characters that are deemed safe in a URI's
+        // path component according to RFC 3986 (https://datatracker.ietf.org/doc/html/rfc3986#section-3.3).
+        // These are: A-Z a-z 0-9 - . _ ~ % ! $ ' ( ) * + , ; = / : @
+        // In addition, IDs must not begin or end with a forward slash (/).
         "ID": "my-custom-upload-id",
         // Set custom meta data that is saved with the upload and also accessible to
         // all future hooks. Note that this information is also visible to the client
@@ -202,7 +222,7 @@ When the process exits with the zero exit code, tusd reads the process' stdout a
 
 The process' stderr is redirected to tusd's stderr and can be used for logging from inside the hook.
 
-An example is available at [/examples/hooks/file](/examples/hooks/file).
+An example is available at [github.com/tus/tusd/examples/hooks/file](https://github.com/tus/tusd/tree/main/examples/hooks/file).
 
 ### HTTP(S) Hooks
 
@@ -230,7 +250,7 @@ When the endpoint responds with a non-2XX status code, tusd interprets this as a
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads.
 
-An example is available at [/examples/hooks/http](/examples/hooks/http).
+A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
 #### Retries
 
@@ -253,7 +273,9 @@ $ tusd -hooks-grpc localhost:8081
 ...
 ```
 
-The endpoint must implement the hook handler service as specified in [/pkg/hooks/grpc/proto/hook.proto](/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+
+A Python-based example is available at [github.com/tus/tusd/examples/hooks/grpc](https://github.com/tus/tusd/tree/main/examples/hooks/grpc).
 
 #### Retries
 
@@ -270,7 +292,7 @@ File hooks are an easy way to receive events from tusd, but can induce overhead 
 
 Plugin hooks provide a sweet spot between these two worlds. You can create a plugin with any programming language. tusd then loads this plugin by starting it as a standalone process, restarting it if necessary, and communicating with it over local sockets. This system is powered by [go-plugin](https://github.com/hashicorp/go-plugin), which is designed for Go, but provides cross-language support. The approach provides a low-overhead hook handler, which is still able to track state between hooks.
 
-To learn more, have a look at the example at [/examples/hooks/plugin](/examples/hooks/plugin).
+To learn more, have a look at the example at [github.com/tus/tusd/examples/hooks/plugin](https://github.com/tus/tusd/tree/main/examples/hooks/plugin).
 
 ## Common Uses
 
