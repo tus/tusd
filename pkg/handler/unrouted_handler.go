@@ -21,9 +21,12 @@ const UploadLengthDeferred = "1"
 
 type draftVersion string
 
+// These are the different interoperability versions defines in the different
+// verious of the resumable uploads draft from the HTTP working group.
+// See https://datatracker.ietf.org/doc/draft-ietf-httpbis-resumable-upload/
 const (
-	InteropVersion3 draftVersion = "3" // From draft version -01
-	InteropVersion4 draftVersion = "4" // From draft version -02
+	interopVersion3 draftVersion = "3" // From draft version -01
+	interopVersion4 draftVersion = "4" // From draft version -02
 )
 
 var (
@@ -675,13 +678,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		uploadComplete := !info.SizeIsDeferred && info.Offset == info.Size
 
 		switch currentUploadDraftInteropVersion {
-		case InteropVersion3:
+		case interopVersion3:
 			if uploadComplete {
 				resp.Header["Upload-Incomplete"] = "?0"
 			} else {
 				resp.Header["Upload-Incomplete"] = "?1"
 			}
-		case InteropVersion4:
+		case interopVersion4:
 			if uploadComplete {
 				resp.Header["Upload-Complete"] = "?1"
 			} else {
@@ -1378,7 +1381,7 @@ func (handler UnroutedHandler) supportsDraftVersionResumableUploadRequest(r *htt
 func getDraftVersionResumableUpload(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case InteropVersion3, InteropVersion4:
+	case interopVersion3, interopVersion4:
 		return version
 	default:
 		return ""
@@ -1390,9 +1393,9 @@ func getDraftVersionResumableUpload(r *http.Request) draftVersion {
 func isDraftVersionResumableUploadComplete(r *http.Request) bool {
 	currentUploadDraftInteropVersion := getDraftVersionResumableUpload(r)
 	switch currentUploadDraftInteropVersion {
-	case InteropVersion4:
+	case interopVersion4:
 		return r.Header.Get("Upload-Complete") == "?1"
-	case InteropVersion3:
+	case interopVersion3:
 		return r.Header.Get("Upload-Incomplete") == "?0"
 	default:
 		return false
