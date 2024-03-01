@@ -22,7 +22,7 @@ const UploadLengthDeferred = "1"
 type draftVersion string
 
 // These are the different interoperability versions defines in the different
-// verious of the resumable uploads draft from the HTTP working group.
+// versions of the resumable uploads draft from the HTTP working group.
 // See https://datatracker.ietf.org/doc/draft-ietf-httpbis-resumable-upload/
 const (
 	interopVersion3 draftVersion = "3" // From draft version -01
