@@ -27,6 +27,7 @@ type draftVersion string
 const (
 	interopVersion3 draftVersion = "3" // From draft version -01
 	interopVersion4 draftVersion = "4" // From draft version -02
+	interopVersion5 draftVersion = "5" // From draft version -03
 )
 
 var (
@@ -678,7 +679,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
 		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
 
-		// Draft requires a 204 No Content response
+		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
+		// but we stick to 204 to not make the logic less complex.
 		resp.StatusCode = http.StatusNoContent
 	}
 
@@ -1364,7 +1366,7 @@ func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
 func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case interopVersion3, interopVersion4:
+	case interopVersion3, interopVersion4, interopVersion5:
 		return version
 	default:
 		return ""
@@ -1376,7 +1378,7 @@ func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 func isIETFDraftUploadComplete(r *http.Request) bool {
 	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 	switch currentUploadDraftInteropVersion {
-	case interopVersion4:
+	case interopVersion4, interopVersion5:
 		return r.Header.Get("Upload-Complete") == "?1"
 	case interopVersion3:
 		return r.Header.Get("Upload-Incomplete") == "?0"
@@ -1397,7 +1399,7 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 		} else {
 			resp.Header["Upload-Incomplete"] = "?1"
 		}
-	case interopVersion4:
+	case interopVersion4, interopVersion5:
 		if isComplete {
 			resp.Header["Upload-Complete"] = "?1"
 		} else {
