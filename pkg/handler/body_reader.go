@@ -74,7 +74,7 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 		// All of the following errors can be understood as the input stream ending too soon:
 		// - io.ErrClosedPipe is returned in the package's unit test with io.Pipe()
 		// - io.UnexpectedEOF means that the client aborted the request.
-		if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+		if err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
 			err = ErrUnexpectedEOF
 		}
 
