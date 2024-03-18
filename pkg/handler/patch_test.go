@@ -811,7 +811,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		for _, interopVersion := range []string{"3", "4"} {
+		for _, interopVersion := range []string{"3", "4", "5"} {
 			SubTest(t, "InteropVersion"+interopVersion, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 				SubTest(t, "CompleteUploadWithKnownSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 					ctrl := gomock.NewController(t)

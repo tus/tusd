@@ -142,7 +142,7 @@ func addIETFUploadCompleteHeader(header map[string]string, isComplete bool, inte
 		} else {
 			header["Upload-Incomplete"] = "?1"
 		}
-	case "4":
+	case "4", "5":
 		if isComplete {
 			header["Upload-Complete"] = "?1"
 		} else {
