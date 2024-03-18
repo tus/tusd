@@ -54,16 +54,28 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 
 	}
 	if err != nil {
-		// We can ignore some of these errors:
-		// - io.EOF means that the request body was fully read
-		// - io.ErrBodyReadAfterClose means that the bodyReader closed the request body because the upload is
-		//   is stopped or the server shuts down.
+		// Note: if an error occurs while reading the body, we must set `r.err` (either in here
+		// or somewhere else, such as in closeWithError). Otherwise, the PATCH handler might not know
+		// that an error occurred and assumes that a request was transferred succesfully even though
+		// it was interrupted. This leads to problems with the RUFH draft.
+
+		// io.EOF means that the request body was fully read and does not represent an error.
+		if err == io.EOF {
+			return n, io.EOF
+		}
+
+		// http.ErrBodyReadAfterClose means that the bodyReader closed the request body because the upload is
+		// is stopped or the server shuts down. In this case, the closeWithError method already
+		// set `r.err` and thus we don't overerwrite it here but just return.
+		if err == http.ErrBodyReadAfterClose {
+			return n, io.EOF
+		}
+
+		// All of the following errors can be understood as the input stream ending too soon:
 		// - io.ErrClosedPipe is returned in the package's unit test with io.Pipe()
 		// - io.UnexpectedEOF means that the client aborted the request.
-		// In all of those cases, we do not forward the error to the storage,
-		// but act like the body just ended naturally.
-		if err == io.EOF || err == io.ErrClosedPipe || err == http.ErrBodyReadAfterClose || err == io.ErrUnexpectedEOF {
-			return n, io.EOF
+		if err == io.EOF || err == io.ErrClosedPipe || err == io.ErrUnexpectedEOF {
+			err = ErrUnexpectedEOF
 		}
 
 		// Connection resets are not dropped silently, but responded to the client.
