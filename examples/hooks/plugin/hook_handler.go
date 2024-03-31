@@ -41,7 +41,7 @@ func (g *MyHookHandler) InvokeHook(req hooks.HookRequest) (res hooks.HookRespons
 		}
 	}
 
-	// Example: Use the post-finish hook to print information about a completed upload,
+	// Example: Use the pre-finish hook to print information about a completed upload,
 	// including its storage location.
 	if req.Type == hooks.HookPreFinish {
 		id := req.Event.Upload.ID
