@@ -7,7 +7,7 @@ re-uploading the previous data again. An interruption may happen willingly, if
 the user wants to pause, or by accident in case of an network issue or server
 outage (http://tus.io).
 
-The basics of tusd
+# The basics of tusd
 
 tusd was designed in way which allows an flexible and customizable usage. We
 wanted to avoid binding this package to a specific storage system – particularly
@@ -22,7 +22,7 @@ current state. Therefore it is the only part of the system which communicates
 directly with the underlying storage system, whether it be the local disk, a
 remote FTP server or cloud providers such as AWS S3.
 
-Using a store composer
+# Using a store composer
 
 The only hard requirements for a data store can be found in the DataStore
 interface. It contains methods for creating uploads (NewUpload), writing to
@@ -35,10 +35,10 @@ TerminaterDataStore which allows uploads to be terminated.
 The store composer offers a way to combine the basic data store - the core -
 implementation and these additional extensions:
 
-  composer := tusd.NewStoreComposer()
-  composer.UseCore(dataStore) // Implements DataStore
-  composer.UseTerminater(terminater) // Implements TerminaterDataStore
-  composer.UseLocker(locker) // Implements LockerDataStore
+	composer := tusd.NewStoreComposer()
+	composer.UseCore(dataStore) // Implements DataStore
+	composer.UseTerminater(terminater) // Implements TerminaterDataStore
+	composer.UseLocker(locker) // Implements LockerDataStore
 
 The corresponding methods for adding an extension to the composer are prefixed
 with Use* followed by the name of the corresponding interface. However, most
@@ -47,23 +47,23 @@ tedious and error-prone. Therefore, all data store distributed with tusd provide
 an UseIn() method which does this job automatically. For example, this is the
 S3 store in action (see S3Store.UseIn):
 
-  store := s3store.New(…)
-  locker := memorylocker.New()
-  composer := tusd.NewStoreComposer()
-  store.UseIn(composer)
-  locker.UseIn(composer)
+	store := s3store.New(…)
+	locker := memorylocker.New()
+	composer := tusd.NewStoreComposer()
+	store.UseIn(composer)
+	locker.UseIn(composer)
 
 Finally, once you are done with composing your data store, you can pass it
 inside the Config struct in order to create create a new tusd HTTP handler:
 
-  config := tusd.Config{
-    StoreComposer: composer,
-    BasePath: "/files/",
-  }
-  handler, err := tusd.NewHandler(config)
+	config := tusd.Config{
+	  StoreComposer: composer,
+	  BasePath: "/files/",
+	}
+	handler, err := tusd.NewHandler(config)
 
 This handler can then be mounted to a specific path, e.g. /files:
 
-  http.Handle("/files/", http.StripPrefix("/files/", handler))
+	http.Handle("/files/", http.StripPrefix("/files/", handler))
 */
 package handler

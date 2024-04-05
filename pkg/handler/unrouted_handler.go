@@ -18,7 +18,17 @@ import (
 )
 
 const UploadLengthDeferred = "1"
-const currentUploadDraftInteropVersion = "4"
+
+type draftVersion string
+
+// These are the different interoperability versions defines in the different
+// versions of the resumable uploads draft from the HTTP working group.
+// See https://datatracker.ietf.org/doc/draft-ietf-httpbis-resumable-upload/
+const (
+	interopVersion3 draftVersion = "3" // From draft version -01
+	interopVersion4 draftVersion = "4" // From draft version -02
+	interopVersion5 draftVersion = "5" // From draft version -03
+)
 
 var (
 	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
@@ -52,6 +62,7 @@ var (
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
+	ErrUnexpectedEOF                    = NewError("ERR_UNEXPECTED_EOF", "server expected to receive more bytes", http.StatusBadRequest)
 
 	// These two responses are 500 for backwards compatability. Clients might receive a timeout response
 	// when the upload got interrupted. Most clients will not retry 4XX but only 5XX, so we responsd with 500 here.
@@ -211,7 +222,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		}
 
 		// Detect requests with tus v1 protocol vs the IETF resumable upload draft
-		isTusV1 := !handler.isResumableUploadDraftRequest(r)
+		isTusV1 := !handler.usesIETFDraft(r)
 
 		if isTusV1 {
 			// Set current version used by the server
@@ -260,7 +271,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request) {
-	if handler.isResumableUploadDraftRequest(r) {
+	if handler.usesIETFDraft(r) {
 		handler.PostFileV2(w, r)
 		return
 	}
@@ -438,17 +449,18 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 // PostFile creates a new file upload using the datastore after validating the
 // length and parsing the metadata.
 func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Request) {
+	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 	c := handler.getContext(w, r)
 
 	// Parse headers
 	contentType := r.Header.Get("Content-Type")
 	contentDisposition := r.Header.Get("Content-Disposition")
-	isComplete := r.Header.Get("Upload-Complete") == "?1"
+	willCompleteUpload := isIETFDraftUploadComplete(r)
 
 	info := FileInfo{
 		MetaData: make(MetaData),
 	}
-	if isComplete && r.ContentLength != -1 {
+	if willCompleteUpload && r.ContentLength != -1 {
 		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
 		info.Size = r.ContentLength
 	} else {
@@ -535,7 +547,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// Send 104 response
 	w.Header().Set("Location", url)
-	w.Header().Set("Upload-Draft-Interop-Version", currentUploadDraftInteropVersion)
+	w.Header().Set("Upload-Draft-Interop-Version", string(currentUploadDraftInteropVersion))
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
@@ -565,7 +577,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 4. Finish upload, if necessary
-	if isComplete && info.SizeIsDeferred {
+	if willCompleteUpload && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
@@ -634,7 +646,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		},
 	}
 
-	if !handler.isResumableUploadDraftRequest(r) {
+	if !handler.usesIETFDraft(r) {
 		// Add Upload-Concat header if possible
 		if info.IsPartial {
 			resp.Header["Upload-Concat"] = "partial"
@@ -664,16 +676,12 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 
 		resp.StatusCode = http.StatusOK
 	} else {
-		if !info.SizeIsDeferred && info.Offset == info.Size {
-			// Upload is complete if we know the size and it matches the offset.
-			resp.Header["Upload-Complete"] = "?1"
-		} else {
-			resp.Header["Upload-Complete"] = "?0"
-		}
+		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
+		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
+		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
 
-		resp.Header["Upload-Draft-Interop-Version"] = currentUploadDraftInteropVersion
-
-		// Draft requires a 204 No Content response
+		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
+		// but we stick to 204 to not make the logic less complex.
 		resp.StatusCode = http.StatusNoContent
 	}
 
@@ -685,7 +693,7 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request) {
 	c := handler.getContext(w, r)
 
-	isTusV1 := !handler.isResumableUploadDraftRequest(r)
+	isTusV1 := !handler.usesIETFDraft(r)
 
 	// Check for presence of application/offset+octet-stream
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
@@ -740,7 +748,7 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// TODO: If Upload-Complete: ?1 and Content-Length is set, we can
+	// TODO: If (Upload-Incomplete: ?0 OR Upload-Complete: ?1) and (Content-Length is set), we can
 	// - declare the length already here
 	// - validate that the length from this request matches info.Size if !info.SizeIsDeferred
 
@@ -787,8 +795,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	isComplete := r.Header.Get("Upload-Complete") == "?1"
-	if isComplete && info.SizeIsDeferred {
+	willCompleteUpload := isIETFDraftUploadComplete(r)
+	if willCompleteUpload && info.SizeIsDeferred {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
@@ -1348,10 +1356,57 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 	return lock, nil
 }
 
-// isResumableUploadDraftRequest returns whether a HTTP request includes a sign that it is
-// related to resumable upload draft from IETF (instead of tus v1)
-func (handler UnroutedHandler) isResumableUploadDraftRequest(r *http.Request) bool {
-	return handler.config.EnableExperimentalProtocol && r.Header.Get("Upload-Draft-Interop-Version") == currentUploadDraftInteropVersion
+// usesIETFDraft returns whether a HTTP request uses a supported version of the resumable upload draft from IETF
+// (instead of tus v1) and support has been enabled in tusd.
+func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
+	interopVersionHeader := getIETFDraftInteropVersion(r)
+	return handler.config.EnableExperimentalProtocol && interopVersionHeader != ""
+}
+
+// getIETFDraftInteropVersion returns the resumable upload draft interop version from the headers.
+func getIETFDraftInteropVersion(r *http.Request) draftVersion {
+	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
+	switch version {
+	case interopVersion3, interopVersion4, interopVersion5:
+		return version
+	default:
+		return ""
+	}
+}
+
+// isIETFDraftUploadComplete returns whether a HTTP request upload is complete
+// according to the set resumable upload draft version from IETF.
+func isIETFDraftUploadComplete(r *http.Request) bool {
+	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
+	switch currentUploadDraftInteropVersion {
+	case interopVersion4, interopVersion5:
+		return r.Header.Get("Upload-Complete") == "?1"
+	case interopVersion3:
+		return r.Header.Get("Upload-Incomplete") == "?0"
+	default:
+		return false
+	}
+}
+
+// setIETFDraftUploadComplete sets the Upload-Complete (Upload-Incomplete) to the provided
+// value, depending on the interop version used in the request.
+func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete bool) {
+	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
+
+	switch currentUploadDraftInteropVersion {
+	case interopVersion3:
+		if isComplete {
+			resp.Header["Upload-Incomplete"] = "?0"
+		} else {
+			resp.Header["Upload-Incomplete"] = "?1"
+		}
+	case interopVersion4, interopVersion5:
+		if isComplete {
+			resp.Header["Upload-Complete"] = "?1"
+		} else {
+			resp.Header["Upload-Complete"] = "?0"
+		}
+	}
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
