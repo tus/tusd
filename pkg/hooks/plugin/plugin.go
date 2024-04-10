@@ -16,7 +16,8 @@ import (
 )
 
 type PluginHook struct {
-	Path string
+	Path      string
+	LogFormat string
 
 	handlerImpl hooks.HookHandler
 }
@@ -37,6 +38,7 @@ func (h *PluginHook) Setup() error {
 			Name:       "plugin",
 			Level:      hclog.Debug,
 			Output:     os.Stdout,
+			JSONFormat: h.LogFormat == "json",
 			TimeFormat: "2006/01/02 03:04:05.000000",
 		}),
 	})
