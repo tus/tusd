@@ -5,32 +5,79 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	pb "github.com/tus/tusd/v2/pkg/hooks/grpc/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type GrpcHook struct {
-	Endpoint   string
-	MaxRetries int
-	Backoff    time.Duration
-	Client     pb.HookHandlerClient
+	Endpoint                        string
+	MaxRetries                      int
+	Backoff                         time.Duration
+	Client                          pb.HookHandlerClient
+	Secure                          bool
+	ServerTLSCertificateFilePath    string
+	ClientTLSCertificateFilePath    string
+	ClientTLSCertificateKeyFilePath string
 }
 
 func (g *GrpcHook) Setup() error {
+	grpcOpts := []grpc.DialOption{}
+
+	if g.Secure {
+		// Load the server's TLS certificate if provided
+		if g.ServerTLSCertificateFilePath != "" {
+			serverCert, err := os.ReadFile(g.ServerTLSCertificateFilePath)
+			if err != nil {
+				return err
+			}
+
+			// Create a certificate pool and add the server's certificate
+			certPool := x509.NewCertPool()
+			certPool.AppendCertsFromPEM(serverCert)
+
+			// Create TLS configuration with the server's CA certificate
+			tlsConfig := &tls.Config{
+				RootCAs: certPool,
+			}
+
+			// If client's TLS certificate and key file paths are provided, use mutual TLS
+			if g.ClientTLSCertificateFilePath != "" && g.ClientTLSCertificateKeyFilePath != "" {
+				// Load the client's TLS certificate and private key
+				clientCert, err := tls.LoadX509KeyPair(g.ClientTLSCertificateFilePath, g.ClientTLSCertificateKeyFilePath)
+				if err != nil {
+					return err
+				}
+
+				// Append client certificate to the TLS configuration
+				tlsConfig.Certificates = append(tlsConfig.Certificates, clientCert)
+			}
+
+			grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+		} else {
+			return errors.New("hooks-grpc-secure was set to true but no gRPC server TLS certificate file was provided. A value for hooks-grpc-server-tls-certificate is missing")
+		}
+	} else {
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
 	opts := []grpc_retry.CallOption{
 		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(g.Backoff)),
 		grpc_retry.WithMax(uint(g.MaxRetries)),
 	}
-	grpcOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(opts...)),
-	}
+	grpcOpts = append(grpcOpts, grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(opts...)))
+
 	conn, err := grpc.Dial(g.Endpoint, grpcOpts...)
 	if err != nil {
 		return err
@@ -40,8 +87,8 @@ func (g *GrpcHook) Setup() error {
 }
 
 func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
-	ctx := context.Background()
 	req := marshal(hookReq)
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "Authorization", req.Event.HttpRequest.Header["Authorization"])
 	res, err := g.Client.InvokeHook(ctx, req)
 	if err != nil {
 		return hookRes, err
