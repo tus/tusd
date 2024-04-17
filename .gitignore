@@ -8,3 +8,4 @@ tusd_*_*
 __pycache__/
 examples/hooks/plugin/hook_handler
 .idea/
+.vscode
