@@ -39,8 +39,8 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 
 		return &plugin.PluginHook{
-			Path:      Flags.PluginHookPath,
-			LogFormat: Flags.LogFormat,
+			Path:          Flags.PluginHookPath,
+			JSONLogFormat: Flags.LogFormat == "json",
 		}
 	} else {
 		return nil
