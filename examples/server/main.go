@@ -51,6 +51,7 @@ func main() {
 	// our own. In the end, tusd will start listening on and accept request at
 	// http://localhost:8080/files
 	http.Handle("/files/", http.StripPrefix("/files/", handler))
+	http.Handle("/files", http.StripPrefix("/files", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(fmt.Errorf("unable to listen: %s", err))
