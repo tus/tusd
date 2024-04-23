@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
@@ -15,9 +16,14 @@ func main() {
 	// If you want to save them on a different medium, for example
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
-	store := filestore.FileStore{
-		Path: "./uploads",
-	}
+	store := filestore.New("./uploads")
+
+	// A locking mechanism helps preventing data loss or corruption from
+	// parallel requests to a upload resource. A good match for the disk-based
+	// storage is the filelocker package which uses disk-based file lock for
+	// coordinating access.
+	// More information is available at https://tus.github.io/tusd/advanced-topics/locks/.
+	locker := filelocker.New("./uploads")
 
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a
@@ -25,6 +31,7 @@ func main() {
 	// we only use the file store but you may plug in multiple.
 	composer := tusd.NewStoreComposer()
 	store.UseIn(composer)
+	locker.UseIn(composer)
 
 	// Create a new HTTP handler for the tusd server by providing a configuration.
 	// The StoreComposer property must be set to allow the handler to function.
