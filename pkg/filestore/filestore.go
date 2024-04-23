@@ -24,8 +24,10 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-var defaultFilePerm = os.FileMode(0664)
-var defaultDirectoryPerm = os.FileMode(0754)
+var (
+	defaultFilePerm      = os.FileMode(0664)
+	defaultDirectoryPerm = os.FileMode(0754)
+)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
@@ -172,13 +174,10 @@ func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) 
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
-	if err := os.Remove(upload.infoPath); err != nil {
-		return err
-	}
-	if err := os.Remove(upload.binPath); err != nil {
-		return err
-	}
-	return nil
+	// Ignore errors when removing bin to account for server crashes or force kills
+	// This can happen say if the server crashes just after removing the bin file
+	os.Remove(upload.binPath)
+	return os.Remove(upload.infoPath)
 }
 
 func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.Upload) (err error) {
