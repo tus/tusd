@@ -174,9 +174,12 @@ func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) 
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
-	// Ignore errors when removing bin to account for server crashes or force kills
-	// This can happen say if the server crashes just after removing the bin file
-	os.Remove(upload.binPath)
+	// Account for server crashes or force kills
+	// Say if killed just after removing the bin file
+	err := os.Remove(upload.binPath)
+	if !os.IsNotExist(err) {
+		return err
+	}
 	return os.Remove(upload.infoPath)
 }
 
