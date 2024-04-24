@@ -24,10 +24,8 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-var (
-	defaultFilePerm      = os.FileMode(0664)
-	defaultDirectoryPerm = os.FileMode(0754)
-)
+var defaultFilePerm = os.FileMode(0664)
+var defaultDirectoryPerm = os.FileMode(0754)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
