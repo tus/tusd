@@ -15,6 +15,7 @@ package filestore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -175,10 +176,16 @@ func (upload *fileUpload) Terminate(ctx context.Context) error {
 	// Account for server crashes or force kills
 	// Say if killed just after removing the bin file
 	err := os.Remove(upload.binPath)
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.Remove(upload.infoPath)
+
+	err = os.Remove(upload.infoPath)
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return nil
 }
 
 func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.Upload) (err error) {
