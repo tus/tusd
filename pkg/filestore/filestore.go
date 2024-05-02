@@ -15,6 +15,7 @@ package filestore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -172,12 +173,19 @@ func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) 
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
-	if err := os.Remove(upload.infoPath); err != nil {
+	// We ignore errors indicating that the files cannot be found because we want
+	// to delete them anyways. The files might be removed by a cron job for cleaning up
+	// or some file might have been removed when tusd crashed during the termination.
+	err := os.Remove(upload.binPath)
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.Remove(upload.binPath); err != nil {
+
+	err = os.Remove(upload.infoPath)
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+
 	return nil
 }
 
