@@ -1148,7 +1148,9 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 }
 
 func splitIds(id string) (objectId, multipartId string) {
-	index := strings.Index(id, "+")
+	// We use LastIndex to allow plus signs in the object ID and assume that S3 will never
+	// returns multipart ID that incldues a plus sign.
+	index := strings.LastIndex(id, "+")
 	if index == -1 {
 		return
 	}
