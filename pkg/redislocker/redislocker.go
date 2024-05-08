@@ -3,8 +3,9 @@ package redislocker
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
+
+	"golang.org/x/exp/slog"
 
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v9"
