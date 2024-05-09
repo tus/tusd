@@ -152,8 +152,10 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 		}
 		return info, err
 	}
+	defer r.Close()
 
-	buf, err := io.ReadAll(r)
+	buf := make([]byte, r.Size())
+	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return info, err
 	}
