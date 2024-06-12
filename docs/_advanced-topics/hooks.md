@@ -142,6 +142,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // Body is the response body.
         "Body": "{\"message\":\"the upload is too big\"}",
         // Header contains additional HTTP headers for the response. The values are strings.
+        // The uploading client can retrieve these header, allowing the server to send
+        // information back to the client. Note that if you are using custom headers and want
+        // them to be accessible by JavaScript running inside a browser, you likely have to
+        // configure Cross-Origin Resource Sharing (CORS) to include your custom header in
+        // Access-Control-Expose-Headers or otherwise browsers will block access to the custom
+        // header. See https://tus.github.io/tusd/getting-started/configuration/#cross-origin-resource-sharing-cors
+        // for more details about tusd and CORS.  
         "Header": {
             "Content-Type": "application/json"
         },
