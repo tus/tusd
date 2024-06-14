@@ -1545,7 +1545,7 @@ func getRequestId(r *http.Request) string {
 	return reqId
 }
 
-// validateUploadId checks whether an ID included in a FileInfoChange struct is allowed.
+// validateUploadId checks whether an ID included in a FileInfoChanges struct is allowed.
 func validateUploadId(newId string) error {
 	if newId == "" {
 		// An empty ID from FileInfoChanges is allowed. The store will then

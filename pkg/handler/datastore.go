@@ -54,6 +54,9 @@ func (f FileInfo) StopUpload(response HTTPResponse) {
 // can be done using the PreUploadCreateCallback to modify certain properties before
 // an upload is created. Properties which should not be modified (e.g. Size or Offset)
 // are intentionally left out here.
+//
+// Please also consult the documentation for the `ChangeFileInfo` property at
+// https://tus.github.io/tusd/advanced-topics/hooks/#hook-requests-and-responses.
 type FileInfoChanges struct {
 	// If ID is not empty, it will be passed to the data store, allowing
 	// hooks to influence the upload ID. Be aware that a data store is not required to

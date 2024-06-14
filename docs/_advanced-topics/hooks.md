@@ -175,6 +175,15 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // path component according to RFC 3986 (https://datatracker.ietf.org/doc/html/rfc3986#section-3.3).
         // These are: A-Z a-z 0-9 - . _ ~ % ! $ ' ( ) * + , ; = / : @
         // In addition, IDs must not begin or end with a forward slash (/).
+        //
+        // When a custom upload ID is specified, it is the hook's responsibility to
+        // ensure that the upload ID will not cause collisions with resources from other
+        // uploads. Tusd does not check for collisions. Collisions happen frequently when
+        // the upload ID is mainly derived from the filename, which can be prevented by including
+        // a random part (e.g. a UUID) in the upload ID. In addition, be aware that some storage
+        // backends, such as the S3 store, save additional objects using `.info` and `.part`
+        // extensions. If you set a custom upload ID, ensure that this ID will also not collide
+        // with these additional objects.
         "ID": "my-custom-upload-id",
         // Set custom meta data that is saved with the upload and also accessible to
         // all future hooks. Note that this information is also visible to the client
