@@ -103,3 +103,13 @@ The following packages are supported by 3rd-party maintainers outside this repos
 
 * [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
 * [**tusd-etcd3-locker**](https://github.com/tus/tusd-etcd3-locker): A locker using the distributed KV etcd3 store
+
+## Caveats
+
+### I am getting warnings regarding NetworkControlError/NetworkTimeoutError and "feature not supported". Why?
+
+Since tusd v2, its handler uses Go's [`net/http.NewResponseController`](https://pkg.go.dev/net/http#NewResponseController) API, in particular the `SetReadDeadline` and `SetWriteDeadline` functions, for dynamically controlling the timeouts for reading the request body and writing responses. When uploading files, the request duration can vary significantly, depending on the file size and network speed, which is why in tusd we cannot use a fixed timeout for reading requests as this would cause of some valid requests to time out. Instead, tusd implements a dynamic approach, where the deadline for reading the request is continuously adjusted while tusd is receiving data. If the connection gets interrupted and tusd does not receive data anymore, the deadline is not extended and the request times out, freeing any allocated resources. For this to work, we need the `SetReadDeadline` function.
+
+The NetworkControlError/NetworkTimeoutError means that the `ResponseWriter`, that was provided to tusd does not implement the `SetReadDeadline` and `SetWriteDeadline` functions. This can happen if you are using middleware before tusd that wraps the native `ResponseWriter` from net/http, thereby hiding the control APIs. The best way to circumvent this issue is by ensuring that the wrapped `ResponseWriter` implements an `Unwrap` method that returns the native `ResponseWriter`, as mentioned in the [Go documentation](https://pkg.go.dev/net/http#NewResponseController). If this error still pops up, please ensure that the `ResponseWriter` returned from `Unwrap` either provides the `SetReadDeadline` and `SetWriteDeadline` functions or an `Unwrap` function. This is especially necessary if multiple middlewares are stacked above each other.
+
+Additional information can be found in the issues [#1100](https://github.com/tus/tusd/issues/1100) and [#1107](https://github.com/tus/tusd/issues/1107).
