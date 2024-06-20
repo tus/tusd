@@ -489,6 +489,84 @@ func TestGetInfoFinished(t *testing.T) {
 	assert.Equal(int64(500), info.Offset)
 }
 
+// TestGetInfoWithPlusSign ensures that s3store can handle a plus sign in the object ID.
+// Currently the plus sign is used to separate the object ID and multipart ID.
+func TestGetInfoWithPlusSign(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	gomock.InOrder(
+		s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
+			Bucket:   aws.String("bucket"),
+			Key:      aws.String("uploadId+something"),
+			Metadata: map[string]string{},
+		}).Return(&s3.CreateMultipartUploadOutput{
+			UploadId: aws.String("multipartId"),
+		}, nil),
+		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId+something.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(228),
+		}),
+	)
+
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId+something.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("uploadId+something"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(100),
+				ETag:       aws.String("etag-1"),
+			},
+			{
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(200),
+				ETag:       aws.String("etag-2"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId+something.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
+	info1 := handler.FileInfo{
+		ID:       "uploadId+something",
+		Size:     500,
+		MetaData: map[string]string{},
+	}
+
+	upload1, err := store.NewUpload(context.Background(), info1)
+	assert.Nil(err)
+	assert.NotNil(upload1)
+
+	upload2, err := store.GetUpload(context.Background(), "uploadId+something+multipartId")
+	assert.Nil(err)
+
+	info2, err := upload2.GetInfo(context.Background())
+	assert.Nil(err)
+	assert.Equal(int64(500), info2.Size)
+	assert.Equal(int64(300), info2.Offset)
+	assert.Equal("uploadId+something+multipartId", info2.ID)
+	assert.Equal("uploadId+something", info2.Storage["Key"])
+}
+
 func TestGetReader(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

@@ -26,3 +26,14 @@ updates:
       go:
         patterns:
           - '*'
+
+  - package-ecosystem: bundler
+    directory: /docs/
+    schedule:
+      interval: monthly
+    allow:
+      - dependency-type: direct
+    groups:
+      website:
+        patterns:
+          - '*'

@@ -1,3 +1,9 @@
+---
+title: Upload locks
+layout: default
+nav_order: 2
+---
+
 # Upload Locks
 
 ## Why are locks necessary?

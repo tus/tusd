@@ -6,11 +6,16 @@
 // `[id]` files without an extension contain the raw binary data uploaded.
 // No cleanup is performed so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
+//
+// Related to the filestore is the package filelocker, which provides a file-based
+// locking mechanism. The use of some locking method is recommended and further
+// explained in https://tus.github.io/tusd/advanced-topics/locks/.
 package filestore
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +39,6 @@ type FileStore struct {
 // New creates a new file based storage backend. The directory specified will
 // be used as the only storage entry. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
-// In addition, a locking mechanism is provided.
 func New(path string) FileStore {
 	return FileStore{path}
 }
@@ -180,12 +184,19 @@ func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) 
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
-	if err := os.Remove(upload.infoPath); err != nil {
+	// We ignore errors indicating that the files cannot be found because we want
+	// to delete them anyways. The files might be removed by a cron job for cleaning up
+	// or some file might have been removed when tusd crashed during the termination.
+	err := os.Remove(upload.binPath)
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.Remove(upload.binPath); err != nil {
+
+	err = os.Remove(upload.infoPath)
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+
 	return nil
 }
 

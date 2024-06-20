@@ -113,11 +113,8 @@ func CreateComposer() {
 		// e.g. http://127.0.0.1:10000/devstoreaccount1
 		if azureEndpoint == "" {
 			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
-			stdout.Printf("Custom Azure Endpoint not specified in flag variable azure-endpoint.\n"+
-				"Using endpoint %s\n", azureEndpoint)
-		} else {
-			stdout.Printf("Using Azure endpoint %s\n", azureEndpoint)
 		}
+		stdout.Printf("Using Azure endpoint %s.\n", azureEndpoint)
 
 		azConfig := &azurestore.AzConfig{
 			AccountName:         accountName,
