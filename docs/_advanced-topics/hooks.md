@@ -82,7 +82,6 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "PartialUploads": null,
             // Storage contains information about where the upload is stored. The exact values
             // depend on the storage that is used and are not available in the pre-create hook.
-            // This example belongs to the file store. 
             "Storage": {
                  // For example, the filestore supplies the absolute file path:
                  "Type": "filestore",
@@ -191,9 +190,27 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         "MetaData": {
           "my-custom-field": "..."
         },
-        // TODO: Document
+        // Storage can be used to customize the location where the uploaded file (aka the binary
+        // file is saved). The exact behavior depends on the storage that is used. Please note
+        // that this only influences the location of the binary file. tusd will still create an
+        // info file whose location is derived from the upload ID and can not be customized using
+        // this ChangeFileInfo.Storage property, but only using ChangeFileInfo.ID.
+        //
+        // The location can contain forward slashes (/) to store uploads in a hierarchical structure,
+        // such as nested directories.
+        //
+        // Similar to ChangeFileInfo.ID, tusd will not check whether a file is already saved under
+        // this location and might overwrite it. It is the hooks responsibility to ensure that
+        // the location is save to use. A good approach is to embed a random part (e.g. a UUID) in
+        // the location.
         "Storage": {
+            // When the filestore is used, the Path property defines where the uploaded file is saved.
+            // The path may be absolute or relative, and point towards a location outside of the directory
+            // defined using the `-dir` flag. If it's relative, the path will be resolved relative to `-dir`.
+            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf"
 
+            // Other storages, such as S3Store, GCSStore, and AzureStore, do not support the Storage
+            // property yet.
         }
     },
 
