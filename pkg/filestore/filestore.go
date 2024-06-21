@@ -56,7 +56,17 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	if info.ID == "" {
 		info.ID = uid.Uid()
 	}
-	binPath := store.binPath(info.ID)
+
+	// The .info file's location can directly be deduced from the upload ID
+	infoPath := store.infoPath(info.ID)
+	// The binary file's location might be modified by the pre-create hook.
+	var binPath string
+	if info.Storage != nil && info.Storage["Path"] != "" {
+		binPath = filepath.Join(store.Path, info.Storage["Path"])
+	} else {
+		binPath = store.defaultBinPath(info.ID)
+	}
+
 	info.Storage = map[string]string{
 		"Type": "filestore",
 		"Path": binPath,
@@ -69,7 +79,7 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 	upload := &fileUpload{
 		info:     info,
-		infoPath: store.infoPath(info.ID),
+		infoPath: infoPath,
 		binPath:  binPath,
 	}
 
@@ -82,8 +92,8 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 }
 
 func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	info := handler.FileInfo{}
-	data, err := os.ReadFile(store.infoPath(id))
+	infoPath := store.infoPath(id)
+	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -91,12 +101,23 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 		}
 		return nil, err
 	}
+	var info handler.FileInfo
 	if err := json.Unmarshal(data, &info); err != nil {
 		return nil, err
 	}
 
-	binPath := store.binPath(id)
-	infoPath := store.infoPath(id)
+	// If the info file contains a custom path to the binary file, we use that. If not, we
+	// fall back to the default value (although the Path property should always be set in recent
+	// tusd versions).
+	var binPath string
+	if info.Storage != nil && info.Storage["Path"] != "" {
+		// No filepath.Join here because the joining already happened in NewUpload. Duplicate joining
+		// with relative paths lead to incorrect paths
+		binPath = info.Storage["Path"]
+	} else {
+		binPath = store.defaultBinPath(info.ID)
+	}
+
 	stat, err := os.Stat(binPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -127,8 +148,9 @@ func (store FileStore) AsConcatableUpload(upload handler.Upload) handler.Concata
 	return upload.(*fileUpload)
 }
 
-// binPath returns the path to the file storing the binary data.
-func (store FileStore) binPath(id string) string {
+// defaultBinPath returns the path to the file storing the binary data, if it is
+// not customized using the pre-create hook.
+func (store FileStore) defaultBinPath(id string) string {
 	return filepath.Join(store.Path, id)
 }
 

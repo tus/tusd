@@ -245,3 +245,71 @@ func TestDeclareLength(t *testing.T) {
 	a.EqualValues(100, updatedInfo.Size)
 	a.Equal(false, updatedInfo.SizeIsDeferred)
 }
+
+// TestCustomPath tests whether the upload's destination can be customized.
+func TestCustomPath(t *testing.T) {
+	a := assert.New(t)
+
+	tmp, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	store := FileStore{tmp}
+	ctx := context.Background()
+
+	// Create new upload
+	upload, err := store.NewUpload(ctx, handler.FileInfo{
+		ID:   "folder1/info",
+		Size: 42,
+		Storage: map[string]string{
+			"Path": "./folder2/bin",
+		},
+	})
+	a.NoError(err)
+	a.NotEqual(nil, upload)
+
+	// Check info without writing
+	info, err := upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(2, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(filepath.Join(tmp, "./folder2/bin"), info.Storage["Path"])
+
+	// Write data to upload
+	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
+	a.NoError(err)
+	a.EqualValues(len("hello world"), bytesWritten)
+
+	// Check new offset
+	info, err = upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(11, info.Offset)
+
+	// Read content
+	reader, err := upload.GetReader(ctx)
+	a.NoError(err)
+
+	content, err := io.ReadAll(reader)
+	a.NoError(err)
+	a.Equal("hello world", string(content))
+	reader.(io.Closer).Close()
+
+	// Check that the output file and info file exist on disk
+	statInfo, err := os.Stat(filepath.Join(tmp, "folder2/bin"))
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
+	a.EqualValues(11, statInfo.Size())
+	statInfo, err = os.Stat(filepath.Join(tmp, "folder1/info.info"))
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
+
+	// Terminate upload
+	a.NoError(store.AsTerminatableUpload(upload).Terminate(ctx))
+
+	// Test if upload is deleted
+	upload, err = store.GetUpload(ctx, info.ID)
+	a.Equal(nil, upload)
+	a.Equal(handler.ErrNotFound, err)
+}
