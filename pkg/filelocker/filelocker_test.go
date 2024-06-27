@@ -60,7 +60,7 @@ func TestFileLocker_Timeout(t *testing.T) {
 	assertEmptyDirectory(dir, a)
 }
 
-func TestMemoryLocker_RequestUnlock(t *testing.T) {
+func TestFileLocker_RequestUnlock(t *testing.T) {
 	a := assert.New(t)
 
 	dir, err := os.MkdirTemp("", "tusd-file-locker")
@@ -93,6 +93,26 @@ func TestMemoryLocker_RequestUnlock(t *testing.T) {
 
 	// Ensure that directory is empty
 	assertEmptyDirectory(dir, a)
+}
+
+func TestFileLocker_DirectoryNotFound(t *testing.T) {
+	a := assert.New(t)
+
+	dir, err := os.MkdirTemp("", "tusd-file-locker")
+	a.NoError(err)
+
+	locker := New(dir)
+
+	// The upload ID uses a directory structure, but the corresponding directories do
+	// not exist. Since there can also exist no info file in this folder, we expect
+	// the locker to return ErrNotFound
+	lock, err := locker.NewLock("nested/folder/structure/upload")
+	a.Nil(err)
+
+	err = lock.Lock(context.Background(), func() {
+		panic("must not be called")
+	})
+	a.Equal(handler.ErrNotFound, err)
 }
 
 func assertEmptyDirectory(dir string, a *assert.Assertions) {
