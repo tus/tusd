@@ -57,7 +57,7 @@ jobs:
       -
         name: Build and push
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           push: true
           builder: ${{ steps.buildx.outputs.name }}
@@ -92,7 +92,7 @@ jobs:
 
       -
         name: GitHub Release
-        uses: softprops/action-gh-release@v2.0.5
+        uses: softprops/action-gh-release@v2.0.6
         with:
           files: tusd_*.*
 
