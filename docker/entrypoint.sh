@@ -6,4 +6,8 @@ set -o pipefail
 
 . /usr/local/share/load-env.sh
 
+if [ -n "$UMASK" ]; then
+   umask "$UMASK"
+fi
+
 exec tusd "$@"

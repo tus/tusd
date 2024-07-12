@@ -19,7 +19,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store := filestore.New("some-path")
+	store := filestore.New("some-path", 0774, 0664)
 	config := handler.Config{
 		StoreComposer: handler.NewStoreComposer(),
 	}
