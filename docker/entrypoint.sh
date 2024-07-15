@@ -6,7 +6,7 @@ set -o pipefail
 
 . /usr/local/share/load-env.sh
 
-if [ -n "$UMASK" ]; then
+if printenv UMASK >/dev/null; then
    umask "$UMASK"
 fi
 
