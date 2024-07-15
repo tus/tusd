@@ -9,7 +9,10 @@ import (
 func ExampleNewStoreComposer() {
 	composer := handler.NewStoreComposer()
 
-	fs := filestore.New("./data", 0774, 0664)
+	fs := filestore.New("./data", &filestore.FileStoreOptions{
+		DirPerm:  0775,
+		FilePerm: 0664,
+	})
 	fs.UseIn(composer)
 
 	ml := memorylocker.New()

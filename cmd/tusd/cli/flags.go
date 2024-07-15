@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tus/tusd/v2/internal/grouped_flags"
+	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"golang.org/x/exp/slices"
 )
@@ -116,8 +117,8 @@ func (v ChmodPermsValue) Set(s string) error {
 }
 
 func ParseFlags() {
-	Flags.DirPerms = 0775
-	Flags.FilePerms = 0664
+	Flags.DirPerms = filestore.DefaultDirPerm
+	Flags.FilePerms = filestore.DefaultFilePerm
 
 	fs := grouped_flags.NewFlagGroupSet(flag.ExitOnError)
 

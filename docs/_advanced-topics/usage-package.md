@@ -27,7 +27,12 @@ func main() {
 	// If you want to save them on a different medium, for example
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
-	store := filestore.New("./uploads", 0774, 0664)
+	store := filestore.New("./uploads")
+   // or use options
+   // filestore.NewWithOptions(dir, &filestore.FileStoreOptions{
+	//		DirPerm:  0777, // see also umask(2)
+	//		FilePerm: 0666, // see also umask(2)
+	//	})
 
 	// A locking mechanism helps preventing data loss or corruption from
 	// parallel requests to a upload resource. A good match for the disk-based
