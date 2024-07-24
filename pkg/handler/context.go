@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // httpContext is wrapper around context.Context that also carries the

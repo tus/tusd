@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
