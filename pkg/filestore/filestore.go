@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -25,22 +26,52 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-var defaultFilePerm = os.FileMode(0664)
-var defaultDirectoryPerm = os.FileMode(0754)
-
 // See the handler.DataStore interface for documentation about the different
 // methods.
+
+const DefaultDirPerm = 0775
+const DefaultFilePerm = 0664
+
+type FileStoreOptions struct {
+	DirPerm  uint32
+	FilePerm uint32
+}
+
+var defaultOptions = FileStoreOptions{
+	DirPerm:  DefaultDirPerm,
+	FilePerm: DefaultFilePerm,
+}
+
 type FileStore struct {
 	// Relative or absolute path to store files in. FileStore does not check
 	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
+
+	DirModePerm  fs.FileMode
+	FileModePerm fs.FileMode
 }
 
 // New creates a new file based storage backend. The directory specified will
 // be used as the only storage entry. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
 func New(path string) FileStore {
-	return FileStore{path}
+	return FileStore{
+		Path:         path,
+		DirModePerm:  os.FileMode(defaultOptions.DirPerm) & os.ModePerm,
+		FileModePerm: os.FileMode(defaultOptions.FilePerm) & os.ModePerm,
+	}
+}
+
+func NewWithOptions(path string, options *FileStoreOptions) FileStore {
+	if options == nil {
+		options = &defaultOptions
+	}
+
+	return FileStore{
+		Path:         path,
+		DirModePerm:  os.FileMode(options.DirPerm) & os.ModePerm,
+		FileModePerm: os.FileMode(options.FilePerm) & os.ModePerm,
+	}
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
@@ -81,14 +112,16 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	// Create binary file with no content
-	if err := createFile(binPath, nil); err != nil {
+	if err := createFile(binPath, store.DirModePerm, store.FileModePerm, nil); err != nil {
 		return nil, err
 	}
 
 	upload := &fileUpload{
-		info:     info,
-		infoPath: infoPath,
-		binPath:  binPath,
+		info:         info,
+		infoPath:     infoPath,
+		binPath:      binPath,
+		dirModePerm:  store.DirModePerm,
+		fileModePerm: store.FileModePerm,
 	}
 
 	// writeInfo creates the file by itself if necessary
@@ -138,9 +171,11 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	info.Offset = stat.Size()
 
 	return &fileUpload{
-		info:     info,
-		binPath:  binPath,
-		infoPath: infoPath,
+		info:         info,
+		binPath:      binPath,
+		infoPath:     infoPath,
+		dirModePerm:  store.DirModePerm,
+		fileModePerm: store.FileModePerm,
 	}, nil
 }
 
@@ -174,6 +209,9 @@ type fileUpload struct {
 	infoPath string
 	// binPath is the path to the binary file (which has no extension)
 	binPath string
+
+	dirModePerm  fs.FileMode
+	fileModePerm fs.FileMode
 }
 
 func (upload *fileUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
@@ -181,7 +219,7 @@ func (upload *fileUpload) GetInfo(ctx context.Context) (handler.FileInfo, error)
 }
 
 func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
-	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, upload.fileModePerm)
 	if err != nil {
 		return 0, err
 	}
@@ -220,7 +258,7 @@ func (upload *fileUpload) Terminate(ctx context.Context) error {
 }
 
 func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.Upload) (err error) {
-	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+	file, err := os.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, upload.fileModePerm)
 	if err != nil {
 		return err
 	}
@@ -261,7 +299,7 @@ func (upload *fileUpload) writeInfo() error {
 	if err != nil {
 		return err
 	}
-	return createFile(upload.infoPath, data)
+	return createFile(upload.infoPath, upload.dirModePerm, upload.fileModePerm, data)
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {
@@ -270,19 +308,19 @@ func (upload *fileUpload) FinishUpload(ctx context.Context) error {
 
 // createFile creates the file with the content. If the corresponding directory does not exist,
 // it is created. If the file already exists, its content is removed.
-func createFile(path string, content []byte) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+func createFile(path string, dirPerm fs.FileMode, filePerm fs.FileMode, content []byte) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// An upload ID containing slashes is mapped onto different directories on disk,
 			// for example, `myproject/uploadA` should be put into a folder called `myproject`.
 			// If we get an error indicating that a directory is missing, we try to create it.
-			if err := os.MkdirAll(filepath.Dir(path), defaultDirectoryPerm); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 				return fmt.Errorf("failed to create directory for %s: %s", path, err)
 			}
 
 			// Try creating the file again.
-			file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+			file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePerm)
 			if err != nil {
 				// If that still doesn't work, error out.
 				return err
