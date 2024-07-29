@@ -83,9 +83,11 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             // Storage contains information about where the upload is stored. The exact values
             // depend on the storage that is used and are not available in the pre-create hook.
             "Storage": {
-                 // For example, the filestore supplies the absolute file path:
+                 // For example, the filestore supplies the absolute file paths where the upload data
+                 // (Path) and the associated info file (InfoPath) are stored:
                  "Type": "filestore",
                  "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+                 "InfoPath": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce.info",
 
                  // The S3Store and GCSStore supply the bucket name and object key:
                  "Type": "s3store",

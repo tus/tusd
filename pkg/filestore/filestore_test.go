@@ -43,9 +43,10 @@ func TestFilestore(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -104,9 +105,10 @@ func TestCreateDirectories(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -273,9 +275,10 @@ func TestCustomRelativePath(t *testing.T) {
 	a.NoError(err)
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(filepath.Join(tmp, "./folder2/bin"), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, "./folder1/info.info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -346,9 +349,10 @@ func TestCustomAbsolutePath(t *testing.T) {
 	a.NoError(err)
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(binPath, info.Storage["Path"])
+	a.Equal(filepath.Join(tmp1, "my-upload.info"), info.Storage["InfoPath"])
 
 	statInfo, err := os.Stat(binPath)
 	a.NoError(err)
