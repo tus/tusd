@@ -246,8 +246,9 @@ func TestDeclareLength(t *testing.T) {
 	a.Equal(false, updatedInfo.SizeIsDeferred)
 }
 
-// TestCustomPath tests whether the upload's destination can be customized.
-func TestCustomPath(t *testing.T) {
+// TestCustomRelativePath tests whether the upload's destination can be customized
+// relative to the storage directory.
+func TestCustomRelativePath(t *testing.T) {
 	a := assert.New(t)
 
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
@@ -312,4 +313,44 @@ func TestCustomPath(t *testing.T) {
 	upload, err = store.GetUpload(ctx, info.ID)
 	a.Equal(nil, upload)
 	a.Equal(handler.ErrNotFound, err)
+}
+
+// TestCustomAbsolutePath tests whether the upload's destination can be customized
+// using an absolute path to the storage directory.
+func TestCustomAbsolutePath(t *testing.T) {
+	a := assert.New(t)
+
+	tmp1, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	tmp2, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	store := FileStore{tmp1}
+	ctx := context.Background()
+
+	// Create new upload, but the Path property points to a directory
+	// outside of the directory given to FileStore
+	binPath := filepath.Join(tmp2, "dir/my-upload.bin")
+	upload, err := store.NewUpload(ctx, handler.FileInfo{
+		ID:   "my-upload",
+		Size: 42,
+		Storage: map[string]string{
+			"Path": binPath,
+		},
+	})
+	a.NoError(err)
+	a.NotEqual(nil, upload)
+
+	info, err := upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(2, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(binPath, info.Storage["Path"])
+
+	statInfo, err := os.Stat(binPath)
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
 }
