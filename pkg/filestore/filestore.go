@@ -62,14 +62,22 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	// The binary file's location might be modified by the pre-create hook.
 	var binPath string
 	if info.Storage != nil && info.Storage["Path"] != "" {
-		binPath = filepath.Join(store.Path, info.Storage["Path"])
+		// filepath.Join treats absolute and relative paths the same, so we must
+		// handle them on our own. Absolute paths get used as-is, while relative
+		// paths are joined to the storage path.
+		if filepath.IsAbs(info.Storage["Path"]) {
+			binPath = info.Storage["Path"]
+		} else {
+			binPath = filepath.Join(store.Path, info.Storage["Path"])
+		}
 	} else {
 		binPath = store.defaultBinPath(info.ID)
 	}
 
 	info.Storage = map[string]string{
-		"Type": "filestore",
-		"Path": binPath,
+		"Type":     "filestore",
+		"Path":     binPath,
+		"InfoPath": infoPath,
 	}
 
 	// Create binary file with no content
