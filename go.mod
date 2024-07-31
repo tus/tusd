@@ -2,8 +2,8 @@ module github.com/tus/tusd/v2
 
 // Specify the Go version needed for the Heroku deployment
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
-// +heroku goVersion go1.20
-go 1.20
+// +heroku goVersion go1.21
+go 1.21.0
 
 require (
 	cloud.google.com/go/storage v1.42.0
