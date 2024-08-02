@@ -353,19 +353,25 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 }
 
 func (store S3Store) GetUpload(ctx context.Context, uploadId string) (handler.Upload, error) {
-	// TODO: Backwards compatibility with IDs that still contain the multipart ID
-	// We could try to fetch an upload with just uploadId. If that fails, we split by the last + sign
-	// and treat that as the alternative uploadId and fallback multipart Id. Then we use these IDs
-	// to fetch an alternative upload.
-	// uploadId, multipartId := splitIds(id)
-	// if uploadId == "" || multipartId == "" {
-	// 	// If one of them is empty, it cannot be a valid ID.
-	// 	return nil, handler.ErrNotFound
-	// }
-
-	objectId, multipartId, info, parts, incompletePartSize, err := store.fetchInfo(ctx, uploadId)
+	objectId, multipartId, info, parts, incompletePartSize, err := store.fetchInfo(ctx, uploadId, nil)
 	if err != nil {
-		return nil, err
+		// Currently, s3store stores the multipart ID in the info object. However, in the past the
+		// multipart ID was part of the upload ID, which consisted of the object ID and multipart ID
+		// combined by a `+`. To maintain backwards compatibility with uploads there were created using
+		// previous tusd versions, we try to load an upload using the previous schema if we couldn't load
+		// an upload using the new schema.
+		// Note: LastIndex is used as the upload ID might also contain a plus sign on its own.
+		lastPlusIndex := strings.LastIndex(uploadId, "+")
+		if errors.Is(err, handler.ErrNotFound) && lastPlusIndex != -1 {
+			fallbackMultipartId := uploadId[lastPlusIndex+1:]
+			uploadId = uploadId[:lastPlusIndex]
+			objectId, multipartId, info, parts, incompletePartSize, err = store.fetchInfo(ctx, uploadId, &fallbackMultipartId)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	return &s3Upload{uploadId, objectId, multipartId, &store, info, parts, incompletePartSize}, nil
@@ -612,8 +618,7 @@ func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err
 	return upload.info, nil
 }
 
-// TODO: Return uploadId?
-func (store S3Store) fetchInfo(ctx context.Context, uploadId string) (objectId string, multipartId string, info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
+func (store S3Store) fetchInfo(ctx context.Context, uploadId string, fallbackMultipartId *string) (objectId string, multipartId string, info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
 	// Start by fetching the file info stored in a separate object.
 	t := time.Now()
 	res, infoErr := store.Service.GetObject(ctx, &s3.GetObjectInput{
@@ -636,8 +641,23 @@ func (store S3Store) fetchInfo(ctx context.Context, uploadId string) (objectId s
 		return
 	}
 
-	objectId = info.Storage["Key"]                // TODO: Is this always present?
-	multipartId = info.Storage["MultipartUpload"] // TODO: What if this is missing?
+	if info.Storage != nil && info.Storage["Key"] != "" {
+		objectId = info.Storage["Key"]
+	} else {
+		// If the info file does not include the object ID, fallback to using
+		// the upload ID, as was the default in earlier versions.
+		objectId = uploadId
+	}
+
+	if info.Storage != nil && info.Storage["MultipartUpload"] != "" {
+		multipartId = info.Storage["MultipartUpload"]
+	} else if fallbackMultipartId != nil {
+		// If the info file does not include the multipart ID, we try to use
+		// the provided fallback or fail entirely.
+		multipartId = *fallbackMultipartId
+	} else {
+		err = errors.New("s3store: upload is missing multipart ID and in invalid state")
+	}
 
 	// Here, we just found a info file. Now we can check the multipart upload and
 	// any incomplete part concurrently. We store all errors in here and handle
@@ -1123,20 +1143,6 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 	})
 	store.observeRequestDuration(t, metricPutPartObject)
 	return err
-}
-
-// TODO: Remove this?
-func splitIds(id string) (objectId, multipartId string) {
-	// We use LastIndex to allow plus signs in the object ID and assume that S3 will never
-	// returns multipart ID that incldues a plus sign.
-	index := strings.LastIndex(id, "+")
-	if index == -1 {
-		return
-	}
-
-	objectId = id[:index]
-	multipartId = id[index+1:]
-	return
 }
 
 // isAwsError tests whether an error object is an instance of the AWS error
