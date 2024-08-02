@@ -58,3 +58,27 @@ By default, the objects are stored at the root of the container. For example the
 
 - `abcdef123.info`: Informational object
 - `abcdef123`: File object
+
+## Testing with Azurite
+
+With [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage), a local Azure Blob Storage service can be emulated for testing tusd without using the Azure services in the cloud. To get started, please install Azurite ([installation instructions](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage#install-azurite)) and the Azure CLI ([installation instructions](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)). Next, start the local Azurite application:
+
+```sh
+$ azurite --location ./azurite-data
+```
+
+Azurite provides Blob Storage at `http://127.0.0.1:10000` by default and saves the associated data in `./azurite-data`. For testing, you can use the [well-known storage account](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage#well-known-storage-account-and-key) `devstoreaccount1` and its key.
+
+Next, create a container called `mycontainer` using the Azure CLI:
+
+```sh
+$ az storage container create --name mycontainer --connection-string "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+```
+
+Azurite is now set up, and we can start tusd:
+
+```sh
+$ AZURE_STORAGE_ACCOUNT=devstoreaccount1 AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw== ./tusd -azure-storage=mycontainer -azure-endpoint=http://127.0.0.1:10000
+```
+
+Tusd is then usable at `http://localhost:8080/files/` and saves the uploads to the local Azurite instance.
