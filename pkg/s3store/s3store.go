@@ -278,17 +278,18 @@ func (store S3Store) observeRequestDuration(start time.Time, label string) {
 }
 
 type s3Upload struct {
-	// objectId is the object key under which we save the final file
+	// uploadId is the ID for the tus upload. Might be customized by pre-create hook.
+	uploadId string
+	// objectId is the object key under which we save the final file. Might be customized by pre-create hook.
 	objectId string
-	// multipartId is the ID given by S3 to us for the multipart upload
+	// multipartId is the ID given by S3 to us for the multipart upload.
 	multipartId string
 
 	store *S3Store
 
-	// info stores the upload's current FileInfo struct. It may be nil if it hasn't
-	// been fetched yet from S3. Never read or write to it directly but instead use
+	// info stores the upload's current FileInfo struct. Never read or write to it directly but instead use
 	// the GetInfo and writeInfo functions.
-	info *handler.FileInfo
+	info handler.FileInfo
 
 	// parts collects all parts for this upload. It will be nil if info is nil as well.
 	parts []*s3Part
@@ -309,13 +310,12 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		return nil, fmt.Errorf("s3store: upload size of %v bytes exceeds MaxObjectSize of %v bytes", info.Size, store.MaxObjectSize)
 	}
 
-	var objectId string
 	if info.ID == "" {
-		objectId = uid.Uid()
-	} else {
-		// certain tests set info.ID in advance
-		objectId = info.ID
+		info.ID = uid.Uid()
 	}
+	uploadId := info.ID
+	// TODO: Allow customization using info.Storage["Key"]
+	objectId := info.ID
 
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
 	metadata := make(map[string]string, len(info.MetaData))
@@ -336,8 +336,6 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	}
 
 	multipartId := *res.UploadId
-	info.ID = objectId + "+" + multipartId
-
 	info.Storage = map[string]string{
 		"Type":            "s3store",
 		"Bucket":          store.Bucket,
@@ -345,7 +343,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		"MultipartUpload": multipartId,
 	}
 
-	upload := &s3Upload{objectId, multipartId, &store, nil, []*s3Part{}, 0}
+	upload := &s3Upload{uploadId, objectId, multipartId, &store, info, []*s3Part{}, 0}
 	err = upload.writeInfo(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create info file:\n%s", err)
@@ -354,14 +352,23 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	return upload, nil
 }
 
-func (store S3Store) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	objectId, multipartId := splitIds(id)
-	if objectId == "" || multipartId == "" {
-		// If one of them is empty, it cannot be a valid ID.
-		return nil, handler.ErrNotFound
+func (store S3Store) GetUpload(ctx context.Context, uploadId string) (handler.Upload, error) {
+	// TODO: Backwards compatibility with IDs that still contain the multipart ID
+	// We could try to fetch an upload with just uploadId. If that fails, we split by the last + sign
+	// and treat that as the alternative uploadId and fallback multipart Id. Then we use these IDs
+	// to fetch an alternative upload.
+	// uploadId, multipartId := splitIds(id)
+	// if uploadId == "" || multipartId == "" {
+	// 	// If one of them is empty, it cannot be a valid ID.
+	// 	return nil, handler.ErrNotFound
+	// }
+
+	objectId, multipartId, info, parts, incompletePartSize, err := store.fetchInfo(ctx, uploadId)
+	if err != nil {
+		return nil, err
 	}
 
-	return &s3Upload{objectId, multipartId, &store, nil, []*s3Part{}, 0}, nil
+	return &s3Upload{uploadId, objectId, multipartId, &store, info, parts, incompletePartSize}, nil
 }
 
 func (store S3Store) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
@@ -379,7 +386,7 @@ func (store S3Store) AsConcatableUpload(upload handler.Upload) handler.Concatabl
 func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) error {
 	store := upload.store
 
-	upload.info = &info
+	upload.info = info
 
 	infoJson, err := json.Marshal(info)
 	if err != nil {
@@ -390,7 +397,7 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 	t := time.Now()
 	_, err = store.Service.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(store.Bucket),
-		Key:           store.metadataKeyWithPrefix(upload.objectId + ".info"),
+		Key:           store.metadataKeyWithPrefix(upload.uploadId + ".info"),
 		Body:          bytes.NewReader(infoJson),
 		ContentLength: aws.Int64(int64(len(infoJson))),
 	})
@@ -402,15 +409,10 @@ func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) er
 func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	store := upload.store
 
-	// Get the total size of the current upload, number of parts to generate next number and whether
-	// an incomplete part exists
-	_, _, incompletePartSize, err := upload.getInternalInfo(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	if incompletePartSize > 0 {
-		incompletePartFile, err := store.downloadIncompletePartForUpload(ctx, upload.objectId)
+	// Check if we have an incomplete part that we must prepend.
+	var bytesFromIncompletePart int64
+	if upload.incompletePartSize > 0 {
+		incompletePartFile, err := store.downloadIncompletePartForUpload(ctx, upload.uploadId)
 		if err != nil {
 			return 0, err
 		}
@@ -419,20 +421,24 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		}
 		defer cleanUpTempFile(incompletePartFile)
 
-		if err := store.deleteIncompletePartForUpload(ctx, upload.objectId); err != nil {
+		if err := store.deleteIncompletePartForUpload(ctx, upload.uploadId); err != nil {
 			return 0, err
 		}
 
-		// Prepend an incomplete part, if necessary and adapt the offset
+		// Reset `incompletePartSize` as we have just deleted the incomplete part.
+		bytesFromIncompletePart = upload.incompletePartSize
+		upload.incompletePartSize = 0
+
+		// Prepend an incomplete part and adapt the offset
 		src = io.MultiReader(incompletePartFile, src)
-		offset = offset - incompletePartSize
+		offset = offset - bytesFromIncompletePart
 	}
 
 	bytesUploaded, err := upload.uploadParts(ctx, offset, src)
 
 	// The size of the incomplete part should not be counted, because the
 	// process of the incomplete part should be fully transparent to the user.
-	bytesUploaded = bytesUploaded - incompletePartSize
+	bytesUploaded = bytesUploaded - bytesFromIncompletePart
 	if bytesUploaded < 0 {
 		bytesUploaded = 0
 	}
@@ -445,20 +451,14 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	store := upload.store
 
-	// Get the total size of the current upload and number of parts to generate next number
-	info, parts, _, err := upload.getInternalInfo(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	size := info.Size
+	size := upload.info.Size
 	bytesUploaded := int64(0)
 	optimalPartSize, err := store.calcOptimalPartSize(size)
 	if err != nil {
 		return 0, err
 	}
 
-	numParts := len(parts)
+	numParts := len(upload.parts)
 	nextPartNum := int32(numParts + 1)
 
 	partProducer, fileChan := newS3PartProducer(src, store.MaxBufferedParts, store.TemporaryDirectory, store.diskWriteDurationMetric)
@@ -489,7 +489,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 		partsize := fileChunk.size
 		closePart := fileChunk.closeReader
 
-		isFinalChunk := !info.SizeIsDeferred && (size == offset+bytesUploaded+partsize)
+		isFinalChunk := !upload.info.SizeIsDeferred && (size == offset+bytesUploaded+partsize)
 		if partsize >= store.MinPartSize || isFinalChunk {
 			part := &s3Part{
 				etag:   "",
@@ -527,7 +527,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 				defer upload.store.releaseUploadSemaphore()
 				defer wg.Done()
 
-				if err := store.putIncompletePartForUpload(ctx, upload.objectId, file); err != nil {
+				if err := store.putIncompletePartForUpload(ctx, upload.uploadId, file); err != nil {
 					uploadErr = err
 				}
 				if cerr := closePart(); cerr != nil && uploadErr == nil {
@@ -609,82 +609,62 @@ func (upload *s3Upload) putPartForUpload(ctx context.Context, uploadPartInput *s
 }
 
 func (upload *s3Upload) GetInfo(ctx context.Context) (info handler.FileInfo, err error) {
-	info, _, _, err = upload.getInternalInfo(ctx)
-	return info, err
+	return upload.info, nil
 }
 
-func (upload *s3Upload) getInternalInfo(ctx context.Context) (info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
-	if upload.info != nil {
-		return *upload.info, upload.parts, upload.incompletePartSize, nil
+// TODO: Return uploadId?
+func (store S3Store) fetchInfo(ctx context.Context, uploadId string) (objectId string, multipartId string, info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
+	// Start by fetching the file info stored in a separate object.
+	t := time.Now()
+	res, infoErr := store.Service.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(store.Bucket),
+		Key:    store.metadataKeyWithPrefix(uploadId + ".info"),
+	})
+	if infoErr != nil {
+		// If the info file is not found, we consider the upload to be non-existant
+		if isAwsError[*types.NoSuchKey](infoErr) {
+			err = handler.ErrNotFound
+		} else {
+			err = fmt.Errorf("s3store: failed to get info object: %w", infoErr)
+		}
+		return
+	}
+	store.observeRequestDuration(t, metricGetInfoObject)
+
+	if jsonErr := json.NewDecoder(res.Body).Decode(&info); jsonErr != nil {
+		err = fmt.Errorf("s3store: failed to decode info object: %w", jsonErr)
+		return
 	}
 
-	info, parts, incompletePartSize, err = upload.fetchInfo(ctx)
-	if err != nil {
-		return info, parts, incompletePartSize, err
-	}
+	objectId = info.Storage["Key"]                // TODO: Is this always present?
+	multipartId = info.Storage["MultipartUpload"] // TODO: What if this is missing?
 
-	upload.info = &info
-	upload.parts = parts
-	upload.incompletePartSize = incompletePartSize
-	return info, parts, incompletePartSize, nil
-}
-
-func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, parts []*s3Part, incompletePartSize int64, err error) {
-	store := upload.store
-
+	// Here, we just found a info file. Now we can check the multipart upload and
+	// any incomplete part concurrently. We store all errors in here and handle
+	// them all together once the wait group is done.
 	var wg sync.WaitGroup
-	wg.Add(3)
-
-	// We store all errors in here and handle them all together once the wait
-	// group is done.
-	var infoErr error
+	wg.Add(2)
 	var partsErr error
 	var incompletePartSizeErr error
 
 	go func() {
 		defer wg.Done()
-		t := time.Now()
-
-		// Get file info stored in separate object
-		var res *s3.GetObjectOutput
-		res, infoErr = store.Service.GetObject(ctx, &s3.GetObjectInput{
-			Bucket: aws.String(store.Bucket),
-			Key:    store.metadataKeyWithPrefix(upload.objectId + ".info"),
-		})
-		store.observeRequestDuration(t, metricGetInfoObject)
-		if infoErr == nil {
-			infoErr = json.NewDecoder(res.Body).Decode(&info)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
 
 		// Get uploaded parts and their offset
-		parts, partsErr = store.listAllParts(ctx, upload.objectId, upload.multipartId)
+		parts, partsErr = store.listAllParts(ctx, objectId, multipartId)
 	}()
 
 	go func() {
 		defer wg.Done()
 
 		// Get size of optional incomplete part file.
-		incompletePartSize, incompletePartSizeErr = store.headIncompletePartForUpload(ctx, upload.objectId)
+		incompletePartSize, incompletePartSizeErr = store.headIncompletePartForUpload(ctx, uploadId)
 	}()
 
 	wg.Wait()
 
 	// Finally, after all requests are complete, let's handle the errors
-	if infoErr != nil {
-		err = infoErr
-		// If the info file is not found, we consider the upload to be non-existant
-		if isAwsError[*types.NoSuchKey](err) {
-			err = handler.ErrNotFound
-		}
-		return
-	}
-
 	if partsErr != nil {
-		err = partsErr
 		// Check if the error is caused by the multipart upload not being found. This happens
 		// when the multipart upload has already been completed or aborted. Since
 		// we already found the info object, we know that the upload has been
@@ -697,15 +677,17 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 		// See https://github.com/aws/aws-sdk-go-v2/issues/1635
 		// In addition, S3-compatible storages, like DigitalOcean Spaces, might cause
 		// types.NoSuchKey to not be returned as well.
-		if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") || isAwsError[*types.NoSuchKey](err) || isAwsErrorCode(err, "NoSuchKey") {
+		if isAwsError[*types.NoSuchUpload](partsErr) || isAwsErrorCode(partsErr, "NoSuchUpload") || isAwsError[*types.NoSuchKey](partsErr) || isAwsErrorCode(partsErr, "NoSuchKey") {
 			info.Offset = info.Size
 			err = nil
+		} else {
+			err = fmt.Errorf("s3store: failed to list parts: %w", partsErr)
 		}
 		return
 	}
 
 	if incompletePartSizeErr != nil {
-		err = incompletePartSizeErr
+		err = fmt.Errorf("s3store: failed to head incomplete part: %w", incompletePartSizeErr)
 		return
 	}
 
@@ -717,10 +699,11 @@ func (upload s3Upload) fetchInfo(ctx context.Context) (info handler.FileInfo, pa
 
 	info.Offset = offset
 
-	return info, parts, incompletePartSize, nil
+	return
 }
 
 func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
+	// TODO: We can access the file info in here to see if the upload is still incomplete.
 	store := upload.store
 
 	// Attempt to get upload content
@@ -797,10 +780,10 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 						Key: store.keyWithPrefix(upload.objectId),
 					},
 					{
-						Key: store.metadataKeyWithPrefix(upload.objectId + ".part"),
+						Key: store.metadataKeyWithPrefix(upload.uploadId + ".part"),
 					},
 					{
-						Key: store.metadataKeyWithPrefix(upload.objectId + ".info"),
+						Key: store.metadataKeyWithPrefix(upload.uploadId + ".info"),
 					},
 				},
 				Quiet: aws.Bool(true),
@@ -831,13 +814,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	store := upload.store
 
-	// Get uploaded parts
-	_, parts, _, err := upload.getInternalInfo(ctx)
-	if err != nil {
-		return err
-	}
-
-	if len(parts) == 0 {
+	if len(upload.parts) == 0 {
 		// AWS expects at least one part to be present when completing the multipart
 		// upload. So if the tus upload has a size of 0, we create an empty part
 		// and use that for completing the multipart upload.
@@ -852,7 +829,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 			return err
 		}
 
-		parts = []*s3Part{
+		upload.parts = []*s3Part{
 			{
 				etag:   *res.ETag,
 				number: 1,
@@ -864,9 +841,9 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 
 	// Transform the []*s3.Part slice to a []*s3.CompletedPart slice for the next
 	// request.
-	completedParts := make([]types.CompletedPart, len(parts))
+	completedParts := make([]types.CompletedPart, len(upload.parts))
 
-	for index, part := range parts {
+	for index, part := range upload.parts {
 		completedParts[index] = types.CompletedPart{
 			ETag:       aws.String(part.etag),
 			PartNumber: aws.Int32(part.number),
@@ -874,7 +851,7 @@ func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	}
 
 	t := time.Now()
-	_, err = store.Service.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+	_, err := store.Service.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(upload.objectId),
 		UploadId: aws.String(upload.multipartId),
@@ -1148,6 +1125,7 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 	return err
 }
 
+// TODO: Remove this?
 func splitIds(id string) (objectId, multipartId string) {
 	// We use LastIndex to allow plus signs in the object ID and assume that S3 will never
 	// returns multipart ID that incldues a plus sign.
