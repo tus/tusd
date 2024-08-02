@@ -339,9 +339,10 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	info.ID = objectId + "+" + multipartId
 
 	info.Storage = map[string]string{
-		"Type":   "s3store",
-		"Bucket": store.Bucket,
-		"Key":    *store.keyWithPrefix(objectId),
+		"Type":            "s3store",
+		"Bucket":          store.Bucket,
+		"Key":             *store.keyWithPrefix(objectId),
+		"MultipartUpload": multipartId,
 	}
 
 	upload := &s3Upload{objectId, multipartId, &store, nil, []*s3Part{}, 0}

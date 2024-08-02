@@ -54,8 +54,8 @@ func TestNewUpload(t *testing.T) {
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(241),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(273),
 		}),
 	)
 
@@ -99,8 +99,8 @@ func TestNewUploadWithObjectPrefix(t *testing.T) {
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("my/uploaded/files/uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(253),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(285),
 		}),
 	)
 
@@ -145,8 +145,8 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("my/metadata/uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(253),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(285),
 		}),
 	)
 
@@ -186,8 +186,8 @@ func TestEmptyUpload(t *testing.T) {
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(208),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(240),
 		}),
 		s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
 			Bucket:     aws.String("bucket"),
@@ -290,7 +290,7 @@ func TestGetInfo(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -361,7 +361,7 @@ func TestGetInfoWithMetadataObjectPrefix(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("my/metadata/uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -510,8 +510,8 @@ func TestGetInfoWithPlusSign(t *testing.T) {
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId+something.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(228),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(260),
 		}),
 	)
 
@@ -519,7 +519,7 @@ func TestGetInfoWithPlusSign(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId+something.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+something+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId+something","MultipartUpload":"something","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -662,7 +662,7 @@ func TestDeclareLength(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":true,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
 		Bucket:           aws.String("bucket"),
@@ -679,8 +679,8 @@ func TestDeclareLength(t *testing.T) {
 	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:        aws.String("bucket"),
 		Key:           aws.String("uploadId.info"),
-		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-		ContentLength: aws.Int64(208),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(240),
 	})
 
 	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
@@ -1219,8 +1219,8 @@ func TestConcatUploadsUsingMultipart(t *testing.T) {
 	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:        aws.String("bucket"),
 		Key:           aws.String("uploadId.info"),
-		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":true,"PartialUploads":["aaa+AAA","bbb+BBB","ccc+CCC"],"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-		ContentLength: aws.Int64(234),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":0,"SizeIsDeferred":false,"Offset":0,"MetaData":null,"IsPartial":false,"IsFinal":true,"PartialUploads":["aaa+AAA","bbb+BBB","ccc+CCC"],"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(266),
 	})
 
 	// Calls from ConcatUploads
