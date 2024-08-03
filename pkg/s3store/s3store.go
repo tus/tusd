@@ -723,48 +723,25 @@ func (store S3Store) fetchInfo(ctx context.Context, uploadId string, fallbackMul
 }
 
 func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
-	// TODO: We can access the file info in here to see if the upload is still incomplete.
-	store := upload.store
+	// If the uplload is not yet complete, we cannot download the file. There is no way to retrieve
+	// the content of an incomplete multipart upload.
+	isComplete := !upload.info.SizeIsDeferred && upload.info.Offset == upload.info.Size
+	if !isComplete {
+		return nil, handler.NewError("ERR_INCOMPLETE_UPLOAD", "cannot stream non-finished upload", http.StatusBadRequest)
+	}
 
-	// Attempt to get upload content
+	store := upload.store
 	res, err := store.Service.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(store.Bucket),
 		Key:    store.keyWithPrefix(upload.objectId),
 	})
-	if err == nil {
-		// No error occurred, and we are able to stream the object
-		return res.Body, nil
+	if err != nil {
+		// Note: We do not check for NoSuchKey here on purpose. If the object cannot be found
+		// but we expect it to be there, then we should error out with a 500, not a 404.
+		return nil, fmt.Errorf("s3store: failed to fetch object: %w", err)
 	}
 
-	// If the file cannot be found, we ignore this error and continue since the
-	// upload may not have been finished yet. In this case we do not want to
-	// return a ErrNotFound but a more meaning-full message.
-	if !isAwsError[*types.NoSuchKey](err) {
-		return nil, err
-	}
-
-	// Test whether the multipart upload exists to find out if the upload
-	// never existsted or just has not been finished yet
-	_, err = store.Service.ListParts(ctx, &s3.ListPartsInput{
-		Bucket:   aws.String(store.Bucket),
-		Key:      store.keyWithPrefix(upload.objectId),
-		UploadId: aws.String(upload.multipartId),
-		MaxParts: aws.Int32(0),
-	})
-	if err == nil {
-		// The multipart upload still exists, which means we cannot download it yet
-		return nil, handler.NewError("ERR_INCOMPLETE_UPLOAD", "cannot stream non-finished upload", http.StatusBadRequest)
-	}
-
-	// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,
-	// so we also need to check the error code itself.
-	// See https://github.com/aws/aws-sdk-go-v2/issues/1635
-	if isAwsError[*types.NoSuchUpload](err) || isAwsErrorCode(err, "NoSuchUpload") {
-		// Neither the object nor the multipart upload exists, so we return a 404
-		return nil, handler.ErrNotFound
-	}
-
-	return nil, err
+	return res.Body, nil
 }
 
 func (upload s3Upload) Terminate(ctx context.Context) error {
