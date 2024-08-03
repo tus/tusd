@@ -1184,9 +1184,6 @@ func TestWriteChunkAllowTooSmallLast(t *testing.T) {
 }
 
 func TestTerminate(t *testing.T) {
-	// TODO: Update test because Terminate now fetches info as well
-	t.SkipNow()
-
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -1194,7 +1191,37 @@ func TestTerminate(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	// Order is not important in this situation.
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("uploadId"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(100),
+				ETag:       aws.String("etag-1"),
+			},
+			{
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(200),
+				ETag:       aws.String("etag-2"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
 	s3obj.EXPECT().AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String("bucket"),
 		Key:      aws.String("uploadId"),
@@ -1219,7 +1246,7 @@ func TestTerminate(t *testing.T) {
 		},
 	}).Return(&s3.DeleteObjectsOutput{}, nil)
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId")
 	assert.Nil(err)
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
@@ -1227,9 +1254,6 @@ func TestTerminate(t *testing.T) {
 }
 
 func TestTerminateWithErrors(t *testing.T) {
-	// TODO: Update test because Terminate now fetches info as well
-	t.SkipNow()
-
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -1237,8 +1261,38 @@ func TestTerminateWithErrors(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	// Order is not important in this situation.
-	// NoSuchUpload errors should be ignored
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("uploadId"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(100),
+				ETag:       aws.String("etag-1"),
+			},
+			{
+				PartNumber: aws.Int32(2),
+				Size:       aws.Int64(200),
+				ETag:       aws.String("etag-2"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
+	// These NoSuchUpload and NoSuchKey errors should be ignored
 	s3obj.EXPECT().AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String("bucket"),
 		Key:      aws.String("uploadId"),
@@ -1268,10 +1322,14 @@ func TestTerminateWithErrors(t *testing.T) {
 				Key:     aws.String("uploadId"),
 				Message: aws.String("it's me."),
 			},
+			{
+				Code: aws.String("NoSuchKey"),
+				Key:  aws.String("uploadId.part"),
+			},
 		},
 	}, nil)
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	upload, err := store.GetUpload(context.Background(), "uploadId")
 	assert.Nil(err)
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())

@@ -749,7 +749,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	errs := make([]error, 0, 3)
+	errs := make([]error, 0, 4)
 
 	go func() {
 		defer wg.Done()
