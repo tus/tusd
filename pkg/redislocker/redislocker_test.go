@@ -2,12 +2,15 @@ package redislocker
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
 )
+
+func init() {
+	LockExpiry = 1 * time.Second
+}
 
 func TestLockUnlock(t *testing.T) {
 	s := miniredis.RunT(t)
@@ -157,10 +160,4 @@ func TestHeldLockNoExchange(t *testing.T) {
 	} else {
 		t.Log(err)
 	}
-}
-
-func TestMain(m *testing.M) {
-	RetryInterval = 10 * time.Millisecond
-	LockExpiry = 1 * time.Second
-	os.Exit(m.Run())
 }
