@@ -73,97 +73,6 @@ func TestNewUpload(t *testing.T) {
 	assert.NotNil(upload)
 }
 
-func TestNewUploadWithObjectPrefix(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	s3obj := NewMockS3API(mockCtrl)
-	store := New("bucket", s3obj)
-	store.ObjectPrefix = "my/uploaded/files"
-
-	assert.Equal("bucket", store.Bucket)
-	assert.Equal(s3obj, store.Service)
-
-	gomock.InOrder(
-		s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
-			Bucket: aws.String("bucket"),
-			Key:    aws.String("my/uploaded/files/uploadId"),
-			Metadata: map[string]string{
-				"foo": "hello",
-				"bar": "men?",
-			},
-		}).Return(&s3.CreateMultipartUploadOutput{
-			UploadId: aws.String("multipartId"),
-		}, nil),
-		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
-			Bucket:        aws.String("bucket"),
-			Key:           aws.String("my/uploaded/files/uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(273),
-		}),
-	)
-
-	info := handler.FileInfo{
-		ID:   "uploadId",
-		Size: 500,
-		MetaData: map[string]string{
-			"foo": "hello",
-			"bar": "menü",
-		},
-	}
-
-	upload, err := store.NewUpload(context.Background(), info)
-	assert.Nil(err)
-	assert.NotNil(upload)
-}
-
-func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	s3obj := NewMockS3API(mockCtrl)
-	store := New("bucket", s3obj)
-	store.ObjectPrefix = "my/uploaded/files"
-	store.MetadataObjectPrefix = "my/metadata"
-
-	assert.Equal("bucket", store.Bucket)
-	assert.Equal(s3obj, store.Service)
-
-	gomock.InOrder(
-		s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
-			Bucket: aws.String("bucket"),
-			Key:    aws.String("my/uploaded/files/uploadId"),
-			Metadata: map[string]string{
-				"foo": "hello",
-				"bar": "men?",
-			},
-		}).Return(&s3.CreateMultipartUploadOutput{
-			UploadId: aws.String("multipartId"),
-		}, nil),
-		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
-			Bucket:        aws.String("bucket"),
-			Key:           aws.String("my/metadata/uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(273),
-		}),
-	)
-
-	info := handler.FileInfo{
-		ID:   "uploadId",
-		Size: 500,
-		MetaData: map[string]string{
-			"foo": "hello",
-			"bar": "menü",
-		},
-	}
-
-	upload, err := store.NewUpload(context.Background(), info)
-	assert.Nil(err)
-	assert.NotNil(upload)
-}
-
 // This test ensures that an newly created upload without any chunks can be
 // directly finished. There are no calls to ListPart or HeadObject because
 // the upload is not fetched from S3 first.
@@ -318,78 +227,6 @@ func TestGetInfo(t *testing.T) {
 	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId.part"),
-	}).Return(nil, &types.NoSuchKey{})
-
-	upload, err := store.GetUpload(context.Background(), "uploadId")
-	assert.Nil(err)
-
-	info, err := upload.GetInfo(context.Background())
-	assert.Nil(err)
-	assert.Equal(int64(500), info.Size)
-	assert.Equal(int64(400), info.Offset)
-	assert.Equal("uploadId", info.ID)
-	assert.Equal("hello", info.MetaData["foo"])
-	assert.Equal("menü", info.MetaData["bar"])
-	assert.Equal("s3store", info.Storage["Type"])
-	assert.Equal("bucket", info.Storage["Bucket"])
-	assert.Equal("my/uploaded/files/uploadId", info.Storage["Key"])
-	assert.Equal("multipartId", info.Storage["MultipartUpload"])
-}
-
-func TestGetInfoWithMetadataObjectPrefix(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	s3obj := NewMockS3API(mockCtrl)
-	store := New("bucket", s3obj)
-	store.MetadataObjectPrefix = "my/metadata"
-
-	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: aws.String("bucket"),
-		Key:    aws.String("my/metadata/uploadId.info"),
-	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"Offset":0,"MetaData":{"bar":"menü","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
-	}, nil)
-	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
-		Bucket:           aws.String("bucket"),
-		Key:              aws.String("my/uploaded/files/uploadId"),
-		UploadId:         aws.String("multipartId"),
-		PartNumberMarker: nil,
-	}).Return(&s3.ListPartsOutput{
-		Parts: []types.Part{
-			{
-				PartNumber: aws.Int32(1),
-				Size:       aws.Int64(100),
-				ETag:       aws.String("etag-1"),
-			},
-			{
-				PartNumber: aws.Int32(2),
-				Size:       aws.Int64(200),
-				ETag:       aws.String("etag-2"),
-			},
-		},
-		NextPartNumberMarker: aws.String("2"),
-		// Simulate a truncated response, so s3store should send a second request
-		IsTruncated: aws.Bool(true),
-	}, nil)
-	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
-		Bucket:           aws.String("bucket"),
-		Key:              aws.String("my/uploaded/files/uploadId"),
-		UploadId:         aws.String("multipartId"),
-		PartNumberMarker: aws.String("2"),
-	}).Return(&s3.ListPartsOutput{
-		Parts: []types.Part{
-			{
-				PartNumber: aws.Int32(3),
-				Size:       aws.Int64(100),
-				ETag:       aws.String("etag-3"),
-			},
-		},
-	}, nil)
-	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
-		Bucket: aws.String("bucket"),
-		Key:    aws.String("my/metadata/uploadId.part"),
 	}).Return(nil, &types.NoSuchKey{})
 
 	upload, err := store.GetUpload(context.Background(), "uploadId")
@@ -1578,4 +1415,283 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	files, err := os.ReadDir(tempDir)
 	assert.Nil(err)
 	assert.Equal(len(files), 0)
+}
+
+// TestObjectPrefix asserts an entire upload flow when ObjectPrefix is set,
+// including creating, resuming and finishing an upload.
+func TestObjectPrefix(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.ObjectPrefix = "my/uploaded/files"
+	store.MinPartSize = 1
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	// For NewUpload
+	s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/uploadId"),
+		Metadata: map[string]string{},
+	}).Return(&s3.CreateMultipartUploadOutput{
+		UploadId: aws.String("multipartId"),
+	}, nil)
+	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket:        aws.String("bucket"),
+		Key:           aws.String("my/uploaded/files/uploadId.info"),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(245),
+	})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(1),
+		Body:       bytes.NewReader([]byte("hello ")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-1"),
+	}, nil)
+
+	// For GetUpload
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/uploaded/files/uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("my/uploaded/files/uploadId"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(6),
+				ETag:       aws.String("etag-1"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/uploaded/files/uploadId.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(2),
+		Body:       bytes.NewReader([]byte("world")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-2"),
+	}, nil)
+
+	// For FinishUpload
+	s3obj.EXPECT().CompleteMultipartUpload(context.Background(), &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/uploadId"),
+		UploadId: aws.String("multipartId"),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: []types.CompletedPart{
+				{
+					ETag:       aws.String("etag-1"),
+					PartNumber: aws.Int32(1),
+				},
+				{
+					ETag:       aws.String("etag-2"),
+					PartNumber: aws.Int32(2),
+				},
+			},
+		},
+	}).Return(nil, nil)
+
+	info1 := handler.FileInfo{
+		ID:       "uploadId",
+		Size:     11,
+		MetaData: map[string]string{},
+	}
+
+	// 1. Create upload
+	upload1, err := store.NewUpload(context.Background(), info1)
+	assert.Nil(err)
+	assert.NotNil(upload1)
+
+	// 2. Write first chunk
+	bytesRead, err := upload1.WriteChunk(context.Background(), 0, bytes.NewReader([]byte("hello ")))
+	assert.Nil(err)
+	assert.Equal(int64(6), bytesRead)
+
+	// 3. Fetch upload again
+	upload2, err := store.GetUpload(context.Background(), "uploadId")
+	assert.Nil(err)
+	assert.NotNil(upload2)
+
+	// 4. Retrieve upload state
+	info2, err := upload2.GetInfo(context.Background())
+	assert.Nil(err)
+	assert.Equal(int64(11), info2.Size)
+	assert.Equal(int64(6), info2.Offset)
+	assert.Equal("uploadId", info2.ID)
+	assert.Equal("my/uploaded/files/uploadId", info2.Storage["Key"])
+	assert.Equal("multipartId", info2.Storage["MultipartUpload"])
+
+	// 5. Write second chunk
+	bytesRead, err = upload2.WriteChunk(context.Background(), 6, bytes.NewReader([]byte("world")))
+	assert.Nil(err)
+	assert.Equal(int64(5), bytesRead)
+
+	// 6. Complete upload
+	err = upload2.FinishUpload(context.Background())
+	assert.Nil(err)
+
+}
+
+// TestMetadataObjectPrefix asserts an entire upload flow when ObjectPrefix
+// and MetadataObjectPrefix are set, including creating, resuming and finishing an upload.
+func TestMetadataObjectPrefix(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.ObjectPrefix = "my/uploaded/files"
+	store.MetadataObjectPrefix = "my/metadata"
+	store.MinPartSize = 1
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	// For NewUpload
+	s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/uploadId"),
+		Metadata: map[string]string{},
+	}).Return(&s3.CreateMultipartUploadOutput{
+		UploadId: aws.String("multipartId"),
+	}, nil)
+	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket:        aws.String("bucket"),
+		Key:           aws.String("my/metadata/uploadId.info"),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(245),
+	})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(1),
+		Body:       bytes.NewReader([]byte("hello ")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-1"),
+	}, nil)
+
+	// For GetUpload
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/metadata/uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("my/uploaded/files/uploadId"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(6),
+				ETag:       aws.String("etag-1"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/metadata/uploadId.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/uploadId"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(2),
+		Body:       bytes.NewReader([]byte("world")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-2"),
+	}, nil)
+
+	// For FinishUpload
+	s3obj.EXPECT().CompleteMultipartUpload(context.Background(), &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/uploadId"),
+		UploadId: aws.String("multipartId"),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: []types.CompletedPart{
+				{
+					ETag:       aws.String("etag-1"),
+					PartNumber: aws.Int32(1),
+				},
+				{
+					ETag:       aws.String("etag-2"),
+					PartNumber: aws.Int32(2),
+				},
+			},
+		},
+	}).Return(nil, nil)
+
+	info1 := handler.FileInfo{
+		ID:       "uploadId",
+		Size:     11,
+		MetaData: map[string]string{},
+	}
+
+	// 1. Create upload
+	upload1, err := store.NewUpload(context.Background(), info1)
+	assert.Nil(err)
+	assert.NotNil(upload1)
+
+	// 2. Write first chunk
+	bytesRead, err := upload1.WriteChunk(context.Background(), 0, bytes.NewReader([]byte("hello ")))
+	assert.Nil(err)
+	assert.Equal(int64(6), bytesRead)
+
+	// 3. Fetch upload again
+	upload2, err := store.GetUpload(context.Background(), "uploadId")
+	assert.Nil(err)
+	assert.NotNil(upload2)
+
+	// 4. Retrieve upload state
+	info2, err := upload2.GetInfo(context.Background())
+	assert.Nil(err)
+	assert.Equal(int64(11), info2.Size)
+	assert.Equal(int64(6), info2.Offset)
+	assert.Equal("uploadId", info2.ID)
+	assert.Equal("my/uploaded/files/uploadId", info2.Storage["Key"])
+	assert.Equal("multipartId", info2.Storage["MultipartUpload"])
+
+	// 5. Write second chunk
+	bytesRead, err = upload2.WriteChunk(context.Background(), 6, bytes.NewReader([]byte("world")))
+	assert.Nil(err)
+	assert.Equal(int64(5), bytesRead)
+
+	// 6. Complete upload
+	err = upload2.FinishUpload(context.Background())
+	assert.Nil(err)
+
 }
