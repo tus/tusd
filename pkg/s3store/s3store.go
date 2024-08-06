@@ -316,8 +316,17 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		info.ID = uid.Uid()
 	}
 	uploadId := info.ID
-	// TODO: Allow customization using info.Storage["Key"]
-	objectKey := store.keyWithPrefix(info.ID)
+
+	// objectKey is the key under which the final object is stored. By default,
+	// it matches the upload ID but might also be customized by the pre-create hook.
+	// It must also include the optional object prefix.
+	var objectKey string
+	if info.Storage != nil && info.Storage["Key"] != "" {
+		objectKey = info.Storage["Key"]
+	} else {
+		objectKey = info.ID
+	}
+	objectKey = store.keyWithPrefix(objectKey)
 
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
 	metadata := make(map[string]string, len(info.MetaData))

@@ -1553,7 +1553,6 @@ func TestObjectPrefix(t *testing.T) {
 	// 6. Complete upload
 	err = upload2.FinishUpload(context.Background())
 	assert.Nil(err)
-
 }
 
 // TestMetadataObjectPrefix asserts an entire upload flow when ObjectPrefix
@@ -1693,5 +1692,145 @@ func TestMetadataObjectPrefix(t *testing.T) {
 	// 6. Complete upload
 	err = upload2.FinishUpload(context.Background())
 	assert.Nil(err)
+}
 
+// TestCustomKey asserts an entire upload flow when ObjectPrefix
+// and MetadataObjectPrefix are set, including creating, resuming and finishing an upload.
+func TestCustomKey(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+	store.ObjectPrefix = "my/uploaded/files"
+	store.MinPartSize = 1
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	// For NewUpload
+	s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/custom/key"),
+		Metadata: map[string]string{},
+	}).Return(&s3.CreateMultipartUploadOutput{
+		UploadId: aws.String("multipartId"),
+	}, nil)
+	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket:        aws.String("bucket"),
+		Key:           aws.String("my/uploaded/files/uploadId.info"),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(247),
+	})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/custom/key"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(1),
+		Body:       bytes.NewReader([]byte("hello ")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-1"),
+	}, nil)
+
+	// For GetUpload
+	s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/uploaded/files/uploadId.info"),
+	}).Return(&s3.GetObjectOutput{
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+	}, nil)
+	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
+		Bucket:           aws.String("bucket"),
+		Key:              aws.String("my/uploaded/files/custom/key"),
+		UploadId:         aws.String("multipartId"),
+		PartNumberMarker: nil,
+	}).Return(&s3.ListPartsOutput{
+		Parts: []types.Part{
+			{
+				PartNumber: aws.Int32(1),
+				Size:       aws.Int64(6),
+				ETag:       aws.String("etag-1"),
+			},
+		},
+		IsTruncated: aws.Bool(false),
+	}, nil)
+	s3obj.EXPECT().HeadObject(context.Background(), &s3.HeadObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("my/uploaded/files/uploadId.part"),
+	}).Return(nil, &types.NoSuchKey{})
+
+	// For WriteChunk
+	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
+		Bucket:     aws.String("bucket"),
+		Key:        aws.String("my/uploaded/files/custom/key"),
+		UploadId:   aws.String("multipartId"),
+		PartNumber: aws.Int32(2),
+		Body:       bytes.NewReader([]byte("world")),
+	})).Return(&s3.UploadPartOutput{
+		ETag: aws.String("etag-2"),
+	}, nil)
+
+	// For FinishUpload
+	s3obj.EXPECT().CompleteMultipartUpload(context.Background(), &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String("bucket"),
+		Key:      aws.String("my/uploaded/files/custom/key"),
+		UploadId: aws.String("multipartId"),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: []types.CompletedPart{
+				{
+					ETag:       aws.String("etag-1"),
+					PartNumber: aws.Int32(1),
+				},
+				{
+					ETag:       aws.String("etag-2"),
+					PartNumber: aws.Int32(2),
+				},
+			},
+		},
+	}).Return(nil, nil)
+
+	info1 := handler.FileInfo{
+		ID:       "uploadId",
+		Size:     11,
+		MetaData: map[string]string{},
+		Storage: map[string]string{
+			"Key": "custom/key",
+		},
+	}
+
+	// 1. Create upload
+	upload1, err := store.NewUpload(context.Background(), info1)
+	assert.Nil(err)
+	assert.NotNil(upload1)
+
+	// 2. Write first chunk
+	bytesRead, err := upload1.WriteChunk(context.Background(), 0, bytes.NewReader([]byte("hello ")))
+	assert.Nil(err)
+	assert.Equal(int64(6), bytesRead)
+
+	// 3. Fetch upload again
+	upload2, err := store.GetUpload(context.Background(), "uploadId")
+	assert.Nil(err)
+	assert.NotNil(upload2)
+
+	// 4. Retrieve upload state
+	info2, err := upload2.GetInfo(context.Background())
+	assert.Nil(err)
+	assert.Equal(int64(11), info2.Size)
+	assert.Equal(int64(6), info2.Offset)
+	assert.Equal("uploadId", info2.ID)
+	assert.Equal("my/uploaded/files/custom/key", info2.Storage["Key"])
+	assert.Equal("multipartId", info2.Storage["MultipartUpload"])
+
+	// 5. Write second chunk
+	bytesRead, err = upload2.WriteChunk(context.Background(), 6, bytes.NewReader([]byte("world")))
+	assert.Nil(err)
+	assert.Equal(int64(5), bytesRead)
+
+	// 6. Complete upload
+	err = upload2.FinishUpload(context.Background())
+	assert.Nil(err)
 }
