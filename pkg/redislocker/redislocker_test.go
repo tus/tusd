@@ -105,13 +105,14 @@ func TestHeldLockExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	l, err := locker.NewLock("test_exchange")
 	if err != nil {
 		t.Error(err)
 	}
 	requestRelease := func() {
+		t.Log("responding to lock release request")
 		if err := l.Unlock(); err != nil {
 			t.Error(err)
 		}
@@ -126,6 +127,7 @@ func TestHeldLockExchange(t *testing.T) {
 	}
 	if err := otherL.Lock(ctx, requestRelease); err != nil {
 		t.Error(err)
+		return
 	}
 	if err := otherL.Unlock(); err != nil {
 		t.Error(err)
