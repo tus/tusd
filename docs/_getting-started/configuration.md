@@ -22,7 +22,7 @@ By default, tusd listens on port 8080 and all available interfaces. This can be 
 $ tusd -host 127.0.0.1 -port 1337
 ```
 
-Once running, tusd accepts HTTP/1.1 requests on the configured port. If [HTTPS/TLS](#httpstls) is configured, tusd will also accept HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). HTTP/3 and QUIC is currently not supported without the use of an external proxy.
+Once running, tusd accepts HTTP/1.1 requests on the configured port. If [HTTPS/TLS](#httpstls) is configured, tusd will also accept HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). HTTP/3 and QUIC is currently not supported by tusd directly and requires the use of a reverse proxy.
 
 ### UNIX socket
 
