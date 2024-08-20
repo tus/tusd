@@ -15,6 +15,9 @@ import (
 	tushandler "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"github.com/tus/tusd/v2/pkg/hooks/plugin"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 const (
@@ -160,6 +163,11 @@ func Serve() {
 
 	if protocol == "http" {
 		// Non-TLS mode
+
+		// Wrap in h2c for optional HTTP/2 support in clear text mode
+		h2s := &http2.Server{}
+		newHandler := h2c.NewHandler(mux, h2s)
+		server.Handler = newHandler
 		err = server.Serve(listener)
 	} else {
 		// TLS mode
