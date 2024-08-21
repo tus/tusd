@@ -15,6 +15,7 @@ var Flags struct {
 	HttpHost                         string
 	HttpPort                         string
 	HttpSock                         string
+	EnableH2C                        bool
 	MaxSize                          int64
 	UploadDir                        string
 	Basepath                         string
@@ -87,6 +88,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
 		f.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 		f.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
+		f.BoolVar(&Flags.EnableH2C, "enable-h2c", false, "Allow for HTTP/2 cleartext (h2c) connections (non-encrypted) via http scheme")
 	})
 
 	fs.AddGroup("TLS options", func(f *flag.FlagSet) {

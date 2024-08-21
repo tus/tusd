@@ -24,7 +24,7 @@ $ tusd -host 127.0.0.1 -port 1337
 
 Once running, tusd accepts HTTP/1.1 requests on the configured port. 
 
-If [HTTPS/TLS](#httpstls) is configured, tusd will also accept an encrypted HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). If a cleartext HTTP/2 connection is desired instead (e.g. if hosting within GCP Cloud Run, which receives TLS HTTP/2 and proxies as cleartext http to its running containers), tusd provides this without additional configuration needed, thanks to [Go's http2 h2c support](https://pkg.go.dev/golang.org/x/net/http2/h2c#section-documentation). (Just make sure to use the `-behind-proxy` flag if applicable). 
+If [HTTPS/TLS](#httpstls) is configured, tusd will also accept an encrypted HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). If a cleartext HTTP/2 connection is desired instead (e.g. if hosting within GCP Cloud Run, which receives TLS HTTP/2 and proxies as cleartext http to its running containers), tusd can be configured with the `-enable-h2c` flag, thanks to [Go's http2 h2c support](https://pkg.go.dev/golang.org/x/net/http2/h2c#section-documentation). (Just make sure to use the `-behind-proxy` flag if applicable). 
 
 ### UNIX socket
 

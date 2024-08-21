@@ -163,11 +163,12 @@ func Serve() {
 
 	if protocol == "http" {
 		// Non-TLS mode
-
-		// Wrap in h2c for optional HTTP/2 support in clear text mode
-		h2s := &http2.Server{}
-		newHandler := h2c.NewHandler(mux, h2s)
-		server.Handler = newHandler
+		if Flags.EnableH2C {
+			// Wrap in h2c for optional HTTP/2 support in clear text mode
+			h2s := &http2.Server{}
+			newHandler := h2c.NewHandler(mux, h2s)
+			server.Handler = newHandler
+		}
 		err = server.Serve(listener)
 	} else {
 		// TLS mode
