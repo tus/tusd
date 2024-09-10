@@ -28,6 +28,7 @@ require (
 	github.com/tus/lockfile v1.2.0
 	github.com/vimeo/go-util v1.4.1
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
+	golang.org/x/net v0.26.0
 	google.golang.org/api v0.195.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
