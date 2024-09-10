@@ -2,7 +2,7 @@ module github.com/tus/tusd/v2
 
 // Specify the Go version needed for the Heroku deployment
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
-// +heroku goVersion go1.20
+// +heroku goVersion go1.22
 go 1.21.0
 
 toolchain go1.22.7
