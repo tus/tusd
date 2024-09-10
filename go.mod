@@ -3,7 +3,9 @@ module github.com/tus/tusd/v2
 // Specify the Go version needed for the Heroku deployment
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
 // +heroku goVersion go1.20
-go 1.20
+go 1.21.0
+
+toolchain go1.22.7
 
 require (
 	cloud.google.com/go/storage v1.43.0
@@ -28,7 +30,7 @@ require (
 	github.com/tus/lockfile v1.2.0
 	github.com/vimeo/go-util v1.4.1
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
-	golang.org/x/net v0.26.0
+	golang.org/x/net v0.28.0
 	google.golang.org/api v0.195.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
@@ -93,7 +95,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
