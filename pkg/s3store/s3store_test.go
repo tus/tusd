@@ -986,13 +986,15 @@ func TestTerminate(t *testing.T) {
 		UploadId: aws.String("multipartId"),
 	}).Return(nil, nil)
 
+	s3obj.EXPECT().DeleteObject(context.Background(), &s3.DeleteObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+	}).Return(&s3.DeleteObjectOutput{}, nil)
+
 	s3obj.EXPECT().DeleteObjects(context.Background(), &s3.DeleteObjectsInput{
 		Bucket: aws.String("bucket"),
 		Delete: &types.Delete{
 			Objects: []types.ObjectIdentifier{
-				{
-					Key: aws.String("uploadId"),
-				},
 				{
 					Key: aws.String("uploadId.part"),
 				},
@@ -1057,13 +1059,15 @@ func TestTerminateWithErrors(t *testing.T) {
 		UploadId: aws.String("multipartId"),
 	}).Return(nil, &types.NoSuchUpload{})
 
+	s3obj.EXPECT().DeleteObject(context.Background(), &s3.DeleteObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+	}).Return(nil, &types.NoSuchKey{})
+
 	s3obj.EXPECT().DeleteObjects(context.Background(), &s3.DeleteObjectsInput{
 		Bucket: aws.String("bucket"),
 		Delete: &types.Delete{
 			Objects: []types.ObjectIdentifier{
-				{
-					Key: aws.String("uploadId"),
-				},
 				{
 					Key: aws.String("uploadId.part"),
 				},
@@ -1694,9 +1698,9 @@ func TestMetadataObjectPrefix(t *testing.T) {
 	assert.Nil(err)
 }
 
-// TestCustomKey asserts an entire upload flow when ObjectPrefix
+// TestCustomKeyAndBucket asserts an entire upload flow when ObjectPrefix
 // and MetadataObjectPrefix are set, including creating, resuming and finishing an upload.
-func TestCustomKey(t *testing.T) {
+func TestCustomKeyAndBucket(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -1711,7 +1715,7 @@ func TestCustomKey(t *testing.T) {
 
 	// For NewUpload
 	s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
-		Bucket:   aws.String("bucket"),
+		Bucket:   aws.String("custom-bucket"),
 		Key:      aws.String("my/uploaded/files/custom/key"),
 		Metadata: map[string]string{},
 	}).Return(&s3.CreateMultipartUploadOutput{
@@ -1720,13 +1724,13 @@ func TestCustomKey(t *testing.T) {
 	s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:        aws.String("bucket"),
 		Key:           aws.String("my/uploaded/files/uploadId.info"),
-		Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`)),
-		ContentLength: aws.Int64(247),
+		Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"custom-bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+		ContentLength: aws.Int64(254),
 	})
 
 	// For WriteChunk
 	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:     aws.String("bucket"),
+		Bucket:     aws.String("custom-bucket"),
 		Key:        aws.String("my/uploaded/files/custom/key"),
 		UploadId:   aws.String("multipartId"),
 		PartNumber: aws.Int32(1),
@@ -1740,10 +1744,10 @@ func TestCustomKey(t *testing.T) {
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("my/uploaded/files/uploadId.info"),
 	}).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`))),
+		Body: io.NopCloser(bytes.NewReader([]byte(`{"ID":"uploadId","Size":11,"SizeIsDeferred":false,"Offset":0,"MetaData":{},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"custom-bucket","Key":"my/uploaded/files/custom/key","MultipartUpload":"multipartId","Type":"s3store"}}`))),
 	}, nil)
 	s3obj.EXPECT().ListParts(context.Background(), &s3.ListPartsInput{
-		Bucket:           aws.String("bucket"),
+		Bucket:           aws.String("custom-bucket"),
 		Key:              aws.String("my/uploaded/files/custom/key"),
 		UploadId:         aws.String("multipartId"),
 		PartNumberMarker: nil,
@@ -1764,7 +1768,7 @@ func TestCustomKey(t *testing.T) {
 
 	// For WriteChunk
 	s3obj.EXPECT().UploadPart(context.Background(), NewUploadPartInputMatcher(&s3.UploadPartInput{
-		Bucket:     aws.String("bucket"),
+		Bucket:     aws.String("custom-bucket"),
 		Key:        aws.String("my/uploaded/files/custom/key"),
 		UploadId:   aws.String("multipartId"),
 		PartNumber: aws.Int32(2),
@@ -1775,7 +1779,7 @@ func TestCustomKey(t *testing.T) {
 
 	// For FinishUpload
 	s3obj.EXPECT().CompleteMultipartUpload(context.Background(), &s3.CompleteMultipartUploadInput{
-		Bucket:   aws.String("bucket"),
+		Bucket:   aws.String("custom-bucket"),
 		Key:      aws.String("my/uploaded/files/custom/key"),
 		UploadId: aws.String("multipartId"),
 		MultipartUpload: &types.CompletedMultipartUpload{
@@ -1797,7 +1801,8 @@ func TestCustomKey(t *testing.T) {
 		Size:     11,
 		MetaData: map[string]string{},
 		Storage: map[string]string{
-			"Key": "custom/key",
+			"Key":    "custom/key",
+			"Bucket": "custom-bucket",
 		},
 	}
 
