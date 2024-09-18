@@ -38,6 +38,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ServerTLSCertificateFilePath:    Flags.GrpcHooksServerTLSCertFile,
 			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
 			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
+			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
 		}
 	} else if Flags.PluginHookPath != "" {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)

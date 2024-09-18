@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type GrpcHook struct {
@@ -29,6 +30,7 @@ type GrpcHook struct {
 	ServerTLSCertificateFilePath    string
 	ClientTLSCertificateFilePath    string
 	ClientTLSCertificateKeyFilePath string
+	ForwardHeaders                  []string
 }
 
 func (g *GrpcHook) Setup() error {
@@ -87,6 +89,14 @@ func (g *GrpcHook) Setup() error {
 
 func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
 	ctx := context.Background()
+
+	for _, header := range g.ForwardHeaders {
+		value := hookReq.Event.HTTPRequest.Header.Get(header)
+		if value != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, header, value)
+		}
+	}
+
 	req := marshal(hookReq)
 	res, err := g.Client.InvokeHook(ctx, req)
 	if err != nil {
