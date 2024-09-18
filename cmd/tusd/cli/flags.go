@@ -59,6 +59,7 @@ var Flags struct {
 	GrpcHooksServerTLSCertFile       string
 	GrpcHooksClientTLSCertFile       string
 	GrpcHooksClientTLSKeyFile        string
+	GrpcHooksForwardHeaders          string
 	EnabledHooks                     []hooks.HookType
 	ProgressHooksInterval            time.Duration
 	ShowVersion                      bool
@@ -173,6 +174,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.GrpcHooksServerTLSCertFile, "hooks-grpc-server-tls-certificate", "", "Path to the file containing the TLS certificate of the remote gRPC server")
 		f.StringVar(&Flags.GrpcHooksClientTLSCertFile, "hooks-grpc-client-tls-certificate", "", "Path to the file containing the client certificate for mTLS")
 		f.StringVar(&Flags.GrpcHooksClientTLSKeyFile, "hooks-grpc-client-tls-key", "", "Path to the file containing the client key for mTLS")
+		f.StringVar(&Flags.GrpcHooksForwardHeaders, "hooks-grpc-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 	})
 
 	fs.AddGroup("Plugin hook options", func(f *flag.FlagSet) {
