@@ -87,14 +87,8 @@ func (g *GrpcHook) Setup() error {
 }
 
 func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
-	req := marshal(hookReq)
-
-	authorizationHeader, authorizationHeaderExists := req.Event.HttpRequest.Header["Authorization"]
 	ctx := context.Background()
-	if authorizationHeaderExists {
-		ctx = metadata.AppendToOutgoingContext(context.Background(), "Authorization", authorizationHeader)
-	}
-
+	req := marshal(hookReq)
 	res, err := g.Client.InvokeHook(ctx, req)
 	if err != nil {
 		return hookRes, err
