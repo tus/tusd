@@ -35,38 +35,38 @@ func (g *GrpcHook) Setup() error {
 	grpcOpts := []grpc.DialOption{}
 
 	if g.Secure {
+		if g.ServerTLSCertificateFilePath == "" {
+			return errors.New("hooks-grpc-secure was set to true but no gRPC server TLS certificate file was provided. A value for hooks-grpc-server-tls-certificate is missing")
+		}
+
 		// Load the server's TLS certificate if provided
-		if g.ServerTLSCertificateFilePath != "" {
-			serverCert, err := os.ReadFile(g.ServerTLSCertificateFilePath)
+		serverCert, err := os.ReadFile(g.ServerTLSCertificateFilePath)
+		if err != nil {
+			return err
+		}
+
+		// Create a certificate pool and add the server's certificate
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(serverCert)
+
+		// Create TLS configuration with the server's CA certificate
+		tlsConfig := &tls.Config{
+			RootCAs: certPool,
+		}
+
+		// If client's TLS certificate and key file paths are provided, use mutual TLS
+		if g.ClientTLSCertificateFilePath != "" && g.ClientTLSCertificateKeyFilePath != "" {
+			// Load the client's TLS certificate and private key
+			clientCert, err := tls.LoadX509KeyPair(g.ClientTLSCertificateFilePath, g.ClientTLSCertificateKeyFilePath)
 			if err != nil {
 				return err
 			}
 
-			// Create a certificate pool and add the server's certificate
-			certPool := x509.NewCertPool()
-			certPool.AppendCertsFromPEM(serverCert)
-
-			// Create TLS configuration with the server's CA certificate
-			tlsConfig := &tls.Config{
-				RootCAs: certPool,
-			}
-
-			// If client's TLS certificate and key file paths are provided, use mutual TLS
-			if g.ClientTLSCertificateFilePath != "" && g.ClientTLSCertificateKeyFilePath != "" {
-				// Load the client's TLS certificate and private key
-				clientCert, err := tls.LoadX509KeyPair(g.ClientTLSCertificateFilePath, g.ClientTLSCertificateKeyFilePath)
-				if err != nil {
-					return err
-				}
-
-				// Append client certificate to the TLS configuration
-				tlsConfig.Certificates = append(tlsConfig.Certificates, clientCert)
-			}
-
-			grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-		} else {
-			return errors.New("hooks-grpc-secure was set to true but no gRPC server TLS certificate file was provided. A value for hooks-grpc-server-tls-certificate is missing")
+			// Append client certificate to the TLS configuration
+			tlsConfig.Certificates = append(tlsConfig.Certificates, clientCert)
 		}
+
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
 		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
