@@ -31,9 +31,13 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
 
 		return &grpc.GrpcHook{
-			Endpoint:   Flags.GrpcHooksEndpoint,
-			MaxRetries: Flags.GrpcHooksRetry,
-			Backoff:    Flags.GrpcHooksBackoff,
+			Endpoint:                        Flags.GrpcHooksEndpoint,
+			MaxRetries:                      Flags.GrpcHooksRetry,
+			Backoff:                         Flags.GrpcHooksBackoff,
+			Secure:                          Flags.GrpcHooksSecure,
+			ServerTLSCertificateFilePath:    Flags.GrpcHooksServerTLSCertFile,
+			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
+			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
 		}
 	} else if Flags.PluginHookPath != "" {
 		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)

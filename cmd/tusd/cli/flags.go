@@ -55,6 +55,10 @@ var Flags struct {
 	GrpcHooksEndpoint                string
 	GrpcHooksRetry                   int
 	GrpcHooksBackoff                 time.Duration
+	GrpcHooksSecure                  bool
+	GrpcHooksServerTLSCertFile       string
+	GrpcHooksClientTLSCertFile       string
+	GrpcHooksClientTLSKeyFile        string
 	EnabledHooks                     []hooks.HookType
 	ProgressHooksInterval            time.Duration
 	ShowVersion                      bool
@@ -165,6 +169,10 @@ func ParseFlags() {
 		f.StringVar(&Flags.GrpcHooksEndpoint, "hooks-grpc", "", "An gRPC endpoint to which hook events will be sent to")
 		f.IntVar(&Flags.GrpcHooksRetry, "hooks-grpc-retry", 3, "Number of times to retry on a server error or network timeout")
 		f.DurationVar(&Flags.GrpcHooksBackoff, "hooks-grpc-backoff", 1*time.Second, "Wait period before retrying each retry")
+		f.BoolVar(&Flags.GrpcHooksSecure, "hooks-grpc-secure", false, "Enables secure connection via TLS certificates to the specified gRPC endpoint")
+		f.StringVar(&Flags.GrpcHooksServerTLSCertFile, "hooks-grpc-server-tls-certificate", "", "Path to the file containing the TLS certificate of the remote gRPC server")
+		f.StringVar(&Flags.GrpcHooksClientTLSCertFile, "hooks-grpc-client-tls-certificate", "", "Path to the file containing the client certificate for mTLS")
+		f.StringVar(&Flags.GrpcHooksClientTLSKeyFile, "hooks-grpc-client-tls-key", "", "Path to the file containing the client key for mTLS")
 	})
 
 	fs.AddGroup("Plugin hook options", func(f *flag.FlagSet) {
