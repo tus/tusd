@@ -85,7 +85,7 @@ The file object is not visible in the S3 bucket before the upload is finished be
 
 ### Metadata
 
-If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
+If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object as [user-defined object metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html#UserMetadata) once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
 
 In addition, the metadata is also stored in the informational object, which can be used to retrieve the original metadata without any characters being replaced.
 
