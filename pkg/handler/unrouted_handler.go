@@ -396,7 +396,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	handler.Metrics.incUploadsCreated()
 	c.log = c.log.With("id", id)
-	c.log.Info("UploadCreated", "id", id, "size", size, "url", url)
+	c.log.Info("UploadCreated", "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(c, info)
@@ -410,8 +410,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 		info.Offset = size
 
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+		resp, err = handler.emitFinishEvents(c, resp, info)
+		if err != nil {
+			handler.sendError(c, err)
+			return
 		}
 	}
 
@@ -936,31 +938,42 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
 // matches upload size) and if so, it will call the data store's FinishUpload
-// function and send the necessary message on the CompleteUpload channel.
+// function and emit the necessary events for the hooks.
 func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTPResponse, upload Upload, info FileInfo) (HTTPResponse, error) {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
+		var err error
 		// ... allow the data storage to finish and cleanup the upload
-		if err := upload.FinishUpload(c); err != nil {
+		if err = upload.FinishUpload(c); err != nil {
 			return resp, err
 		}
 
-		// ... allow the hook callback to run before sending the response
-		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
-			if err != nil {
-				return resp, err
-			}
-			resp = resp.MergeWith(resp2)
+		// ... and call pre-finish callback and send post-finish notification.
+		resp, err = handler.emitFinishEvents(c, resp, info)
+		if err != nil {
+			return resp, err
 		}
+	}
 
-		c.log.Info("UploadFinished", "size", info.Size)
-		handler.Metrics.incUploadsFinished()
+	return resp, nil
+}
 
-		// ... send the info out to the channel
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+// emitFinishEvents calls the PreFinishResponseCallback function and sends
+// the necessary message on the CompleteUpload channel.
+func (handler *UnroutedHandler) emitFinishEvents(c *httpContext, resp HTTPResponse, info FileInfo) (HTTPResponse, error) {
+	if handler.config.PreFinishResponseCallback != nil {
+		resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
+		if err != nil {
+			return resp, err
 		}
+		resp = resp.MergeWith(resp2)
+	}
+
+	c.log.Info("UploadFinished", "size", info.Size)
+	handler.Metrics.incUploadsFinished()
+
+	if handler.config.NotifyCompleteUploads {
+		handler.CompleteUploads <- newHookEvent(c, info)
 	}
 
 	return resp, nil
@@ -1545,7 +1558,7 @@ func getRequestId(r *http.Request) string {
 	return reqId
 }
 
-// validateUploadId checks whether an ID included in a FileInfoChange struct is allowed.
+// validateUploadId checks whether an ID included in a FileInfoChanges struct is allowed.
 func validateUploadId(newId string) error {
 	if newId == "" {
 		// An empty ID from FileInfoChanges is allowed. The store will then

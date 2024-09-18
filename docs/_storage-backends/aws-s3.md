@@ -85,10 +85,33 @@ The file object is not visible in the S3 bucket before the upload is finished be
 
 ### Metadata
 
-If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
+If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is associated with the upload during creation, it will be added to the file object as [user-defined object metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html#UserMetadata) once the upload is finished. Because the metadata on S3 objects must only contain ASCII characters, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
 
 In addition, the metadata is also stored in the informational object, which can be used to retrieve the original metadata without any characters being replaced.
 
-# Considerations
+## Considerations
 
 When receiving a `PATCH` request, parts of its body will be temporarily stored on disk before they can be transferred to S3. This is necessary to meet the minimum part size for an S3 multipart upload enforced by S3 and to allow the AWS SDK to calculate a checksum. Once the part has been uploaded to S3, the temporary file will be removed immediately. Therefore, please ensure that the server running this storage backend has enough disk space available to hold these temporary files.
+
+## Usage with MinIO
+
+[MinIO](https://min.io/) is an object storage solution that provides an S3-compatible API, making it suitable as a replacement for AWS S3 during development/testing or even in production. To get started, please install the MinIO server according to their documentation. There are different installation methods available (Docker, package managers or direct download), but we will not go further into them. We assume that the `minio` (server) and `mc` (client) commands are installed. First, start MinIO with example credentials:
+
+```sh
+$ MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE MINIO_ROOT_PASSWORD=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY minio server ./minio-data
+```
+
+MinIO is available at `http://localhost:9000` by default and saves the associated data in `./minio-data`. Next, create a bucket called `mybucker` using the MinIO client:
+
+```sh
+$ mc alias set myminio http://localhost:9000 AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+$ mc mb myminio/mybucket
+```
+
+MinIO is now set up, and we can start tusd:
+
+```sh
+$ AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY tusd -s3-bucket mybucket -s3-endpoint http://localhost:9000
+```
+
+Tusd is then usable at `http://localhost:8080/files/` and saves the uploads to the local MinIO instance.

@@ -82,11 +82,12 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "PartialUploads": null,
             // Storage contains information about where the upload is stored. The exact values
             // depend on the storage that is used and are not available in the pre-create hook.
-            // This example belongs to the file store. 
             "Storage": {
-                 // For example, the filestore supplies the absolute file path:
+                 // For example, the filestore supplies the absolute file paths where the upload data
+                 // (Path) and the associated info file (InfoPath) are stored:
                  "Type": "filestore",
                  "Path": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce",
+                 "InfoPath": "/my/upload/directory/14b1c4c77771671a8479bc0444bbc5ce.info",
 
                  // The S3Store and GCSStore supply the bucket name and object key:
                  "Type": "s3store",
@@ -142,6 +143,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // Body is the response body.
         "Body": "{\"message\":\"the upload is too big\"}",
         // Header contains additional HTTP headers for the response. The values are strings.
+        // The uploading client can retrieve these header, allowing the server to send
+        // information back to the client. Note that if you are using custom headers and want
+        // them to be accessible by JavaScript running inside a browser, you likely have to
+        // configure Cross-Origin Resource Sharing (CORS) to include your custom header in
+        // Access-Control-Expose-Headers or otherwise browsers will block access to the custom
+        // header. See https://tus.github.io/tusd/getting-started/configuration/#cross-origin-resource-sharing-cors
+        // for more details about tusd and CORS.  
         "Header": {
             "Content-Type": "application/json"
         },
@@ -168,12 +176,43 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // path component according to RFC 3986 (https://datatracker.ietf.org/doc/html/rfc3986#section-3.3).
         // These are: A-Z a-z 0-9 - . _ ~ % ! $ ' ( ) * + , ; = / : @
         // In addition, IDs must not begin or end with a forward slash (/).
+        //
+        // When a custom upload ID is specified, it is the hook's responsibility to
+        // ensure that the upload ID will not cause collisions with resources from other
+        // uploads. Tusd does not check for collisions. Collisions happen frequently when
+        // the upload ID is mainly derived from the filename, which can be prevented by including
+        // a random part (e.g. a UUID) in the upload ID. In addition, be aware that some storage
+        // backends, such as the S3 store, save additional objects using `.info` and `.part`
+        // extensions. If you set a custom upload ID, ensure that this ID will also not collide
+        // with these additional objects.
         "ID": "my-custom-upload-id",
         // Set custom meta data that is saved with the upload and also accessible to
         // all future hooks. Note that this information is also visible to the client
         // in the Upload-Metadata header in HEAD responses.
         "MetaData": {
           "my-custom-field": "..."
+        },
+        // Storage can be used to customize the location where the uploaded file (aka the binary
+        // file is saved). The exact behavior depends on the storage that is used. Please note
+        // that this only influences the location of the binary file. tusd will still create an
+        // info file whose location is derived from the upload ID and can not be customized using
+        // this ChangeFileInfo.Storage property, but only using ChangeFileInfo.ID.
+        //
+        // The location can contain forward slashes (/) to store uploads in a hierarchical structure,
+        // such as nested directories.
+        //
+        // Similar to ChangeFileInfo.ID, tusd will not check whether a file is already saved under
+        // this location and might overwrite it. It is the hooks responsibility to ensure that
+        // the location is save to use. A good approach is to embed a random part (e.g. a UUID) in
+        // the location.
+        "Storage": {
+            // When the filestore is used, the Path property defines where the uploaded file is saved.
+            // The path may be absolute or relative, and point towards a location outside of the directory
+            // defined using the `-dir` flag. If it's relative, the path will be resolved relative to `-dir`.
+            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf"
+
+            // Other storages, such as S3Store, GCSStore, and AzureStore, do not support the Storage
+            // property yet.
         }
     },
 

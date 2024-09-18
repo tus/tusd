@@ -22,7 +22,7 @@ By default, tusd listens on port 8080 and all available interfaces. This can be 
 $ tusd -host 127.0.0.1 -port 1337
 ```
 
-Once running, tusd accepts HTTP/1.1 requests on the configured port. If [HTTPS/TLS](#httpstls) is configured, tusd will also accept HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). HTTP/3 and QUIC is currently not supported without the use of an external proxy.
+Once running, tusd accepts HTTP requests on the configured port.
 
 ### UNIX socket
 
@@ -125,6 +125,14 @@ Alternatively, you can completely disable any CORS-related logic in tusd and han
 ```bash
 $ tusd -disable-cors
 ```
+
+## HTTP/2
+
+By default, tusd only accepts HTTP/1.1 requests on the configured port.
+
+If [HTTPS/TLS](#httpstls) is configured, tusd will also accept an encrypted HTTP/2 connection without any additional configuration, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2).
+
+Alternatively, if HTTPS/TLS is not enabled, support for HTTP/2 cleartext mode (h2c) can be activated using the `-enable-h2c` flag, where tusd also accepts unencrypted HTTP/2 requests. This is useful if a reverse proxy should connect to tusd over HTTP/2 (e.g. in GCP Cloud Run). Be aware that the first request on an upgraded connection (without prior knowledge) is [read fully into memory](https://pkg.go.dev/golang.org/x/net/http2/h2c#NewHandler). To avoid excessive memory usage from PATCH requests, it's recommended to only connect with prior knowledge about tusd's HTTP/2 support.
 
 ## HTTPS/TLS
 

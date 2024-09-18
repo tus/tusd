@@ -43,9 +43,10 @@ func TestFilestore(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -104,9 +105,10 @@ func TestCreateDirectories(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
-	a.Equal(2, len(info.Storage))
+	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -244,4 +246,115 @@ func TestDeclareLength(t *testing.T) {
 	a.NoError(err)
 	a.EqualValues(100, updatedInfo.Size)
 	a.Equal(false, updatedInfo.SizeIsDeferred)
+}
+
+// TestCustomRelativePath tests whether the upload's destination can be customized
+// relative to the storage directory.
+func TestCustomRelativePath(t *testing.T) {
+	a := assert.New(t)
+
+	tmp, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	store := FileStore{tmp}
+	ctx := context.Background()
+
+	// Create new upload
+	upload, err := store.NewUpload(ctx, handler.FileInfo{
+		ID:   "folder1/info",
+		Size: 42,
+		Storage: map[string]string{
+			"Path": "./folder2/bin",
+		},
+	})
+	a.NoError(err)
+	a.NotEqual(nil, upload)
+
+	// Check info without writing
+	info, err := upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(3, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(filepath.Join(tmp, "./folder2/bin"), info.Storage["Path"])
+	a.Equal(filepath.Join(tmp, "./folder1/info.info"), info.Storage["InfoPath"])
+
+	// Write data to upload
+	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
+	a.NoError(err)
+	a.EqualValues(len("hello world"), bytesWritten)
+
+	// Check new offset
+	info, err = upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(11, info.Offset)
+
+	// Read content
+	reader, err := upload.GetReader(ctx)
+	a.NoError(err)
+
+	content, err := io.ReadAll(reader)
+	a.NoError(err)
+	a.Equal("hello world", string(content))
+	reader.(io.Closer).Close()
+
+	// Check that the output file and info file exist on disk
+	statInfo, err := os.Stat(filepath.Join(tmp, "folder2/bin"))
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
+	a.EqualValues(11, statInfo.Size())
+	statInfo, err = os.Stat(filepath.Join(tmp, "folder1/info.info"))
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
+
+	// Terminate upload
+	a.NoError(store.AsTerminatableUpload(upload).Terminate(ctx))
+
+	// Test if upload is deleted
+	upload, err = store.GetUpload(ctx, info.ID)
+	a.Equal(nil, upload)
+	a.Equal(handler.ErrNotFound, err)
+}
+
+// TestCustomAbsolutePath tests whether the upload's destination can be customized
+// using an absolute path to the storage directory.
+func TestCustomAbsolutePath(t *testing.T) {
+	a := assert.New(t)
+
+	tmp1, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	tmp2, err := os.MkdirTemp("", "tusd-filestore-")
+	a.NoError(err)
+
+	store := FileStore{tmp1}
+	ctx := context.Background()
+
+	// Create new upload, but the Path property points to a directory
+	// outside of the directory given to FileStore
+	binPath := filepath.Join(tmp2, "dir/my-upload.bin")
+	upload, err := store.NewUpload(ctx, handler.FileInfo{
+		ID:   "my-upload",
+		Size: 42,
+		Storage: map[string]string{
+			"Path": binPath,
+		},
+	})
+	a.NoError(err)
+	a.NotEqual(nil, upload)
+
+	info, err := upload.GetInfo(ctx)
+	a.NoError(err)
+	a.EqualValues(42, info.Size)
+	a.EqualValues(0, info.Offset)
+	a.Equal(3, len(info.Storage))
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal(binPath, info.Storage["Path"])
+	a.Equal(filepath.Join(tmp1, "my-upload.info"), info.Storage["InfoPath"])
+
+	statInfo, err := os.Stat(binPath)
+	a.NoError(err)
+	a.True(statInfo.Mode().IsRegular())
 }

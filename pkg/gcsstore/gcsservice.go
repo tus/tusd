@@ -47,6 +47,7 @@ type GCSFilterParams struct {
 
 // GCSReader implements cloud.google.com/go/storage.Reader.
 // It is used to read Google Cloud storage objects.
+// TODO: Remain, Size, ContentType seem to only be used in tests. Maybe we can replace this interface with an io.ReadCloser?
 type GCSReader interface {
 	Close() error
 	ContentType() string

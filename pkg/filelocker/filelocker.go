@@ -18,6 +18,8 @@ package filelocker
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -103,6 +105,17 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 			case <-time.After(10 * time.Millisecond):
 				continue
 			}
+		}
+		// If the upload ID uses a folder structure (e.g. projectA/upload1), the directory
+		// (e.g. projectA) might not exist, if no such upload exists already. In those cases,
+		// we just return ErrNotFound because no such upload exists anyways.
+		// TODO: This assumes that filelocker is used mostly with filestore, which is likely
+		// true, but does not have to be. If another storage backend is used, we cannot make
+		// any assumption about the folder structure. As an alternative, we should consider
+		// normalizing the upload ID to remove the folder structure as well an turn projectA/upload1
+		// into projectA-upload1.
+		if errors.Is(err, fs.ErrNotExist) {
+			return handler.ErrNotFound
 		}
 		if err != lockfile.ErrBusy {
 			// If we get something different than ErrBusy, bubble the error up.

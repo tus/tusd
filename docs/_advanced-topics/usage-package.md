@@ -12,9 +12,10 @@ Besides from running tusd using the provided binary, you can embed it into your 
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
@@ -26,9 +27,14 @@ func main() {
 	// If you want to save them on a different medium, for example
 	// a remote FTP server, you can implement your own storage backend
 	// by implementing the tusd.DataStore interface.
-	store := filestore.FileStore{
-		Path: "./uploads",
-	}
+	store := filestore.New("./uploads")
+
+	// A locking mechanism helps preventing data loss or corruption from
+	// parallel requests to a upload resource. A good match for the disk-based
+	// storage is the filelocker package which uses disk-based file lock for
+	// coordinating access.
+	// More information is available at https://tus.github.io/tusd/advanced-topics/locks/.
+	locker := filelocker.New("./uploads")
 
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a
@@ -36,6 +42,7 @@ func main() {
 	// we only use the file store but you may plug in multiple.
 	composer := tusd.NewStoreComposer()
 	store.UseIn(composer)
+	locker.UseIn(composer)
 
 	// Create a new HTTP handler for the tusd server by providing a configuration.
 	// The StoreComposer property must be set to allow the handler to function.
@@ -45,7 +52,7 @@ func main() {
 		NotifyCompleteUploads: true,
 	})
 	if err != nil {
-		panic(fmt.Errorf("Unable to create handler: %s", err))
+		log.Fatalf("unable to create handler: %s", err)
 	}
 
 	// Start another goroutine for receiving events from the handler whenever
@@ -54,7 +61,7 @@ func main() {
 	go func() {
 		for {
 			event := <-handler.CompleteUploads
-			fmt.Printf("Upload %s finished\n", event.Upload.ID)
+			log.Printf("Upload %s finished\n", event.Upload.ID)
 		}
 	}()
 
@@ -62,9 +69,10 @@ func main() {
 	// our own. In the end, tusd will start listening on and accept request at
 	// http://localhost:8080/files
 	http.Handle("/files/", http.StripPrefix("/files/", handler))
+	http.Handle("/files", http.StripPrefix("/files", handler))
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
-		panic(fmt.Errorf("Unable to listen: %s", err))
+		log.Fatalf("unable to listen: %s", err)
 	}
 }
 
@@ -95,3 +103,13 @@ The following packages are supported by 3rd-party maintainers outside this repos
 
 * [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
 * [**tusd-etcd3-locker**](https://github.com/tus/tusd-etcd3-locker): A locker using the distributed KV etcd3 store
+
+## Caveats
+
+### I am getting warnings regarding NetworkControlError/NetworkTimeoutError and "feature not supported". Why?
+
+Since tusd v2, its handler uses Go's [`net/http.NewResponseController`](https://pkg.go.dev/net/http#NewResponseController) API, in particular the `SetReadDeadline` and `SetWriteDeadline` functions, for dynamically controlling the timeouts for reading the request body and writing responses. When uploading files, the request duration can vary significantly, depending on the file size and network speed, which is why in tusd we cannot use a fixed timeout for reading requests as this would cause of some valid requests to time out. Instead, tusd implements a dynamic approach, where the deadline for reading the request is continuously adjusted while tusd is receiving data. If the connection gets interrupted and tusd does not receive data anymore, the deadline is not extended and the request times out, freeing any allocated resources. For this to work, we need the `SetReadDeadline` function.
+
+The NetworkControlError/NetworkTimeoutError means that the `ResponseWriter`, that was provided to tusd does not implement the `SetReadDeadline` and `SetWriteDeadline` functions. This can happen if you are using middleware before tusd that wraps the native `ResponseWriter` from net/http, thereby hiding the control APIs. The best way to circumvent this issue is by ensuring that the wrapped `ResponseWriter` implements an `Unwrap` method that returns the native `ResponseWriter`, as mentioned in the [Go documentation](https://pkg.go.dev/net/http#NewResponseController). If this error still pops up, please ensure that the `ResponseWriter` returned from `Unwrap` either provides the `SetReadDeadline` and `SetWriteDeadline` functions or an `Unwrap` function. This is especially necessary if multiple middlewares are stacked above each other.
+
+Additional information can be found in the issues [#1100](https://github.com/tus/tusd/issues/1100) and [#1107](https://github.com/tus/tusd/issues/1107).
