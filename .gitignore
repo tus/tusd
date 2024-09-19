@@ -6,6 +6,7 @@ node_modules/
 ./tusd
 tusd_*_*
 __pycache__/
+venv/
 examples/hooks/plugin/hook_handler
 .idea/
 .vscode/
