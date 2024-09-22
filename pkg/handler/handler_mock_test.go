@@ -10,6 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	slog "golang.org/x/exp/slog"
 	handler "github.com/tus/tusd/v2/pkg/handler"
 )
 
@@ -319,4 +320,83 @@ func (m *MockFullLock) Unlock() error {
 func (mr *MockFullLockMockRecorder) Unlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockFullLock)(nil).Unlock))
+}
+
+// MockSlogHandler is a mock of SlogHandler interface.
+type MockSlogHandler struct {
+	ctrl     *gomock.Controller
+	recorder *MockSlogHandlerMockRecorder
+}
+
+// MockSlogHandlerMockRecorder is the mock recorder for MockSlogHandler.
+type MockSlogHandlerMockRecorder struct {
+	mock *MockSlogHandler
+}
+
+// NewMockSlogHandler creates a new mock instance.
+func NewMockSlogHandler(ctrl *gomock.Controller) *MockSlogHandler {
+	mock := &MockSlogHandler{ctrl: ctrl}
+	mock.recorder = &MockSlogHandlerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSlogHandler) EXPECT() *MockSlogHandlerMockRecorder {
+	return m.recorder
+}
+
+// Enabled mocks base method.
+func (m *MockSlogHandler) Enabled(arg0 context.Context, arg1 slog.Level) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enabled", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Enabled indicates an expected call of Enabled.
+func (mr *MockSlogHandlerMockRecorder) Enabled(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enabled", reflect.TypeOf((*MockSlogHandler)(nil).Enabled), arg0, arg1)
+}
+
+// Handle mocks base method.
+func (m *MockSlogHandler) Handle(arg0 context.Context, arg1 slog.Record) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handle", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Handle indicates an expected call of Handle.
+func (mr *MockSlogHandlerMockRecorder) Handle(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockSlogHandler)(nil).Handle), arg0, arg1)
+}
+
+// WithAttrs mocks base method.
+func (m *MockSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithAttrs", attrs)
+	ret0, _ := ret[0].(slog.Handler)
+	return ret0
+}
+
+// WithAttrs indicates an expected call of WithAttrs.
+func (mr *MockSlogHandlerMockRecorder) WithAttrs(attrs interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAttrs", reflect.TypeOf((*MockSlogHandler)(nil).WithAttrs), attrs)
+}
+
+// WithGroup mocks base method.
+func (m *MockSlogHandler) WithGroup(name string) slog.Handler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithGroup", name)
+	ret0, _ := ret[0].(slog.Handler)
+	return ret0
+}
+
+// WithGroup indicates an expected call of WithGroup.
+func (mr *MockSlogHandlerMockRecorder) WithGroup(name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithGroup", reflect.TypeOf((*MockSlogHandler)(nil).WithGroup), name)
 }
