@@ -209,9 +209,17 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
             // When the filestore is used, the Path property defines where the uploaded file is saved.
             // The path may be absolute or relative, and point towards a location outside of the directory
             // defined using the `-dir` flag. If it's relative, the path will be resolved relative to `-dir`.
-            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf"
+            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf",
 
-            // Other storages, such as S3Store, GCSStore, and AzureStore, do not support the Storage
+            // When the S3 storage is used, the Key property defines the key under which the uploaded file is saved.
+            // If the key is not set, it defaults to using the upload ID as the key. In addition, the Bucket property
+            // defines the bucket where the uploaded file is saved. Note that the info and part files will still
+            // be stored in the bucket that the S3 storage has been configured for.
+            // Please consult https://tus.github.io/tusd/storage-backends/aws-s3/#custom-storage-location for more details.
+            "Key": "upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf",
+            "Bucket": "customer-ABC"
+
+            // Other storages, such as GCSStore, and AzureStore, do not support the Storage
             // property yet.
         }
     },
