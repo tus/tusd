@@ -116,7 +116,7 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (r bodyReader) hasError() error {
+func (r *bodyReader) hasError() error {
 	r.lock.RLock()
 	err := r.err
 	r.lock.RUnlock()
