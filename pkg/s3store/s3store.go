@@ -88,6 +88,7 @@ import (
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -469,8 +470,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	}()
 	go partProducer.produce(producerCtx, optimalPartSize)
 
-	var wg sync.WaitGroup
-	var uploadErr error
+	var eg errgroup.Group
 
 	for {
 		// We acquire the semaphore before starting the goroutine to avoid
@@ -497,10 +497,8 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			}
 			upload.parts = append(upload.parts, part)
 
-			wg.Add(1)
-			go func(file io.ReadSeeker, part *s3Part, closePart func() error) {
+			eg.Go(func() error {
 				defer upload.store.releaseUploadSemaphore()
-				defer wg.Done()
 
 				t := time.Now()
 				uploadPartInput := &s3.UploadPartInput{
@@ -509,39 +507,46 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 					UploadId:   aws.String(upload.multipartId),
 					PartNumber: aws.Int32(part.number),
 				}
-				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, part.size)
+				etag, err := upload.putPartForUpload(ctx, uploadPartInput, partfile, part.size)
 				store.observeRequestDuration(t, metricUploadPart)
-				if err != nil {
-					uploadErr = err
-				} else {
+				if err == nil {
 					part.etag = etag
 				}
-				if cerr := closePart(); cerr != nil && uploadErr == nil {
-					uploadErr = cerr
-				}
-			}(partfile, part, closePart)
-		} else {
-			wg.Add(1)
-			go func(file io.ReadSeeker, closePart func() error) {
-				defer upload.store.releaseUploadSemaphore()
-				defer wg.Done()
 
-				if err := store.putIncompletePartForUpload(ctx, upload.objectId, file); err != nil {
-					uploadErr = err
+				cerr := closePart()
+				if err != nil {
+					return err
 				}
-				if cerr := closePart(); cerr != nil && uploadErr == nil {
-					uploadErr = cerr
+				if cerr != nil {
+					return cerr
 				}
-				upload.incompletePartSize = partsize
-			}(partfile, closePart)
+				return nil
+			})
+		} else {
+			eg.Go(func() error {
+				defer upload.store.releaseUploadSemaphore()
+
+				err := store.putIncompletePartForUpload(ctx, upload.objectId, partfile)
+				if err == nil {
+					upload.incompletePartSize = partsize
+				}
+
+				cerr := closePart()
+				if err != nil {
+					return err
+				}
+				if cerr != nil {
+					return cerr
+				}
+				return nil
+			})
 		}
 
 		bytesUploaded += partsize
 		nextPartNum += 1
 	}
 
-	wg.Wait()
-
+	uploadErr := eg.Wait()
 	if uploadErr != nil {
 		return 0, uploadErr
 	}
@@ -969,47 +974,42 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads []handler.Upload) error {
 	store := upload.store
 
-	numPartialUploads := len(partialUploads)
-	errs := make([]error, 0, numPartialUploads)
+	upload.parts = make([]*s3Part, len(partialUploads))
 
 	// Copy partial uploads concurrently
-	var wg sync.WaitGroup
-	wg.Add(numPartialUploads)
+	var eg errgroup.Group
 	for i, partialUpload := range partialUploads {
+
 		// Part numbers must be in the range of 1 to 10000, inclusive. Since
 		// slice indexes start at 0, we add 1 to ensure that i >= 1.
 		partNumber := int32(i + 1)
 		partialS3Upload := partialUpload.(*s3Upload)
 
-		upload.parts = append(upload.parts, &s3Part{
-			number: partNumber,
-			size:   -1,
-			etag:   "",
-		})
-
-		go func(partNumber int32, sourceObject string) {
-			defer wg.Done()
-
+		eg.Go(func() error {
 			res, err := store.Service.UploadPartCopy(ctx, &s3.UploadPartCopyInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(upload.objectId),
 				UploadId:   aws.String(upload.multipartId),
 				PartNumber: aws.Int32(partNumber),
-				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(sourceObject)),
+				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(partialS3Upload.objectId)),
 			})
 			if err != nil {
-				errs = append(errs, err)
-				return
+				return err
 			}
 
-			upload.parts[partNumber-1].etag = *res.CopyPartResult.ETag
-		}(partNumber, partialS3Upload.objectId)
+			upload.parts[partNumber-1] = &s3Part{
+				number: partNumber,
+				size:   -1, // -1 is fine here bcause FinishUpload does not need this info.
+				etag:   *res.CopyPartResult.ETag,
+			}
+
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return newMultiError(errs)
+	err := eg.Wait()
+	if err != nil {
+		return err
 	}
 
 	return upload.FinishUpload(ctx)
