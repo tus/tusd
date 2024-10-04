@@ -826,7 +826,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 	wg.Wait()
 
 	if len(errs) > 0 {
-		return newMultiError(errs)
+		return errors.Join(errs...)
 	}
 
 	return nil

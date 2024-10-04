@@ -1196,7 +1196,7 @@ func TestTerminateWithErrors(t *testing.T) {
 	assert.Nil(err)
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
-	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
+	assert.Equal("AWS S3 Error (hello) for object uploadId: it's me.", err.Error())
 }
 
 func TestConcatUploadsUsingMultipart(t *testing.T) {
