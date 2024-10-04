@@ -88,6 +88,7 @@ import (
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -469,8 +470,7 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 	}()
 	go partProducer.produce(producerCtx, optimalPartSize)
 
-	var wg sync.WaitGroup
-	var uploadErr error
+	var eg errgroup.Group
 
 	for {
 		// We acquire the semaphore before starting the goroutine to avoid
@@ -497,10 +497,8 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 			}
 			upload.parts = append(upload.parts, part)
 
-			wg.Add(1)
-			go func(file io.ReadSeeker, part *s3Part, closePart func() error) {
+			eg.Go(func() error {
 				defer upload.store.releaseUploadSemaphore()
-				defer wg.Done()
 
 				t := time.Now()
 				uploadPartInput := &s3.UploadPartInput{
@@ -509,39 +507,46 @@ func (upload *s3Upload) uploadParts(ctx context.Context, offset int64, src io.Re
 					UploadId:   aws.String(upload.multipartId),
 					PartNumber: aws.Int32(part.number),
 				}
-				etag, err := upload.putPartForUpload(ctx, uploadPartInput, file, part.size)
+				etag, err := upload.putPartForUpload(ctx, uploadPartInput, partfile, part.size)
 				store.observeRequestDuration(t, metricUploadPart)
-				if err != nil {
-					uploadErr = err
-				} else {
+				if err == nil {
 					part.etag = etag
 				}
-				if cerr := closePart(); cerr != nil && uploadErr == nil {
-					uploadErr = cerr
-				}
-			}(partfile, part, closePart)
-		} else {
-			wg.Add(1)
-			go func(file io.ReadSeeker, closePart func() error) {
-				defer upload.store.releaseUploadSemaphore()
-				defer wg.Done()
 
-				if err := store.putIncompletePartForUpload(ctx, upload.objectId, file); err != nil {
-					uploadErr = err
+				cerr := closePart()
+				if err != nil {
+					return err
 				}
-				if cerr := closePart(); cerr != nil && uploadErr == nil {
-					uploadErr = cerr
+				if cerr != nil {
+					return cerr
 				}
-				upload.incompletePartSize = partsize
-			}(partfile, closePart)
+				return nil
+			})
+		} else {
+			eg.Go(func() error {
+				defer upload.store.releaseUploadSemaphore()
+
+				err := store.putIncompletePartForUpload(ctx, upload.objectId, partfile)
+				if err == nil {
+					upload.incompletePartSize = partsize
+				}
+
+				cerr := closePart()
+				if err != nil {
+					return err
+				}
+				if cerr != nil {
+					return cerr
+				}
+				return nil
+			})
 		}
 
 		bytesUploaded += partsize
 		nextPartNum += 1
 	}
 
-	wg.Wait()
-
+	uploadErr := eg.Wait()
 	if uploadErr != nil {
 		return 0, uploadErr
 	}
