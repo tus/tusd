@@ -4,6 +4,7 @@ import (
 	"errors"
 )
 
+// TODO: Replace with errors.Join
 func newMultiError(errs []error) error {
 	message := "Multiple errors occurred:\n"
 	for _, err := range errs {

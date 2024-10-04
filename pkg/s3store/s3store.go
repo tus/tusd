@@ -974,13 +974,10 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads []handler.Upload) error {
 	store := upload.store
 
-	numPartialUploads := len(partialUploads)
-	errs := make([]error, 0, numPartialUploads)
-
 	// Copy partial uploads concurrently
-	var wg sync.WaitGroup
-	wg.Add(numPartialUploads)
+	var eg errgroup.Group
 	for i, partialUpload := range partialUploads {
+
 		// Part numbers must be in the range of 1 to 10000, inclusive. Since
 		// slice indexes start at 0, we add 1 to ensure that i >= 1.
 		partNumber := int32(i + 1)
@@ -992,29 +989,26 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 			etag:   "",
 		})
 
-		go func(partNumber int32, sourceObject string) {
-			defer wg.Done()
-
+		eg.Go(func() error {
 			res, err := store.Service.UploadPartCopy(ctx, &s3.UploadPartCopyInput{
 				Bucket:     aws.String(store.Bucket),
 				Key:        store.keyWithPrefix(upload.objectId),
 				UploadId:   aws.String(upload.multipartId),
 				PartNumber: aws.Int32(partNumber),
-				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(sourceObject)),
+				CopySource: aws.String(store.Bucket + "/" + *store.keyWithPrefix(partialS3Upload.objectId)),
 			})
 			if err != nil {
-				errs = append(errs, err)
-				return
+				return err
 			}
 
 			upload.parts[partNumber-1].etag = *res.CopyPartResult.ETag
-		}(partNumber, partialS3Upload.objectId)
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return newMultiError(errs)
+	err := eg.Wait()
+	if err != nil {
+		return err
 	}
 
 	return upload.FinishUpload(ctx)
