@@ -974,6 +974,8 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads []handler.Upload) error {
 	store := upload.store
 
+	upload.parts = make([]*s3Part, len(partialUploads))
+
 	// Copy partial uploads concurrently
 	var eg errgroup.Group
 	for i, partialUpload := range partialUploads {
@@ -982,12 +984,6 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 		// slice indexes start at 0, we add 1 to ensure that i >= 1.
 		partNumber := int32(i + 1)
 		partialS3Upload := partialUpload.(*s3Upload)
-
-		upload.parts = append(upload.parts, &s3Part{
-			number: partNumber,
-			size:   -1,
-			etag:   "",
-		})
 
 		eg.Go(func() error {
 			res, err := store.Service.UploadPartCopy(ctx, &s3.UploadPartCopyInput{
@@ -1001,7 +997,12 @@ func (upload *s3Upload) concatUsingMultipart(ctx context.Context, partialUploads
 				return err
 			}
 
-			upload.parts[partNumber-1].etag = *res.CopyPartResult.ETag
+			upload.parts[partNumber-1] = &s3Part{
+				number: partNumber,
+				size:   -1, // -1 is fine here bcause FinishUpload does not need this info.
+				etag:   *res.CopyPartResult.ETag,
+			}
+
 			return nil
 		})
 	}
