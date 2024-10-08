@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -28,8 +29,11 @@ type bodyReader struct {
 	bytesCounter int64
 	ctx          *httpContext
 	reader       io.ReadCloser
-	err          error
 	onReadDone   func()
+
+	// lock protects concurrent access to err.
+	lock sync.RWMutex
+	err  error
 }
 
 func newBodyReader(c *httpContext, maxSize int64) *bodyReader {
@@ -41,7 +45,10 @@ func newBodyReader(c *httpContext, maxSize int64) *bodyReader {
 }
 
 func (r *bodyReader) Read(b []byte) (int, error) {
-	if r.err != nil {
+	r.lock.RLock()
+	hasErrored := r.err != nil
+	r.lock.RUnlock()
+	if hasErrored {
 		return 0, io.EOF
 	}
 
@@ -99,20 +106,26 @@ func (r *bodyReader) Read(b []byte) (int, error) {
 
 		// Other errors are stored for retrival with hasError, but is not returned
 		// to the consumer. We do not overwrite an error if it has been set already.
+		r.lock.Lock()
 		if r.err == nil {
 			r.err = err
 		}
+		r.lock.Unlock()
 	}
 
 	return n, nil
 }
 
-func (r bodyReader) hasError() error {
-	if r.err == io.EOF {
+func (r *bodyReader) hasError() error {
+	r.lock.RLock()
+	err := r.err
+	r.lock.RUnlock()
+
+	if err == io.EOF {
 		return nil
 	}
 
-	return r.err
+	return err
 }
 
 func (r *bodyReader) bytesRead() int64 {
@@ -120,7 +133,9 @@ func (r *bodyReader) bytesRead() int64 {
 }
 
 func (r *bodyReader) closeWithError(err error) {
+	r.lock.Lock()
 	r.err = err
+	r.lock.Unlock()
 
 	// SetReadDeadline with the current time causes concurrent reads to the body to time out,
 	// so the body will be closed sooner with less delay.
