@@ -11,6 +11,7 @@ import (
 	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"golang.org/x/exp/slog"
 )
 
 //go:generate mockgen -package handler_test -source utils_test.go -destination=handler_mock_test.go
@@ -41,6 +42,10 @@ type FullLocker interface {
 
 type FullLock interface {
 	handler.Lock
+}
+
+type SlogHandler interface {
+	slog.Handler
 }
 
 type httpTest struct {

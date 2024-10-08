@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/exp/slog"
+
 	httptestrecorder "github.com/Acconut/go-httptest-recorder"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +45,69 @@ func TestPost(t *testing.T) {
 			StoreComposer:        composer,
 			BasePath:             "https://buy.art/files/",
 			NotifyCreatedUploads: true,
+		})
+
+		c := make(chan HookEvent, 1)
+		handler.CreatedUploads = c
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Length": "300",
+				// Invalid Base64-encoded values should be ignored
+				"Upload-Metadata": "foo aGVsbG8=, bar d29ybGQ=, hah INVALID, empty",
+			},
+			Code: http.StatusCreated,
+			ResHeader: map[string]string{
+				"Location": "https://buy.art/files/foo",
+			},
+		}).Run(handler, t)
+
+		event := <-c
+		info := event.Upload
+
+		a := assert.New(t)
+		a.Equal("foo", info.ID)
+		a.Equal(int64(300), info.Size)
+	})
+
+	SubTest(t, "WithSlog", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+				Size: 300,
+				MetaData: map[string]string{
+					"foo":   "hello",
+					"bar":   "world",
+					"empty": "",
+				},
+			}).Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:   "foo",
+				Size: 300,
+				MetaData: map[string]string{
+					"foo":   "hello",
+					"bar":   "world",
+					"empty": "",
+				},
+			}, nil),
+		)
+
+		logHandler := NewMockSlogHandler(ctrl)
+		logger := slog.New(logHandler)
+		logHandler.EXPECT().WithAttrs(gomock.Any()).Return(logHandler).AnyTimes()
+		logHandler.EXPECT().Enabled(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
+		logHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:        composer,
+			BasePath:             "https://buy.art/files/",
+			NotifyCreatedUploads: true,
+			Logger:               logger,
 		})
 
 		c := make(chan HookEvent, 1)
