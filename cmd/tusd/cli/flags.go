@@ -33,6 +33,7 @@ var Flags struct {
 	S3Bucket                         string
 	S3ObjectPrefix                   string
 	S3Endpoint                       string
+	S3MinPartSize                    int64
 	S3PartSize                       int64
 	S3MaxBufferedParts               int64
 	S3DisableContentHashes           bool
@@ -130,6 +131,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.S3ObjectPrefix, "s3-object-prefix", "", "Prefix for S3 object names")
 		f.StringVar(&Flags.S3Endpoint, "s3-endpoint", "", "Endpoint to use S3 compatible implementations like minio (requires s3-bucket to be pass)")
 		f.Int64Var(&Flags.S3PartSize, "s3-part-size", 50*1024*1024, "Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future)")
+		f.Int64Var(&Flags.S3MinPartSize, "s3-min-part-size", 5*1024*1024, "Minimum size in bytes of the individual upload requests made to the S3 API. Defaults to 5MiB (experimental and may be removed in the future)")
 		f.Int64Var(&Flags.S3MaxBufferedParts, "s3-max-buffered-parts", 20, "Size in bytes of the individual upload requests made to the S3 API. Defaults to 50MiB (experimental and may be removed in the future)")
 		f.BoolVar(&Flags.S3DisableContentHashes, "s3-disable-content-hashes", false, "Disable the calculation of MD5 and SHA256 hashes for the content that gets uploaded to S3 for minimized CPU usage (experimental and may be removed in the future)")
 		f.BoolVar(&Flags.S3DisableSSL, "s3-disable-ssl", false, "Disable SSL and only use HTTP for communication with S3 (experimental and may be removed in the future)")
