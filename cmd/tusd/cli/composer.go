@@ -76,12 +76,9 @@ func CreateComposer() {
 				"Please remove underscore from the value", Flags.GCSObjectPrefix)
 		}
 
-		// Derivce credentials from service account file path passed in
-		// GCS_SERVICE_ACCOUNT_FILE environment variable.
+		// Legacy: account file used to be provided by GCS_SERVICE_ACCOUNT_FILE environment variable.
+		// Now it is more common to default into ADC discovery mechanism.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
-		if gcsSAF == "" {
-			stderr.Fatalf("No service account file provided for Google Cloud Storage using the GCS_SERVICE_ACCOUNT_FILE environment variable.\n")
-		}
 
 		service, err := gcsstore.NewGCSService(gcsSAF)
 		if err != nil {
