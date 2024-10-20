@@ -3,8 +3,11 @@ package s3store
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -1467,4 +1470,282 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	files, err := os.ReadDir(tempDir)
 	assert.Nil(err)
 	assert.Equal(len(files), 0)
+}
+
+func TestS3StoreAsServerDataStore(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	servableUpload := store.AsServableUpload(upload)
+	assert.NotNil(servableUpload)
+	assert.IsType(&S3ServableUpload{}, servableUpload)
+}
+
+func TestS3ServableUploadServeContent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+	}).Return(&s3.GetObjectOutput{
+		Body:          io.NopCloser(strings.NewReader("test content")),
+		ContentLength: aws.Int64(100),
+		ETag:          aws.String("etag123"),
+	}, nil)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Nil(err)
+
+	assert.Equal(http.StatusOK, w.Code)
+	assert.Equal("100", w.Header().Get("Content-Length"))
+	assert.Equal("text/plain", w.Header().Get("Content-Type"))
+	assert.Equal("etag123", w.Header().Get("ETag"))
+	assert.Equal("test content", w.Body.String())
+}
+
+func TestS3ServableUploadServeContentWithRange(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+		Range:  aws.String("bytes=10-19"),
+	}).Return(&s3.GetObjectOutput{
+		Body:          io.NopCloser(strings.NewReader("0123456789")),
+		ContentLength: aws.Int64(10),
+		ETag:          aws.String("etag123"),
+	}, nil)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Range", "bytes=10-19")
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Nil(err)
+
+	assert.Equal(http.StatusPartialContent, w.Code)
+	assert.Equal("10", w.Header().Get("Content-Length"))
+	assert.Equal("text/plain", w.Header().Get("Content-Type"))
+	assert.Equal("etag123", w.Header().Get("ETag"))
+	assert.Equal("bytes 10-19/100", w.Header().Get("Content-Range"))
+	assert.Equal("0123456789", w.Body.String())
+}
+
+func TestS3ServableUploadServeContentError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	expectedError := errors.New("S3 error")
+	s3obj.EXPECT().GetObject(gomock.Any(), gomock.Any()).Return(nil, expectedError)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Equal(expectedError, err)
+}
+
+func TestParseRange(t *testing.T) {
+	tests := []struct {
+		name        string
+		rangeHeader string
+		size        int64
+		expected    []struct{ start, end int64 }
+		expectedErr string
+	}{
+		{
+			name:        "Empty range header",
+			rangeHeader: "",
+			size:        100,
+			expectedErr: "empty range header",
+		},
+		{
+			name:        "Invalid range header format",
+			rangeHeader: "invalid=0-10",
+			size:        100,
+			expectedErr: "invalid range header format",
+		},
+		{
+			name:        "Single valid range",
+			rangeHeader: "bytes=0-50",
+			size:        100,
+			expected:    []struct{ start, end int64 }{{0, 50}},
+		},
+		{
+			name:        "Multiple valid ranges",
+			rangeHeader: "bytes=0-50,60-70,80-",
+			size:        100,
+			expected:    []struct{ start, end int64 }{{0, 50}, {60, 70}, {80, 99}},
+		},
+		{
+			name:        "Suffix range",
+			rangeHeader: "bytes=-30",
+			size:        100,
+			expected:    []struct{ start, end int64 }{{70, 99}},
+		},
+		{
+			name:        "Suffix range larger than file",
+			rangeHeader: "bytes=-150",
+			size:        100,
+			expected:    []struct{ start, end int64 }{{0, 99}},
+		},
+		{
+			name:        "Invalid range format",
+			rangeHeader: "bytes=invalid-50",
+			size:        100,
+			expectedErr: "invalid range format",
+		},
+		{
+			name:        "Range out of bounds",
+			rangeHeader: "bytes=150-200",
+			size:        100,
+			expectedErr: "range out of bounds",
+		},
+		{
+			name:        "End smaller than start",
+			rangeHeader: "bytes=50-40",
+			size:        100,
+			expectedErr: "invalid range format",
+		},
+		{
+			name:        "No valid ranges",
+			rangeHeader: "bytes=",
+			size:        100,
+			expectedErr: "no valid ranges",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ranges, err := parseRange(tt.rangeHeader, tt.size)
+
+			if tt.expectedErr != "" {
+				assert.EqualError(t, err, tt.expectedErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, ranges)
+			}
+		})
+	}
+}
+
+func TestParseRangeEdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		rangeHeader string
+		size        int64
+		expected    []struct{ start, end int64 }
+		expectedErr string
+	}{
+		{
+			name:        "Zero size file",
+			rangeHeader: "bytes=0-10",
+			size:        0,
+			expectedErr: "range out of bounds",
+		},
+		{
+			name:        "Single byte file",
+			rangeHeader: "bytes=0-0",
+			size:        1,
+			expected:    []struct{ start, end int64 }{{0, 0}},
+		},
+		{
+			name:        "Very large file",
+			rangeHeader: "bytes=9223372036854775806-",
+			size:        9223372036854775807, // max int64
+			expected:    []struct{ start, end int64 }{{9223372036854775806, 9223372036854775806}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ranges, err := parseRange(tt.rangeHeader, tt.size)
+
+			if tt.expectedErr != "" {
+				assert.EqualError(t, err, tt.expectedErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, ranges)
+			}
+		})
+	}
+}
+
+func TestParseRangeWhitespace(t *testing.T) {
+	tests := []struct {
+		name        string
+		rangeHeader string
+		size        int64
+		expected    []struct{ start, end int64 }
+	}{
+		{
+			name:        "Whitespace in range",
+			rangeHeader: "bytes= 0-50 , 60-70 , 80- ",
+			size:        100,
+			expected:    []struct{ start, end int64 }{{0, 50}, {60, 70}, {80, 99}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ranges, err := parseRange(tt.rangeHeader, tt.size)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, ranges)
+		})
+	}
 }
