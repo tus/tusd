@@ -1047,6 +1047,17 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// If the data store implements ContentServerDataStore, use the ServableUpload interface
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+		err = servableUpload.ServeContent(c, w, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
+		return
+	}
+
+	// Fall back to the existing GetReader implementation if ContentServerDataStore is not implemented
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,

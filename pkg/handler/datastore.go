@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"io"
+	"net/http"
 )
 
 type MetaData map[string]string
@@ -119,6 +120,16 @@ type DataStore interface {
 	// GetUpload fetches the upload with a given ID. If no such upload can be found,
 	// ErrNotFound must be returned.
 	GetUpload(ctx context.Context, id string) (upload Upload, err error)
+}
+
+// ServableUpload defines the method for serving content directly
+type ServableUpload interface {
+	ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
+}
+
+// ContentServerDataStore is the interface for data stores that can serve content directly
+type ContentServerDataStore interface {
+	AsServableUpload(upload Upload) ServableUpload
 }
 
 type TerminatableUpload interface {

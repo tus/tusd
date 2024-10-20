@@ -79,6 +79,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -378,6 +379,55 @@ func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.Len
 
 func (store S3Store) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
 	return upload.(*s3Upload)
+}
+
+func (store S3Store) AsServableUpload(upload handler.Upload) handler.ServableUpload {
+	return upload.(*s3Upload)
+}
+
+func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	// Get file info
+	info, err := su.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Prepare GetObject input
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(su.store.Bucket),
+		Key:    su.store.keyWithPrefix(su.objectId),
+	}
+
+	// Forward the Range header if present
+	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
+		input.Range = aws.String(rangeHeader)
+	}
+
+	// Let S3 handle the request
+	result, err := su.store.Service.GetObject(ctx, input)
+	if err != nil {
+		return err
+	}
+	defer result.Body.Close()
+
+	// Set headers
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
+	w.Header().Set("Content-Type", info.MetaData["filetype"])
+	w.Header().Set("ETag", *result.ETag)
+
+	// Add Content-Disposition if present in S3 response
+	if result.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", *result.ContentDisposition)
+	}
+
+	// Add Content-Encoding if present in S3 response
+	if result.ContentEncoding != nil {
+		w.Header().Set("Content-Encoding", *result.ContentEncoding)
+	}
+
+	// Stream the content
+	_, err = io.Copy(w, result.Body)
+	return err
 }
 
 func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) error {
