@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -140,7 +141,10 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, ErrNotFound)
+		// we wrap the error in order to ensure proper error handling
+		err := fmt.Errorf("extra info: %w", ErrNotFound)
+
+		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, err)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
