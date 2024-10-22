@@ -141,7 +141,8 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		// we wrap the error in order to ensure proper error handling
+		// We wrap the error test whether the handler correctly unwraps it again
+		// to get an handler.Error.
 		err := fmt.Errorf("extra info: %w", ErrNotFound)
 
 		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, err)
