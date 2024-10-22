@@ -1185,8 +1185,9 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 	r := c.req
 
-	detailedErr, ok := err.(Error)
-	if !ok {
+	var detailedErr Error
+
+	if !errors.As(err, &detailedErr) {
 		c.log.Error("InternalServerError", "message", err.Error())
 		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
