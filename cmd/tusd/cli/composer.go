@@ -60,6 +60,7 @@ func CreateComposer() {
 		store := s3store.New(Flags.S3Bucket, s3Client)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
+		store.MinPartSize = Flags.S3MinPartSize
 		store.MaxBufferedParts = Flags.S3MaxBufferedParts
 		store.DisableContentHashes = Flags.S3DisableContentHashes
 		store.SetConcurrentPartUploads(Flags.S3ConcurrentPartUploads)
