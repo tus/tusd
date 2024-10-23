@@ -165,7 +165,11 @@ func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, err
 
 // Delete the blockBlob from Azure Blob Storage
 func (blockBlob *BlockBlob) Delete(ctx context.Context) error {
-	_, err := blockBlob.BlobClient.Delete(ctx, nil)
+	// Specify that you want to delete both the blob and its snapshots
+	deleteOptions := &azblob.DeleteBlobOptions{
+		DeleteSnapshots: to.Ptr(azblob.DeleteSnapshotsOptionTypeInclude),
+	}
+	_, err := blockBlob.BlobClient.Delete(ctx, deleteOptions)
 	return err
 }
 
