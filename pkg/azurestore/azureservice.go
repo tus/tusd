@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -28,6 +29,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -72,13 +74,13 @@ type AzBlob interface {
 }
 
 type BlockBlob struct {
-	Blob           *blockblob.Client
+	BlobClient     *blockblob.Client
 	Indexes        []int
 	BlobAccessTier *blob.AccessTier
 }
 
 type InfoBlob struct {
-	Blob *blockblob.Client
+	BlobClient *blockblob.Client
 }
 
 // New Azure service for communication to Azure BlockBlob Storage API
@@ -114,10 +116,16 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		containerAccessType = ""
 	}
 
+	// default is private
+	var containerCreateOptions *container.CreateOptions = nil
+	if containerAccessType != "" {
+		containerCreateOptions = &container.CreateOptions{
+			Access: to.Ptr(containerAccessType),
+		}
+	}
+
 	// Do not care about response since it will fail if container exists and create if it does not.
-	_, err = containerClient.Create(context.Background(), &container.CreateOptions{
-		Access: to.Ptr(containerAccessType),
-	})
+	_, err = containerClient.Create(context.Background(), containerCreateOptions)
 	if err != nil && !strings.Contains(err.Error(), "ContainerAlreadyExists") {
 		return nil, err
 	}
@@ -146,10 +154,10 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, error) {
 	blobClient := service.ContainerClient.NewBlockBlobClient(name)
 	if strings.HasSuffix(name, InfoBlobSuffix) {
-		return &InfoBlob{Blob: blobClient}, nil
+		return &InfoBlob{BlobClient: blobClient}, nil
 	}
 	return &BlockBlob{
-		Blob:           blobClient,
+		BlobClient:     blobClient,
 		Indexes:        []int{},
 		BlobAccessTier: service.BlobAccessTier,
 	}, nil
@@ -157,7 +165,7 @@ func (service *azService) NewBlob(ctx context.Context, name string) (AzBlob, err
 
 // Delete the blockBlob from Azure Blob Storage
 func (blockBlob *BlockBlob) Delete(ctx context.Context) error {
-	_, err := blockBlob.Blob.Delete(ctx, nil)
+	_, err := blockBlob.BlobClient.Delete(ctx, nil)
 	return err
 }
 
@@ -173,18 +181,15 @@ func (blockBlob *BlockBlob) Upload(ctx context.Context, body io.ReadSeeker) erro
 	blockBlob.Indexes = append(blockBlob.Indexes, index)
 	blockID := blockIDIntToBase64(index)
 	readSeekCloserBody := readSeekCloser{body}
-	_, err := blockBlob.Blob.StageBlock(ctx, blockID, readSeekCloserBody, nil)
+	_, err := blockBlob.BlobClient.StageBlock(ctx, blockID, readSeekCloserBody, nil)
 	return err
 }
 
 // Download the blockBlob from Azure Blob Storage
 func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error) {
-	resp, err := blockBlob.Blob.DownloadStream(ctx, nil)
+	resp, err := blockBlob.BlobClient.DownloadStream(ctx, nil)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") { // Check for not found error.
-			return nil, handler.ErrNotFound
-		}
-		return nil, err
+		return nil, handleError(err)
 	}
 	return resp.Body, nil
 }
@@ -195,12 +200,9 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 	var indexes []int
 	var offset int64
 
-	resp, err := blockBlob.Blob.GetBlockList(ctx, blockblob.BlockListTypeAll, nil)
+	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeAll, nil)
 	if err != nil {
-		if strings.Contains(err.Error(), "BlobNotFound") {
-			return 0, handler.ErrNotFound
-		}
-		return 0, err
+		return 0, handleError(err)
 	}
 
 	// Need committed blocks to be added to offset to know how big the file really is
@@ -228,15 +230,22 @@ func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
 	for i, id := range blockBlob.Indexes {
 		base64BlockIDs[i] = blockIDIntToBase64(id)
 	}
-	_, err := blockBlob.Blob.CommitBlockList(ctx, base64BlockIDs, &blockblob.CommitBlockListOptions{
-		Tier: blockBlob.BlobAccessTier,
-	})
+
+	// default is set on container
+	var commitBlockListOptions *blockblob.CommitBlockListOptions
+	if blockBlob.BlobAccessTier != nil {
+		commitBlockListOptions = &blockblob.CommitBlockListOptions{
+			Tier: blockBlob.BlobAccessTier,
+		}
+	}
+
+	_, err := blockBlob.BlobClient.CommitBlockList(ctx, base64BlockIDs, commitBlockListOptions)
 	return err
 }
 
 // Delete the infoBlob from Azure Blob Storage
 func (infoBlob *InfoBlob) Delete(ctx context.Context) error {
-	_, err := infoBlob.Blob.Delete(ctx, nil)
+	_, err := infoBlob.BlobClient.Delete(ctx, nil)
 	return err
 }
 
@@ -244,22 +253,18 @@ func (infoBlob *InfoBlob) Delete(ctx context.Context) error {
 // Because the info file is presumed to be smaller than azblob.BlockBlobMaxUploadBlobBytes (256MiB), we can upload it all in one go
 // New uploaded data will create a new, or overwrite the existing block blob
 func (infoBlob *InfoBlob) Upload(ctx context.Context, body io.ReadSeeker) error {
-	_, err := infoBlob.Blob.UploadStream(ctx, body, nil)
+	_, err := infoBlob.BlobClient.UploadStream(ctx, body, nil)
 	return err
 }
 
 // Download the infoBlob from Azure Blob Storage
 func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
-	resp, err := infoBlob.Blob.DownloadStream(ctx, nil)
+	resp, err := infoBlob.BlobClient.DownloadStream(ctx, nil)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") { // Check for not found error.
-			return nil, handler.ErrNotFound
-		}
-		return nil, err
+		return nil, handleError(err)
 	}
 	return resp.Body, nil
 }
-
 
 // infoBlob does not utilise offset, so just return 0, nil
 func (infoBlob *InfoBlob) GetOffset(ctx context.Context) (int64, error) {
@@ -303,4 +308,15 @@ type readSeekCloser struct {
 // Close implements io.Closer for readSeekCloser.
 func (rsc readSeekCloser) Close() error {
 	return nil
+}
+
+func handleError(err error) error {
+	var azureError *azcore.ResponseError
+	if errors.As(err, &azureError) {
+		code := bloberror.Code(azureError.ErrorCode)
+		if code == bloberror.BlobNotFound || azureError.StatusCode == 404 {
+			return handler.ErrNotFound
+		}
+	}
+	return err
 }
