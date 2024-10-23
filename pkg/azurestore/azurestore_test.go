@@ -8,7 +8,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/tus/tusd/v2/pkg/azurestore"
@@ -216,7 +216,7 @@ func TestGetUploadNotFound(t *testing.T) {
 	ctx := context.Background()
 	gomock.InOrder(
 		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
-		infoBlob.EXPECT().Download(ctx).Return(nil, errors.New(string(azblob.StorageErrorCodeBlobNotFound))).Times(1),
+		infoBlob.EXPECT().Download(ctx).Return(nil, errors.New(string(bloberror.BlobNotFound))).Times(1),
 	)
 
 	_, err := store.GetUpload(context.Background(), mockID)
