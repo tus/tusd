@@ -698,10 +698,18 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 	isTusV1 := !handler.usesIETFDraft(r)
 
-	// Check for presence of application/offset+octet-stream
+	// Check for presence of application/offset+octet-stream (tus v1) or application/partial-upload (IETF draft since -04)
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
 		handler.sendError(c, ErrInvalidContentType)
 		return
+	}
+
+	if !isTusV1 {
+		currentInteropVersion := getIETFDraftInteropVersion(r)
+		if currentInteropVersion != interopVersion3 && currentInteropVersion != interopVersion4 && currentInteropVersion != interopVersion5 && r.Header.Get("Content-Type") != "application/partial-upload" {
+			handler.sendError(c, ErrInvalidContentType)
+			return
+		}
 	}
 
 	// Check for presence of a valid Upload-Offset Header

@@ -152,3 +152,12 @@ func addIETFUploadCompleteHeader(header map[string]string, isComplete bool, inte
 
 	return header
 }
+
+// addIETFContentTypeHeader writes the Content-Type header depending on the interop version.
+func addIETFContentTypeHeader(header map[string]string, interopVersion string) map[string]string {
+	switch interopVersion {
+	case "6":
+		header["Content-Type"] = "application/partial-upload"
+	}
+	return header
+}
