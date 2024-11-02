@@ -706,6 +706,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
+		resp.Header["Upload-Limit"] = handler.getIETFDraftUploadLimits(info)
+
 		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
 		// but we stick to 204 to not make the logic less complex.
 		resp.StatusCode = http.StatusNoContent
