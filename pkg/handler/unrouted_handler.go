@@ -560,11 +560,14 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	id := info.ID
 	url := handler.absFileURL(r, id)
+	limits := handler.getIETFDraftUploadLimits(info)
 	resp.Header["Location"] = url
+	resp.Header["Upload-Limit"] = limits
 
 	// Send 104 response
 	w.Header().Set("Location", url)
 	w.Header().Set("Upload-Draft-Interop-Version", string(currentUploadDraftInteropVersion))
+	w.Header().Set("Upload-Limit", limits)
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
@@ -1404,6 +1407,19 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
 	interopVersionHeader := getIETFDraftInteropVersion(r)
 	return handler.config.EnableExperimentalProtocol && interopVersionHeader != ""
+}
+
+// getIETFDraftUploadLimits returns the Upload-Limit header for a given upload
+// according to the set resumable upload draft version from IETF.
+func (handler UnroutedHandler) getIETFDraftUploadLimits(info FileInfo) string {
+	limits := "min-size=0"
+	if handler.config.MaxSize > 0 {
+		limits += ",max-size=" + strconv.FormatInt(handler.config.MaxSize, 10)
+	} else if !info.SizeIsDeferred {
+		limits += ",max-size=" + strconv.FormatInt(info.Size, 10)
+	}
+
+	return limits
 }
 
 // getIETFDraftInteropVersion returns the resumable upload draft interop version from the headers.

@@ -603,6 +603,7 @@ func TestPost(t *testing.T) {
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
 							"Upload-Offset":                "11",
+							"Upload-Limit":                 "min-size=0,max-size=11",
 						},
 					}).Run(handler, t)
 
@@ -614,6 +615,7 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": []string{interopVersion},
 								"Location":                     []string{"http://tus.io/files/foo"},
 								"X-Content-Type-Options":       []string{"nosniff"},
+								"Upload-Limit":                 []string{"min-size=0,max-size=11"},
 							},
 						},
 					}, res.InformationalResponses)
@@ -650,6 +652,7 @@ func TestPost(t *testing.T) {
 						StoreComposer:              composer,
 						BasePath:                   "/files/",
 						EnableExperimentalProtocol: true,
+						MaxSize:                    400,
 					})
 
 					res := (&httpTest{
@@ -663,6 +666,7 @@ func TestPost(t *testing.T) {
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
 							"Upload-Offset":                "11",
+							"Upload-Limit":                 "min-size=0,max-size=400",
 						},
 					}).Run(handler, t)
 
@@ -674,6 +678,7 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": []string{interopVersion},
 								"Location":                     []string{"http://tus.io/files/foo"},
 								"X-Content-Type-Options":       []string{"nosniff"},
+								"Upload-Limit":                 []string{"min-size=0,max-size=400"},
 							},
 						},
 					}, res.InformationalResponses)
@@ -728,6 +733,7 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": interopVersion,
 								"Location":                     "http://tus.io/files/foo",
 								"Upload-Offset":                "11",
+								"Upload-Limit":                 "min-size=0,max-size=11",
 							},
 						}).Run(handler, t)
 					})
@@ -802,6 +808,7 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": interopVersion,
 								"Location":                     "http://tus.io/files/foo",
 								"Upload-Offset":                "6",
+								"Upload-Limit":                 "min-size=0,max-size=11",
 							},
 						}).Run(handler, t)
 					})
