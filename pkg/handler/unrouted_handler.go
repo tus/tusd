@@ -463,9 +463,15 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	info := FileInfo{
 		MetaData: make(MetaData),
 	}
-	if willCompleteUpload && r.ContentLength != -1 {
-		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
-		info.Size = r.ContentLength
+
+	size, sizeIsDeferred, err := getIETFDraftUploadLength(r)
+	if err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
+	if !sizeIsDeferred {
+		info.Size = size
 	} else {
 		// Error out if the storage does not support upload length deferring, but we need it.
 		if !handler.composer.UsesLengthDeferrer {
@@ -1430,6 +1436,49 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 			resp.Header["Upload-Complete"] = "?0"
 		}
 	}
+}
+
+// getIETFDraftUploadLength returns the length of an upload as defined in the
+// resumable upload draft from IETF. This can either be in the Upload-Length
+// header or in the Content-Length header.
+func getIETFDraftUploadLength(r *http.Request) (length int64, lengthIsDeferred bool, err error) {
+	var lengthFromUploadLength int64
+	hasLengthFromUploadLength := false
+	var lengthFromContentLength int64
+	hasLengthFromContentLength := false
+
+	willCompleteUpload := isIETFDraftUploadComplete(r)
+	if willCompleteUpload && r.ContentLength != -1 {
+		lengthFromContentLength = r.ContentLength
+		hasLengthFromContentLength = true
+	}
+
+	uploadLengthStr := r.Header.Get("Upload-Length")
+	if uploadLengthStr != "" {
+		var err error
+		lengthFromUploadLength, err = strconv.ParseInt(uploadLengthStr, 10, 64)
+		if err != nil {
+			return 0, false, ErrInvalidUploadLength
+		}
+
+		hasLengthFromUploadLength = true
+	}
+
+	// If both lengths are set, they must match
+	if hasLengthFromContentLength && hasLengthFromUploadLength && lengthFromUploadLength != lengthFromContentLength {
+		return 0, false, ErrInvalidUploadLength
+	}
+
+	// Return whichever length is set
+	if hasLengthFromUploadLength {
+		return lengthFromUploadLength, false, nil
+	}
+	if hasLengthFromContentLength {
+		return lengthFromContentLength, false, nil
+	}
+
+	// No length set, so it's deferred
+	return 0, true, nil
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
