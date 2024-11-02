@@ -28,6 +28,7 @@ const (
 	interopVersion3 draftVersion = "3" // From draft version -01
 	interopVersion4 draftVersion = "4" // From draft version -02
 	interopVersion5 draftVersion = "5" // From draft version -03
+	interopVersion6 draftVersion = "6" // From draft version -04 and -05
 )
 
 var (
@@ -1381,7 +1382,7 @@ func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
 func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case interopVersion3, interopVersion4, interopVersion5:
+	case interopVersion3, interopVersion4, interopVersion5, interopVersion6:
 		return version
 	default:
 		return ""
@@ -1393,7 +1394,7 @@ func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 func isIETFDraftUploadComplete(r *http.Request) bool {
 	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 	switch currentUploadDraftInteropVersion {
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		return r.Header.Get("Upload-Complete") == "?1"
 	case interopVersion3:
 		return r.Header.Get("Upload-Incomplete") == "?0"
@@ -1414,7 +1415,7 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 		} else {
 			resp.Header["Upload-Incomplete"] = "?1"
 		}
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		if isComplete {
 			resp.Header["Upload-Complete"] = "?1"
 		} else {
