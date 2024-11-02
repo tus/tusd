@@ -28,6 +28,7 @@ const (
 	interopVersion3 draftVersion = "3" // From draft version -01
 	interopVersion4 draftVersion = "4" // From draft version -02
 	interopVersion5 draftVersion = "5" // From draft version -03
+	interopVersion6 draftVersion = "6" // From draft version -04 and -05
 )
 
 var (
@@ -235,8 +236,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Set appropriated headers in case of OPTIONS method allowing protocol
 		// discovery and end with an 204 No Content
 		if r.Method == "OPTIONS" {
+			ietfDraftLimits := "min-size=0"
+
 			if handler.config.MaxSize > 0 {
-				header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+				maxSizeStr := strconv.FormatInt(handler.config.MaxSize, 10)
+				header.Set("Tus-Max-Size", maxSizeStr)
+				ietfDraftLimits += ",max-size=" + maxSizeStr
+			}
+
+			if handler.usesIETFDraft(r) {
+				header.Set("Upload-Limit", ietfDraftLimits)
 			}
 
 			header.Set("Tus-Version", "1.0.0")
@@ -462,9 +471,15 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	info := FileInfo{
 		MetaData: make(MetaData),
 	}
-	if willCompleteUpload && r.ContentLength != -1 {
-		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
-		info.Size = r.ContentLength
+
+	size, sizeIsDeferred, err := getIETFDraftUploadLength(r)
+	if err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
+	if !sizeIsDeferred {
+		info.Size = size
 	} else {
 		// Error out if the storage does not support upload length deferring, but we need it.
 		if !handler.composer.UsesLengthDeferrer {
@@ -545,11 +560,14 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	id := info.ID
 	url := handler.absFileURL(r, id)
+	limits := handler.getIETFDraftUploadLimits(info)
 	resp.Header["Location"] = url
+	resp.Header["Upload-Limit"] = limits
 
 	// Send 104 response
 	w.Header().Set("Location", url)
 	w.Header().Set("Upload-Draft-Interop-Version", string(currentUploadDraftInteropVersion))
+	w.Header().Set("Upload-Limit", limits)
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
@@ -673,6 +691,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			resp.Header["Upload-Defer-Length"] = UploadLengthDeferred
 		} else {
 			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+			// TODO: Shouldn't this rather be offset? Basically, whatever GET would return.
+			// But this then also depends on the storage backend if that's even supported.
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
@@ -681,6 +701,12 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
 		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
 		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
+
+		if !info.SizeIsDeferred {
+			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+		}
+
+		resp.Header["Upload-Limit"] = handler.getIETFDraftUploadLimits(info)
 
 		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
 		// but we stick to 204 to not make the logic less complex.
@@ -697,10 +723,18 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 	isTusV1 := !handler.usesIETFDraft(r)
 
-	// Check for presence of application/offset+octet-stream
+	// Check for presence of application/offset+octet-stream (tus v1) or application/partial-upload (IETF draft since -04)
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
 		handler.sendError(c, ErrInvalidContentType)
 		return
+	}
+
+	if !isTusV1 {
+		currentInteropVersion := getIETFDraftInteropVersion(r)
+		if currentInteropVersion != interopVersion3 && currentInteropVersion != interopVersion4 && currentInteropVersion != interopVersion5 && r.Header.Get("Content-Type") != "application/partial-upload" {
+			handler.sendError(c, ErrInvalidContentType)
+			return
+		}
 	}
 
 	// Check for presence of a valid Upload-Offset Header
@@ -1377,11 +1411,24 @@ func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
 	return handler.config.EnableExperimentalProtocol && interopVersionHeader != ""
 }
 
+// getIETFDraftUploadLimits returns the Upload-Limit header for a given upload
+// according to the set resumable upload draft version from IETF.
+func (handler UnroutedHandler) getIETFDraftUploadLimits(info FileInfo) string {
+	limits := "min-size=0"
+	if handler.config.MaxSize > 0 {
+		limits += ",max-size=" + strconv.FormatInt(handler.config.MaxSize, 10)
+	} else if !info.SizeIsDeferred {
+		limits += ",max-size=" + strconv.FormatInt(info.Size, 10)
+	}
+
+	return limits
+}
+
 // getIETFDraftInteropVersion returns the resumable upload draft interop version from the headers.
 func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case interopVersion3, interopVersion4, interopVersion5:
+	case interopVersion3, interopVersion4, interopVersion5, interopVersion6:
 		return version
 	default:
 		return ""
@@ -1393,7 +1440,7 @@ func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 func isIETFDraftUploadComplete(r *http.Request) bool {
 	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 	switch currentUploadDraftInteropVersion {
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		return r.Header.Get("Upload-Complete") == "?1"
 	case interopVersion3:
 		return r.Header.Get("Upload-Incomplete") == "?0"
@@ -1414,13 +1461,56 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 		} else {
 			resp.Header["Upload-Incomplete"] = "?1"
 		}
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		if isComplete {
 			resp.Header["Upload-Complete"] = "?1"
 		} else {
 			resp.Header["Upload-Complete"] = "?0"
 		}
 	}
+}
+
+// getIETFDraftUploadLength returns the length of an upload as defined in the
+// resumable upload draft from IETF. This can either be in the Upload-Length
+// header or in the Content-Length header.
+func getIETFDraftUploadLength(r *http.Request) (length int64, lengthIsDeferred bool, err error) {
+	var lengthFromUploadLength int64
+	hasLengthFromUploadLength := false
+	var lengthFromContentLength int64
+	hasLengthFromContentLength := false
+
+	willCompleteUpload := isIETFDraftUploadComplete(r)
+	if willCompleteUpload && r.ContentLength != -1 {
+		lengthFromContentLength = r.ContentLength
+		hasLengthFromContentLength = true
+	}
+
+	uploadLengthStr := r.Header.Get("Upload-Length")
+	if uploadLengthStr != "" {
+		var err error
+		lengthFromUploadLength, err = strconv.ParseInt(uploadLengthStr, 10, 64)
+		if err != nil {
+			return 0, false, ErrInvalidUploadLength
+		}
+
+		hasLengthFromUploadLength = true
+	}
+
+	// If both lengths are set, they must match
+	if hasLengthFromContentLength && hasLengthFromUploadLength && lengthFromUploadLength != lengthFromContentLength {
+		return 0, false, ErrInvalidUploadLength
+	}
+
+	// Return whichever length is set
+	if hasLengthFromUploadLength {
+		return lengthFromUploadLength, false, nil
+	}
+	if hasLengthFromContentLength {
+		return lengthFromContentLength, false, nil
+	}
+
+	// No length set, so it's deferred
+	return 0, true, nil
 }
 
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the

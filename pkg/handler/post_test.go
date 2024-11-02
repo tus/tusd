@@ -546,7 +546,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		for _, interopVersion := range []string{"3", "4", "5"} {
+		for _, interopVersion := range []string{"3", "4", "5", "6"} {
 			SubTest(t, "InteropVersion"+interopVersion, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 				SubTest(t, "CompleteUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 					ctrl := gomock.NewController(t)
@@ -603,6 +603,7 @@ func TestPost(t *testing.T) {
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
 							"Upload-Offset":                "11",
+							"Upload-Limit":                 "min-size=0,max-size=11",
 						},
 					}).Run(handler, t)
 
@@ -614,6 +615,7 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": []string{interopVersion},
 								"Location":                     []string{"http://tus.io/files/foo"},
 								"X-Content-Type-Options":       []string{"nosniff"},
+								"Upload-Limit":                 []string{"min-size=0,max-size=11"},
 							},
 						},
 					}, res.InformationalResponses)
@@ -650,6 +652,7 @@ func TestPost(t *testing.T) {
 						StoreComposer:              composer,
 						BasePath:                   "/files/",
 						EnableExperimentalProtocol: true,
+						MaxSize:                    400,
 					})
 
 					res := (&httpTest{
@@ -663,6 +666,7 @@ func TestPost(t *testing.T) {
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Location":                     "http://tus.io/files/foo",
 							"Upload-Offset":                "11",
+							"Upload-Limit":                 "min-size=0,max-size=400",
 						},
 					}).Run(handler, t)
 
@@ -674,10 +678,141 @@ func TestPost(t *testing.T) {
 								"Upload-Draft-Interop-Version": []string{interopVersion},
 								"Location":                     []string{"http://tus.io/files/foo"},
 								"X-Content-Type-Options":       []string{"nosniff"},
+								"Upload-Limit":                 []string{"min-size=0,max-size=400"},
 							},
 						},
 					}, res.InformationalResponses)
 				})
+
+				if interopVersion != "3" && interopVersion != "4" && interopVersion != "5" {
+					SubTest(t, "UploadLengthAndContentLengthMatch", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+						ctrl := gomock.NewController(t)
+						defer ctrl.Finish()
+						locker := NewMockFullLocker(ctrl)
+						lock := NewMockFullLock(ctrl)
+						upload := NewMockFullUpload(ctrl)
+
+						gomock.InOrder(
+							store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+								SizeIsDeferred: false,
+								Size:           11,
+								MetaData:       map[string]string{},
+							}).Return(upload, nil),
+							upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+								ID:             "foo",
+								SizeIsDeferred: false,
+								Size:           11,
+							}, nil),
+							locker.EXPECT().NewLock("foo").Return(lock, nil),
+							lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+							upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
+							upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
+							lock.EXPECT().Unlock().Return(nil),
+						)
+
+						composer := NewStoreComposer()
+						composer.UseCore(store)
+						composer.UseLocker(locker)
+
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							BasePath:                   "/files/",
+							EnableExperimentalProtocol: true,
+						})
+
+						(&httpTest{
+							Method: "POST",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Upload-Length":                "11",
+								"Upload-Complete":              "?1",
+							},
+							ReqBody: strings.NewReader("hello world"),
+							Code:    http.StatusCreated,
+							ResHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Location":                     "http://tus.io/files/foo",
+								"Upload-Offset":                "11",
+								"Upload-Limit":                 "min-size=0,max-size=11",
+							},
+						}).Run(handler, t)
+					})
+
+					SubTest(t, "UploadLengthAndContentLengthMismatch", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+						ctrl := gomock.NewController(t)
+						defer ctrl.Finish()
+
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							BasePath:                   "/files/",
+							EnableExperimentalProtocol: true,
+						})
+
+						(&httpTest{
+							Method: "POST",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Upload-Length":                "999999",
+								"Upload-Complete":              "?1",
+							},
+							ReqBody: strings.NewReader("hello world"),
+							Code:    http.StatusBadRequest,
+							ResBody: "ERR_INVALID_UPLOAD_LENGTH: missing or invalid Upload-Length header\n",
+						}).Run(handler, t)
+					})
+
+					SubTest(t, "OnlyUploadLength", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+						ctrl := gomock.NewController(t)
+						defer ctrl.Finish()
+						locker := NewMockFullLocker(ctrl)
+						lock := NewMockFullLock(ctrl)
+						upload := NewMockFullUpload(ctrl)
+
+						gomock.InOrder(
+							store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+								SizeIsDeferred: false,
+								Size:           11,
+								MetaData:       map[string]string{},
+							}).Return(upload, nil),
+							upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+								ID:             "foo",
+								SizeIsDeferred: false,
+								Size:           11,
+							}, nil),
+							locker.EXPECT().NewLock("foo").Return(lock, nil),
+							lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+							upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello ")).Return(int64(6), nil),
+							lock.EXPECT().Unlock().Return(nil),
+						)
+
+						composer := NewStoreComposer()
+						composer.UseCore(store)
+						composer.UseLocker(locker)
+
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							BasePath:                   "/files/",
+							EnableExperimentalProtocol: true,
+						})
+
+						(&httpTest{
+							Method: "POST",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Upload-Length":                "11",
+								"Upload-Complete":              "?0",
+							},
+							ReqBody: strings.NewReader("hello "),
+							Code:    http.StatusCreated,
+							ResHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Location":                     "http://tus.io/files/foo",
+								"Upload-Offset":                "6",
+								"Upload-Limit":                 "min-size=0,max-size=11",
+							},
+						}).Run(handler, t)
+					})
+				}
 			})
 		}
 	})
