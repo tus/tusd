@@ -42,4 +42,26 @@ func TestOptions(t *testing.T) {
 			Code: http.StatusPreconditionFailed,
 		}).Run(handler, t)
 	})
+
+	SubTest(t, "ExperimentalProtocol", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:              composer,
+			EnableExperimentalProtocol: true,
+			MaxSize:                    400,
+		})
+
+		(&httpTest{
+			Method: "OPTIONS",
+			ReqHeader: map[string]string{
+				"Upload-Draft-Interop-Version": "6",
+			},
+			ResHeader: map[string]string{
+				"Upload-Limit": "min-size=0,max-size=400",
+			},
+			Code: http.StatusOK,
+		}).Run(handler, t)
+	})
 }

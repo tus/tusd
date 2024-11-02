@@ -236,8 +236,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Set appropriated headers in case of OPTIONS method allowing protocol
 		// discovery and end with an 204 No Content
 		if r.Method == "OPTIONS" {
+			ietfDraftLimits := "min-size=0"
+
 			if handler.config.MaxSize > 0 {
-				header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+				maxSizeStr := strconv.FormatInt(handler.config.MaxSize, 10)
+				header.Set("Tus-Max-Size", maxSizeStr)
+				ietfDraftLimits += ",max-size=" + maxSizeStr
+			}
+
+			if handler.usesIETFDraft(r) {
+				header.Set("Upload-Limit", ietfDraftLimits)
 			}
 
 			header.Set("Tus-Version", "1.0.0")
