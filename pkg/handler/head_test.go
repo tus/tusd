@@ -176,6 +176,7 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
+							"Upload-Length":                "10",
 						}, false, interopVersion),
 					}).Run(handler, t)
 				})
@@ -209,6 +210,7 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "10",
+							"Upload-Length":                "10",
 						}, true, interopVersion),
 					}).Run(handler, t)
 				})
@@ -241,6 +243,7 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
+							"Upload-Length":                "",
 						}, false, interopVersion),
 					}).Run(handler, t)
 				})

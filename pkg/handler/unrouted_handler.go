@@ -680,6 +680,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			resp.Header["Upload-Defer-Length"] = UploadLengthDeferred
 		} else {
 			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+			// TODO: Shouldn't this rather be offset? Basically, whatever GET would return.
+			// But this then also depends on the storage backend if that's even supported.
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
@@ -688,6 +690,10 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
 		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
 		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
+
+		if !info.SizeIsDeferred {
+			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+		}
 
 		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
 		// but we stick to 204 to not make the logic less complex.
