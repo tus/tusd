@@ -79,6 +79,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -374,6 +375,81 @@ func (store S3Store) AsLengthDeclarableUpload(upload handler.Upload) handler.Len
 
 func (store S3Store) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
 	return upload.(*s3Upload)
+}
+
+func (store S3Store) AsServableUpload(upload handler.Upload) handler.ServableUpload {
+	return upload.(*s3Upload)
+}
+
+func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	// Get file info
+	info, err := su.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Prepare GetObject input
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(su.store.Bucket),
+		Key:    su.store.keyWithPrefix(su.objectId),
+	}
+
+	// Handle range requests
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		if err := su.handleRangeRequest(ctx, w, r, info, input, rangeHeader); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// For non-range requests, serve the entire file
+	result, err := su.store.Service.GetObject(ctx, input)
+	if err != nil {
+		return err
+	}
+	defer result.Body.Close()
+
+	// Set headers
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size, 10))
+	w.Header().Set("Content-Type", info.MetaData["filetype"])
+	w.Header().Set("ETag", *result.ETag)
+
+	// Stream the content
+	_, err = io.Copy(w, result.Body)
+	return err
+}
+
+func (su *s3Upload) handleRangeRequest(ctx context.Context, w http.ResponseWriter, _ *http.Request, info handler.FileInfo, input *s3.GetObjectInput, rangeHeader string) error {
+	ranges, err := parseRange(rangeHeader, info.Size)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
+		return err
+	}
+
+	if len(ranges) > 1 {
+		return fmt.Errorf("multiple ranges are not supported")
+	}
+
+	// Set the range in the GetObject input
+	input.Range = aws.String(fmt.Sprintf("bytes=%d-%d", ranges[0].start, ranges[0].end))
+
+	result, err := su.store.Service.GetObject(ctx, input)
+	if err != nil {
+		return err
+	}
+	defer result.Body.Close()
+
+	// Set headers for partial content
+	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", ranges[0].start, ranges[0].end, info.Size))
+	w.Header().Set("Content-Length", strconv.FormatInt(ranges[0].end-ranges[0].start+1, 10))
+	w.Header().Set("Content-Type", info.MetaData["filetype"])
+	w.Header().Set("ETag", *result.ETag)
+	w.WriteHeader(http.StatusPartialContent)
+
+	// Stream the content
+	_, err = io.Copy(w, result.Body)
+	return err
 }
 
 func (upload *s3Upload) writeInfo(ctx context.Context, info handler.FileInfo) error {
@@ -1248,4 +1324,66 @@ func (store S3Store) acquireUploadSemaphore() {
 func (store S3Store) releaseUploadSemaphore() {
 	store.uploadSemaphore.Release()
 	store.uploadSemaphoreDemandMetric.Dec()
+}
+
+// Helper function to parse range header
+func parseRange(rangeHeader string, size int64) ([]struct{ start, end int64 }, error) {
+	if rangeHeader == "" {
+		return nil, fmt.Errorf("empty range header")
+	}
+
+	const b = "bytes="
+	if !strings.HasPrefix(rangeHeader, b) {
+		return nil, fmt.Errorf("invalid range header format")
+	}
+
+	var ranges []struct{ start, end int64 }
+	for _, ra := range strings.Split(rangeHeader[len(b):], ",") {
+		ra = strings.TrimSpace(ra)
+		if ra == "" {
+			continue
+		}
+		i := strings.Index(ra, "-")
+		if i < 0 {
+			return nil, fmt.Errorf("invalid range format")
+		}
+		start, end := strings.TrimSpace(ra[:i]), strings.TrimSpace(ra[i+1:])
+		var r struct{ start, end int64 }
+		if start == "" {
+			// suffix-byte-range-spec, like "-100"
+			n, err := strconv.ParseInt(end, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid range format")
+			}
+			if n > size {
+				n = size
+			}
+			r.start = size - n
+			r.end = size - 1
+		} else {
+			i, err := strconv.ParseInt(start, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid range format")
+			}
+			if i >= size {
+				return nil, fmt.Errorf("range out of bounds")
+			}
+			r.start = i
+			if end == "" {
+				// byte-range-spec, like "100-"
+				r.end = size - 1
+			} else {
+				i, err := strconv.ParseInt(end, 10, 64)
+				if err != nil || i >= size || i < r.start {
+					return nil, fmt.Errorf("invalid range format")
+				}
+				r.end = i
+			}
+		}
+		ranges = append(ranges, r)
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("no valid ranges")
+	}
+	return ranges, nil
 }
