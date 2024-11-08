@@ -7,7 +7,6 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
-	"strconv"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -43,6 +42,9 @@ type GCSFilterParams struct {
 
 	// Prefix specifies the prefix of which you want to filter object names with.
 	Prefix string
+
+	// IncludeInfoObject indicates whether to include or ignore the info object.
+	IncludeInfoObject bool
 }
 
 // GCSReader implements cloud.google.com/go/storage.Reader.
@@ -203,8 +205,9 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 		// Remove all the temporary composition objects
 		prefix := fmt.Sprintf("%s_tmp", params.Destination)
 		filterParams := GCSFilterParams{
-			Bucket: params.Bucket,
-			Prefix: prefix,
+			Bucket:            params.Bucket,
+			Prefix:            prefix,
+			IncludeInfoObject: false,
 		}
 
 		err = service.DeleteObjectsWithFilter(ctx, filterParams)
@@ -341,9 +344,32 @@ func (service *GCSService) FilterObjects(ctx context.Context, params GCSFilterPa
 		Versions: false,
 	}
 
+	// If the object name does not split on "_", we have a composed object.
+	// If the object name splits on "_" in to four pieces we
+	// know the object name we are working with is in the format
+	// [uid]_tmp_[recursion_lvl]_[chunk_idx]. The only time we filter
+	// these temporary objects is on a delete operation so we can just
+	// append and continue without worrying about index order
+	isValidObject := func(name string) (bool, error) {
+		fileNameParts := strings.Split(name, "/")
+		fileName := fileNameParts[len(fileNameParts)-1]
+
+		split := strings.Split(fileName, "_")
+
+		switch len(split) {
+		case 1:
+		case 2:
+		case 4:
+		default:
+			return false, errors.New("invalid filter format for object name")
+		}
+
+		return true, nil
+	}
+
 	it := bkt.Objects(ctx, &q)
-	names := make([]string, 0)
-loop:
+	var names []string
+
 	for {
 		objAttrs, err := it.Next()
 		if err == iterator.Done {
@@ -353,45 +379,17 @@ loop:
 			return nil, err
 		}
 
-		if strings.HasSuffix(objAttrs.Name, "info") {
+		if !params.IncludeInfoObject && strings.HasSuffix(objAttrs.Name, "info") {
 			continue
 		}
 
-		fileNameParts := strings.Split(objAttrs.Name, "/")
-		fileName := fileNameParts[len(fileNameParts)-1]
-
-		split := strings.Split(fileName, "_")
-
-		// If the object name does not split on "_", we have a composed object.
-		// If the object name splits on "_" in to four pieces we
-		// know the object name we are working with is in the format
-		// [uid]_tmp_[recursion_lvl]_[chunk_idx]. The only time we filter
-		// these temporary objects is on a delete operation so we can just
-		// append and continue without worrying about index order
-
-		switch len(split) {
-		case 1:
-			names = []string{objAttrs.Name}
-			break loop
-		case 2:
-		case 4:
-			names = append(names, objAttrs.Name)
-			continue
-		default:
-			err := errors.New("invalid filter format for object name")
-			return nil, err
-		}
-
-		idx, err := strconv.Atoi(split[1])
+		ok, err := isValidObject(objAttrs.Name)
 		if err != nil {
 			return nil, err
 		}
-
-		if len(names) <= idx {
-			names = append(names, make([]string, idx-len(names)+1)...)
+		if ok {
+			names = append(names, objAttrs.Name)
 		}
-
-		names[idx] = objAttrs.Name
 	}
 
 	return names, nil
