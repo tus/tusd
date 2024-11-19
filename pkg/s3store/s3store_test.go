@@ -164,6 +164,53 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 	assert.NotNil(upload)
 }
 
+func TestNewUploadWithContentType(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	assert.Equal("bucket", store.Bucket)
+	assert.Equal(s3obj, store.Service)
+
+	gomock.InOrder(
+		s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
+			Bucket:      aws.String("bucket"),
+			Key:         aws.String("uploadId"),
+			ContentType: aws.String("application/pdf"),
+			Metadata: map[string]string{
+				"foo":         "hello",
+				"bar":         "men???hi",
+				"contentType": "application/pdf",
+			},
+		}).Return(&s3.CreateMultipartUploadOutput{
+			UploadId: aws.String("multipartId"),
+		}, nil),
+		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
+			Bucket:        aws.String("bucket"),
+			Key:           aws.String("uploadId.info"),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","contentType":"application/pdf","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(273),
+		}),
+	)
+
+	info := handler.FileInfo{
+		ID:   "uploadId",
+		Size: 500,
+		MetaData: map[string]string{
+			"foo":         "hello",
+			"bar":         "menü\r\nhi",
+			"contentType": "application/pdf",
+		},
+	}
+
+	upload, err := store.NewUpload(context.Background(), info)
+	assert.Nil(err)
+	assert.NotNil(upload)
+}
+
 // This test ensures that an newly created upload without any chunks can be
 // directly finished. There are no calls to ListPart or HeadObject because
 // the upload is not fetched from S3 first.

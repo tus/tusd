@@ -326,11 +326,15 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 
 	// Create the actual multipart upload
 	t := time.Now()
-	res, err := store.Service.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+	multipartUploadInput := &s3.CreateMultipartUploadInput{
 		Bucket:   aws.String(store.Bucket),
 		Key:      store.keyWithPrefix(objectId),
 		Metadata: metadata,
-	})
+	}
+	if contentType, found := info.MetaData["contentType"]; found {
+		multipartUploadInput.ContentType = aws.String(contentType)
+	}
+	res, err := store.Service.CreateMultipartUpload(ctx, multipartUploadInput)
 	store.observeRequestDuration(t, metricCreateMultipartUpload)
 	if err != nil {
 		return nil, fmt.Errorf("s3store: unable to create multipart upload:\n%s", err)
