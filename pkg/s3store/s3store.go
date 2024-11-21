@@ -333,6 +333,8 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 	}
 	if contentType, found := info.MetaData["contentType"]; found {
 		multipartUploadInput.ContentType = aws.String(contentType)
+	} else if fileType, found := info.MetaData["filetype"]; found {
+		multipartUploadInput.ContentType = aws.String(fileType)
 	}
 	res, err := store.Service.CreateMultipartUpload(ctx, multipartUploadInput)
 	store.observeRequestDuration(t, metricCreateMultipartUpload)
