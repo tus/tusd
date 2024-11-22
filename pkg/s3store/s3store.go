@@ -331,9 +331,7 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		Key:      store.keyWithPrefix(objectId),
 		Metadata: metadata,
 	}
-	if contentType, found := info.MetaData["contentType"]; found {
-		multipartUploadInput.ContentType = aws.String(contentType)
-	} else if fileType, found := info.MetaData["filetype"]; found {
+	if fileType, found := info.MetaData["filetype"]; found {
 		multipartUploadInput.ContentType = aws.String(fileType)
 	}
 	res, err := store.Service.CreateMultipartUpload(ctx, multipartUploadInput)
