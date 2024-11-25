@@ -45,17 +45,19 @@ func TestNewUpload(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 			Metadata: map[string]string{
-				"foo": "hello",
-				"bar": "men???hi",
+				"foo":      "hello",
+				"bar":      "men???hi",
+				"filetype": "application/pdf",
 			},
+			ContentType: aws.String("application/pdf"),
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(241),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","filetype":"application/pdf","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(270),
 		}),
 	)
 
@@ -63,8 +65,9 @@ func TestNewUpload(t *testing.T) {
 		ID:   "uploadId",
 		Size: 500,
 		MetaData: map[string]string{
-			"foo": "hello",
-			"bar": "menü\r\nhi",
+			"foo":      "hello",
+			"bar":      "menü\r\nhi",
+			"filetype": "application/pdf",
 		},
 	}
 
@@ -156,53 +159,6 @@ func TestNewUploadWithMetadataObjectPrefix(t *testing.T) {
 		MetaData: map[string]string{
 			"foo": "hello",
 			"bar": "menü",
-		},
-	}
-
-	upload, err := store.NewUpload(context.Background(), info)
-	assert.Nil(err)
-	assert.NotNil(upload)
-}
-
-func TestNewUploadWithFileType(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	s3obj := NewMockS3API(mockCtrl)
-	store := New("bucket", s3obj)
-
-	assert.Equal("bucket", store.Bucket)
-	assert.Equal(s3obj, store.Service)
-
-	gomock.InOrder(
-		s3obj.EXPECT().CreateMultipartUpload(context.Background(), &s3.CreateMultipartUploadInput{
-			Bucket:      aws.String("bucket"),
-			Key:         aws.String("uploadId"),
-			ContentType: aws.String("application/pdf"),
-			Metadata: map[string]string{
-				"foo":      "hello",
-				"bar":      "men???hi",
-				"filetype": "application/pdf",
-			},
-		}).Return(&s3.CreateMultipartUploadOutput{
-			UploadId: aws.String("multipartId"),
-		}, nil),
-		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
-			Bucket:        aws.String("bucket"),
-			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId+multipartId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","filetype":"application/pdf","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(270),
-		}),
-	)
-
-	info := handler.FileInfo{
-		ID:   "uploadId",
-		Size: 500,
-		MetaData: map[string]string{
-			"foo":      "hello",
-			"bar":      "menü\r\nhi",
-			"filetype": "application/pdf",
 		},
 	}
 
