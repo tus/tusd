@@ -93,7 +93,7 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 
 	serviceURL := fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName)
 	retryOpts := policy.RetryOptions{
-		MaxRetries:    20,   // Max 20 retries
+		MaxRetries:    5,
 		RetryDelay:    100,  // Retry after 100ms initially
 		MaxRetryDelay: 5000, // Max retry delay 5 seconds
 	}
@@ -106,7 +106,6 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		return nil, err
 	}
 
-	// default is private
 	containerCreateOptions := &container.CreateOptions{}
 	switch config.ContainerAccessType {
 	case "container":
@@ -117,12 +116,12 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		// Leaving Access nil will default to private access
 	}
 
-	// Do not care about response since it will fail if container exists and create if it does not.
 	_, err = containerClient.Create(context.Background(), containerCreateOptions)
 	if err != nil && !strings.Contains(err.Error(), "ContainerAlreadyExists") {
 		return nil, err
 	}
 
+	// Does not support the premium access tiers yet.
 	var blobAccessTier *blob.AccessTier
 	switch config.BlobAccessTier {
 	case "archive":
@@ -225,15 +224,9 @@ func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
 		base64BlockIDs[i] = blockIDIntToBase64(id)
 	}
 
-	// default is set on container
-	var commitBlockListOptions *blockblob.CommitBlockListOptions
-	if blockBlob.BlobAccessTier != nil {
-		commitBlockListOptions = &blockblob.CommitBlockListOptions{
-			Tier: blockBlob.BlobAccessTier,
-		}
-	}
-
-	_, err := blockBlob.BlobClient.CommitBlockList(ctx, base64BlockIDs, commitBlockListOptions)
+	_, err := blockBlob.BlobClient.CommitBlockList(ctx, base64BlockIDs, &blockblob.CommitBlockListOptions{
+		Tier: blockBlob.BlobAccessTier,
+	})
 	return err
 }
 
