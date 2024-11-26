@@ -18,7 +18,8 @@ $ tusd -gcs-bucket=my-test-bucket.com
 ...
 ```
 
-By default, Application Default Credentials [discovery mechanism](https://cloud.google.com/docs/authentication/external/set-up-adc) will be attempted.
+By default, [Application Default Credentials discovery mechanism](https://cloud.google.com/docs/authentication/external/set-up-adc) will be attempted.
+
 If `GCS_SERVICE_ACCOUNT_FILE` environment variable is provided, that account will be used instead:
 
 ```bash

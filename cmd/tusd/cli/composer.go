@@ -76,8 +76,8 @@ func CreateComposer() {
 				"Please remove underscore from the value", Flags.GCSObjectPrefix)
 		}
 
-		// Legacy: account file used to be provided by GCS_SERVICE_ACCOUNT_FILE environment variable.
-		// Now it is more common to default into ADC discovery mechanism.
+		// Application Default Credentials discovery mechanism is attempted to fetch credentials,
+		// but an account file can be provided through the GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
 
 		service, err := gcsstore.NewGCSService(gcsSAF)
