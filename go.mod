@@ -4,12 +4,14 @@ module github.com/tus/tusd/v2
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
 // +heroku goVersion go1.22
 go 1.21.0
+
 toolchain go1.22.7
 
 require (
 	cloud.google.com/go/storage v1.46.0
 	github.com/Acconut/go-httptest-recorder v1.0.0
-	github.com/Azure/azure-storage-blob-go v0.14.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.4.1
 	github.com/Shopify/toxiproxy/v2 v2.11.0
 	github.com/aws/aws-sdk-go-v2 v1.32.3
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
@@ -45,7 +47,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.2.1 // indirect
 	cloud.google.com/go/monitoring v1.21.1 // indirect
-	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.24.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.48.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1 // indirect
@@ -86,7 +88,6 @@ require (
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.0.0 // indirect
@@ -95,7 +96,6 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.29.0 // indirect
