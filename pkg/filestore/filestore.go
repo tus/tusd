@@ -207,12 +207,12 @@ func (upload *fileUpload) Terminate(ctx context.Context) error {
 	// to delete them anyways. The files might be removed by a cron job for cleaning up
 	// or some file might have been removed when tusd crashed during the termination.
 	err := os.Remove(upload.binPath)
-	if !errors.Is(err, os.ErrNotExist) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
 	err = os.Remove(upload.infoPath)
-	if !errors.Is(err, os.ErrNotExist) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 

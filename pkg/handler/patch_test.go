@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -140,7 +141,11 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, ErrNotFound)
+		// We wrap the error test whether the handler correctly unwraps it again
+		// to get an handler.Error.
+		err := fmt.Errorf("extra info: %w", ErrNotFound)
+
+		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, err)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -811,7 +816,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		for _, interopVersion := range []string{"3", "4", "5"} {
+		for _, interopVersion := range []string{"3", "4", "5", "6"} {
 			SubTest(t, "InteropVersion"+interopVersion, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 				SubTest(t, "CompleteUploadWithKnownSize", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 					ctrl := gomock.NewController(t)
@@ -838,10 +843,10 @@ func TestPatch(t *testing.T) {
 					(&httpTest{
 						Method: "PATCH",
 						URL:    "yes",
-						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+						ReqHeader: addIETFContentTypeHeader(addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
-						}, true, interopVersion),
+						}, true, interopVersion), interopVersion),
 						ReqBody: strings.NewReader("hello"),
 						Code:    http.StatusNoContent,
 						ResHeader: map[string]string{
@@ -882,10 +887,10 @@ func TestPatch(t *testing.T) {
 					(&httpTest{
 						Method: "PATCH",
 						URL:    "yes",
-						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+						ReqHeader: addIETFContentTypeHeader(addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
-						}, true, interopVersion),
+						}, true, interopVersion), interopVersion),
 						ReqBody: strings.NewReader("hello"),
 						Code:    http.StatusNoContent,
 						ResHeader: map[string]string{
@@ -917,10 +922,10 @@ func TestPatch(t *testing.T) {
 					(&httpTest{
 						Method: "PATCH",
 						URL:    "yes",
-						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+						ReqHeader: addIETFContentTypeHeader(addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
-						}, false, interopVersion),
+						}, false, interopVersion), interopVersion),
 						ReqBody: strings.NewReader("hel"),
 						Code:    http.StatusNoContent,
 						ResHeader: map[string]string{
@@ -952,10 +957,10 @@ func TestPatch(t *testing.T) {
 					(&httpTest{
 						Method: "PATCH",
 						URL:    "yes",
-						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+						ReqHeader: addIETFContentTypeHeader(addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
-						}, false, interopVersion),
+						}, false, interopVersion), interopVersion),
 						ReqBody: strings.NewReader("hel"),
 						Code:    http.StatusNoContent,
 						ResHeader: map[string]string{
@@ -963,6 +968,28 @@ func TestPatch(t *testing.T) {
 						},
 					}).Run(handler, t)
 				})
+
+				if interopVersion != "3" && interopVersion != "4" && interopVersion != "5" {
+					SubTest(t, "InvalidContentType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							EnableExperimentalProtocol: true,
+						})
+
+						(&httpTest{
+							Method: "PATCH",
+							URL:    "yes",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Content-Type":                 "application/not-partial-upload",
+								"Upload-Offset":                "0",
+							},
+							ReqBody: strings.NewReader("test"),
+							Code:    http.StatusBadRequest,
+							ResBody: "ERR_INVALID_CONTENT_TYPE: missing or invalid Content-Type header\n",
+						}).Run(handler, t)
+					})
+				}
 			})
 		}
 	})
