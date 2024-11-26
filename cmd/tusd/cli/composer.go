@@ -77,12 +77,9 @@ func CreateComposer() {
 				"Please remove underscore from the value", Flags.GCSObjectPrefix)
 		}
 
-		// Derivce credentials from service account file path passed in
-		// GCS_SERVICE_ACCOUNT_FILE environment variable.
+		// Application Default Credentials discovery mechanism is attempted to fetch credentials,
+		// but an account file can be provided through the GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
-		if gcsSAF == "" {
-			stderr.Fatalf("No service account file provided for Google Cloud Storage using the GCS_SERVICE_ACCOUNT_FILE environment variable.\n")
-		}
 
 		service, err := gcsstore.NewGCSService(gcsSAF)
 		if err != nil {
