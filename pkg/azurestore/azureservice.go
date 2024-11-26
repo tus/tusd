@@ -106,22 +106,15 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		return nil, err
 	}
 
-	var containerAccessType container.PublicAccessType
+	// default is private
+	containerCreateOptions := &container.CreateOptions{}
 	switch config.ContainerAccessType {
 	case "container":
-		containerAccessType = container.PublicAccessTypeContainer
+		containerCreateOptions.Access = to.Ptr(container.PublicAccessTypeContainer)
 	case "blob":
-		containerAccessType = container.PublicAccessTypeBlob
+		containerCreateOptions.Access = to.Ptr(container.PublicAccessTypeBlob)
 	default:
-		containerAccessType = ""
-	}
-
-	// default is private
-	var containerCreateOptions *container.CreateOptions = nil
-	if containerAccessType != "" {
-		containerCreateOptions = &container.CreateOptions{
-			Access: to.Ptr(containerAccessType),
-		}
+		// Leaving Access nil will default to private access
 	}
 
 	// Do not care about response since it will fail if container exists and create if it does not.
@@ -138,9 +131,6 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		blobAccessTier = to.Ptr(blob.AccessTierCool)
 	case "hot":
 		blobAccessTier = to.Ptr(blob.AccessTierHot)
-	case "":
-	default:
-		blobAccessTier = nil
 	}
 
 	return &azService{
@@ -193,7 +183,7 @@ func (blockBlob *BlockBlob) Upload(ctx context.Context, body io.ReadSeeker) erro
 func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	resp, err := blockBlob.BlobClient.DownloadStream(ctx, nil)
 	if err != nil {
-		return nil, handleError(err)
+		return nil, checkForNotFoundError(err)
 	}
 	return resp.Body, nil
 }
@@ -206,7 +196,7 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 
 	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeAll, nil)
 	if err != nil {
-		return 0, handleError(err)
+		return 0, checkForNotFoundError(err)
 	}
 
 	// Need committed blocks to be added to offset to know how big the file really is
@@ -265,7 +255,7 @@ func (infoBlob *InfoBlob) Upload(ctx context.Context, body io.ReadSeeker) error 
 func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	resp, err := infoBlob.BlobClient.DownloadStream(ctx, nil)
 	if err != nil {
-		return nil, handleError(err)
+		return nil, checkForNotFoundError(err)
 	}
 	return resp.Body, nil
 }
@@ -314,7 +304,9 @@ func (rsc readSeekCloser) Close() error {
 	return nil
 }
 
-func handleError(err error) error {
+// checkForNotFoundError checks if the error indicates that a resource was not found.
+// If so, we return the corresponding tusd error.
+func checkForNotFoundError(err error) error {
 	var azureError *azcore.ResponseError
 	if errors.As(err, &azureError) {
 		code := bloberror.Code(azureError.ErrorCode)
