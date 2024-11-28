@@ -22,6 +22,6 @@ func SetupMetrics(mux *http.ServeMux, handler *handler.Handler) {
 	prometheus.MustRegister(hooks.MetricsHookInvocationsTotal)
 	prometheus.MustRegister(prometheuscollector.New(handler.Metrics))
 
-	stdout.Printf("Using %s as the metrics path.\n", Flags.MetricsPath)
+	printStartupLog("Using %s as the metrics path.\n", Flags.MetricsPath)
 	mux.Handle(Flags.MetricsPath, promhttp.Handler())
 }

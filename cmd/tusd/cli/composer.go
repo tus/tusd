@@ -37,12 +37,12 @@ func CreateComposer() {
 
 		if Flags.S3Endpoint == "" {
 			if Flags.S3TransferAcceleration {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
+				printStartupLog("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
 			} else {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+				printStartupLog("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
 			}
 		} else {
-			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
+			printStartupLog("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
 		}
 
 		s3Client := s3.NewFromConfig(s3Config, func(o *s3.Options) {
@@ -86,7 +86,7 @@ func CreateComposer() {
 			stderr.Fatalf("Unable to create Google Cloud Storage service: %s\n", err)
 		}
 
-		stdout.Printf("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
+		printStartupLog("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
 
 		store := gcsstore.New(Flags.GCSBucket, service)
 		store.ObjectPrefix = Flags.GCSObjectPrefix
@@ -112,7 +112,7 @@ func CreateComposer() {
 		if azureEndpoint == "" {
 			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
 		}
-		stdout.Printf("Using Azure endpoint %s.\n", azureEndpoint)
+		printStartupLog("Using Azure endpoint %s.\n", azureEndpoint)
 
 		azConfig := &azurestore.AzConfig{
 			AccountName:         accountName,
@@ -141,7 +141,8 @@ func CreateComposer() {
 			stderr.Fatalf("Unable to make absolute path: %s", err)
 		}
 
-		stdout.Printf("Using '%s' as directory storage.\n", dir)
+		printStartupLog("Using '%s' as directory storage.\n", dir)
+
 		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
@@ -155,5 +156,5 @@ func CreateComposer() {
 		locker.UseIn(Composer)
 	}
 
-	stdout.Printf("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)
+	printStartupLog("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)
 }

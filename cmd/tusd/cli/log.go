@@ -60,3 +60,11 @@ func (l logWriter) Write(msg []byte) (int, error) {
 	l.logger.Print(string(msg))
 	return len(msg), nil
 }
+
+func printStartupLog(msg string, args ...interface{}) {
+	if !Flags.ShowStartupLogs {
+		return
+	}
+
+	stdout.Printf(msg, args...)
+}
