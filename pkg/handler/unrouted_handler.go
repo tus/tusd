@@ -1047,16 +1047,6 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// If the data store implements ContentServerDataStore, use the ServableUpload interface
-	if handler.composer.UsesContentServer {
-		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
-		err = servableUpload.ServeContent(c, w, r)
-		if err != nil {
-			handler.sendError(c, err)
-		}
-		return
-	}
-
 	// Fall back to the existing GetReader implementation if ContentServerDataStore is not implemented
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
@@ -1069,10 +1059,36 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		Body: "", // Body is intentionally left empty, and we copy it manually in later.
 	}
 
+	// If the data store implements ContentServerDataStore, use delegate the handling
+	// of GET requests to the data store.
+	// Otherwise, we will use the existing GetReader implementation.
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+
+		// Pass file type and name to the implementation, but it may override them.
+		w.Header().Set("Content-Type", resp.Header["Content-Type"])
+		w.Header().Set("Content-Disposition", resp.Header["Content-Disposition"])
+
+		err = servableUpload.ServeContent(c, w, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
+		return
+	}
+
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
 		resp.StatusCode = http.StatusNoContent
 		handler.sendResp(c, resp)
+		return
+	}
+
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+		err = servableUpload.ServeContent(c, w, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
 		return
 	}
 
