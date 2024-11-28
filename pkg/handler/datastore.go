@@ -122,16 +122,6 @@ type DataStore interface {
 	GetUpload(ctx context.Context, id string) (upload Upload, err error)
 }
 
-// ServableUpload defines the method for serving content directly
-type ServableUpload interface {
-	ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
-}
-
-// ContentServerDataStore is the interface for data stores that can serve content directly
-type ContentServerDataStore interface {
-	AsServableUpload(upload Upload) ServableUpload
-}
-
 type TerminatableUpload interface {
 	// Terminate an upload so any further requests to the upload resource will
 	// return the ErrNotFound error.
@@ -201,4 +191,22 @@ type Lock interface {
 	Lock(ctx context.Context, requestUnlock func()) error
 	// Unlock releases an existing lock for the given upload.
 	Unlock() error
+}
+
+type ServableUpload interface {
+	// ServeContent serves the uploaded data as specified by the GET request.
+	// It allows data stores to delegate the handling of range requests and conditional
+	// requests to their underlying providers.
+	// The tusd handler will set the Content-Type and Content-Disposition headers
+	// before calling ServeContent, but the implementation can override them.
+	// After calling ServeContent, the handler will not take any further action
+	// other than handling a potential error.
+	ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
+}
+
+// ContentServerDataStore is the interface for DataStores that can serve content directly.
+// When the handler serves a GET request, it will pass the request to ServeContent
+// and delegate its handling to the DataStore, instead of using GetReader to obtain the content.
+type ContentServerDataStore interface {
+	AsServableUpload(upload Upload) ServableUpload
 }

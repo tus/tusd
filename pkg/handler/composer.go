@@ -87,6 +87,7 @@ func (store *StoreComposer) UseLengthDeferrer(ext LengthDeferrerDataStore) {
 	store.UsesLengthDeferrer = ext != nil
 	store.LengthDeferrer = ext
 }
+
 func (store *StoreComposer) UseContentServer(ext ContentServerDataStore) {
 	store.UsesContentServer = ext != nil
 	store.ContentServer = ext
