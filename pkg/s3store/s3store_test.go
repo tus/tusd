@@ -3,8 +3,11 @@ package s3store
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -1470,4 +1473,132 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	files, err := os.ReadDir(tempDir)
 	assert.Nil(err)
 	assert.Equal(len(files), 0)
+}
+
+func TestS3StoreAsServerDataStore(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	servableUpload := store.AsServableUpload(upload)
+	assert.NotNil(servableUpload)
+	assert.IsType(&s3Upload{}, servableUpload)
+}
+
+func TestS3ServableUploadServeContent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+	}).Return(&s3.GetObjectOutput{
+		Body:          io.NopCloser(strings.NewReader("test content")),
+		ContentLength: aws.Int64(100),
+		ETag:          aws.String("etag123"),
+	}, nil)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Nil(err)
+
+	assert.Equal(http.StatusOK, w.Code)
+	assert.Equal("100", w.Header().Get("Content-Length"))
+	assert.Equal("text/plain", w.Header().Get("Content-Type"))
+	assert.Equal("etag123", w.Header().Get("ETag"))
+	assert.Equal("test content", w.Body.String())
+}
+
+func TestS3ServableUploadServeContentWithRange(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
+		Bucket: aws.String("bucket"),
+		Key:    aws.String("uploadId"),
+		Range:  aws.String("bytes=10-19"),
+	}).Return(&s3.GetObjectOutput{
+		Body:          io.NopCloser(strings.NewReader("0123456789")),
+		ContentLength: aws.Int64(10),
+		ETag:          aws.String("etag123"),
+	}, nil)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Range", "bytes=10-19")
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Nil(err)
+
+	assert.Equal(http.StatusPartialContent, w.Code)
+	assert.Equal("10", w.Header().Get("Content-Length"))
+	assert.Equal("text/plain", w.Header().Get("Content-Type"))
+	assert.Equal("etag123", w.Header().Get("ETag"))
+	assert.Equal("bytes 10-19/100", w.Header().Get("Content-Range"))
+	assert.Equal("0123456789", w.Body.String())
+}
+
+func TestS3ServableUploadServeContentError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	s3obj := NewMockS3API(mockCtrl)
+	store := New("bucket", s3obj)
+
+	upload := &s3Upload{
+		store:       &store,
+		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
+		objectId:    "uploadId",
+		multipartId: "multipartId",
+	}
+
+	expectedError := errors.New("S3 error")
+	s3obj.EXPECT().GetObject(gomock.Any(), gomock.Any()).Return(nil, expectedError)
+
+	servableUpload := store.AsServableUpload(upload)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	err := servableUpload.ServeContent(context.Background(), w, r)
+	assert.Equal(expectedError, err)
 }
