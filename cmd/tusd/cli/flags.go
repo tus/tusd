@@ -191,10 +191,10 @@ func ParseFlags() {
 		f.StringVar(&Flags.PprofPath, "pprof-path", "/debug/pprof/", "Path under which the pprof endpoint will be accessible")
 		f.IntVar(&Flags.PprofBlockProfileRate, "pprof-block-profile-rate", 0, "Fraction of goroutine blocking events that are reported in the blocking profile")
 		f.IntVar(&Flags.PprofMutexProfileRate, "pprof-mutex-profile-rate", 0, "Fraction of mutex contention events that are reported in the mutex profile")
-		f.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message")
+		f.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message for GET requests to the root path")
 		f.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 		f.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
-		f.BoolVar(&Flags.ShowStartupLogs, "show-startup-logs", true, "Show the startup logs")
+		f.BoolVar(&Flags.ShowStartupLogs, "show-startup-logs", true, "Print details about tusd's configuration during startup")
 		f.StringVar(&Flags.LogFormat, "log-format", "text", "Logging format (text or json)")
 	})
 

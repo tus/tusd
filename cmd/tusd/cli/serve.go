@@ -58,7 +58,8 @@ func Serve() {
 		for _, h := range Flags.EnabledHooks {
 			enabledHooksString = append(enabledHooksString, string(h))
 		}
-		printStartupLogLine("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
+
+		printStartupLog("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 
 	} else {
 		handler, err = tushandler.NewHandler(config)
@@ -66,19 +67,22 @@ func Serve() {
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
-	printStartupLogLine("Supported tus extensions: %s\n", handler.SupportedExtensions())
+
+	printStartupLog("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	basepath := Flags.Basepath
 	address := ""
 
 	if Flags.HttpSock != "" {
 		address = Flags.HttpSock
-		printStartupLogLine("Using %s as socket to listen.\n", address)
+		printStartupLog("Using %s as socket to listen.\n", address)
 	} else {
 		address = Flags.HttpHost + ":" + Flags.HttpPort
-		printStartupLogLine("Using %s as address to listen.\n", address)
+		printStartupLog("Using %s as address to listen.\n", address)
 	}
-	printStartupLogLine("Using %s as the base path.\n", basepath)
+
+	printStartupLog("Using %s as the base path.\n", basepath)
+
 	mux := http.NewServeMux()
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler
@@ -125,7 +129,7 @@ func Serve() {
 	}
 
 	if Flags.HttpSock == "" {
-		stdout.Printf("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
+		printStartupLog("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
 	}
 
 	serverCtx, cancelServerCtx := context.WithCancelCause(context.Background())
