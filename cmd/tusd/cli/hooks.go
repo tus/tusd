@@ -13,13 +13,13 @@ import (
 
 func getHookHandler(config *handler.Config) hooks.HookHandler {
 	if Flags.FileHooksDir != "" {
-		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+		printStartupLogLine("Using '%s' for hooks", Flags.FileHooksDir)
 
 		return &file.FileHook{
 			Directory: Flags.FileHooksDir,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
-		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
+		printStartupLogLine("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
 		return &http.HttpHook{
 			Endpoint:       Flags.HttpHooksEndpoint,
@@ -28,7 +28,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
 		}
 	} else if Flags.GrpcHooksEndpoint != "" {
-		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
+		printStartupLogLine("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
 
 		return &grpc.GrpcHook{
 			Endpoint:                        Flags.GrpcHooksEndpoint,
@@ -41,7 +41,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
 		}
 	} else if Flags.PluginHookPath != "" {
-		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
+		printStartupLogLine("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 
 		return &plugin.PluginHook{
 			Path:          Flags.PluginHookPath,

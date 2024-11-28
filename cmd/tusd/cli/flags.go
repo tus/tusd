@@ -72,6 +72,7 @@ var Flags struct {
 	PprofMutexProfileRate            int
 	BehindProxy                      bool
 	VerboseOutput                    bool
+	ShowStartupLogs                  bool
 	LogFormat                        string
 	S3TransferAcceleration           bool
 	TLSCertFile                      string
@@ -193,6 +194,7 @@ func ParseFlags() {
 		f.BoolVar(&Flags.ShowGreeting, "show-greeting", true, "Show the greeting message")
 		f.BoolVar(&Flags.ShowVersion, "version", false, "Print tusd version information")
 		f.BoolVar(&Flags.VerboseOutput, "verbose", true, "Enable verbose logging output")
+		f.BoolVar(&Flags.ShowStartupLogs, "show-startup-logs", true, "Show the startup logs")
 		f.StringVar(&Flags.LogFormat, "log-format", "text", "Logging format (text or json)")
 	})
 

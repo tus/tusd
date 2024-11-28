@@ -58,8 +58,7 @@ func Serve() {
 		for _, h := range Flags.EnabledHooks {
 			enabledHooksString = append(enabledHooksString, string(h))
 		}
-
-		stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
+		printStartupLogLine("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 
 	} else {
 		handler, err = tushandler.NewHandler(config)
@@ -67,22 +66,19 @@ func Serve() {
 	if err != nil {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
-
-	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
+	printStartupLogLine("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	basepath := Flags.Basepath
 	address := ""
 
 	if Flags.HttpSock != "" {
 		address = Flags.HttpSock
-		stdout.Printf("Using %s as socket to listen.\n", address)
+		printStartupLogLine("Using %s as socket to listen.\n", address)
 	} else {
 		address = Flags.HttpHost + ":" + Flags.HttpPort
-		stdout.Printf("Using %s as address to listen.\n", address)
+		printStartupLogLine("Using %s as address to listen.\n", address)
 	}
-
-	stdout.Printf("Using %s as the base path.\n", basepath)
-
+	printStartupLogLine("Using %s as the base path.\n", basepath)
 	mux := http.NewServeMux()
 	if basepath == "/" {
 		// If the basepath is set to the root path, only install the tusd handler

@@ -15,7 +15,6 @@ func SetupStructuredLogger() {
 	if Flags.VerboseOutput {
 		level = slog.LevelDebug
 	}
-
 	replaceAttrFunc := func(groups []string, a slog.Attr) slog.Attr {
 		// Remove time attribute, because that is handled by the logger
 		if a.Key == slog.TimeKey {
@@ -59,4 +58,11 @@ type logWriter struct {
 func (l logWriter) Write(msg []byte) (int, error) {
 	l.logger.Print(string(msg))
 	return len(msg), nil
+}
+
+func printStartupLogLine(msg string, args ...interface{}) {
+	// Check if the flag allows startup logs
+	if Flags.ShowStartupLogs {
+		stdout.Printf("[STARTUP] "+msg, args...)
+	}
 }
