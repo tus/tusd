@@ -1047,7 +1047,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	contentType, contentDisposition := filterContentType(info)
+	contentType, contentDisposition := FilterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
 		Header: HTTPHeader{
@@ -1104,13 +1104,13 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"application/ogg": {},
 }
 
-// filterContentType returns the values for the Content-Type and
+// FilterContentType returns the values for the Content-Type and
 // Content-Disposition headers for a given upload. These values should be used
 // in responses for GET requests to ensure that only non-malicious file types
 // are shown directly in the browser. It will extract the file name and type
-// from the "fileame" and "filetype".
+// from the "filename" and "filetype".
 // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
-func filterContentType(info FileInfo) (contentType string, contentDisposition string) {
+func FilterContentType(info FileInfo) (contentType string, contentDisposition string) {
 	filetype := info.MetaData["filetype"]
 
 	if reMimeType.MatchString(filetype) {

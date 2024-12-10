@@ -70,7 +70,7 @@ Uploads on S3 are stored using multiple objects:
 
 - An informational object with the `.info` extension holds meta information about the uploads, as described in [the section for all storage backends]({{ site.baseurl }}/storage-backends/overview/#storage-format).
 - An [S3 multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html) is used to transfer the file piece-by-piece to S3 and reassemble the original file once the upload is finished. It is removed once the upload is finished.
-- A file object will contain the uploaded file. It will only be created once the entire upload is finished. 
+- A file object will contain the uploaded file. It will only be created once the entire upload is finished.
 - A temporary object with the `.part` extension may be created when the upload has been paused to store some temporary data which cannot be transferred to the S3 multipart upload due to its small size. Once the upload is resumed, the temporary object will be gone.
 
 By default, the objects are stored at the root of the bucket. For example the objects for the upload ID `abcdef123` will be:
@@ -89,7 +89,7 @@ If [metadata](https://tus.io/protocols/resumable-upload#upload-metadata) is asso
 
 In addition, the metadata is also stored in the informational object, which can be used to retrieve the original metadata without any characters being replaced.
 
-If the metadata contains a `filetype` key, its value is used to set the `Content-Type` header of the file object. Setting the `Content-Disposition` or `Content-Encoding` headers is not yet supported.
+If the metadata contains a `filetype` key, its value is used to set the `Content-Type` and `Content-Disposition` headers of the file object. Setting the `Content-Encoding` header is not yet supported.
 
 ## Considerations
 
