@@ -18,7 +18,7 @@ type FileInfo struct {
 	// Offset in bytes (zero-based)
 	Offset int64
 	// MetaData contains additional meta data about the upload
-	MetaData map[string]string
+	MetaData MetaData
 	// IsPartial indicates whether this is a partial upload
 	IsPartial bool
 	// IsFinal indicates whether this is a final upload
@@ -67,7 +67,7 @@ type FileInfoChanges struct {
 	// or ensure that only certain fields from the user-defined meta data are saved.
 	// If you want to retain only specific entries from the user-defined meta data, you must
 	// manually copy them into this MetaData field.
-	// If you do not want to store any meta data, set this field to an empty map (`MetaData{}`).
+	// If you do not want to store any meta data, set this field to an empty map (`map[string]string{}`).
 	// If you want to keep the entire user-defined meta data, set this field to nil.
 	MetaData MetaData
 
