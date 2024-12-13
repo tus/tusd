@@ -102,25 +102,12 @@ type Upload interface {
 	FinishUpload(ctx context.Context) error
 }
 
-// DataStore is the base interface for storages to implement. It provides functions
-// to create new uploads and fetch existing ones.
-//
-// Note: the context values passed to all functions is not the request's context,
-// but a similar context. See HookEvent.Context for more details.
+// DataStore is the interface that must be implemented by a data store.
 type DataStore interface {
-	// Create a new upload using the size as the file's length. The method must
-	// return an unique id which is used to identify the upload. If no backend
-	// (e.g. Riak) specifes the id you may want to use the uid package to
-	// generate one. The properties Size and MetaData will be filled.
-	NewUpload(ctx context.Context, info FileInfo) (upload Upload, err error)
-
-	// GetUpload fetches the upload with a given ID. If no such upload can be found,
-	// ErrNotFound must be returned.
-	GetUpload(ctx context.Context, id string) (upload Upload, err error)
-
-	// GetUploads returns all uploads in the data store.
-	GetUploads(ctx context.Context) ([]Upload, error)
-
+	// NewUpload creates a new upload using the given upload information.
+	NewUpload(ctx context.Context, info FileInfo) (Upload, error)
+	// GetUpload returns the upload with the specified upload ID.
+	GetUpload(ctx context.Context, id string) (Upload, error)
 	// WriteInfo updates the upload information.
 	WriteInfo(ctx context.Context, info FileInfo) error
 }
@@ -199,6 +186,7 @@ type Lock interface {
 // UnfinishedConcatSupport is an optional interface that can be implemented by data stores
 // to support the concatenation-unfinished extension.
 type UnfinishedConcatSupport interface {
+	DataStore
 	// GetUploads returns all uploads in the data store.
 	GetUploads(ctx context.Context) ([]Upload, error)
 }
