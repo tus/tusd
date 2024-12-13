@@ -429,7 +429,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 			// Set FinalUploadID for each partial upload
 			partialInfo.FinalUploadID = info.ID
-			if err := partialUpload.(DataStore).WriteInfo(c, partialInfo); err != nil {
+			if err := partialUpload.UpdateInfo(c, partialInfo); err != nil {
 				handler.sendError(c, err)
 				return
 			}
@@ -1755,5 +1755,5 @@ func (handler *UnroutedHandler) handlePartialUploadComplete(ctx context.Context,
 
 	// Update final upload info
 	finalInfo.Offset = finalInfo.Size
-	return finalUpload.(DataStore).WriteInfo(ctx, finalInfo)
+	return finalUpload.UpdateInfo(ctx, finalInfo)
 }

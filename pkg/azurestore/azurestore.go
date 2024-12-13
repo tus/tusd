@@ -258,3 +258,8 @@ func (store *AzureStore) keyWithPrefix(key string) string {
 
 	return prefix + key
 }
+
+func (upload *AzUpload) UpdateInfo(ctx context.Context, info handler.FileInfo) error {
+	upload.InfoHandler = &info
+	return upload.writeInfo(ctx)
+}

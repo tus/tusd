@@ -1253,3 +1253,7 @@ func (store S3Store) releaseUploadSemaphore() {
 	store.uploadSemaphore.Release()
 	store.uploadSemaphoreDemandMetric.Dec()
 }
+
+func (upload *s3Upload) UpdateInfo(ctx context.Context, info handler.FileInfo) error {
+	return upload.writeInfo(ctx, info)
+}

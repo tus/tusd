@@ -328,3 +328,8 @@ func (store FileStore) GetUploads(ctx context.Context) ([]handler.Upload, error)
 func (store FileStore) Path() string {
 	return string(store)
 }
+
+func (upload *fileUpload) UpdateInfo(ctx context.Context, info handler.FileInfo) error {
+	upload.info = info
+	return upload.writeInfo()
+}

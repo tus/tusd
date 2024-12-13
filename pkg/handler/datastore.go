@@ -79,27 +79,22 @@ type FileInfoChanges struct {
 	Storage map[string]string
 }
 
+// Upload represents an upload in the data store. It can either be a normal
+// upload or a partial upload (see handler.FileInfo).
 type Upload interface {
-	// Write the chunk read from src into the file specified by the id at the
-	// given offset. The handler will take care of validating the offset and
-	// limiting the size of the src to not overflow the file's size.
-	// The handler will also lock resources while they are written to ensure only one
-	// write happens per time.
-	// The function call must return the number of bytes written.
-	WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error)
-	// Read the fileinformation used to validate the offset and respond to HEAD
-	// requests.
+	// GetInfo returns the FileInfo for this upload.
 	GetInfo(ctx context.Context) (FileInfo, error)
-	// GetReader returns an io.ReadCloser which allows iterating of the content of an
-	// upload. It should attempt to provide a reader even if the upload has not
-	// been finished yet but it's not required.
+	// WriteChunk takes a reader and writes its content to the upload.
+	WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error)
+	// GetReader returns a reader which can be used to read the content of this upload.
+	// The caller is responsible for closing the reader once it is no longer needed.
 	GetReader(ctx context.Context) (io.ReadCloser, error)
-	// FinisherDataStore is the interface which can be implemented by DataStores
-	// which need to do additional operations once an entire upload has been
-	// completed. These tasks may include but are not limited to freeing unused
-	// resources or notifying other services. For example, S3Store uses this
-	// interface for removing a temporary object.
+	// FinishUpload indicates that the upload is complete and no more chunks will
+	// be uploaded. This information can be used by the data store to clean up
+	// resources or to notify other services that the upload is ready to be used.
 	FinishUpload(ctx context.Context) error
+	// UpdateInfo updates the upload information.
+	UpdateInfo(ctx context.Context, info FileInfo) error
 }
 
 // DataStore is the interface that must be implemented by a data store.
