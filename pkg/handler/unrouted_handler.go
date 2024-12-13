@@ -129,7 +129,11 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		extensions += ",termination"
 	}
 	if config.StoreComposer.UsesConcater {
-		extensions += ",concatenation,concatenation-unfinished"
+		extensions += ",concatenation"
+		// Only add concatenation-unfinished if the store supports it
+		if _, ok := config.StoreComposer.Core.(UnfinishedConcatSupport); ok {
+			extensions += ",concatenation-unfinished"
+		}
 	}
 	if config.StoreComposer.UsesLengthDeferrer {
 		extensions += ",creation-defer-length"
@@ -1706,6 +1710,12 @@ func (handler *UnroutedHandler) handlePartialUploadComplete(ctx context.Context,
 		return nil
 	}
 
+	// Only proceed if the store supports concatenation-unfinished
+	if _, ok := handler.composer.Core.(UnfinishedConcatSupport); !ok {
+		return nil
+	}
+
+	// Get the final upload directly using its ID
 	finalUpload, err := handler.composer.Core.GetUpload(ctx, info.FinalUploadID)
 	if err != nil {
 		return err

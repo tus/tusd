@@ -195,3 +195,10 @@ type Lock interface {
 	// Unlock releases an existing lock for the given upload.
 	Unlock() error
 }
+
+// UnfinishedConcatSupport is an optional interface that can be implemented by data stores
+// to support the concatenation-unfinished extension.
+type UnfinishedConcatSupport interface {
+	// GetUploads returns all uploads in the data store.
+	GetUploads(ctx context.Context) ([]Upload, error)
+}

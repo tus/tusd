@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -299,4 +300,26 @@ func createFile(path string, content []byte) error {
 	}
 
 	return file.Close()
+}
+
+// GetUploads returns all uploads in the FileStore.
+func (store FileStore) GetUploads(ctx context.Context) ([]handler.Upload, error) {
+	entries, err := os.ReadDir(string(store))
+	if err != nil {
+		return nil, err
+	}
+
+	uploads := make([]handler.Upload, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".info") {
+			id := strings.TrimSuffix(entry.Name(), ".info")
+			upload, err := store.GetUpload(ctx, id)
+			if err != nil {
+				continue
+			}
+			uploads = append(uploads, upload)
+		}
+	}
+
+	return uploads, nil
 }
