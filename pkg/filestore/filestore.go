@@ -302,18 +302,9 @@ func createFile(path string, content []byte) error {
 	return file.Close()
 }
 
-// WriteInfo updates the upload information.
-func (store FileStore) WriteInfo(ctx context.Context, info handler.FileInfo) error {
-	data, err := json.Marshal(info)
-	if err != nil {
-		return err
-	}
-	return createFile(filepath.Join(string(store), info.ID+".info"), data)
-}
-
 // GetUploads returns all uploads in the FileStore.
 func (store FileStore) GetUploads(ctx context.Context) ([]handler.Upload, error) {
-	entries, err := os.ReadDir(filepath.Join(string(store)))
+	entries, err := os.ReadDir(store.Path())
 	if err != nil {
 		return nil, err
 	}
@@ -331,4 +322,9 @@ func (store FileStore) GetUploads(ctx context.Context) ([]handler.Upload, error)
 	}
 
 	return uploads, nil
+}
+
+// Path returns the path on the disk where the files are stored.
+func (store FileStore) Path() string {
+	return string(store)
 }

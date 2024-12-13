@@ -108,8 +108,6 @@ type DataStore interface {
 	NewUpload(ctx context.Context, info FileInfo) (Upload, error)
 	// GetUpload returns the upload with the specified upload ID.
 	GetUpload(ctx context.Context, id string) (Upload, error)
-	// WriteInfo updates the upload information.
-	WriteInfo(ctx context.Context, info FileInfo) error
 }
 
 type TerminatableUpload interface {
