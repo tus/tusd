@@ -344,3 +344,7 @@ func (store GCSStore) keyWithPrefix(key string) string {
 	}
 	return prefix + key
 }
+
+func (upload *gcsUpload) UpdateInfo(ctx context.Context, info handler.FileInfo) error {
+	return upload.store.writeInfo(ctx, upload.store.keyWithPrefix(upload.id), info)
+}
