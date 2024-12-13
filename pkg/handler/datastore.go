@@ -7,26 +7,30 @@ import (
 
 type MetaData map[string]string
 
-// FileInfo contains information about a specific upload resource
+// FileInfo contains information about a single upload resource.
 type FileInfo struct {
-	// ID uniquely identifies an upload resource.
+	// ID is the unique identifier of the upload resource.
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
 	// Indicates whether the total file size is deferred until later
 	SizeIsDeferred bool
 	// Offset in bytes (zero-based)
-	Offset int64
-	// MetaData contains additional meta data about the upload
+	Offset   int64
 	MetaData MetaData
-	// IsPartial indicates whether this is a partial upload
+	// Indicates that this is a partial upload which will later be used to form
+	// a final upload by concatenation. Partial uploads should not be processed
+	// when they are finished since they are only incomplete chunks of files.
 	IsPartial bool
-	// IsFinal indicates whether this is a final upload
+	// Indicates that this is a final upload
 	IsFinal bool
-	// PartialUploads contains the uploads to be concatenated when this upload is a final one
+	// If the upload is a final one (see IsFinal) this will be a non-empty
+	// ordered slice containing the ids of the uploads of which the final upload
+	// will consist after concatenation.
 	PartialUploads []string
-	// Storage contains additional information about where the data storage saves
-	// the upload. The available keys depend on the used data store.
+	// Storage contains information about where the data storage saves the upload,
+	// for example a file path. The available values vary depending on what data
+	// store is used. This map may also be nil.
 	Storage map[string]string
 	// For concatenation-unfinished support
 	FinalUploadID string
@@ -67,7 +71,7 @@ type FileInfoChanges struct {
 	// or ensure that only certain fields from the user-defined meta data are saved.
 	// If you want to retain only specific entries from the user-defined meta data, you must
 	// manually copy them into this MetaData field.
-	// If you do not want to store any meta data, set this field to an empty map (`map[string]string{}`).
+	// If you do not want to store any meta data, set this field to an empty map (`MetaData{}`).
 	// If you want to keep the entire user-defined meta data, set this field to nil.
 	MetaData MetaData
 
@@ -79,30 +83,46 @@ type FileInfoChanges struct {
 	Storage map[string]string
 }
 
-// Upload represents an upload in the data store. It can either be a normal
-// upload or a partial upload (see handler.FileInfo).
 type Upload interface {
-	// GetInfo returns the FileInfo for this upload.
-	GetInfo(ctx context.Context) (FileInfo, error)
-	// WriteChunk takes a reader and writes its content to the upload.
+	// Write the chunk read from src into the file specified by the id at the
+	// given offset. The handler will take care of validating the offset and
+	// limiting the size of the src to not overflow the file's size.
+	// The handler will also lock resources while they are written to ensure only one
+	// write happens per time.
+	// The function call must return the number of bytes written.
 	WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error)
-	// GetReader returns a reader which can be used to read the content of this upload.
-	// The caller is responsible for closing the reader once it is no longer needed.
+	// Read the fileinformation used to validate the offset and respond to HEAD
+	// requests.
+	GetInfo(ctx context.Context) (FileInfo, error)
+	// GetReader returns an io.ReadCloser which allows iterating of the content of an
+	// upload. It should attempt to provide a reader even if the upload has not
+	// been finished yet but it's not required.
 	GetReader(ctx context.Context) (io.ReadCloser, error)
-	// FinishUpload indicates that the upload is complete and no more chunks will
-	// be uploaded. This information can be used by the data store to clean up
-	// resources or to notify other services that the upload is ready to be used.
+	// FinisherDataStore is the interface which can be implemented by DataStores
+	// which need to do additional operations once an entire upload has been
+	// completed. These tasks may include but are not limited to freeing unused
+	// resources or notifying other services. For example, S3Store uses this
+	// interface for removing a temporary object.
 	FinishUpload(ctx context.Context) error
 	// UpdateInfo updates the upload information.
 	UpdateInfo(ctx context.Context, info FileInfo) error
 }
 
-// DataStore is the interface that must be implemented by a data store.
+// DataStore is the base interface for storages to implement. It provides functions
+// to create new uploads and fetch existing ones.
+//
+// Note: the context values passed to all functions is not the request's context,
+// but a similar context. See HookEvent.Context for more details.
 type DataStore interface {
-	// NewUpload creates a new upload using the given upload information.
-	NewUpload(ctx context.Context, info FileInfo) (Upload, error)
-	// GetUpload returns the upload with the specified upload ID.
-	GetUpload(ctx context.Context, id string) (Upload, error)
+	// Create a new upload using the size as the file's length. The method must
+	// return an unique id which is used to identify the upload. If no backend
+	// (e.g. Riak) specifes the id you may want to use the uid package to
+	// generate one. The properties Size and MetaData will be filled.
+	NewUpload(ctx context.Context, info FileInfo) (upload Upload, err error)
+
+	// GetUpload fetches the upload with a given ID. If no such upload can be found,
+	// ErrNotFound must be returned.
+	GetUpload(ctx context.Context, id string) (upload Upload, err error)
 }
 
 type TerminatableUpload interface {
