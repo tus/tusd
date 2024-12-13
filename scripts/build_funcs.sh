@@ -12,6 +12,9 @@ function compile {
 
   echo "Compiling for $os/$arch..."
 
+  echo "Running go mod tidy..."
+  go mod tidy
+
   local dir="tusd_${os}_${arch}"
   rm -rf "$dir"
   mkdir -p "$dir"
