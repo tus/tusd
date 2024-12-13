@@ -32,7 +32,8 @@ type FileInfo struct {
 	FinalUploadID string
 
 	// stopUpload is a callback for communicating that an upload should by stopped
-	stopUpload func()
+	// and interrupt the writes to DataStore#WriteChunk.
+	stopUpload func(HTTPResponse)
 }
 
 // StopUpload interrupts a running upload from the server-side. This means that
