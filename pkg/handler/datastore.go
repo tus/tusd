@@ -7,35 +7,32 @@ import (
 
 type MetaData map[string]string
 
-// FileInfo contains information about a single upload resource.
+// FileInfo contains information about a specific upload resource
 type FileInfo struct {
-	// ID is the unique identifier of the upload resource.
+	// ID uniquely identifies an upload resource.
 	ID string
 	// Total file size in bytes specified in the NewUpload call
 	Size int64
 	// Indicates whether the total file size is deferred until later
 	SizeIsDeferred bool
 	// Offset in bytes (zero-based)
-	Offset   int64
-	MetaData MetaData
-	// Indicates that this is a partial upload which will later be used to form
-	// a final upload by concatenation. Partial uploads should not be processed
-	// when they are finished since they are only incomplete chunks of files.
+	Offset int64
+	// MetaData contains additional meta data about the upload
+	MetaData map[string]string
+	// IsPartial indicates whether this is a partial upload
 	IsPartial bool
-	// Indicates that this is a final upload
+	// IsFinal indicates whether this is a final upload
 	IsFinal bool
-	// If the upload is a final one (see IsFinal) this will be a non-empty
-	// ordered slice containing the ids of the uploads of which the final upload
-	// will consist after concatenation.
+	// PartialUploads contains the uploads to be concatenated when this upload is a final one
 	PartialUploads []string
-	// Storage contains information about where the data storage saves the upload,
-	// for example a file path. The available values vary depending on what data
-	// store is used. This map may also be nil.
+	// Storage contains additional information about where the data storage saves
+	// the upload. The available keys depend on the used data store.
 	Storage map[string]string
+	// For concatenation-unfinished support
+	FinalUploadID string
 
 	// stopUpload is a callback for communicating that an upload should by stopped
-	// and interrupt the writes to DataStore#WriteChunk.
-	stopUpload func(HTTPResponse)
+	stopUpload func()
 }
 
 // StopUpload interrupts a running upload from the server-side. This means that
@@ -119,6 +116,12 @@ type DataStore interface {
 	// GetUpload fetches the upload with a given ID. If no such upload can be found,
 	// ErrNotFound must be returned.
 	GetUpload(ctx context.Context, id string) (upload Upload, err error)
+
+	// GetUploads returns all uploads in the data store.
+	GetUploads(ctx context.Context) ([]Upload, error)
+
+	// WriteInfo updates the upload information.
+	WriteInfo(ctx context.Context, info FileInfo) error
 }
 
 type TerminatableUpload interface {

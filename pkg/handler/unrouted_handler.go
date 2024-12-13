@@ -123,13 +123,13 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		return nil, err
 	}
 
-	// Only promote extesions using the Tus-Extension header which are implemented
+	// Only promote extensions using the Tus-Extension header which are implemented
 	extensions := "creation,creation-with-upload"
 	if config.StoreComposer.UsesTerminater {
 		extensions += ",termination"
 	}
 	if config.StoreComposer.UsesConcater {
-		extensions += ",concatenation"
+		extensions += ",concatenation,concatenation-unfinished"
 	}
 	if config.StoreComposer.UsesLengthDeferrer {
 		extensions += ",creation-defer-length"
@@ -413,11 +413,36 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	if isFinal {
 		concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
-		if err := concatableUpload.ConcatUploads(c, partialUploads); err != nil {
-			handler.sendError(c, err)
-			return
+		
+		// Check if all partial uploads are complete
+		allComplete := true
+		for _, partialUpload := range partialUploads {
+			partialInfo, err := partialUpload.GetInfo(c)
+			if err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
+			// Set FinalUploadID for each partial upload
+			partialInfo.FinalUploadID = info.ID
+			if err := partialUpload.(DataStore).WriteInfo(c, partialInfo); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
+			if partialInfo.Offset != partialInfo.Size {
+				allComplete = false
+			}
 		}
-		info.Offset = size
+
+		if allComplete {
+			// If all uploads are complete, perform concatenation immediately
+			if err := concatableUpload.ConcatUploads(c, partialUploads); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+			info.Offset = size
+		}
 
 		resp, err = handler.emitFinishEvents(c, resp, info)
 		if err != nil {
@@ -960,6 +985,13 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 	handler.Metrics.incBytesReceived(uint64(bytesWritten))
 	info.Offset = newOffset
 
+	// Check if this chunk completes the upload
+	if info.Offset == info.Size {
+		if err := handler.handlePartialUploadComplete(c, info); err != nil {
+			return resp, err
+		}
+	}
+
 	// We try to finish the upload, even if an error occurred. If we have a previous error,
 	// we return it and its HTTP response.
 	finishResp, finishErr := handler.finishUploadIfComplete(c, resp, upload, info)
@@ -1343,11 +1375,8 @@ func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string)
 			return nil, 0, err
 		}
 
-		if info.SizeIsDeferred || info.Offset != info.Size {
-			err = ErrUploadNotFinished
-			return nil, 0, err
-		}
-
+		// For concatenation-unfinished support:
+		// Use the declared size for all uploads
 		size += info.Size
 		partialUploads[i] = upload
 	}
@@ -1670,4 +1699,51 @@ func validateUploadId(newId string) error {
 	}
 
 	return nil
+}
+
+func (handler *UnroutedHandler) handlePartialUploadComplete(ctx context.Context, info FileInfo) error {
+	if !info.IsPartial || info.FinalUploadID == "" {
+		return nil
+	}
+
+	finalUpload, err := handler.composer.Core.GetUpload(ctx, info.FinalUploadID)
+	if err != nil {
+		return err
+	}
+
+	finalInfo, err := finalUpload.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Check if all partial uploads are complete
+	var partialUploads []Upload
+	for _, id := range finalInfo.PartialUploads {
+		upload, err := handler.composer.Core.GetUpload(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		info, err := upload.GetInfo(ctx)
+		if err != nil {
+			return err
+		}
+
+		if info.Offset != info.Size {
+			// Not all uploads are complete yet
+			return nil
+		}
+
+		partialUploads = append(partialUploads, upload)
+	}
+
+	// All uploads are complete, perform concatenation
+	concatableUpload := handler.composer.Concater.AsConcatableUpload(finalUpload)
+	if err := concatableUpload.ConcatUploads(ctx, partialUploads); err != nil {
+		return err
+	}
+
+	// Update final upload info
+	finalInfo.Offset = finalInfo.Size
+	return finalUpload.(DataStore).WriteInfo(ctx, finalInfo)
 }
