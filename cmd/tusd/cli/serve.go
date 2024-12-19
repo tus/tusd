@@ -15,7 +15,7 @@ import (
 	tushandler "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"github.com/tus/tusd/v2/pkg/hooks/plugin"
-
+	"github.com/urfave/negroni/v3"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -133,8 +133,22 @@ func Serve() {
 	}
 
 	serverCtx, cancelServerCtx := context.WithCancelCause(context.Background())
+
+	n := negroni.New()
+	n.Use(negroni.NewRecovery())
+
+	if Flags.JwtSecret != "" {
+		jwtHandler, err := tushandler.NewJwtChecker(Flags.JwtSecret)
+		if err != nil {
+			stderr.Fatalf("Unable to create jwt checker: %s", err)
+		}
+		n.Use(jwtHandler)
+	}
+
+	n.UseHandler(mux)
+
 	server := &http.Server{
-		Handler: mux,
+		Handler: n,
 		// ReadHeaderTimeout is the timeout for reading the entire request
 		// header. This does not include reading a potential request body.
 		ReadHeaderTimeout: Flags.NetworkTimeout,
@@ -167,7 +181,7 @@ func Serve() {
 			// Wrap in h2c for optional HTTP/2 support in clear text mode (without TLS)
 			// See https://pkg.go.dev/golang.org/x/net/http2/h2c#NewHandler
 			h2s := &http2.Server{}
-			newHandler := h2c.NewHandler(mux, h2s)
+			newHandler := h2c.NewHandler(n, h2s)
 			server.Handler = newHandler
 		}
 		err = server.Serve(listener)

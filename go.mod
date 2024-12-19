@@ -3,7 +3,10 @@ module github.com/tus/tusd/v2
 // Specify the Go version needed for the Heroku deployment
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
 // +heroku goVersion go1.22
-go 1.21.0
+go 1.22.7
+
+toolchain go1.23.4
+
 require (
 	cloud.google.com/go/storage v1.47.0
 	github.com/Acconut/go-httptest-recorder v1.0.0
@@ -17,6 +20,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/felixge/fgprof v0.9.5
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang/mock v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/go-hclog v1.6.3
@@ -26,6 +30,7 @@ require (
 	github.com/sethgrid/pester v1.2.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tus/lockfile v1.2.0
+	github.com/urfave/negroni/v3 v3.1.1
 	github.com/vimeo/go-util v1.4.1
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	golang.org/x/net v0.31.0

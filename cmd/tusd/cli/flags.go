@@ -15,6 +15,7 @@ var Flags struct {
 	HttpHost                         string
 	HttpPort                         string
 	HttpSock                         string
+	JwtSecret                        string
 	EnableH2C                        bool
 	MaxSize                          int64
 	UploadDir                        string
@@ -93,6 +94,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHost, "host", "0.0.0.0", "Host to bind HTTP server to")
 		f.StringVar(&Flags.HttpPort, "port", "8080", "Port to bind HTTP server to")
 		f.StringVar(&Flags.HttpSock, "unix-sock", "", "If set, will listen to a UNIX socket at this location instead of a TCP socket")
+		f.StringVar(&Flags.JwtSecret, "pub", "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAk/Q4fA12A1Pc33UZpWVy/4Z7fRCyvXdtQS5wZTCVHBwNF79r5SlO+QyVgjUlCkT48rQein1C5krPyfBc9SlIFZKZw58W3cERGTOl2WFY9MjyxPJcaXiHKFkbmCWPotFC5Q2jEx93WuxuGi385ms9XmUgsG079/LnlO2Mdnpk4UzvUgqElyNm3CHuOl7lA89yzmx7kqltnVLlBNmKVRkfCGLdNSpx83dBunZBGISmfcDyz7lrDR3TAuKgX3rZFKCsvvNoBq1Wv1CZbBkZNiTZ2efRtDEBhLWcI9o0ki7/n2vsKjUNsBShiMOPZ1X4SWLSeGAHyuoGDq6An7R9MlBqqQIDAQAB\n-----END PUBLIC KEY-----", "jwt public key")
 		f.StringVar(&Flags.Basepath, "base-path", "/files/", "Basepath of the HTTP server")
 		f.BoolVar(&Flags.BehindProxy, "behind-proxy", false, "Respect X-Forwarded-* and similar headers which may be set by proxies")
 		f.BoolVar(&Flags.EnableH2C, "enable-h2c", false, "Allow for HTTP/2 cleartext (h2c) connections (non-encrypted)")
