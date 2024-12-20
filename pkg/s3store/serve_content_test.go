@@ -48,15 +48,6 @@ func TestS3ServableUploadServeContent(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
-
-	// TODO: Should we initialize the upload with GetUpload?
-
 	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId"),
@@ -68,12 +59,15 @@ func TestS3ServableUploadServeContent(t *testing.T) {
 		CacheControl:  aws.String("max-age=3600"),
 	}, nil)
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.Nil(err)
 
 	assert.Equal(http.StatusOK, w.Code)
@@ -92,13 +86,6 @@ func TestS3ServableUploadServeContentWithRange(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
-
 	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId"),
@@ -111,13 +98,16 @@ func TestS3ServableUploadServeContentWithRange(t *testing.T) {
 		ETag:          aws.String("etag123"),
 	}, nil)
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Range", "bytes=10-19")
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.Nil(err)
 
 	assert.Equal(http.StatusPartialContent, w.Code)
@@ -136,25 +126,21 @@ func TestS3ServableUploadServeContentInternalError(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
-
 	expectedError := errors.New("S3 error")
 	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
 		Key:    aws.String("uploadId"),
 	}).Return(nil, expectedError)
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.Equal(expectedError, err)
 }
 
@@ -165,13 +151,6 @@ func TestS3ServableUploadServeContentNotFound(t *testing.T) {
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
-
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
 
 	s3obj.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
 		Bucket: aws.String("bucket"),
@@ -186,12 +165,15 @@ func TestS3ServableUploadServeContentNotFound(t *testing.T) {
 		},
 	})
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.Equal(handler.ErrNotFound, err)
 }
 
@@ -202,13 +184,6 @@ func TestS3ServableUploadServeContentRangeNotSatisfiable(t *testing.T) {
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
-
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Range", "bytes=200-300")
@@ -230,10 +205,13 @@ func TestS3ServableUploadServeContentRangeNotSatisfiable(t *testing.T) {
 		},
 	})
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 	w := httptest.NewRecorder()
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.NoError(err)
 	assert.Equal(http.StatusRequestedRangeNotSatisfiable, w.Code)
 	assert.Equal("bytes */100", w.Header().Get("Content-Range"))
@@ -246,13 +224,6 @@ func TestS3ServableUploadServeContentNotModified(t *testing.T) {
 
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
-
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{Size: 100, Offset: 100, MetaData: map[string]string{"filetype": "text/plain"}},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("If-None-Match", `"some-etag"`)
@@ -278,10 +249,13 @@ func TestS3ServableUploadServeContentNotModified(t *testing.T) {
 		},
 	})
 
+	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
+	assert.Nil(err)
+
 	servableUpload := store.AsServableUpload(upload)
 	w := httptest.NewRecorder()
 
-	err := servableUpload.ServeContent(context.Background(), w, r)
+	err = servableUpload.ServeContent(context.Background(), w, r)
 	assert.NoError(err)
 	assert.Equal(http.StatusNotModified, w.Code)
 	assert.Equal(`"some-other-etag"`, w.Header().Get("ETag"))
