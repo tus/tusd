@@ -1354,6 +1354,14 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 		}
 	}
 
+	// Remove default ports
+	if proto == "http" {
+		host = strings.TrimSuffix(host, ":80")
+	}
+	if proto == "https" {
+		host = strings.TrimSuffix(host, ":443")
+	}
+
 	return
 }
 
