@@ -3,7 +3,6 @@ package s3store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -68,10 +67,7 @@ func (upload *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter,
 				// Content-Location, Date, ETag, Vary, Cache-Control and Expires should be set
 				// for 304 Not Modified responses. See https://httpwg.org/specs/rfc9110.html#status.304
 				for _, header := range []string{"Content-Location", "Date", "ETag", "Vary", "Cache-Control", "Expires"} {
-					fmt.Println("header", respErr.Response.Header)
-					fmt.Println("header", header)
 					if val := respErr.Response.Header.Get(header); val != "" {
-						fmt.Println("header", header, val)
 						w.Header().Set(header, val)
 					}
 				}
