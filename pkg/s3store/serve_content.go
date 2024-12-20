@@ -19,10 +19,10 @@ func (store S3Store) AsServableUpload(upload handler.Upload) handler.ServableUpl
 	return upload.(*s3Upload)
 }
 
-func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func (upload *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	input := &s3.GetObjectInput{
-		Bucket: aws.String(su.store.Bucket),
-		Key:    su.store.keyWithPrefix(su.objectId),
+		Bucket: aws.String(upload.store.Bucket),
+		Key:    upload.store.keyWithPrefix(upload.objectId),
 	}
 
 	// Forward the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present
@@ -49,7 +49,7 @@ func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *
 	}
 
 	// Let S3 handle the request
-	result, err := su.store.Service.GetObject(ctx, input)
+	result, err := upload.store.Service.GetObject(ctx, input)
 	if err != nil {
 		// Delete the headers set by tusd's handler. We don't need them for errors.
 		w.Header().Del("Content-Type")
