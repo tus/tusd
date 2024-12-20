@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -50,6 +51,7 @@ func (store FileStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseTerminater(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
+	composer.UseContentServer(store)
 }
 
 func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
@@ -153,6 +155,10 @@ func (store FileStore) AsLengthDeclarableUpload(upload handler.Upload) handler.L
 }
 
 func (store FileStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
+	return upload.(*fileUpload)
+}
+
+func (store FileStore) AsServableUpload(upload handler.Upload) handler.ServableUpload {
 	return upload.(*fileUpload)
 }
 
@@ -265,6 +271,12 @@ func (upload *fileUpload) writeInfo() error {
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {
+	return nil
+}
+
+func (upload *fileUpload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	http.ServeFile(w, r, upload.binPath)
+
 	return nil
 }
 
