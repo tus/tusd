@@ -20,8 +20,6 @@ func (store S3Store) AsServableUpload(upload handler.Upload) handler.ServableUpl
 }
 
 func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	// TODO: If the upload is not yet finished, we don't even have to try to get the object.
-
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(su.store.Bucket),
 		Key:    su.store.keyWithPrefix(su.objectId),
@@ -60,7 +58,10 @@ func (su *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *
 		var respErr *awshttp.ResponseError
 		if errors.As(err, &respErr) {
 			if respErr.HTTPStatusCode() == http.StatusNotFound || respErr.HTTPStatusCode() == http.StatusForbidden {
-				return handler.ErrNotFound
+				// If the object cannot be found, it means that the upload is not yet complete and we cannot serve it.
+				// At this stage it is not possible that the upload itself does not exist, because the handler
+				// alredy checked this case. Therefore, we can safely assume that the upload is still in progress.
+				return errIncompleteUpload
 			}
 
 			if respErr.HTTPStatusCode() == http.StatusNotModified {

@@ -144,7 +144,7 @@ func TestS3ServableUploadServeContentInternalError(t *testing.T) {
 	assert.Equal(expectedError, err)
 }
 
-func TestS3ServableUploadServeContentNotFound(t *testing.T) {
+func TestS3ServableUploadServeContentIncomplete(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -174,7 +174,7 @@ func TestS3ServableUploadServeContentNotFound(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 
 	err = servableUpload.ServeContent(context.Background(), w, r)
-	assert.Equal(handler.ErrNotFound, err)
+	assert.Equal(errIncompleteUpload, err)
 }
 
 func TestS3ServableUploadServeContentRangeNotSatisfiable(t *testing.T) {
