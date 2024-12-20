@@ -1069,7 +1069,11 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", resp.Header["Content-Type"])
 		w.Header().Set("Content-Disposition", resp.Header["Content-Disposition"])
 
-		err = servableUpload.ServeContent(c, w, r)
+		// Use loggingResponseWriter to get the ResponseOutgoing log entry that
+		// normally handler.sendResp would produce.
+		loggingW := &loggingResponseWriter{ResponseWriter: w, logger: c.log}
+
+		err = servableUpload.ServeContent(c, loggingW, r)
 		if err != nil {
 			handler.sendError(c, err)
 		}
@@ -1698,3 +1702,20 @@ func validateUploadId(newId string) error {
 
 	return nil
 }
+
+// loggingResponseWriter is a wrapper around http.ResponseWriter that logs the
+// final status code similar to UnroutedHandler.sendResp.
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	logger *slog.Logger
+}
+
+func (w *loggingResponseWriter) WriteHeader(statusCode int) {
+	if statusCode >= 200 {
+		w.logger.Info("ResponseOutgoing", "status", statusCode)
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Unwrap provides access to the underlying http.ResponseWriter.
+func (w *loggingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

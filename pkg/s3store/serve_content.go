@@ -72,7 +72,6 @@ func (upload *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter,
 					}
 				}
 
-				// TODO: Return HTTPErrors, so that tusd can log them.
 				w.WriteHeader(http.StatusNotModified)
 				return nil
 			}
