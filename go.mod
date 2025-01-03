@@ -4,6 +4,9 @@ module github.com/tus/tusd/v2
 // See https://github.com/heroku/heroku-buildpack-go#go-module-specifics
 // +heroku goVersion go1.22
 go 1.21.0
+
+toolchain go1.23.1
+
 require (
 	cloud.google.com/go/storage v1.47.0
 	github.com/Acconut/go-httptest-recorder v1.0.0

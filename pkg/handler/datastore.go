@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"io"
+	"net/http"
 )
 
 type MetaData map[string]string
@@ -202,4 +203,22 @@ type UnfinishedConcatSupport interface {
 	DataStore
 	// GetUploads returns all uploads in the data store.
 	GetUploads(ctx context.Context) ([]Upload, error)
+}
+
+type ServableUpload interface {
+	// ServeContent serves the uploaded data as specified by the GET request.
+	// It allows data stores to delegate the handling of range requests and conditional
+	// requests to their underlying providers.
+	// The tusd handler will set the Content-Type and Content-Disposition headers
+	// before calling ServeContent, but the implementation can override them.
+	// After calling ServeContent, the handler will not take any further action
+	// other than handling a potential error.
+	ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
+}
+
+// ContentServerDataStore is the interface for DataStores that can serve content directly.
+// When the handler serves a GET request, it will pass the request to ServeContent
+// and delegate its handling to the DataStore, instead of using GetReader to obtain the content.
+type ContentServerDataStore interface {
+	AsServableUpload(upload Upload) ServableUpload
 }
