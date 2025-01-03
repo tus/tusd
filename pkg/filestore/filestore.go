@@ -243,6 +243,16 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 		}
 
 		if _, err := io.Copy(file, src); err != nil {
+			src.Close()
+			return err
+		}
+		src.Close()
+
+		// 删除分片文件和其对应的info文件
+		if err := os.Remove(fileUpload.binPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := os.Remove(fileUpload.infoPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
