@@ -6,17 +6,14 @@ import (
 	"io"
 )
 
-// uid returns a unique id. These ids consist of 128 bits from a
-// cryptographically strong pseudo-random generator and are like uuids, but
-// without the dashes and significant bits.
-//
-// See: http://en.wikipedia.org/wiki/UUID#Random_UUID_probability_of_duplicates
+// uid returns a unique id. These ids consist of 32 bits from a
+// cryptographically strong pseudo-random generator, resulting in a
+// 8-character hexadecimal string.
 func Uid() string {
-	id := make([]byte, 16)
+	// 使用4字节(32位)来生成8个16进制字符
+	id := make([]byte, 4)
 	_, err := io.ReadFull(rand.Reader, id)
 	if err != nil {
-		// This is probably an appropriate way to handle errors from our source
-		// for random bits.
 		panic(err)
 	}
 	return hex.EncodeToString(id)
