@@ -1083,6 +1083,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Fall back to the existing GetReader implementation if ContentServerDataStore is not implemented
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
@@ -1094,10 +1095,40 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		Body: "", // Body is intentionally left empty, and we copy it manually in later.
 	}
 
+	// If the data store implements ContentServerDataStore, use delegate the handling
+	// of GET requests to the data store.
+	// Otherwise, we will use the existing GetReader implementation.
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+
+		// Pass file type and name to the implementation, but it may override them.
+		w.Header().Set("Content-Type", resp.Header["Content-Type"])
+		w.Header().Set("Content-Disposition", resp.Header["Content-Disposition"])
+
+		// Use loggingResponseWriter to get the ResponseOutgoing log entry that
+		// normally handler.sendResp would produce.
+		loggingW := &loggingResponseWriter{ResponseWriter: w, logger: c.log}
+
+		err = servableUpload.ServeContent(c, loggingW, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
+		return
+	}
+
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
 		resp.StatusCode = http.StatusNoContent
 		handler.sendResp(c, resp)
+		return
+	}
+
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+		err = servableUpload.ServeContent(c, w, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
 		return
 	}
 
@@ -1357,6 +1388,14 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 		if r := reForwardedProto.FindStringSubmatch(h); len(r) == 2 {
 			proto = r[1]
 		}
+	}
+
+	// Remove default ports
+	if proto == "http" {
+		host = strings.TrimSuffix(host, ":80")
+	}
+	if proto == "https" {
+		host = strings.TrimSuffix(host, ":443")
 	}
 
 	return
@@ -1757,3 +1796,19 @@ func (handler *UnroutedHandler) handlePartialUploadComplete(ctx context.Context,
 	finalInfo.Offset = finalInfo.Size
 	return finalUpload.UpdateInfo(ctx, finalInfo)
 }
+// loggingResponseWriter is a wrapper around http.ResponseWriter that logs the
+// final status code similar to UnroutedHandler.sendResp.
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	logger *slog.Logger
+}
+
+func (w *loggingResponseWriter) WriteHeader(statusCode int) {
+	if statusCode >= 200 {
+		w.logger.Info("ResponseOutgoing", "status", statusCode)
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Unwrap provides access to the underlying http.ResponseWriter.
+func (w *loggingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

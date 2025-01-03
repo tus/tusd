@@ -394,6 +394,45 @@ func TestPost(t *testing.T) {
 				},
 			}).Run(handler, t)
 		})
+
+		SubTest(t, "RemoveDefaultPorts", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			gomock.InOrder(
+				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+					Size:     300,
+					MetaData: map[string]string{},
+				}).Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:       "foo",
+					Size:     300,
+					MetaData: map[string]string{},
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:           composer,
+				BasePath:                "/files/",
+				RespectForwardedHeaders: true,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable":     "1.0.0",
+					"Upload-Length":     "300",
+					"X-Forwarded-Host":  "upload.example.tld:443",
+					"X-Forwarded-Proto": "https",
+				},
+				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					// No :443 in the Location header
+					"Location": "https://upload.example.tld/files/foo",
+				},
+			}).Run(handler, t)
+		})
 	})
 
 	SubTest(t, "WithUpload", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {

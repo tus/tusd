@@ -100,6 +100,9 @@ import (
 // considered valid into a header value according to RFC2616.
 var nonPrintableRegexp = regexp.MustCompile(`[^\x09\x20-\x7E]`)
 
+// errIncompleteUpload is used when a client attempts to download an incomplete upload
+var errIncompleteUpload = handler.NewError("ERR_INCOMPLETE_UPLOAD", "cannot stream non-finished upload", http.StatusBadRequest)
+
 // See the handler.DataStore interface for documentation about the different
 // methods.
 type S3Store struct {
@@ -262,6 +265,7 @@ func (store S3Store) UseIn(composer *handler.StoreComposer) {
 	composer.UseTerminater(store)
 	composer.UseConcater(store)
 	composer.UseLengthDeferrer(store)
+	composer.UseContentServer(store)
 }
 
 func (store S3Store) RegisterMetrics(registry prometheus.Registerer) {
@@ -758,7 +762,7 @@ func (upload s3Upload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	})
 	if err == nil {
 		// The multipart upload still exists, which means we cannot download it yet
-		return nil, handler.NewError("ERR_INCOMPLETE_UPLOAD", "cannot stream non-finished upload", http.StatusBadRequest)
+		return nil, errIncompleteUpload
 	}
 
 	// The AWS Go SDK v2 has a bug where types.NoSuchUpload is not returned,

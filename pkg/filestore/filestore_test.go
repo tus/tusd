@@ -3,6 +3,8 @@ package filestore
 import (
 	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +69,21 @@ func TestFilestore(t *testing.T) {
 	a.NoError(err)
 	a.Equal("hello world", string(content))
 	reader.(io.Closer).Close()
+
+	// Serve content
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Range", "bytes=0-4")
+
+	err = store.AsServableUpload(upload).ServeContent(context.Background(), w, r)
+	a.Nil(err)
+
+	a.Equal(http.StatusPartialContent, w.Code)
+	a.Equal("5", w.Header().Get("Content-Length"))
+	a.Equal("text/plain; charset=utf-8", w.Header().Get("Content-Type"))
+	a.Equal("bytes 0-4/11", w.Header().Get("Content-Range"))
+	a.NotEqual("", w.Header().Get("Last-Modified"))
+	a.Equal("hello", w.Body.String())
 
 	// Terminate upload
 	a.NoError(store.AsTerminatableUpload(upload).Terminate(ctx))
