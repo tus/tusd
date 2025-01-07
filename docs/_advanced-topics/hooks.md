@@ -30,8 +30,8 @@ The table below provides an overview of all available hooks.
 |----------------|-----------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|---------------------|
 | pre-create     | Yes       | before a new upload is created.                                        | validation of meta data, user authentication, specification of custom upload ID | Yes                 |
 | post-create    | No        | after a new upload is created.                                         | registering the upload with the main application, logging of upload begin       | Yes                 |
-| post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | No                  |
-| pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | Yes                 |
+| post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | Yes                 |
+| pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | No                  |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
 
