@@ -35,7 +35,7 @@ jobs:
       -
         name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v3.7.1
+        uses: docker/setup-buildx-action@v3.8.0
         with:
           install: true
 
@@ -92,7 +92,7 @@ jobs:
 
       -
         name: GitHub Release
-        uses: softprops/action-gh-release@v2.1.0
+        uses: softprops/action-gh-release@v2.2.0
         with:
           files: tusd_*.*
 
