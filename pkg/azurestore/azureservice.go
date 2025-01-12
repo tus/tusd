@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strings"
 
@@ -67,6 +68,8 @@ type AzBlob interface {
 	Upload(ctx context.Context, body io.ReadSeeker) error
 	// Download returns a readcloser to download the contents of the blob
 	Download(ctx context.Context) (io.ReadCloser, error)
+    // Serves the contents of the blob directly handling special HTTP headers like Range, if set
+    ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
 	// Get the offset of the blob and its indexes
 	GetOffset(ctx context.Context) (int64, error)
 	// Commit the uploaded blocks to the BlockBlob
@@ -187,6 +190,31 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error)
 	return resp.Body, nil
 }
 
+// Serve content respecting range header
+func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+    var downloadOptions, err = parseDownloadOptions(r)
+    if err != nil {
+        return err
+    }
+    resp, err := blockBlob.BlobClient.DownloadStream(ctx, downloadOptions)
+    if err != nil {
+        return err
+    }
+
+    statusCode := http.StatusOK
+    if resp.ContentRange != nil {
+        // Use 206 Partial Content for range requests
+        statusCode = http.StatusPartialContent
+    } else if resp.ContentLength != nil && *resp.ContentLength == 0 {
+        statusCode = http.StatusNoContent
+    }
+    w.WriteHeader(statusCode)
+
+    _, err = io.Copy(w, resp.Body)
+    resp.Body.Close()
+    return err
+}
+
 func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 	// Get the offset of the file from azure storage
 	// For the blob, show each block (ID and size) that is a committed part of it.
@@ -253,6 +281,11 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// ServeContent is not needed for infoBlob
+func (infoBlob *InfoBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+    return nil
+}
+
 // infoBlob does not utilise offset, so just return 0, nil
 func (infoBlob *InfoBlob) GetOffset(ctx context.Context) (int64, error) {
 	return 0, nil
@@ -308,4 +341,44 @@ func checkForNotFoundError(err error) error {
 		}
 	}
 	return err
+}
+
+// parse the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present
+func parseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error) {
+    input := azblob.DownloadStreamOptions{AccessConditions: &azblob.AccessConditions{}}
+
+    if val := r.Header.Get("Range"); val != "" {
+        // zero value count indicates from the offset to the resource's end, suffix-length is not required
+        input.Range = azblob.HTTPRange{Offset: 0, Count: 0}
+        if _, err := fmt.Sscanf(val, "bytes=%d-%d", &input.Range.Offset, &input.Range.Count); err != nil {
+            if _, err := fmt.Sscanf(val, "bytes=%d-", &input.Range.Offset); err != nil {
+                return nil, err
+            }
+        }
+    }
+    if val := r.Header.Get("If-Match"); val != "" {
+        etagIfMatch := azcore.ETag(val)
+        input.AccessConditions.ModifiedAccessConditions.IfMatch = &etagIfMatch
+    }
+    if val := r.Header.Get("If-None-Match"); val != "" {
+        etagIfNoneMatch := azcore.ETag(val)
+        input.AccessConditions.ModifiedAccessConditions.IfNoneMatch = &etagIfNoneMatch
+    }
+    if val := r.Header.Get("If-Modified-Since"); val != "" {
+        t, err := http.ParseTime(val)
+        if err != nil {
+            return nil, err
+        }
+        input.AccessConditions.ModifiedAccessConditions.IfModifiedSince = &t
+
+    }
+    if val := r.Header.Get("If-Unmodified-Since"); val != "" {
+        t, err := http.ParseTime(val)
+        if err != nil {
+            return nil, err
+        }
+        input.AccessConditions.ModifiedAccessConditions.IfUnmodifiedSince = &t
+    }
+
+    return &input, nil
 }
