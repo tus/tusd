@@ -240,7 +240,7 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	}()
 
 	for _, partialUpload := range uploads {
-		if err := partialUpload.(*fileUpload).appendTo(ctx, file); err != nil {
+		if err := partialUpload.(*fileUpload).appendTo(file); err != nil {
 			return err
 		}
 	}
@@ -248,7 +248,7 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	return
 }
 
-func (upload *fileUpload) appendTo(ctx context.Context, file *os.File) error {
+func (upload *fileUpload) appendTo(file *os.File) error {
 	src, err := os.Open(upload.binPath)
 	if err != nil {
 		return err
