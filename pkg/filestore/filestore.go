@@ -240,19 +240,26 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	}()
 
 	for _, partialUpload := range uploads {
-		fileUpload := partialUpload.(*fileUpload)
-
-		src, err := os.Open(fileUpload.binPath)
-		if err != nil {
-			return err
-		}
-
-		if _, err := io.Copy(file, src); err != nil {
+		if err := partialUpload.(*fileUpload).appendTo(file); err != nil {
 			return err
 		}
 	}
 
 	return
+}
+
+func (upload *fileUpload) appendTo(file *os.File) error {
+	src, err := os.Open(upload.binPath)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(file, src); err != nil {
+		src.Close()
+		return err
+	}
+
+	return src.Close()
 }
 
 func (upload *fileUpload) DeclareLength(ctx context.Context, length int64) error {
