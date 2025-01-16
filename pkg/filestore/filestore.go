@@ -253,13 +253,13 @@ func (upload *fileUpload) appendTo(file *os.File) error {
 	if err != nil {
 		return err
 	}
-	defer src.Close()
 
 	if _, err := io.Copy(file, src); err != nil {
+		src.Close()
 		return err
 	}
 
-	return nil
+	return src.Close()
 }
 
 func (upload *fileUpload) DeclareLength(ctx context.Context, length int64) error {
