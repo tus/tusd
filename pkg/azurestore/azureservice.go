@@ -283,7 +283,7 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 
 // ServeContent is not needed for infoBlob
 func (infoBlob *InfoBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	return nil
+	return errors.New("azurestore: ServeContent is not implemented for InfoBlob")
 }
 
 // infoBlob does not utilise offset, so just return 0, nil
