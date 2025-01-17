@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -196,22 +197,55 @@ func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWri
 	if err != nil {
 		return err
 	}
-	resp, err := blockBlob.BlobClient.DownloadStream(ctx, downloadOptions)
+	result, err := blockBlob.BlobClient.DownloadStream(ctx, downloadOptions)
 	if err != nil {
 		return err
 	}
+	defer result.Body.Close()
 
 	statusCode := http.StatusOK
-	if resp.ContentRange != nil {
+	if result.ContentRange != nil {
 		// Use 206 Partial Content for range requests
 		statusCode = http.StatusPartialContent
-	} else if resp.ContentLength != nil && *resp.ContentLength == 0 {
+	} else if result.ContentLength != nil && *result.ContentLength == 0 {
 		statusCode = http.StatusNoContent
 	}
+
+	// Add Accept-Ranges,Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in S3 response
+	if result.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", *result.AcceptRanges)
+	}
+	if result.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", *result.ContentDisposition)
+	}
+	if result.ContentEncoding != nil {
+		w.Header().Set("Content-Encoding", *result.ContentEncoding)
+	}
+	if result.ContentLanguage != nil {
+		w.Header().Set("Content-Language", *result.ContentLanguage)
+	}
+	if result.ContentLength != nil {
+		w.Header().Set("Content-Length", strconv.FormatInt(*result.ContentLength, 10))
+	}
+	if result.ContentRange != nil {
+		w.Header().Set("Content-Range", *result.ContentRange)
+	}
+	if result.ContentType != nil {
+		w.Header().Set("Content-Type", *result.ContentType)
+	}
+	if result.CacheControl != nil {
+		w.Header().Set("Cache-Control", *result.CacheControl)
+	}
+	if result.ETag != nil && *result.ETag != "" {
+		w.Header().Set("ETag", string(*result.ETag))
+	}
+	if result.LastModified != nil {
+		w.Header().Set("Last-Modified", result.LastModified.Format(http.TimeFormat))
+	}
+
 	w.WriteHeader(statusCode)
 
-	_, err = io.Copy(w, resp.Body)
-	resp.Body.Close()
+	_, err = io.Copy(w, result.Body)
 	return err
 }
 
