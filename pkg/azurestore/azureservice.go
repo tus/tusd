@@ -193,7 +193,7 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error)
 
 // Serve content respecting range header
 func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	var downloadOptions, err = parseDownloadOptions(r)
+	var downloadOptions, err = ParseDownloadOptions(r)
 	if err != nil {
 		return err
 	}
@@ -378,7 +378,7 @@ func checkForNotFoundError(err error) error {
 }
 
 // parse the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present
-func parseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error) {
+func ParseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error) {
 	input := azblob.DownloadStreamOptions{AccessConditions: &azblob.AccessConditions{}}
 
 	if val := r.Header.Get("Range"); val != "" {
