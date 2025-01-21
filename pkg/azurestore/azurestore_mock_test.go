@@ -7,6 +7,7 @@ package azurestore_test
 import (
 	context "context"
 	io "io"
+	http "net/http"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -130,6 +131,20 @@ func (m *MockAzBlob) GetOffset(arg0 context.Context) (int64, error) {
 func (mr *MockAzBlobMockRecorder) GetOffset(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffset", reflect.TypeOf((*MockAzBlob)(nil).GetOffset), arg0)
+}
+
+// ServeContent mocks base method.
+func (m *MockAzBlob) ServeContent(arg0 context.Context, arg1 http.ResponseWriter, arg2 *http.Request) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServeContent", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ServeContent indicates an expected call of ServeContent.
+func (mr *MockAzBlobMockRecorder) ServeContent(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServeContent", reflect.TypeOf((*MockAzBlob)(nil).ServeContent), arg0, arg1, arg2)
 }
 
 // Upload mocks base method.
