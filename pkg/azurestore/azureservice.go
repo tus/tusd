@@ -384,10 +384,14 @@ func ParseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error
 	if val := r.Header.Get("Range"); val != "" {
 		// zero value count indicates from the offset to the resource's end, suffix-length is not required
 		input.Range = azblob.HTTPRange{Offset: 0, Count: 0}
-		if _, err := fmt.Sscanf(val, "bytes=%d-%d", &input.Range.Offset, &input.Range.Count); err != nil {
+		bytesEnd := 0
+		if _, err := fmt.Sscanf(val, "bytes=%d-%d", &input.Range.Offset, &bytesEnd); err != nil {
 			if _, err := fmt.Sscanf(val, "bytes=%d-", &input.Range.Offset); err != nil {
 				return nil, err
 			}
+		}
+		if bytesEnd != 0 {
+			input.Range.Count = int64(bytesEnd) - input.Range.Offset + 1
 		}
 	}
 	if val := r.Header.Get("If-Match"); val != "" {
