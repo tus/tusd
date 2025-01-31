@@ -25,9 +25,15 @@ jobs:
           node-version: "lts/*"
 
       - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/github
+        run: |
+          npm init -y
+          npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/github
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.VECTOR_BOT_PAT }}
+          GIT_AUTHOR_NAME: vector-bot
+          GIT_AUTHOR_EMAIL: vector-bot@users.noreply.github.com
+          GIT_COMMITTER_NAME: vector-bot
+          GIT_COMMITTER_EMAIL: vector-bot@users.noreply.github.com
         run: npx semantic-release
