@@ -78,9 +78,3 @@ jobs:
       -
         name: Build TUSD
         run: ./scripts/build_all.sh
-
-      -
-        name: GitHub Release
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          files: tusd_*.*
