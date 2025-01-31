@@ -1,0 +1,33 @@
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  indentation: disable
+  document-start:
+    present: false
+  truthy:
+    allowed-values: [ 'true', 'false' ]
+    level: warning
+  comments:
+    min-spaces-from-content: 1
+    level: warning
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+    level: warning
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+    level: warning
+  empty-lines:
+    max: 1
+    max-end: 1
+    level: warning
+  syntax:
+    level: warning
+
+ignore: |
+  generated-manifests/
+  examples/ 

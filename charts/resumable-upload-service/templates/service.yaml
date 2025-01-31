@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "resumable-upload-service.fullname" . }}
+  labels:
+    {{- include "resumable-upload-service.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  {{- with .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+    {{- if .Values.tusd.monitoring.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.service.metricsPort | default 9090 }}
+      targetPort: metrics
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.metricsNodePort }}
+      nodePort: {{ .Values.service.metricsNodePort }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.tusd.monitoring.pprof.enabled }}
+    - name: pprof
+      port: {{ .Values.service.pprofPort | default 6060 }}
+      targetPort: pprof
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.pprofNodePort }}
+      nodePort: {{ .Values.service.pprofNodePort }}
+      {{- end }}
+    {{- end }}
+  {{- with .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    {{- include "resumable-upload-service.selectorLabels" . | nindent 4 }}

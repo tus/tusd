@@ -1,0 +1,179 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "resumable-upload-service.fullname" . }}
+  labels:
+    {{- include "resumable-upload-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "resumable-upload-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "resumable-upload-service.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "resumable-upload-service.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "-host={{ .Values.tusd.host }}"
+            - "-port={{ .Values.tusd.port }}"
+            - "-base-path={{ .Values.tusd.basePath }}"
+            {{- if .Values.tusd.upload.maxSize }}
+            - "-max-size={{ .Values.tusd.upload.maxSize }}"
+            {{- end }}
+            {{- if .Values.tusd.upload.disableDownload }}
+            - "-disable-download"
+            {{- end }}
+            {{- if .Values.tusd.upload.disableTermination }}
+            - "-disable-termination"
+            {{- end }}
+            {{- if .Values.tusd.behindProxy }}
+            - "-behind-proxy"
+            {{- end }}
+            {{- if .Values.tusd.enableH2C }}
+            - "-enable-h2c"
+            {{- end }}
+            # Storage configuration
+            {{- if and (eq .Values.tusd.storage.type "file") .Values.tusd.storage.file.enabled }}
+            - "-upload-dir={{ .Values.tusd.storage.file.uploadDir }}"
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "s3") .Values.tusd.storage.s3.enabled }}
+            - "-s3-bucket={{ .Values.tusd.storage.s3.bucket }}"
+            {{- if .Values.tusd.storage.s3.objectPrefix }}
+            - "-s3-object-prefix={{ .Values.tusd.storage.s3.objectPrefix }}"
+            {{- end }}
+            {{- if .Values.tusd.storage.s3.endpoint }}
+            - "-s3-endpoint={{ .Values.tusd.storage.s3.endpoint }}"
+            {{- end }}
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "gcs") .Values.tusd.storage.gcs.enabled }}
+            - "-gcs-bucket={{ .Values.tusd.storage.gcs.bucket }}"
+            {{- if .Values.tusd.storage.gcs.objectPrefix }}
+            - "-gcs-object-prefix={{ .Values.tusd.storage.gcs.objectPrefix }}"
+            {{- end }}
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "azure") .Values.tusd.storage.azure.enabled }}
+            - "-azure-storage={{ .Values.tusd.storage.azure.container }}"
+            {{- if .Values.tusd.storage.azure.objectPrefix }}
+            - "-azure-object-prefix={{ .Values.tusd.storage.azure.objectPrefix }}"
+            {{- end }}
+            {{- if .Values.tusd.storage.azure.endpoint }}
+            - "-azure-endpoint={{ .Values.tusd.storage.azure.endpoint }}"
+            {{- end }}
+            {{- end }}
+            {{- if .Values.tusd.hooks.enabled }}
+            - "-hooks-enabled-events={{ .Values.tusd.hooks.enabled }}"
+            {{- end }}
+            {{- if .Values.tusd.hooks.http.endpoint }}
+            - "-hooks-http={{ .Values.tusd.hooks.http.endpoint }}"
+            {{- end }}
+            {{- if .Values.tusd.hooks.grpc.endpoint }}
+            - "-hooks-grpc={{ .Values.tusd.hooks.grpc.endpoint }}"
+            {{- end }}
+            {{- if .Values.tusd.monitoring.metrics.enabled }}
+            - "-expose-metrics"
+            - "-metrics-path={{ .Values.tusd.monitoring.metrics.path }}"
+            {{- end }}
+          env:
+            {{- if and (eq .Values.tusd.storage.type "s3") .Values.tusd.storage.s3.enabled }}
+            - name: AWS_ACCESS_KEY_ID
+              value: {{ .Values.tusd.storage.s3.accessKeyId | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{ .Values.tusd.storage.s3.secretAccessKey | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.tusd.storage.s3.region | quote }}
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "azure") .Values.tusd.storage.azure.enabled }}
+            - name: AZURE_STORAGE_ACCOUNT
+              value: {{ .Values.tusd.storage.azure.storageAccount | quote }}
+            - name: AZURE_STORAGE_KEY
+              value: {{ .Values.tusd.storage.azure.storageKey | quote }}
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "gcs") .Values.tusd.storage.gcs.enabled }}
+            - name: GCS_SERVICE_ACCOUNT_FILE
+              value: "/gcs/service-account.json"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.tusd.port }}
+              protocol: TCP
+            {{- if .Values.tusd.monitoring.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.service.metricsPort | default 9090 }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.tusd.monitoring.pprof.enabled }}
+            - name: pprof
+              containerPort: {{ .Values.service.pprofPort | default 6060 }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if and (eq .Values.tusd.storage.type "file") .Values.tusd.storage.file.enabled }}
+            - name: upload-data
+              mountPath: {{ .Values.tusd.storage.file.uploadDir }}
+            {{- end }}
+            {{- if and (eq .Values.tusd.storage.type "gcs") .Values.tusd.storage.gcs.enabled }}
+            - name: gcs-credentials
+              mountPath: "/gcs"
+              readOnly: true
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if and (eq .Values.tusd.storage.type "file") .Values.tusd.storage.file.enabled }}
+        - name: upload-data
+          persistentVolumeClaim:
+            claimName: {{ include "resumable-upload-service.fullname" . }}
+        {{- end }}
+        {{- if and (eq .Values.tusd.storage.type "gcs") .Values.tusd.storage.gcs.enabled }}
+        - name: gcs-credentials
+          secret:
+            secretName: {{ .Values.tusd.storage.gcs.serviceAccount.existingSecret }}
+            items:
+              - key: {{ .Values.tusd.storage.gcs.serviceAccount.jsonKeyKey }}
+                path: "service-account.json"
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,256 @@
+# Default values for resumable-upload-service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Set the replicaset count
+# See: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+replicaCount: 1
+
+# Container image configuration
+# See: https://kubernetes.io/docs/concepts/containers/images/
+image:
+  repository: feelguuds/resumable-upload-service
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion
+  tag: "latest"
+
+# Image pull secrets configuration
+# See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ServiceAccount configuration
+# See: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations configuration
+# See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+
+# Pod labels configuration
+# See: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+# Security context configuration
+# See: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+# See: https://kubernetes.io/docs/concepts/services-networking/service/
+service:
+  # Service type: ClusterIP, NodePort, LoadBalancer
+  type: ClusterIP
+  # Main HTTP port
+  port: 8080
+  # Optional NodePort for main HTTP port (when type is NodePort)
+  nodePort: null
+  # Metrics port (when metrics are enabled)
+  metricsPort: 9090
+  metricsNodePort: null
+  # pprof port (when pprof is enabled)
+  pprofPort: 6060
+  pprofNodePort: null
+  # Service annotations
+  annotations: {}
+  # LoadBalancer specific configurations
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  # Traffic policy options
+  externalTrafficPolicy: "" # Cluster or Local
+  # Session affinity options
+  sessionAffinity: "" # None or ClientIP
+  sessionAffinityConfig: {}
+
+# Tusd specific configuration
+tusd:
+  # Listening options
+  host: "0.0.0.0"
+  port: 8080
+  basePath: "/files/"
+  behindProxy: true
+  enableH2C: false
+
+  # Upload configuration
+  upload:
+    maxSize: "0" # Maximum size in bytes (0 = unlimited)
+    experimentalProtocol: false
+    disableDownload: false
+    disableTermination: false
+
+  # CORS configuration
+  cors:
+    enabled: true
+    allowOrigin: ".*"
+    allowCredentials: false
+    allowMethods: ""
+    allowHeaders: ""
+    maxAge: "86400"
+    exposeHeaders: ""
+
+  # Storage configuration
+  storage:
+    # Choose storage type: "s3", "file" (disabled), "gcs" (disabled), or "azure" (disabled)
+    type: "s3"
+
+    # File storage settings (disabled by default)
+    file:
+      enabled: false
+      uploadDir: "/data"
+
+    # S3 configuration (primary storage option)
+    s3:
+      enabled: true
+      bucket: "vector-lead-management"
+      objectPrefix: "uploads/leads/"
+      endpoint: "" # Leave empty for AWS S3, set for other S3-compatible services
+      partSize: "52428800" # 50MB
+      minPartSize: "5242880" # 5MB
+      maxBufferedParts: "20"
+      disableContentHashes: false
+      disableSSL: false
+      concurrentPartUploads: 10
+      transferAcceleration: false
+      # AWS credentials
+      accessKeyId: "" # AWS Access Key ID
+      secretAccessKey: "" # AWS Secret Access Key
+      region: "us-east-1" # AWS Region
+
+    # GCS configuration (disabled by default)
+    gcs:
+      enabled: false
+      bucket: ""
+      objectPrefix: ""
+      serviceAccount:
+        existingSecret: ""
+        jsonKeyKey: "service-account.json"
+
+    # Azure configuration (disabled by default)
+    azure:
+      enabled: false
+      container: "vector-lead-management"
+      containerAccessType: "blob"
+      blobAccessTier: "hot"
+      objectPrefix: "uploads/leads/"
+      endpoint: ""
+      # Azure credentials
+      storageAccount: "" # Azure Storage Account name
+      storageKey: "" # Azure Storage Account key
+
+  # Hooks configuration
+  hooks:
+    enabled: "pre-create,post-create,post-receive,post-terminate,post-finish"
+    progressInterval: "1s"
+    http:
+      endpoint: ""
+      forwardHeaders: ""
+      retry: 3
+      backoff: "1s"
+    grpc:
+      endpoint: ""
+      retry: 3
+      backoff: "1s"
+      secure: false
+      tls:
+        serverCert: ""
+        clientCert: ""
+        clientKey: ""
+      forwardHeaders: ""
+
+  # Monitoring and logging
+  monitoring:
+    metrics:
+      enabled: true
+      path: "/metrics"
+    pprof:
+      enabled: false
+      path: "/debug/pprof/"
+      blockProfileRate: 0
+      mutexProfileRate: 0
+
+  logging:
+    verbose: false
+    showStartupLogs: true
+    format: "text" # Options: text, json
+
+  # Timeout configurations
+  timeouts:
+    network: "60s"
+    shutdown: "10s"
+    acquireLock: "20s"
+    requestCompletion: "10s"
+
+# Ingress configuration
+# See: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+  - host: chart-example.local
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
+  tls: []
+
+# Resource configuration
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Probe configuration
+livenessProbe:
+  httpGet:
+    path: /metrics
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /metrics
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+# Additional volume configurations
+volumes: []
+volumeMounts: []
+
+# Node selector configuration
+nodeSelector: {}
+
+# Tolerations configuration
+tolerations: []
+
+# Affinity configuration
+affinity: {}

@@ -1,0 +1,93 @@
+name: Deploy Vector Workspace To Environment
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      namespace:
+        required: false
+        type: string
+        default: "vector"
+      release_name:
+        required: false
+        type: string
+        default: "vector"
+      deployment_name:
+        required: false
+        type: string
+        default: "vector-workspace"
+    secrets:
+      CLUSTER_ID:
+        required: true
+      DIGITALOCEAN_TOKEN:
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+jobs:
+  build-api-gateway:
+    name: Build api gateway images for ${{ inputs.environment }}
+    uses: ./.github/workflows/reusable-deploy-docker-artifacts.yml
+    with:
+      dockerfile: docker/Dockerfile.backend
+      image-name: feelguuds/api-gateway
+      context: services/backend-api-gateway
+      platform: linux/amd64
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+  resumable-upload-service:
+    name: Build resumable upload service images for ${{ inputs.environment }}
+    uses: ./.github/workflows/reusable-deploy-docker-artifacts.yml
+    with:
+      dockerfile: services/resumable-upload-service/Dockerfile
+      image-name: feelguuds/resumable-upload-service
+      context: services/resumable-upload-service
+      platform: linux/amd64
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+  deploy-vector-workspace:
+    if: github.event_name != 'pull_request'
+    name: Deploy to DigitalOcean Kubernetes cluster ${{ inputs.environment }}
+    uses: ./.github/workflows/reusable-k8s-deployment.yml
+    needs:
+      - resumable-upload-service
+    with:
+      environment: ${{ github.ref == 'refs/heads/staging' && 'staging' || 'production' }}
+      namespace: vector
+      release_name: vector-workspace
+      app_root: services/vector-lead-management-workspace
+      chart_name: workspace
+      helm_timeout: "2m" # optional
+      kubeconfig_expiry: "600" # optional
+    secrets:
+      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      CLUSTER_ID: ${{ secrets.CLUSTER_ID }}
+  deploy-resumable-upload-service:
+    if: github.event_name != 'pull_request'
+    name: Deploy Lead Scraper Service To DigitalOcean Kubernetes cluster ${{ inputs.environment }}
+    uses: ./.github/workflows/reusable-k8s-deployment.yml
+    needs:
+      - resumable-upload-service
+    with:
+      environment: ${{ github.ref == 'refs/heads/staging' && 'staging' || 'production' }}
+      namespace: vector
+      release_name: resumable-upload-service
+      app_root: .
+      chart_name: resumable-upload-service
+      helm_timeout: "2m" # optional
+      kubeconfig_expiry: "600" # optional
+    secrets:
+      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      CLUSTER_ID: ${{ secrets.CLUSTER_ID }}
