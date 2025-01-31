@@ -22,8 +22,7 @@ jobs:
         uses: docker/metadata-action@v5.6.1
         with:
           images: |
-            ghcr.io/tus/tusd
-            tusproject/tusd
+            docker.io/feelguuds/resumable-upload-service
           tags: |
             type=sha
             type=semver,pattern=v{{version}}
@@ -41,7 +40,7 @@ jobs:
         name: Login to GitHub Container Registry
         uses: docker/login-action@v3.3.0
         with:
-          registry: ghcr.io
+          registry: docker.io
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
