@@ -39,9 +39,9 @@ jobs:
     name: Build resumable upload service images for ${{ inputs.environment }}
     uses: ./.github/workflows/reusable-deploy-docker-artifacts.yml
     with:
-      dockerfile: services/resumable-upload-service/Dockerfile
+      dockerfile: ./Dockerfile
       image-name: feelguuds/resumable-upload-service
-      context: services/resumable-upload-service
+      context: .
       platform: linux/amd64
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
