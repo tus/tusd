@@ -3,8 +3,9 @@ package redislocker
 import (
 	"context"
 	"errors"
-	"golang.org/x/exp/slog"
 	"time"
+
+	"golang.org/x/exp/slog"
 
 	"github.com/tus/tusd/v2/pkg/handler"
 )
