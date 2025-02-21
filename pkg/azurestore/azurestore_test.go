@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -429,6 +432,130 @@ func TestDeclareLength(t *testing.T) {
 	assert.Equal(info.Size, mockSize*2)
 
 	cancel()
+}
+
+func TestAzureStoreAsServerDataStore(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockAzService(mockCtrl)
+	store := azurestore.New(service)
+
+	mockUpload := &azurestore.AzUpload{}
+	servableUpload := store.AsServableUpload(mockUpload)
+
+	assert.NotNil(servableUpload)
+	assert.IsType(&azurestore.AzUpload{}, servableUpload)
+}
+
+func TestAZServableUploadServeContent(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	blockBlob := NewMockAzBlob(mockCtrl)
+	assert.NotNil(blockBlob)
+
+	// Create a test HTTP request and response recorder
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+
+	// Expected response headers and body
+	expectedHeaders := map[string]string{
+		"Content-Type":   "text/plain",
+		"Content-Length": "12",
+		"ETag":           "bytes",
+		"CacheControl":   "max-age=3600",
+	}
+	expectedBody := "test content"
+
+	// Mock ServeContent call
+	blockBlob.EXPECT().ServeContent(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+			// Add headers to response
+			for key, value := range expectedHeaders {
+				w.Header().Set(key, value)
+			}
+			w.WriteHeader(http.StatusOK)
+
+			// Write response body
+			_, err := w.Write([]byte(expectedBody))
+			return err
+		},
+	).Times(1)
+
+	err := blockBlob.ServeContent(ctx, rec, req)
+
+	assert.Nil(err)
+	assert.Equal(http.StatusOK, rec.Code)
+	for key, value := range expectedHeaders {
+		assert.Equal(value, rec.Header().Get(key))
+	}
+	assert.Equal(expectedBody, rec.Body.String())
+}
+
+func TestParseDownloadOptions(t *testing.T) {
+	tests := []struct {
+		name      string
+		headers   map[string]string
+		expected  *azblob.DownloadStreamOptions
+		expectErr bool
+	}{
+		{
+			name: "Valid Range header",
+			headers: map[string]string{
+				"Range": "bytes=10-20",
+			},
+			expected: &azblob.DownloadStreamOptions{
+				Range: azblob.HTTPRange{
+					Offset: 10,
+					Count:  11,
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Valid Range header",
+			headers: map[string]string{
+				"Range": "bytes=10-",
+			},
+			expected: &azblob.DownloadStreamOptions{
+				Range: azblob.HTTPRange{
+					Offset: 10,
+					Count:  0,
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Valid Range header",
+			headers: map[string]string{
+				"Range": "bytes=zZ-",
+			},
+			expected:  &azblob.DownloadStreamOptions{},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", nil)
+			for key, value := range tt.headers {
+				req.Header.Set(key, value)
+			}
+
+			options, err := azurestore.ParseDownloadOptions(req)
+			if tt.expectErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				options.AccessConditions = nil
+				assert.Equal(t, tt.expected, options)
+			}
+		})
+	}
 }
 
 func newReadCloser(b []byte) io.ReadCloser {
