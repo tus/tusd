@@ -92,7 +92,7 @@ jobs:
 
       -
         name: GitHub Release
-        uses: softprops/action-gh-release@v2.2.0
+        uses: softprops/action-gh-release@v2.2.1
         with:
           files: tusd_*.*
 
@@ -102,6 +102,10 @@ jobs:
       -
         name: Checkout code
         uses: actions/checkout@v4
+        
+      -
+        name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh 
 
       -
         name: Deploy to heroku

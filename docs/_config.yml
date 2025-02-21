@@ -11,6 +11,10 @@ color_scheme: custom
 logo: "/assets/images/logo.png"
 favicon_ico: "/assets/images/favicon.png"
 
+# Dotfiles would be ignored otherwise
+include:
+  - ".well-known"
+
 # External navigation links
 nav_external_links:
   - title: tusd on GitHub
