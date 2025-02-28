@@ -60,6 +60,7 @@ var (
 	ErrInvalidUploadDeferLength         = NewError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
+	ErrUploadTerminationRejected        = NewError("ERR_UPLOAD_TERMINATION_REJECTED", "upload termination has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
@@ -1203,12 +1204,25 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var info FileInfo
-	if handler.config.NotifyTerminatedUploads {
+	if handler.config.NotifyTerminatedUploads || handler.config.PreUploadTerminateCallback != nil {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
+	}
+
+	resp := HTTPResponse{
+		StatusCode: http.StatusNoContent,
+	}
+
+	if handler.config.PreUploadTerminateCallback != nil {
+		resp2, err := handler.config.PreUploadTerminateCallback(newHookEvent(c, info))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+		resp = resp.MergeWith(resp2)
 	}
 
 	err = handler.terminateUpload(c, upload, info)
@@ -1217,9 +1231,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	handler.sendResp(c, HTTPResponse{
-		StatusCode: http.StatusNoContent,
-	})
+	handler.sendResp(c, resp)
 }
 
 // terminateUpload passes a given upload to the DataStore's Terminater,
