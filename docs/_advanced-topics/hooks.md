@@ -33,6 +33,7 @@ The table below provides an overview of all available hooks.
 | post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | Yes                 |
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | No                  |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
+| pre-terminate  | Yes       | before an upload will be terminated.                                   | checking if an upload should be deleted                                         | No                  |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
 
 Users should be aware of following things:

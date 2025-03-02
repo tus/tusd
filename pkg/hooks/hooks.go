@@ -68,6 +68,12 @@ type HookResponse struct {
 	// to the client.
 	RejectUpload bool
 
+	// RejectTermination will cause the termination of the upload to be rejected, keeping the upload.
+	// This value is only respected for pre-terminate hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the rejection
+	// to the client.
+	RejectTermination bool
+
 	// ChangeFileInfo can be set to change selected properties of an upload before
 	// it has been created. See the handler.FileInfoChanges type for more details.
 	// Changes are applied on a per-property basis, meaning that specifying just
@@ -91,10 +97,11 @@ const (
 	HookPostCreate    HookType = "post-create"
 	HookPreCreate     HookType = "pre-create"
 	HookPreFinish     HookType = "pre-finish"
+	HookPreTerminate  HookType = "pre-terminate"
 )
 
 // AvailableHooks is a slice of all hooks that are implemented by tusd.
-var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish}
+var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPreTerminate, HookPostTerminate, HookPostFinish, HookPreFinish}
 
 func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(HookPreCreate, event, hookHandler)
@@ -125,6 +132,26 @@ func preFinishCallback(event handler.HookEvent, hookHandler HookHandler) (handle
 	}
 
 	httpRes := hookRes.HTTPResponse
+	return httpRes, nil
+}
+
+func preTerminateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, error) {
+	ok, hookRes, err := invokeHookSync(HookPreTerminate, event, hookHandler)
+	if !ok || err != nil {
+		return handler.HTTPResponse{}, err
+	}
+
+	httpRes := hookRes.HTTPResponse
+
+	// If the hook response includes the instruction to reject the termination, reuse the error code
+	// and message from ErrUploadTerminationRejected, but also include custom HTTP response values.
+	if hookRes.RejectTermination {
+		err := handler.ErrUploadTerminationRejected
+		err.HTTPResponse = err.HTTPResponse.MergeWith(httpRes)
+
+		return handler.HTTPResponse{}, err
+	}
+
 	return httpRes, nil
 }
 
@@ -166,12 +193,14 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPreTerminate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreTerminate)).Add(0)
 }
 
 func invokeHookAsync(typ HookType, event handler.HookEvent, hookHandler HookHandler) {
@@ -245,6 +274,12 @@ func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enable
 	if slices.Contains(enabledHooks, HookPreFinish) {
 		config.PreFinishResponseCallback = func(event handler.HookEvent) (handler.HTTPResponse, error) {
 			return preFinishCallback(event, hookHandler)
+		}
+	}
+
+	if slices.Contains(enabledHooks, HookPreTerminate) {
+		config.PreUploadTerminateCallback = func(event handler.HookEvent) (handler.HTTPResponse, error) {
+			return preTerminateCallback(event, hookHandler)
 		}
 	}
 
