@@ -33,6 +33,7 @@ The table below provides an overview of all available hooks.
 | post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | Yes                 |
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | No                  |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
+| pre-terminate  | Yes       | before an upload will be terminated.                                   | checking if an upload should be deleted                                         | No                  |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
 
 Users should be aware of following things:
@@ -160,6 +161,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // it is ignored. Use the HTTPResponse field to send details about the rejection
     // to the client.
     "RejectUpload": false,
+
+    // RejectTermination will cause upload terminations via DELETE requests to be rejected,
+    // allowing the hook to control whether associated resources are deleted.
+    // This value is only respected for pre-terminate hooks. For other hooks,
+    // it is ignored. Use the HTTPResponse field to send details about the rejection
+    // to the client.
+    "RejectTermination": false,
 
     // ChangeFileInfo can be set to change selected properties of an upload before
     // it has been created.

@@ -89,6 +89,19 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			Type:  HookPreFinish,
 			Event: event,
 		}).Return(HookResponse{}, error),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreTerminate,
+			Event: event,
+		}).Return(HookResponse{
+			HTTPResponse: response,
+		}, nil),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreTerminate,
+			Event: event,
+		}).Return(HookResponse{
+			HTTPResponse:      response,
+			RejectTermination: true,
+		}, nil),
 	)
 
 	// The hooks are executed asynchronously, so we don't know their execution order.
@@ -112,7 +125,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		Event: event,
 	})
 
-	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish})
+	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish, HookPreTerminate})
 	a.NoError(err)
 
 	// Successful pre-create hook
@@ -147,6 +160,26 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	resp_got, err = config.PreFinishResponseCallback(event)
 	a.Equal(error, err)
 	a.Equal(handler.HTTPResponse{}, resp_got)
+
+	// Successful pre-terminate hook
+	resp_got, err = config.PreUploadTerminateCallback(event)
+	a.NoError(err)
+	a.Equal(response, resp_got)
+
+	// Pre-terminate hook with rejection
+	resp_got, err = config.PreUploadTerminateCallback(event)
+	a.Equal(handler.Error{
+		ErrorCode: handler.ErrUploadTerminationRejected.ErrorCode,
+		Message:   handler.ErrUploadTerminationRejected.Message,
+		HTTPResponse: handler.HTTPResponse{
+			StatusCode: 200,
+			Body:       "foobar",
+			Header: handler.HTTPHeader{
+				"X-Hello":      "here",
+				"Content-Type": "text/plain; charset=utf-8",
+			},
+		},
+	}, err)
 
 	// Successful post-* hooks
 	uploadHandler.CreatedUploads <- event
