@@ -162,6 +162,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // to the client.
     "RejectUpload": false,
 
+    // RejectTermination will cause upload terminations via DELETE requests to be rejected,
+    // allowing the hook to control whether associated resources are deleted.
+    // This value is only respected for pre-terminate hooks. For other hooks,
+    // it is ignored. Use the HTTPResponse field to send details about the rejection
+    // to the client.
+    "RejectTermination": false,
+
     // ChangeFileInfo can be set to change selected properties of an upload before
     // it has been created.
     // Changes are applied on a per-property basis, meaning that specifying just
