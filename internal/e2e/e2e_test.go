@@ -433,6 +433,8 @@ Upload-Offset: 0
 		t.Fatal(err)
 	}
 
+	<-time.After(100 * time.Millisecond)
+
 	// Send HEAD request to fetch offset
 	req, err = http.NewRequest("HEAD", uploadUrlStr, nil)
 	if err != nil {
