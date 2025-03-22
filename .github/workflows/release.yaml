@@ -48,13 +48,6 @@ jobs:
           password: ${{ github.token }}
 
       -
-        name: Login to Docker Container Registry
-        uses: docker/login-action@v3.3.0
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      -
         name: Build and push
         id: build
         uses: docker/build-push-action@v6
@@ -69,29 +62,3 @@ jobs:
             GIT_VERSION=${{ env.GIT_VERSION }}
             GIT_COMMIT=${{ github.sha }}
           platforms: linux/amd64,linux/arm64/v8
-
-  build-binary:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      -
-        name: Checkout code
-        uses: actions/checkout@v4
-
-      -
-        name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-
-      -
-        name: Build TUSD
-        run: ./scripts/build_all.sh
-
-      -
-        name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2.2.1
-        with:
-          files: tusd_*.*
