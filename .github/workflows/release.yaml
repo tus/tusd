@@ -95,23 +95,3 @@ jobs:
         uses: softprops/action-gh-release@v2.2.1
         with:
           files: tusd_*.*
-
-  deploy-heroku:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout code
-        uses: actions/checkout@v4
-        
-      -
-        name: Install Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh 
-
-      -
-        name: Deploy to heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
-        with:
-          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
-          heroku_app_name: ${{secrets.HEROKU_APP_NAME}}
-          heroku_email: ${{secrets.HEROKU_USER_EMAIL}}
-          stack: heroku-22
