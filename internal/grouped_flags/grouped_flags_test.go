@@ -1,9 +1,10 @@
 package grouped_flags
 
 import (
-	"flag"
 	"os"
 	"time"
+
+	"github.com/jnovack/flag"
 )
 
 func ExampleNewFlagGroupSet() {
