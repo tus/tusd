@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"flag"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/jnovack/flag"
 	"github.com/tus/tusd/v2/internal/grouped_flags"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"golang.org/x/exp/slices"
