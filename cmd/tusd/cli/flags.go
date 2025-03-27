@@ -205,7 +205,9 @@ func ParseFlags() {
 		f.DurationVar(&Flags.GracefulRequestCompletionTimeout, "request-completion-timeout", 10*time.Second, "Period after which all request operations are cancelled when the request is stopped by the client.")
 	})
 
-	fs.Parse()
+	if err := fs.Parse(); err != nil {
+		stderr.Fatalf("Failed to parse flags: %s", err)
+	}
 
 	SetEnabledHooks()
 

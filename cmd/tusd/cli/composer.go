@@ -125,7 +125,7 @@ func CreateComposer() {
 
 		azService, err := azurestore.NewAzureService(azConfig)
 		if err != nil {
-			stderr.Fatalf(err.Error())
+			stderr.Fatalf("Unable to create Azure BlockBlob Storage service: %s", err)
 		}
 
 		store := azurestore.New(azService)
