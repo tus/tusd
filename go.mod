@@ -86,6 +86,7 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
+	github.com/jnovack/flag v1.16.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

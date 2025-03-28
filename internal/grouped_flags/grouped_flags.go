@@ -5,10 +5,11 @@ package grouped_flags
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/jnovack/flag"
 )
 
 type flagGroup struct {
