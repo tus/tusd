@@ -117,3 +117,13 @@ $ AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7M
 ```
 
 Tusd is then usable at `http://localhost:8080/files/` and saves the uploads to the local MinIO instance.
+
+## Debugging
+
+If you are experiencing problems with the S3 storage, such as files not appearing in the bucket or uploads not resuming, it's helpful to inspect the individual calls that are made to S3. This is in particular useful when issues appear with S3-compatible services other than AWS S3. Small implementation differences can cause problems with resuming uploads, which can be spotted by inspecting the calls. To log all calls, enable the `-s3-log-api-calls` flag:
+
+```sh
+$ tusd -s3-bucket=my-test-bucket.com -s3-log-api-calls
+```
+
+The output may contain sensitive information, such as bucket names, IAM users, and account names. The content of the uploaded files is not logged. If a tusd maintainer asks for the logs and you don't want to share the logs publicly, you can ask to send them via e-mail.
