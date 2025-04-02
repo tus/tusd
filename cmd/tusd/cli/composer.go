@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/exp/slog"
+
+	"github.com/tus/tusd/v2/internal/s3log"
 	"github.com/tus/tusd/v2/pkg/azurestore"
 	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
@@ -45,7 +48,8 @@ func CreateComposer() {
 			printStartupLog("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
 		}
 
-		s3Client := s3.NewFromConfig(s3Config, func(o *s3.Options) {
+		var s3Client s3store.S3API
+		s3Client = s3.NewFromConfig(s3Config, func(o *s3.Options) {
 			o.UseAccelerate = Flags.S3TransferAcceleration
 
 			// Disable HTTPS and only use HTTP (helpful for debugging requests).
@@ -56,6 +60,13 @@ func CreateComposer() {
 				o.UsePathStyle = true
 			}
 		})
+
+		if Flags.S3LogAPICalls {
+			if !Flags.VerboseOutput {
+				stderr.Fatalf("The -s3-log-api-calls flag requires verbose mode (-verbose) to be enabled")
+			}
+			s3Client = s3log.New(s3Client, slog.Default())
+		}
 
 		store := s3store.New(Flags.S3Bucket, s3Client)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
