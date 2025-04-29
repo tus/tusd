@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
+	"github.com/aws/smithy-go/ptr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/tus/tusd/v2/pkg/azurestore"
@@ -31,8 +32,20 @@ var mockTusdInfo = handler.FileInfo{
 	ID:   mockID,
 	Size: mockSize,
 	MetaData: map[string]string{
-		"foo": "bar",
+		"foo":      "bar",
+		"filetype": "application/json",
 	},
+	Storage: map[string]string{
+		"Type":      "azurestore",
+		"Container": mockContainer,
+		"Key":       mockID,
+	},
+}
+
+var mockTusdInfoWithNoMetadata = handler.FileInfo{
+	ID:       mockID,
+	Size:     mockSize,
+	MetaData: map[string]string{},
 	Storage: map[string]string{
 		"Type":      "azurestore",
 		"Container": mockContainer,
@@ -307,6 +320,80 @@ func TestWriteChunk(t *testing.T) {
 }
 
 func TestFinishUpload(t *testing.T) {
+	tests := map[string]struct {
+		fileInfo             handler.FileInfo
+		noAssignBlobMetadata bool
+		expectContentType    *string
+		expectMetadata       map[string]string
+	}{
+		"default": {
+			fileInfo:             mockTusdInfo,
+			noAssignBlobMetadata: false,
+			expectContentType:    ptr.String("application/json"),
+			expectMetadata: map[string]string{
+				"foo": "bar",
+			},
+		},
+		"disable store metadata": {
+			fileInfo:             mockTusdInfo,
+			noAssignBlobMetadata: true,
+			expectContentType:    ptr.String("application/json"),
+			expectMetadata:       nil,
+		},
+		"no metadata": {
+			fileInfo:             mockTusdInfoWithNoMetadata,
+			noAssignBlobMetadata: false,
+			expectContentType:    nil,
+			expectMetadata:       map[string]string{},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert := assert.New(t)
+
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			ctx := context.Background()
+			ctx, cancel := context.WithCancel(ctx)
+
+			service := NewMockAzService(mockCtrl)
+			store := azurestore.New(service)
+			store.Container = mockContainer
+			store.NoAssignBlobMetadata = test.noAssignBlobMetadata
+
+			blockBlob := NewMockAzBlob(mockCtrl)
+			assert.NotNil(blockBlob)
+
+			infoBlob := NewMockAzBlob(mockCtrl)
+			assert.NotNil(infoBlob)
+
+			data, err := json.Marshal(test.fileInfo)
+			assert.Nil(err)
+
+			var offset int64 = mockSize / 2
+
+			gomock.InOrder(
+				service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
+				infoBlob.EXPECT().Download(ctx).Return(newReadCloser(data), nil).Times(1),
+				service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
+				blockBlob.EXPECT().GetOffset(ctx).Return(offset, nil).Times(1),
+				blockBlob.EXPECT().Commit(ctx, test.expectContentType, test.expectMetadata).Return(nil).Times(1),
+			)
+
+			upload, err := store.GetUpload(ctx, mockID)
+			assert.Nil(err)
+
+			err = upload.FinishUpload(ctx)
+			assert.Nil(err)
+			cancel()
+		})
+	}
+}
+
+func TestFinishUploadWithMinimal(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -324,7 +411,7 @@ func TestFinishUpload(t *testing.T) {
 	infoBlob := NewMockAzBlob(mockCtrl)
 	assert.NotNil(infoBlob)
 
-	data, err := json.Marshal(mockTusdInfo)
+	data, err := json.Marshal(mockTusdInfoWithNoMetadata)
 	assert.Nil(err)
 
 	var offset int64 = mockSize / 2
@@ -334,7 +421,7 @@ func TestFinishUpload(t *testing.T) {
 		infoBlob.EXPECT().Download(ctx).Return(newReadCloser(data), nil).Times(1),
 		service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
 		blockBlob.EXPECT().GetOffset(ctx).Return(offset, nil).Times(1),
-		blockBlob.EXPECT().Commit(ctx).Return(nil).Times(1),
+		blockBlob.EXPECT().Commit(ctx, nil, map[string]string{}).Return(nil).Times(1),
 	)
 
 	upload, err := store.GetUpload(ctx, mockID)

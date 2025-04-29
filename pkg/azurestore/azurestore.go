@@ -9,11 +9,23 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
+
+// Handler that assigns blob metadata based on file info
+type AssignBlobMetadataFunc func(handler.FileInfo) (handler.MetaData, error)
+
+// This regular expression matches every character which is not
+// considered valid into a header value according to RFC2616.
+var invalidMetadataValueCharsRegexp = regexp.MustCompile(`[^\x09\x20-\x7E]`)
+
+// This regexp matches characters allowed for C# names, but does not handle.
+// It does not handle leading digit, which is not allowed.
+var invalidMetadataKeyCharsRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 type AzureStore struct {
 	Service      AzService
@@ -24,6 +36,28 @@ type AzureStore struct {
 	// on disk during the upload. An empty string ("", the default value) will
 	// cause AzureStore to use the operating system's default temporary directory.
 	TemporaryDirectory string
+
+	// Callback for creation of blob metadata. If not defined and NoBlobMetadata is
+	// not set a default will be used.
+	//
+	// For the generated name/value pairs the azure blob storage metadata limitations
+	// must be satisfied
+	// - name/value pairs must adhere to all restrictions governing HTTP headers
+	// - names must be valid C# identifiers (no leading digits)
+	// - names are case-insensitive
+	//
+	// Therefore the default handler will perform the following sanitizations
+	// - convert metadata names to lowercase
+	// - add '_' prefix for metadata names with leading digit
+	// - replace all unsupported characters in names with '_'
+	// - replace all non-printable characters in values with '?'
+	AssignBlobMetadataCallback AssignBlobMetadataFunc
+
+	// Disable metadata for content blobs (no assignment when committing).
+	// When blob metadata is assigned the following limitations apply
+	// - the total size of all metadata name/value pairs must not exceed 8 KiB
+	// - the BlobMetadataHandler must only generate valid name/value pairs
+	NoAssignBlobMetadata bool
 }
 
 type AzUpload struct {
@@ -33,6 +67,8 @@ type AzUpload struct {
 	InfoHandler *handler.FileInfo
 
 	tempDir string
+
+	assignBlobMetadataCallback AssignBlobMetadataFunc
 }
 
 func New(service AzService) *AzureStore {
@@ -77,11 +113,12 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 	}
 
 	azUpload := &AzUpload{
-		ID:          info.ID,
-		InfoHandler: &info,
-		InfoBlob:    infoBlob,
-		BlockBlob:   blockBlob,
-		tempDir:     store.TemporaryDirectory,
+		ID:                         info.ID,
+		InfoHandler:                &info,
+		InfoBlob:                   infoBlob,
+		BlockBlob:                  blockBlob,
+		tempDir:                    store.TemporaryDirectory,
+		assignBlobMetadataCallback: store.getAssignBlobMetadataCallback(),
 	}
 
 	err = azUpload.writeInfo(ctx)
@@ -133,11 +170,12 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 	info.Offset = offset
 
 	return &AzUpload{
-		ID:          id,
-		InfoHandler: &info,
-		InfoBlob:    infoBlob,
-		BlockBlob:   blockBlob,
-		tempDir:     store.TemporaryDirectory,
+		ID:                         id,
+		InfoHandler:                &info,
+		InfoBlob:                   infoBlob,
+		BlockBlob:                  blockBlob,
+		tempDir:                    store.TemporaryDirectory,
+		assignBlobMetadataCallback: store.getAssignBlobMetadataCallback(),
 	}, nil
 }
 
@@ -216,7 +254,26 @@ func (upload *AzUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 
 // Finish the file upload and commit the block list
 func (upload *AzUpload) FinishUpload(ctx context.Context) error {
-	return upload.BlockBlob.Commit(ctx)
+	info, err := upload.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Get Content-Type from filetype metadata field. For V1 uploads this field can only
+	// be set in upload client, or a hook.
+	// For V2 uploads is read from Content-Type header of POST request
+	var contenttype *string
+
+	if filetype, found := info.MetaData[handler.FileInfoMetadataKeyFileType]; found {
+		contenttype = &filetype
+	}
+
+	blobmetadata, err := upload.assignBlobMetadataCallback(info)
+	if err != nil {
+		return err
+	}
+
+	return upload.BlockBlob.Commit(ctx, contenttype, blobmetadata)
 }
 
 func (upload *AzUpload) Terminate(ctx context.Context) error {
@@ -257,4 +314,43 @@ func (store *AzureStore) keyWithPrefix(key string) string {
 	}
 
 	return prefix + key
+}
+
+func (store AzureStore) getAssignBlobMetadataCallback() AssignBlobMetadataFunc {
+	if store.NoAssignBlobMetadata {
+		return assignNoBlobMetadata
+	}
+
+	if store.AssignBlobMetadataCallback != nil {
+		return store.AssignBlobMetadataCallback
+	} else {
+		return assignBlobMetadata
+	}
+}
+
+// The default metadata handler is very permissive to ensure we do not break backwards compatibility.
+// The only realistic failure scenario should be exceeding the metadata size limit.
+func assignBlobMetadata(fileinfo handler.FileInfo) (handler.MetaData, error) {
+	result := make(map[string]string)
+	for key, value := range fileinfo.MetaData {
+		// key is case in-sensitive and must adher to c# naming
+		key = invalidMetadataKeyCharsRegexp.ReplaceAllString(strings.ToLower(key), "_")
+		switch key {
+		case handler.FileInfoMetadataKeyFileType: // no need to add filetype to metadata, it's in the content-type
+			continue
+		default:
+			// ok
+		}
+
+		// leading digit is not valid, prefix with '_'
+		if key[0] >= '0' && key[0] <= '9' {
+			key = "_" + key
+		}
+		result[key] = invalidMetadataValueCharsRegexp.ReplaceAllString(value, "?")
+	}
+	return result, nil
+}
+
+func assignNoBlobMetadata(fileinfo handler.FileInfo) (handler.MetaData, error) {
+	return nil, nil
 }

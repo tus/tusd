@@ -75,17 +75,17 @@ func (m *MockAzBlob) EXPECT() *MockAzBlobMockRecorder {
 }
 
 // Commit mocks base method.
-func (m *MockAzBlob) Commit(arg0 context.Context) error {
+func (m *MockAzBlob) Commit(arg0 context.Context, arg1 *string, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0)
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockAzBlobMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+func (mr *MockAzBlobMockRecorder) Commit(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockAzBlob)(nil).Commit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockAzBlob)(nil).Commit), arg0, arg1, arg2)
 }
 
 // Delete mocks base method.
