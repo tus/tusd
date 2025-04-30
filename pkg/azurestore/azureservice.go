@@ -86,25 +86,24 @@ type InfoBlob struct {
 
 // New Azure service for communication to Azure BlockBlob Storage API
 func NewAzureService(config *AzConfig) (AzService, error) {
-	// struct to store your credentials.
-	var containerClient *container.Client
-	serviceURL := fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName)
-	retryOpts := policy.RetryOptions{
-		MaxRetries:    5,
-		RetryDelay:    100,  // Retry after 100ms initially
-		MaxRetryDelay: 5000, // Max retry delay 5 seconds
-	}
 
+	serviceURL := fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName)
+	clientOptions := &container.ClientOptions{
+		ClientOptions: azcore.ClientOptions{
+			Retry: policy.RetryOptions{
+				MaxRetries:    5,
+				RetryDelay:    100,  // Retry after 100ms initially
+				MaxRetryDelay: 5000, // Max retry delay 5 seconds
+			},
+		},
+	}
+	var containerClient *container.Client
 	if len(config.AccountKey) > 0 {
 		cred, err := azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
 		if err != nil {
 			return nil, err
 		}
-		containerClient, err = container.NewClientWithSharedKeyCredential(serviceURL, cred, &container.ClientOptions{
-			ClientOptions: azcore.ClientOptions{
-				Retry: retryOpts,
-			},
-		})
+		containerClient, err = container.NewClientWithSharedKeyCredential(serviceURL, cred, clientOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -113,11 +112,7 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		if err != nil {
 			return nil, err
 		}
-		containerClient, err = container.NewClient(serviceURL, cred, &container.ClientOptions{
-			ClientOptions: azcore.ClientOptions{
-				Retry: retryOpts,
-			},
-		})
+		containerClient, err = container.NewClient(serviceURL, cred, clientOptions)
 		if err != nil {
 			return nil, err
 		}
