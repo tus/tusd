@@ -114,7 +114,9 @@ func CreateComposer() {
 
 		accountKey := os.Getenv("AZURE_STORAGE_KEY")
 		if accountKey == "" {
-			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_STORAGE_KEY environment variable.\n")
+			printStartupLog("Azure BlockBlob Storage authentication using identity")
+		} else {
+			printStartupLog("Azure BlockBlob Storage authentication using account key")
 		}
 
 		azureEndpoint := Flags.AzEndpoint
