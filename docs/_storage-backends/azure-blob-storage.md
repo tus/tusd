@@ -22,13 +22,16 @@ $ tusd -azure-storage=my-test-container
 
 ### Authentication
 
+tusd can authenticate at Azure storage accounts using either the account key or Entra ID tokens.
+
 #### Storage Account Key
 
-If `AZURE_STORAGE_KEY` environment variable is set, it will be used to authenticate with the storage account.
+Storage account key can be used to authenticate with a storage account. This will give the tusd process full access to all containers in the storage account. To use storage account key based authentication environment variable 
+ `AZURE_STORAGE_KEY` must be set to the account key.
 
-#### Microsoft Entra ID
+#### Entra ID
 
-If `AZURE_STORAGE_KEY` environment variable is not set or empty Microsoft Entra ID token credentials will be used to authentication. The [DefaultAzureCredential chain](https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview) is used to retrieve the token and it is currently possible to select another credential provider.
+Entra Id based authentication allows fine grained access control and is recommended due to better security. To use Entra Id based authentication `AZURE_STORAGE_KEY` environment variable must be empty or unset. The [DefaultAzureCredential chain](https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview) is used to retrieve the token and it is currently not possible to select another credential provider.
 
 The `DefaultAzureCredential` chain is as follows:
 1. Environment: Reads a collection of environment variables to determine if an application service principal (application user) is configured for the app. If so, DefaultAzureCredential uses these values to authenticate the app to Azure. This method is most often used in server environments but can also be used when developing locally.
