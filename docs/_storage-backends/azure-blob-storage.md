@@ -10,11 +10,41 @@ Tusd can store files directly on Azure Blob Storage or other compatible services
 
 ## Configuration
 
-To enable this backend, you must supply the corresponding access credentials using environment variables and specify the container name using `-azure-storage`, for example:
+To enable this backend, you must supply the account name and possibly account key using environment variables and specify the container name using `-azure-storage`, for example:
 
 ```bash
 $ export AZURE_STORAGE_ACCOUNT=xxxxx
 $ export AZURE_STORAGE_KEY=xxxxx
+$ tusd -azure-storage=my-test-container
+[tusd] 2024/02/23 11:34:03.411021 Using Azure endpoint https://xxxxx.blob.core.windows.net.
+...
+```
+
+### Authentication
+
+#### Storage Account Key
+
+If `AZURE_STORAGE_KEY` environment variable is set, it will be used to authenticate with the storage account.
+
+#### Microsoft Entra ID
+
+If `AZURE_STORAGE_KEY` environment variable is not set or empty Microsoft Entra ID token credentials will be used to authentication. The [DefaultAzureCredential chain](https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview) is used to retrieve the token and it is currently possible to select another credential provider.
+
+The `DefaultAzureCredential` chain is as follows:
+1. Environment: Reads a collection of environment variables to determine if an application service principal (application user) is configured for the app. If so, DefaultAzureCredential uses these values to authenticate the app to Azure. This method is most often used in server environments but can also be used when developing locally.
+1. Workload Identity: If the app is deployed to an Azure host with Workload Identity enabled, authenticate that account.
+1. Managed Identity: If the app is deployed to an Azure host with Managed Identity enabled, authenticate the app to Azure using that Managed Identity.
+1. Azure CLI: If the developer authenticated to Azure using Azure CLI's az login command, authenticate the app to Azure using that same account.
+1. Azure Developer CLI: If the developer authenticated to Azure using Azure Developer CLI's azd auth login command, authenticate with that account.
+
+For further details please refer to [azure-sdk-for-go azidentity](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/azidentity/README.md)
+
+Example using Azure CLI:
+
+```bash
+$ az login # login to your azure account and tenant
+$ export AZURE_STORAGE_ACCOUNT=xxxxx
+$ export AZURE_STORAGE_KEY=""
 $ tusd -azure-storage=my-test-container
 [tusd] 2024/02/23 11:34:03.411021 Using Azure endpoint https://xxxxx.blob.core.windows.net.
 ...
