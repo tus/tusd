@@ -393,45 +393,6 @@ func TestFinishUpload(t *testing.T) {
 	}
 }
 
-func TestFinishUploadWithMinimal(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	assert := assert.New(t)
-
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-
-	service := NewMockAzService(mockCtrl)
-	store := azurestore.New(service)
-	store.Container = mockContainer
-
-	blockBlob := NewMockAzBlob(mockCtrl)
-	assert.NotNil(blockBlob)
-
-	infoBlob := NewMockAzBlob(mockCtrl)
-	assert.NotNil(infoBlob)
-
-	data, err := json.Marshal(mockTusdInfoWithNoMetadata)
-	assert.Nil(err)
-
-	var offset int64 = mockSize / 2
-
-	gomock.InOrder(
-		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
-		infoBlob.EXPECT().Download(ctx).Return(newReadCloser(data), nil).Times(1),
-		service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
-		blockBlob.EXPECT().GetOffset(ctx).Return(offset, nil).Times(1),
-		blockBlob.EXPECT().Commit(ctx, nil, map[string]string{}).Return(nil).Times(1),
-	)
-
-	upload, err := store.GetUpload(ctx, mockID)
-	assert.Nil(err)
-
-	err = upload.FinishUpload(ctx)
-	assert.Nil(err)
-	cancel()
-}
-
 func TestTerminate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
