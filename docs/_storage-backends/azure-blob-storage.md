@@ -59,6 +59,20 @@ By default, the objects are stored at the root of the container. For example the
 - `abcdef123.info`: Informational object
 - `abcdef123`: File object
 
+### Metadata
+If metadata is associated with the upload during creation, it will be added to the blob metadata once the upload is finished. Because azure blob metadata names must adher to C# and HTTP header naming rules, tusd will do the following to determine the azure blob metadata name
+- convert the name to lowercase
+- replace every invalid character with a underscore (valid are only a-z, 0-9 and understore)
+- prefix names with leading digit with an underscore
+
+For example, "0Menü-Abc" will become "_0men__abc".
+
+Metadata values are limited to ASCII characters to align with s3store, tusd will replace every non-ASCII character with a question mark. For example, "Menü" will become "Men?".
+
+In addition, the metadata is also stored in the informational object, which can be used to retrieve the original metadata without any characters being replaced.
+
+If the metadata contains a filetype key, its value is used to set the Content-Type header of the file object and not included in the blob metadata. Setting the Content-Disposition or Content-Encoding headers is not yet supported.
+
 ## Testing with Azurite
 
 With [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage), a local Azure Blob Storage service can be emulated for testing tusd without using the Azure services in the cloud. To get started, please install Azurite ([installation instructions](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage#install-azurite)) and the Azure CLI ([installation instructions](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)). Next, start the local Azurite application:

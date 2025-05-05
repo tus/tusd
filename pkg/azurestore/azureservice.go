@@ -70,7 +70,7 @@ type AzBlob interface {
 	// Get the offset of the blob and its indexes
 	GetOffset(ctx context.Context) (int64, error)
 	// Commit the uploaded blocks to the BlockBlob
-	Commit(ctx context.Context) error
+	Commit(ctx context.Context, contenttype *string, metadata map[string]string) error
 }
 
 type BlockBlob struct {
@@ -218,14 +218,26 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 }
 
 // After all the blocks have been uploaded, we commit the unstaged blocks by sending a Block List
-func (blockBlob *BlockBlob) Commit(ctx context.Context) error {
+func (blockBlob *BlockBlob) Commit(ctx context.Context, contenttype *string, metadata map[string]string) error {
 	base64BlockIDs := make([]string, len(blockBlob.Indexes))
 	for i, id := range blockBlob.Indexes {
 		base64BlockIDs[i] = blockIDIntToBase64(id)
 	}
 
+	var azmetadata map[string]*string
+	if len(metadata) > 0 {
+		azmetadata = make(map[string]*string, len(metadata))
+		for k, v := range metadata {
+			azmetadata[k] = &v
+		}
+	}
+
 	_, err := blockBlob.BlobClient.CommitBlockList(ctx, base64BlockIDs, &blockblob.CommitBlockListOptions{
-		Tier: blockBlob.BlobAccessTier,
+		Tier:     blockBlob.BlobAccessTier,
+		Metadata: azmetadata,
+		HTTPHeaders: &blob.HTTPHeaders{
+			BlobContentType: contenttype,
+		},
 	})
 	return err
 }
@@ -259,7 +271,7 @@ func (infoBlob *InfoBlob) GetOffset(ctx context.Context) (int64, error) {
 }
 
 // infoBlob does not have uncommited blocks, so just return nil
-func (infoBlob *InfoBlob) Commit(ctx context.Context) error {
+func (infoBlob *InfoBlob) Commit(ctx context.Context, contenttype *string, metadata map[string]string) error {
 	return nil
 }
 

@@ -142,6 +142,7 @@ func CreateComposer() {
 		store := azurestore.New(azService)
 		store.ObjectPrefix = Flags.AzObjectPrefix
 		store.Container = Flags.AzStorage
+		store.NoAssignBlobMetadata = os.Getenv("AZURE_NO_BLOB_METADATA") == "1"
 		store.UseIn(Composer)
 
 		locker := memorylocker.New()

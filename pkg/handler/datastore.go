@@ -6,6 +6,14 @@ import (
 	"net/http"
 )
 
+// Some metadata fields have special meaning and can be set automatically by tusd
+const (
+	// File type (HTTP MIME / Content-Type)
+	FileInfoMetadataKeyFileType = "filetype"
+	// File name (e.g. from HTTP Content-Disposition Header)
+	FileInfoMetadataKeyFileName = "filename"
+)
+
 type MetaData map[string]string
 
 // FileInfo contains information about a single upload resource.

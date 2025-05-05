@@ -498,7 +498,7 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		info.MetaData["filetype"] = fileType
+		info.MetaData[FileInfoMetadataKeyFileType] = fileType
 	}
 
 	if contentDisposition != "" {
@@ -508,8 +508,8 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		if values["filename"] != "" {
-			info.MetaData["filename"] = values["filename"]
+		if values[FileInfoMetadataKeyFileName] != "" {
+			info.MetaData[FileInfoMetadataKeyFileName] = values["filename"]
 		}
 	}
 
@@ -1148,7 +1148,7 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 // from the "filename" and "filetype".
 // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
 func filterContentType(info FileInfo) (contentType string, contentDisposition string) {
-	filetype := info.MetaData["filetype"]
+	filetype := info.MetaData[FileInfoMetadataKeyFileType]
 
 	if ft, _, err := mime.ParseMediaType(filetype); err == nil {
 		// If the filetype from metadata is well-formed, we forward use this for the Content-Type header.
@@ -1167,7 +1167,7 @@ func filterContentType(info FileInfo) (contentType string, contentDisposition st
 	}
 
 	// Add a filename to Content-Disposition if one is available in the metadata
-	if filename, ok := info.MetaData["filename"]; ok {
+	if filename, ok := info.MetaData[FileInfoMetadataKeyFileName]; ok {
 		contentDisposition += ";filename=" + strconv.Quote(filename)
 	}
 
