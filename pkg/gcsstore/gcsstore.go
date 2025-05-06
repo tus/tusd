@@ -94,8 +94,9 @@ func (upload gcsUpload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 
 	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: prefix,
+		Bucket:            store.Bucket,
+		Prefix:            prefix,
+		IncludeInfoObject: false,
 	}
 
 	names, err := store.Service.FilterObjects(ctx, filterParams)
@@ -165,8 +166,9 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 
 	prefix := store.keyWithPrefix(id)
 	filterParams := GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: prefix,
+		Bucket:            store.Bucket,
+		Prefix:            prefix,
+		IncludeInfoObject: false,
 	}
 
 	names, err := store.Service.FilterObjects(ctx, filterParams)
@@ -261,8 +263,9 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 
 	prefix := fmt.Sprintf("%s_", store.keyWithPrefix(id))
 	filterParams := GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: prefix,
+		Bucket:            store.Bucket,
+		Prefix:            prefix,
+		IncludeInfoObject: false,
 	}
 
 	names, err := store.Service.FilterObjects(ctx, filterParams)
@@ -313,8 +316,9 @@ func (upload gcsUpload) Terminate(ctx context.Context) error {
 	store := upload.store
 
 	filterParams := GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: store.keyWithPrefix(id),
+		Bucket:            store.Bucket,
+		Prefix:            store.keyWithPrefix(id),
+		IncludeInfoObject: true,
 	}
 
 	err := store.Service.DeleteObjectsWithFilter(ctx, filterParams)
