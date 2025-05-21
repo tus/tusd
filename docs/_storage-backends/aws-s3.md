@@ -118,6 +118,20 @@ $ AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7M
 
 Tusd is then usable at `http://localhost:8080/files/` and saves the uploads to the local MinIO instance.
 
+## Usage with Cloudflare R2
+
+R2 is Cloudflare's object storage service that is (mostly) compatible with S3. Tusd can store files directly on R2, but requires additional configuration to work optimally.
+
+As specified in the [R2 documentation](https://developers.cloudflare.com/r2/api/s3/api/), its S3 API is available at `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, where `<ACCOUNT_ID>` is the ID of your Cloudflare account you can find in the Cloudflare dashboard. This endpoint must be provided to tusd.
+
+In addition, you must configure part sizes. Tusd uploads files as a series of smaller parts using S3 multipart uploads. R2 has a special requirement that [all parts (except the last one) must have the same size](https://developers.cloudflare.com/r2/objects/multipart-objects/#limitations). Since this requirement doesn't exist for AWS S3 and most other S3-compatible services, tusd does not adhere to it by default. To ensure that parts have the same size, set the minimum part size (`-s3-min-part-size`) to the same value as the optimal part size (`-s3-part-size`). Don't be afraid! Data below this limit won't be discarded, but stored in a temporary object next to the multipart upload for later reuse.
+
+Combining the above, the following configuration is required, keeping the current default optimal part size of 50 MiB:
+
+```sh
+$ AWS_ACCESS_KEY_ID=<YOUR_ACCESS_KEY_ID> AWS_SECRET_ACCESS_KEY=<YOUR_SECRET_ACCESS_KEY> tusd -s3-bucket <YOUR_BUCKET_NAME> -s3-endpoint https://<ACCOUNT_ID>.r2.cloudflarestorage.com -s3-min-part-size 52428800 -s3-part-size 52428800
+```
+
 ## Debugging
 
 If you are experiencing problems with the S3 storage, such as files not appearing in the bucket or uploads not resuming, it's helpful to inspect the individual calls that are made to S3. This is in particular useful when issues appear with S3-compatible services other than AWS S3. Small implementation differences can cause problems with resuming uploads, which can be spotted by inspecting the calls. To log all calls, enable the `-s3-log-api-calls` flag:
