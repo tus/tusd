@@ -10,7 +10,7 @@ Tusd can store files directly on Azure Blob Storage or other compatible services
 
 ## Configuration
 
-To enable this backend, you must supply the account name and possibly account key using environment variables and specify the container name using `-azure-storage`, for example:
+To enable this backend, you must supply the account name using environment variable `AZURE_STORAGE_ACCOUNT` and specify the container name using `-azure-storage` argument. To use storage account key based authentication please provided it using environment variable `AZURE_STORAGE_KEY`, otherwise tusd will use Entra Id based authentication.
 
 ```bash
 $ export AZURE_STORAGE_ACCOUNT=xxxxx
