@@ -98,7 +98,7 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		},
 	}
 	var containerClient *container.Client
-	if len(config.AccountKey) > 0 {
+	if config.AccountKey != "" {
 		cred, err := azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
 		if err != nil {
 			return nil, err
