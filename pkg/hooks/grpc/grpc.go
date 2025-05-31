@@ -79,7 +79,7 @@ func (g *GrpcHook) Setup() error {
 	}
 	grpcOpts = append(grpcOpts, grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(opts...)))
 
-	conn, err := grpc.Dial(g.Endpoint, grpcOpts...)
+	conn, err := grpc.NewClient(g.Endpoint, grpcOpts...)
 	if err != nil {
 		return err
 	}
