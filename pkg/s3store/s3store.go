@@ -952,7 +952,9 @@ func (upload *s3Upload) concatUsingDownload(ctx context.Context, partialUploads 
 	}
 
 	// Seek to the beginning of the file, so the entire file is being uploaded
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return err
+	}
 
 	// Upload the entire file to S3
 	_, err = store.Service.PutObject(ctx, &s3.PutObjectInput{

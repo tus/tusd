@@ -33,6 +33,7 @@ The table below provides an overview of all available hooks.
 | post-receive   | No        | regularly while data is being transmitted.                             | logging upload progress, stopping running uploads                               | Yes                 |
 | pre-finish     | Yes       | after all upload data has been received but before a response is sent. | sending custom data when an upload is finished                                  | No                  |
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
+| pre-terminate  | Yes       | before an upload will be terminated.                                   | checking if an upload should be deleted                                         | No                  |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
 
 Users should be aware of following things:
@@ -160,6 +161,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // it is ignored. Use the HTTPResponse field to send details about the rejection
     // to the client.
     "RejectUpload": false,
+
+    // RejectTermination will cause upload terminations via DELETE requests to be rejected,
+    // allowing the hook to control whether associated resources are deleted.
+    // This value is only respected for pre-terminate hooks. For other hooks,
+    // it is ignored. Use the HTTPResponse field to send details about the rejection
+    // to the client.
+    "RejectTermination": false,
 
     // ChangeFileInfo can be set to change selected properties of an upload before
     // it has been created.
@@ -327,11 +335,19 @@ $ tusd -hooks-grpc localhost:8081/ -hooks-grpc-retry 5 -hooks-grpc-backoff 2
 
 ### Plugin Hooks
 
-File hooks are an easy way to receive events from tusd, but can induce overhead from the sub-process creation. In addition, keeping state between hooks is challenging because the hook process does not persist. HTTP and gRPC hooks can keep state on their respective servers, which should be managed by an external task manager.
+File hooks are an easy way to receive events from tusd, but can induce overhead from frequent sub-process creation. In addition, keeping state between hooks is challenging because the hook process does not persist. HTTP and gRPC hooks can keep state on their respective servers, which have to be managed by an external task manager.
 
-Plugin hooks provide a sweet spot between these two worlds. You can create a plugin with any programming language. tusd then loads this plugin by starting it as a standalone process, restarting it if necessary, and communicating with it over local sockets. This system is powered by [go-plugin](https://github.com/hashicorp/go-plugin), which is designed for Go, but provides cross-language support. The approach provides a low-overhead hook handler, which is still able to track state between hooks.
+Plugin hooks provide a sweet spot between these two worlds. Tusd can load a plugin by starting it as a standalone process, restarting if necessary, and communicating with low-overhead over local sockets. Overall, this requires less operational work than running a standalone HTTP or gRPC server. However, plugin processes cannot be shared between multiple tusd instances. If you are running a cluster of tusd instances, each instance will have its own plugin process. If that doesn't fit your needs and you need one central process to handle hooks, you should use HTTP or gRPC hooks instead.
 
-To learn more, have a look at the example at [github.com/tus/tusd/examples/hooks/plugin](https://github.com/tus/tusd/tree/main/examples/hooks/plugin).
+This system is powered by [go-plugin](https://github.com/hashicorp/go-plugin), which allows plugins to be developed in Go as well as any other programming language using gRPC as a bridge. However, as of right now, tusd only supports plugins in Go using its `net/rpc` package. If you are interested in developing plugins without Go, please let us know!
+
+A template to get started can be found at [github.com/tus/tusd/examples/hooks/plugin](https://github.com/tus/tusd/tree/main/examples/hooks/plugin). The gist of it is that you create a binary that registers its hook handler with the go-plugin package. This binary is then passed to tusd, which will run and communicate with it.
+
+Assuming that the plugin is compiled into a binary called `hook_handler`, tusd can be started with the following command to load the plugin:
+
+```bash
+$ tusd -hooks-plugin ./hook_handler
+```
 
 ## Common Uses
 
