@@ -29,6 +29,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
@@ -89,25 +90,36 @@ type InfoBlob struct {
 
 // New Azure service for communication to Azure BlockBlob Storage API
 func NewAzureService(config *AzConfig) (AzService, error) {
-	// struct to store your credentials.
-	cred, err := azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
-	if err != nil {
-		return nil, err
-	}
 
 	serviceURL := fmt.Sprintf("%s/%s", config.Endpoint, config.ContainerName)
-	retryOpts := policy.RetryOptions{
-		MaxRetries:    5,
-		RetryDelay:    100,  // Retry after 100ms initially
-		MaxRetryDelay: 5000, // Max retry delay 5 seconds
-	}
-	containerClient, err := container.NewClientWithSharedKeyCredential(serviceURL, cred, &container.ClientOptions{
+	clientOptions := &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
-			Retry: retryOpts,
+			Retry: policy.RetryOptions{
+				MaxRetries:    5,
+				RetryDelay:    100,  // Retry after 100ms initially
+				MaxRetryDelay: 5000, // Max retry delay 5 seconds
+			},
 		},
-	})
-	if err != nil {
-		return nil, err
+	}
+	var containerClient *container.Client
+	if config.AccountKey != "" {
+		cred, err := azblob.NewSharedKeyCredential(config.AccountName, config.AccountKey)
+		if err != nil {
+			return nil, err
+		}
+		containerClient, err = container.NewClientWithSharedKeyCredential(serviceURL, cred, clientOptions)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cred, err := azidentity.NewDefaultAzureCredential(nil)
+		if err != nil {
+			return nil, err
+		}
+		containerClient, err = container.NewClient(serviceURL, cred, clientOptions)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	containerCreateOptions := &container.CreateOptions{}
@@ -120,7 +132,7 @@ func NewAzureService(config *AzConfig) (AzService, error) {
 		// Leaving Access nil will default to private access
 	}
 
-	_, err = containerClient.Create(context.Background(), containerCreateOptions)
+	_, err := containerClient.Create(context.Background(), containerCreateOptions)
 	if err != nil && !strings.Contains(err.Error(), "ContainerAlreadyExists") {
 		return nil, err
 	}
@@ -255,16 +267,11 @@ func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 	var indexes []int
 	var offset int64
 
-	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeAll, nil)
+	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeUncommitted, nil)
 	if err != nil {
 		return 0, checkForNotFoundError(err)
 	}
 
-	// Need committed blocks to be added to offset to know how big the file really is
-	for _, block := range resp.CommittedBlocks {
-		offset += *block.Size
-		indexes = append(indexes, blockIDBase64ToInt(block.Name))
-	}
 	// Need to get the uncommitted blocks so that we can commit them
 	for _, block := range resp.UncommittedBlocks {
 		offset += *block.Size

@@ -1103,7 +1103,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	handler.sendResp(c, resp)
-	io.Copy(w, src)
+	if _, err := io.Copy(w, src); err != nil {
+		handler.sendError(c, err)
+		return
+	}
 
 	src.Close()
 }
