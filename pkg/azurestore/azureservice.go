@@ -223,7 +223,7 @@ func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWri
 		statusCode = http.StatusNoContent
 	}
 
-	// Add Accept-Ranges,Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in S3 response
+	// Add Accept-Ranges,Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in azure response
 	if result.AcceptRanges != nil {
 		w.Header().Set("Accept-Ranges", *result.AcceptRanges)
 	}
