@@ -6,9 +6,11 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"time"
 
@@ -21,6 +23,8 @@ type HttpHook struct {
 	MaxRetries     int
 	Backoff        time.Duration
 	ForwardHeaders []string
+	Timeout        time.Duration
+	SizeLimit      int64
 
 	client *pester.Client
 }
@@ -45,7 +49,16 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 		return hookRes, err
 	}
 
-	httpReq, err := http.NewRequest("POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
+	ctx := hookReq.Event.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
+
 	if err != nil {
 		return hookRes, err
 	}
@@ -66,9 +79,29 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	}
 	defer httpRes.Body.Close()
 
-	httpBody, err := io.ReadAll(httpRes.Body)
+	if httpRes.StatusCode == http.StatusNoContent {
+		return hookRes, nil
+	}
+
+	contentType := httpRes.Header.Get("Content-Type")
+
+	if contentType == "" {
+		return hookRes, fmt.Errorf("missing Content-Type header")
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || mediaType != "application/json" {
+		return hookRes, fmt.Errorf("unexpected Content-Type: %s", contentType)
+	}
+
+	httpBody, err := io.ReadAll(io.LimitReader(httpRes.Body, h.SizeLimit+1))
+
 	if err != nil {
 		return hookRes, err
+	}
+
+	if int64(len(httpBody)) > h.SizeLimit {
+		return hookRes, fmt.Errorf("hook response exceeded maximum size of %d bytes", h.SizeLimit)
 	}
 
 	// Report an error, if the response has a non-2XX status code

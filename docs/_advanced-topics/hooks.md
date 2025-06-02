@@ -150,7 +150,7 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
         // configure Cross-Origin Resource Sharing (CORS) to include your custom header in
         // Access-Control-Expose-Headers or otherwise browsers will block access to the custom
         // header. See https://tus.github.io/tusd/getting-started/configuration/#cross-origin-resource-sharing-cors
-        // for more details about tusd and CORS.  
+        // for more details about tusd and CORS.
         "Header": {
             "Content-Type": "application/json"
         },
@@ -285,6 +285,10 @@ $ tusd -hooks-http http://localhost:8081/write
 
 Note that the URL must include the `http://` or `https://` prefix!
 
+#### Timeout and Size Limit
+
+By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd --help`.
+
 #### Requests
 
 For each hook, tusd will send an individual HTTP request to the provided endpoint. The request body is the JSON-encoded hook request containing more details about the corresponding event. Its values are as described [above](#hook-requests-and-responses).
@@ -296,6 +300,8 @@ The request body also includes all details about the request from the client to 
 When the endpoint responds with a non-2XX status code, tusd interprets this as an internal failure. For the pre-create and pre-finish hook, it will stop the processing of the request and respond with a `500 Internal Server Error` to the client. For the other hooks, an error will be logged to tusd's logs, but not error response is sent to the client. Network errors and internal server errors from the hook endpoint will cause the request to be retried, as mentioned [below](#retries).
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads.
+
+Tusd requires the `Content-Type` header in all hook responses and strictly validates it to be `application/json`. Responses missing this header or with an unexpected `Content-Type` will be rejected with an error.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
@@ -353,7 +359,7 @@ $ tusd -hooks-plugin ./hook_handler
 
 ### Receiving and Validating User Data
 
-Clients can set custom [meta data values](https://tus.io/protocols/resumable-upload#upload-metadata) when starting an upload, such as the file name, file type, or any other associate data. These values are also available in each hook request for every handler type. The `pre-create` hook can be used to validate these values before an upload even begins. 
+Clients can set custom [meta data values](https://tus.io/protocols/resumable-upload#upload-metadata) when starting an upload, such as the file name, file type, or any other associate data. These values are also available in each hook request for every handler type. The `pre-create` hook can be used to validate these values before an upload even begins.
 
 For example, assume that every upload must belong to a specific user project. The upload client adds a `project_id` meta data field for each upload, describing which project the upload belongs to. The `pre-create` hook then takes the `project_id` from the hook request and validates it, ensuring that the value is present, belongs to an existing project, and that the user has access to this project. If the validation passes, the hook can return an empty hook response to indicate tusd that the upload should continue as normal. If the validation fails, the hook can instruct tusd to reject the upload and return a custom error response to the client. For example, this is a possible hook response:
 
