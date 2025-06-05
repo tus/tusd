@@ -58,7 +58,6 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	defer cancel()
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
-
 	if err != nil {
 		return hookRes, err
 	}
@@ -79,34 +78,31 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	}
 	defer httpRes.Body.Close()
 
-	if httpRes.StatusCode == http.StatusNoContent {
-		return hookRes, nil
-	}
-
-	contentType := httpRes.Header.Get("Content-Type")
-
-	if contentType == "" {
-		return hookRes, fmt.Errorf("missing Content-Type header")
-	}
-
-	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err != nil || mediaType != "application/json" {
-		return hookRes, fmt.Errorf("unexpected Content-Type: %s", contentType)
-	}
-
 	httpBody, err := io.ReadAll(io.LimitReader(httpRes.Body, h.SizeLimit+1))
-
 	if err != nil {
 		return hookRes, err
+	}
+
+	// Report an error, if the response has a non-2XX status code
+	if httpRes.StatusCode < http.StatusOK || httpRes.StatusCode >= http.StatusMultipleChoices {
+		return hookRes, fmt.Errorf("unexpected response code from hook endpoint (%d): %s", httpRes.StatusCode, string(httpBody))
 	}
 
 	if int64(len(httpBody)) > h.SizeLimit {
 		return hookRes, fmt.Errorf("hook response exceeded maximum size of %d bytes", h.SizeLimit)
 	}
 
-	// Report an error, if the response has a non-2XX status code
-	if httpRes.StatusCode < http.StatusOK || httpRes.StatusCode >= http.StatusMultipleChoices {
-		return hookRes, fmt.Errorf("unexpected response code from hook endpoint (%d): %s", httpRes.StatusCode, string(httpBody))
+	contentType := httpRes.Header.Get("Content-Type")
+	if contentType == "" {
+		return hookRes, fmt.Errorf("hook response does not contain the 'Content-Type: application/json' header")
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return hookRes, fmt.Errorf("failed to parse Content-Type header: %w", err)
+	}
+	if mediaType != "application/json" {
+		return hookRes, fmt.Errorf("expected hook response Content-Type to be application/json, but got '%s'", contentType)
 	}
 
 	if err = json.Unmarshal(httpBody, &hookRes); err != nil {
