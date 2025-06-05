@@ -54,6 +54,8 @@ var Flags struct {
 	HttpHooksForwardHeaders          string
 	HttpHooksRetry                   int
 	HttpHooksBackoff                 time.Duration
+	HttpHooksTimeout                 time.Duration
+	HttpHooksSizeLimit               int64
 	GrpcHooksEndpoint                string
 	GrpcHooksRetry                   int
 	GrpcHooksBackoff                 time.Duration
@@ -169,6 +171,8 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 		f.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
+		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests")
+		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
 	})
 
 	fs.AddGroup("gRPC hook options", func(f *flag.FlagSet) {
