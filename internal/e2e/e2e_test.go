@@ -433,6 +433,8 @@ Upload-Offset: 0
 		t.Fatal(err)
 	}
 
+	<-time.After(100 * time.Millisecond)
+
 	// Send HEAD request to fetch offset
 	req, err = http.NewRequest("HEAD", uploadUrlStr, nil)
 	if err != nil {
@@ -731,6 +733,7 @@ func TestStopUpload(t *testing.T) {
 
 	// Start a hook server that always instructs tusd to stop the upload.
 	hookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"StopUpload":true}`))
 	}))
 	defer hookServer.Close()

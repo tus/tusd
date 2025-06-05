@@ -39,6 +39,7 @@ var Flags struct {
 	S3DisableContentHashes           bool
 	S3DisableSSL                     bool
 	S3ConcurrentPartUploads          int
+	S3LogAPICalls                    bool
 	GCSBucket                        string
 	GCSObjectPrefix                  string
 	AzStorage                        string
@@ -53,6 +54,8 @@ var Flags struct {
 	HttpHooksForwardHeaders          string
 	HttpHooksRetry                   int
 	HttpHooksBackoff                 time.Duration
+	HttpHooksTimeout                 time.Duration
+	HttpHooksSizeLimit               int64
 	GrpcHooksEndpoint                string
 	GrpcHooksRetry                   int
 	GrpcHooksBackoff                 time.Duration
@@ -138,6 +141,7 @@ func ParseFlags() {
 		f.BoolVar(&Flags.S3DisableSSL, "s3-disable-ssl", false, "Disable SSL and only use HTTP for communication with S3 (experimental and may be removed in the future)")
 		f.IntVar(&Flags.S3ConcurrentPartUploads, "s3-concurrent-part-uploads", 10, "Number of concurrent part uploads to S3 (experimental and may be removed in the future)")
 		f.BoolVar(&Flags.S3TransferAcceleration, "s3-transfer-acceleration", false, "Use AWS S3 transfer acceleration endpoint (requires -s3-bucket option and Transfer Acceleration property on S3 bucket to be set)")
+		f.BoolVar(&Flags.S3LogAPICalls, "s3-log-api-calls", false, "Log all S3 API calls for debugging purposes")
 	})
 
 	fs.AddGroup("Google Cloud Storage options", func(f *flag.FlagSet) {
@@ -146,7 +150,7 @@ func ParseFlags() {
 	})
 
 	fs.AddGroup("Azure Storage options", func(f *flag.FlagSet) {
-		f.StringVar(&Flags.AzStorage, "azure-storage", "", "Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variable to be set)")
+		f.StringVar(&Flags.AzStorage, "azure-storage", "", "Use Azure BlockBlob Storage with this container name as a storage backend (requires the AZURE_STORAGE_ACCOUNT and possibly AZURE_STORAGE_KEY environment variable to be set)")
 		f.StringVar(&Flags.AzContainerAccessType, "azure-container-access-type", "", "Access type when creating a new container if it does not exist (possible values: blob, container, '')")
 		f.StringVar(&Flags.AzBlobAccessTier, "azure-blob-access-tier", "", "Blob access tier when uploading new files (possible values: archive, cool, hot, '')")
 		f.StringVar(&Flags.AzObjectPrefix, "azure-object-prefix", "", "Prefix for Azure object names")
@@ -167,6 +171,8 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 		f.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
+		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests")
+		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
 	})
 
 	fs.AddGroup("gRPC hook options", func(f *flag.FlagSet) {
@@ -205,7 +211,9 @@ func ParseFlags() {
 		f.DurationVar(&Flags.GracefulRequestCompletionTimeout, "request-completion-timeout", 10*time.Second, "Period after which all request operations are cancelled when the request is stopped by the client.")
 	})
 
-	fs.Parse()
+	if err := fs.Parse(); err != nil {
+		stderr.Fatalf("Failed to parse flags: %s", err)
+	}
 
 	SetEnabledHooks()
 
