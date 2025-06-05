@@ -285,10 +285,6 @@ $ tusd -hooks-http http://localhost:8081/write
 
 Note that the URL must include the `http://` or `https://` prefix!
 
-#### Timeout and Size Limit
-
-By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd --help`.
-
 #### Requests
 
 For each hook, tusd will send an individual HTTP request to the provided endpoint. The request body is the JSON-encoded hook request containing more details about the corresponding event. Its values are as described [above](#hook-requests-and-responses).
@@ -299,9 +295,9 @@ The request body also includes all details about the request from the client to 
 
 When the endpoint responds with a non-2XX status code, tusd interprets this as an internal failure. For the pre-create and pre-finish hook, it will stop the processing of the request and respond with a `500 Internal Server Error` to the client. For the other hooks, an error will be logged to tusd's logs, but not error response is sent to the client. Network errors and internal server errors from the hook endpoint will cause the request to be retried, as mentioned [below](#retries).
 
-When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads.
+When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads. Note that tusd requires the `Content-Type: application/json` header to be present in all hook responses.
 
-Tusd requires the `Content-Type` header in all hook responses and strictly validates it to be `application/json`. Responses missing this header or with an unexpected `Content-Type` will be rejected with an error.
+By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
