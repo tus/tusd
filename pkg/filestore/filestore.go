@@ -29,6 +29,11 @@ import (
 var defaultFilePerm = os.FileMode(0664)
 var defaultDirectoryPerm = os.FileMode(0754)
 
+const (
+	StorageKeyPath     = "Path"
+	StorageKeyInfoPath = "InfoPath"
+)
+
 // See the handler.DataStore interface for documentation about the different
 // methods.
 type FileStore struct {
@@ -63,14 +68,14 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	infoPath := store.infoPath(info.ID)
 	// The binary file's location might be modified by the pre-create hook.
 	var binPath string
-	if info.Storage != nil && info.Storage["Path"] != "" {
+	if info.Storage != nil && info.Storage[StorageKeyPath] != "" {
 		// filepath.Join treats absolute and relative paths the same, so we must
 		// handle them on our own. Absolute paths get used as-is, while relative
 		// paths are joined to the storage path.
-		if filepath.IsAbs(info.Storage["Path"]) {
-			binPath = info.Storage["Path"]
+		if filepath.IsAbs(info.Storage[StorageKeyPath]) {
+			binPath = info.Storage[StorageKeyPath]
 		} else {
-			binPath = filepath.Join(store.Path, info.Storage["Path"])
+			binPath = filepath.Join(store.Path, info.Storage[StorageKeyPath])
 		}
 	} else {
 		binPath = store.defaultBinPath(info.ID)
@@ -120,10 +125,10 @@ func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	// fall back to the default value (although the Path property should always be set in recent
 	// tusd versions).
 	var binPath string
-	if info.Storage != nil && info.Storage["Path"] != "" {
+	if info.Storage != nil && info.Storage[StorageKeyPath] != "" {
 		// No filepath.Join here because the joining already happened in NewUpload. Duplicate joining
 		// with relative paths lead to incorrect paths
-		binPath = info.Storage["Path"]
+		binPath = info.Storage[StorageKeyPath]
 	} else {
 		binPath = store.defaultBinPath(info.ID)
 	}
