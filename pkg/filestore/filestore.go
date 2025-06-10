@@ -30,7 +30,9 @@ var defaultFilePerm = os.FileMode(0664)
 var defaultDirectoryPerm = os.FileMode(0754)
 
 const (
-	StorageKeyPath     = "Path"
+	// StorageKeyPath is the key of the path of uploaded file in handler.FileInfo.Storage
+	StorageKeyPath = "Path"
+	// StorageKeyInfoPath is the key of the path of .info file in handler.FileInfo.Storage
 	StorageKeyInfoPath = "InfoPath"
 )
 
@@ -82,9 +84,9 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	info.Storage = map[string]string{
-		"Type":     "filestore",
-		"Path":     binPath,
-		"InfoPath": infoPath,
+		"Type":             "filestore",
+		StorageKeyPath:     binPath,
+		StorageKeyInfoPath: infoPath,
 	}
 
 	// Create binary file with no content
