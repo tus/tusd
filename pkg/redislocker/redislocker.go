@@ -14,10 +14,6 @@ import (
 type LockExchange interface {
 	Listen(ctx context.Context, id string, callback func())
 	Request(ctx context.Context, id string) error
-}
-
-type BidirectionalLockExchange interface {
-	LockExchange
 	Release(ctx context.Context, id string) error
 }
 
@@ -30,7 +26,7 @@ type MutexLock interface {
 
 type RedisLocker struct {
 	CreateMutex func(id string) MutexLock
-	Exchange    BidirectionalLockExchange
+	Exchange    LockExchange
 	Logger      *slog.Logger
 }
 
@@ -53,7 +49,7 @@ type redisLock struct {
 	mutex    MutexLock
 	ctx      context.Context
 	cancel   context.CancelCauseFunc
-	exchange BidirectionalLockExchange
+	exchange LockExchange
 	logger   *slog.Logger
 }
 
