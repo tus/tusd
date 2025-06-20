@@ -3,6 +3,7 @@ package redislocker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -51,7 +52,7 @@ type redisLock struct {
 	id       string
 	mutex    MutexLock
 	ctx      context.Context
-	cancel   func()
+	cancel   context.CancelCauseFunc
 	exchange BidirectionalLockExchange
 	logger   *slog.Logger
 }
@@ -64,7 +65,8 @@ func (l *redisLock) Lock(ctx context.Context, releaseRequested func()) error {
 	go l.exchange.Listen(l.ctx, l.id, releaseRequested)
 	go func() {
 		if err := l.keepAlive(l.ctx); err != nil {
-			l.cancel()
+			l.logger.Error("failed to keep alive lock", "error", err)
+			l.cancel(err)
 			if releaseRequested != nil {
 				releaseRequested()
 			}
@@ -83,7 +85,7 @@ func (l *redisLock) aquireLock(ctx context.Context) error {
 		return errors.Join(err, handler.ErrFileLocked)
 	}
 
-	l.ctx, l.cancel = context.WithCancel(context.Background())
+	l.ctx, l.cancel = context.WithCancelCause(context.Background())
 
 	return nil
 }
@@ -109,8 +111,7 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 			l.logger.Debug("extend lock attempt started", "time", time.Now())
 			_, err := l.mutex.ExtendContext(ctx)
 			if err != nil {
-				l.logger.Error("failed to extend lock", "time", time.Now(), "error", err)
-				return err
+				return fmt.Errorf("failed to extend lock: %w", err)
 			}
 			l.logger.Debug("lock extended", "time", time.Now())
 		case <-ctx.Done():
@@ -123,7 +124,7 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 func (l *redisLock) Unlock() error {
 	l.logger.Debug("unlocking upload")
 	if l.cancel != nil {
-		defer l.cancel()
+		defer l.cancel(nil)
 	}
 	b, err := l.mutex.UnlockContext(l.ctx)
 	if !b {
