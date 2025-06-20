@@ -3,12 +3,15 @@ package redislocker
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v9"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/exp/slog"
 )
+
+var DefaultLockExpiry = 8 * time.Second
 
 type LockerOption func(l *RedisLocker)
 
@@ -23,10 +26,10 @@ func NewFromClient(client redis.UniversalClient, lockerOptions ...LockerOption) 
 
 	locker := &RedisLocker{
 		CreateMutex: func(id string) MutexLock {
-			return rs.NewMutex(id, redsync.WithExpiry(LockExpiry))
+			return rs.NewMutex(id, redsync.WithExpiry(DefaultLockExpiry))
 		},
 		Exchange: &RedisLockExchange{
-			client: client,
+			Client: client,
 		},
 	}
 	for _, option := range lockerOptions {

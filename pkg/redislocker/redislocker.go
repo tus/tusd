@@ -10,12 +10,6 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-var (
-	LockExchangeChannel = "tusd_lock_release_request_%s"
-	LockReleaseChannel  = "tusd_lock_released_%s"
-	LockExpiry          = 8 * time.Second
-)
-
 type LockExchange interface {
 	Listen(ctx context.Context, id string, callback func())
 	Request(ctx context.Context, id string) error

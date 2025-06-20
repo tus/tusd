@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	LockExpiry = 1 * time.Second
+	DefaultLockExpiry = 1 * time.Second
 }
 
 func TestLockUnlock(t *testing.T) {
