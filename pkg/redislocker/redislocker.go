@@ -181,15 +181,17 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 func (l *redisLock) Unlock() error {
 	l.logger.Debug("unlocking upload")
 	if l.cancel != nil {
-		defer l.cancel(nil)
+		l.cancel(nil)
 	}
-	b, err := l.mutex.UnlockContext(l.ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	b, err := l.mutex.UnlockContext(ctx)
 	if !b {
 		l.logger.Error("failed to release lock", "err", err)
 	}
 	l.logger.Debug("notifying of lock release")
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
 	if e := l.exchange.Release(ctx, l.id); e != nil {
 		err = errors.Join(err, e)
 	}

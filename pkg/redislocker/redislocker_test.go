@@ -8,8 +8,10 @@ import (
 	"github.com/alicebob/miniredis/v2"
 )
 
+var TestDuration = time.Millisecond
+
 func init() {
-	DefaultLockExpiry = 1 * time.Second
+	DefaultLockExpiry = 1 * TestDuration
 }
 
 func TestLockUnlock(t *testing.T) {
@@ -19,7 +21,7 @@ func TestLockUnlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_lock_unlock")
 	if err != nil {
@@ -48,7 +50,7 @@ func TestMultipleLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_multiple_locks_01")
 	if err != nil {
@@ -60,7 +62,6 @@ func TestMultipleLocks(t *testing.T) {
 	if err := l.Lock(ctx, requestRelease); err != nil {
 		t.Error(err)
 	}
-	defer l.Unlock()
 	otherL, err := locker.NewLock("test_multiple_locks_02")
 	if err != nil {
 		t.Error(err)
@@ -68,7 +69,8 @@ func TestMultipleLocks(t *testing.T) {
 	if err := otherL.Lock(ctx, requestRelease); err != nil {
 		t.Error(err)
 	}
-	defer otherL.Unlock()
+	l.Unlock()
+	otherL.Unlock()
 }
 
 func TestKeepAlive(t *testing.T) {
@@ -77,7 +79,7 @@ func TestKeepAlive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_keep_alive")
 	if err != nil {
@@ -90,7 +92,7 @@ func TestKeepAlive(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log("wait for refresh")
-	<-time.After(2 * time.Second)
+	<-time.After(2 * TestDuration)
 	t.Log("done with wait")
 
 	if err := l.Unlock(); err != nil {
@@ -105,7 +107,7 @@ func TestHeldLockExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_exchange")
 	if err != nil {
@@ -140,7 +142,7 @@ func TestHeldLockNoExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_no_exchange")
 	if err != nil {
