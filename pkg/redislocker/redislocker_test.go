@@ -11,7 +11,7 @@ import (
 var TestDuration = 10 * time.Millisecond
 
 func init() {
-	DefaultLockExpiry = 1 * TestDuration
+	DefaultLockExpiry = 10 * TestDuration
 }
 
 func TestLockUnlock(t *testing.T) {
@@ -79,7 +79,7 @@ func TestKeepAlive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*TestDuration)
 	defer cancel()
 	l, err := locker.NewLock("test_keep_alive")
 	if err != nil {
@@ -92,7 +92,7 @@ func TestKeepAlive(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log("wait for refresh")
-	<-time.After(2 * TestDuration)
+	<-time.After(30 * TestDuration)
 	t.Log("done with wait")
 
 	if err := l.Unlock(); err != nil {

@@ -161,7 +161,7 @@ func (l *redisLock) requestLock(ctx context.Context) error {
 func (l *redisLock) keepAlive(ctx context.Context) error {
 	//compute this once for less complexity
 	timeUntil := time.Until(l.mutex.Until()) / 2
-	l.logger.Debug("keepAlive started", "tick seconds", timeUntil*time.Second)
+	l.logger.Debug("keepAlive started", "tick seconds", timeUntil/time.Second)
 	// ensures that an extend will be canceled if it's unlocked in the middle of an attempt
 	for {
 		select {
@@ -187,7 +187,7 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 func (l *redisLock) Unlock() error {
 	l.logger.Debug("unlocking upload")
 	if l.cancel != nil {
-		defer l.cancel(nil)
+		l.cancel(nil)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
