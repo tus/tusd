@@ -159,10 +159,13 @@ func (l *redisLock) requestLock(ctx context.Context) error {
 // keepAlive maintains the lock by periodically extending its expiration time.
 // It runs in a background goroutine and stops when the context is cancelled.
 func (l *redisLock) keepAlive(ctx context.Context) error {
+	//compute this once for less complexity
+	timeUntil := time.Until(l.mutex.Until()) / 2
+	l.logger.Debug("keepAlive started", "tick seconds", timeUntil*time.Second)
 	// ensures that an extend will be canceled if it's unlocked in the middle of an attempt
 	for {
 		select {
-		case <-time.After(time.Until(l.mutex.Until()) / 2):
+		case <-time.After(timeUntil):
 			l.logger.Debug("extend lock attempt started", "time", time.Now())
 			_, err := l.mutex.ExtendContext(ctx)
 			if err != nil {
