@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/exp/slog"
 
+	"github.com/go-redsync/redsync/v4"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
@@ -193,16 +194,19 @@ func (l *redisLock) Unlock() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	b, err := l.mutex.UnlockContext(ctx)
-	if !b {
+	var errs error
+
+	// Allowing for the edge case where the lock is already expired since the context was canceled
+	if b, err := l.mutex.UnlockContext(ctx); !b && !errors.Is(err, redsync.ErrLockAlreadyExpired) {
 		l.logger.Error("failed to release lock", "err", err)
+		errs = errors.Join(errs, err)
 	}
 	l.logger.Debug("notifying of lock release")
 	if e := l.exchange.Release(ctx, l.id); e != nil {
-		err = errors.Join(err, e)
+		errs = errors.Join(errs, e)
 	}
-	if err != nil {
-		l.logger.Error("errors while unlocking", "err", err)
+	if errs != nil {
+		l.logger.Error("errors while unlocking", "err", errs)
 	}
-	return err
+	return errs
 }
