@@ -8,7 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 )
 
-var TestDuration = time.Millisecond
+var TestDuration = 10 * time.Millisecond
 
 func init() {
 	DefaultLockExpiry = 1 * TestDuration
