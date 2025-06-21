@@ -21,7 +21,7 @@ func TestLockUnlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	l, err := locker.NewLock("test_lock_unlock")
 	if err != nil {
@@ -50,7 +50,7 @@ func TestMultipleLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	l, err := locker.NewLock("test_multiple_locks_01")
 	if err != nil {
@@ -79,7 +79,7 @@ func TestKeepAlive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	l, err := locker.NewLock("test_keep_alive")
 	if err != nil {
@@ -107,7 +107,7 @@ func TestHeldLockExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	l, err := locker.NewLock("test_exchange")
 	if err != nil {
