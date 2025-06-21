@@ -166,6 +166,9 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 			l.logger.Debug("extend lock attempt started", "time", time.Now())
 			_, err := l.mutex.ExtendContext(ctx)
 			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return nil
+				}
 				return fmt.Errorf("failed to extend lock: %w", err)
 			}
 			l.logger.Debug("lock extended", "time", time.Now())
@@ -181,7 +184,7 @@ func (l *redisLock) keepAlive(ctx context.Context) error {
 func (l *redisLock) Unlock() error {
 	l.logger.Debug("unlocking upload")
 	if l.cancel != nil {
-		l.cancel(nil)
+		defer l.cancel(nil)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
