@@ -22,6 +22,7 @@ var Flags struct {
 	ShowGreeting                     bool
 	DisableDownload                  bool
 	DisableTermination               bool
+	DisableConcatenation             bool
 	DisableCors                      bool
 	CorsAllowOrigin                  string
 	CorsAllowCredentials             bool
@@ -111,6 +112,7 @@ func ParseFlags() {
 		f.BoolVar(&Flags.ExperimentalProtocol, "enable-experimental-protocol", false, "Enable support for the new resumable upload protocol draft from the IETF's HTTP working group, next to the current tus v1 protocol. (experimental and may be removed/changed in the future)")
 		f.BoolVar(&Flags.DisableDownload, "disable-download", false, "Disable the download endpoint")
 		f.BoolVar(&Flags.DisableTermination, "disable-termination", false, "Disable the termination endpoint")
+		f.BoolVar(&Flags.DisableConcatenation, "disable-concatenation", false, "Disable support for the concatenation extension")
 		f.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	})
 

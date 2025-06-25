@@ -393,4 +393,22 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 	})
+
+	SubTest(t, "DisableConcatenation", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			BasePath:             "files",
+			StoreComposer:        composer,
+			DisableConcatenation: true,
+		})
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Concat": "final; http://tus.io/files/aaa/123 /files/bbb/123",
+			},
+			Code:    http.StatusBadRequest,
+			ResBody: "ERR_CONCATENATION_UNSUPPORTED: Upload-Concat header is not supported by server\n",
+		}).Run(handler, t)
+	})
 }
