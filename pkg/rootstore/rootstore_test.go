@@ -26,6 +26,8 @@ func TestRootStore(t *testing.T) {
 	root, err := os.OpenRoot(t.TempDir())
 	a.NoError(err)
 
+	t.Cleanup(func() { root.Close() })
+
 	store := RootStore{root}
 	ctx := t.Context()
 
@@ -104,6 +106,8 @@ func TestCreateDirectories(t *testing.T) {
 	root, err := os.OpenRoot(tmp)
 	a.NoError(err)
 
+	t.Cleanup(func() { root.Close() })
+
 	store := RootStore{root}
 	ctx := t.Context()
 
@@ -173,6 +177,8 @@ func TestNotFound(t *testing.T) {
 	root, err := os.OpenRoot(t.TempDir())
 	a.NoError(err)
 
+	t.Cleanup(func() { root.Close() })
+
 	store := RootStore{root}
 	ctx := t.Context()
 
@@ -189,6 +195,8 @@ func TestConcatUploads(t *testing.T) {
 
 	root, err := os.OpenRoot(tmp)
 	a.NoError(err)
+
+	t.Cleanup(func() { root.Close() })
 
 	store := RootStore{root}
 	ctx := t.Context()
@@ -250,6 +258,8 @@ func TestDeclareLength(t *testing.T) {
 	root, err := os.OpenRoot(tmp)
 	a.NoError(err)
 
+	t.Cleanup(func() { root.Close() })
+
 	store := RootStore{root}
 	ctx := t.Context()
 
@@ -283,6 +293,8 @@ func TestCustomRelativePath(t *testing.T) {
 
 	root, err := os.OpenRoot(tmp)
 	a.NoError(err)
+
+	t.Cleanup(func() { root.Close() })
 
 	store := RootStore{root}
 	ctx := t.Context()
@@ -354,6 +366,8 @@ func TestCustomAbsolutePath(t *testing.T) {
 	root, err := os.OpenRoot(t.TempDir())
 	a.NoError(err)
 
+	t.Cleanup(func() { root.Close() })
+
 	store := RootStore{root}
 
 	// Create new upload, but the Path property points to a directory
@@ -403,6 +417,8 @@ func TestMkdirAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root, err := os.OpenRoot(t.TempDir())
 			assert.NoError(t, err)
+
+			t.Cleanup(func() { root.Close() })
 
 			tt.wantErr(t, MkdirAll(root, tt.args.dir, tt.args.perm), fmt.Sprintf("MkdirAll(%v, %v, %v)", root, tt.args.dir, tt.args.perm))
 		})
