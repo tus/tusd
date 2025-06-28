@@ -393,7 +393,7 @@ func TestMkdirAll(t *testing.T) {
 		{
 			name: "create nested directories",
 			args: args{
-				dir:  "newdir/subdir",
+				dir:  filepath.Join("newdir", "subdir"),
 				perm: 0755,
 			},
 			wantErr: assert.NoError,
