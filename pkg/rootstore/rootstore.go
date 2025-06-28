@@ -7,10 +7,6 @@
 //
 // No cleanup is performed, so you may want to run a cronjob to ensure your disk
 // is not filled up with old and finished uploads.
-//
-// Related to the rootstore is the package filelocker, which provides a file-based
-// locking mechanism. The use of some locking method is recommended and further
-// explained in https://tus.github.io/tusd/advanced-topics/locks/.
 package rootstore
 
 import (
@@ -35,14 +31,13 @@ var defaultDirectoryPerm = os.FileMode(0754)
 // See the handler.DataStore interface for documentation about the different
 // methods.
 type RootStore struct {
-	// Relative or absolute path to store files in. RootStore does not check
-	// whether the path exists, use os.MkdirAll in this case on your own.
+	// Root is the root directory where all uploads are stored.
+	// See https://go.dev/blog/osroot for more information.
 	Root *os.Root
 }
 
 // New creates a new file based storage backend. The directory specified will
-// be used as the only storage entry. This method does not check
-// whether the path exists, use os.MkdirAll to ensure.
+// be used as the only storage entry.
 func New(root *os.Root) RootStore {
 	return RootStore{root}
 }
