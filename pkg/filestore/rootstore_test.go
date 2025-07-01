@@ -130,8 +130,8 @@ func TestRootStoreCreateDirectories(t *testing.T) {
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.ToSlash(info.ID), info.Storage["Path"])
-	a.Equal(filepath.ToSlash(info.ID+".info"), info.Storage["InfoPath"])
+	a.Equal(filepath.FromSlash(info.ID), info.Storage["Path"])
+	a.Equal(filepath.FromSlash(info.ID+".info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -317,8 +317,8 @@ func TestRootStoreCustomRelativePath(t *testing.T) {
 	a.EqualValues(0, info.Offset)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.ToSlash("folder2/bin"), info.Storage["Path"])
-	a.Equal(filepath.ToSlash("folder1/info.info"), info.Storage["InfoPath"])
+	a.Equal(filepath.FromSlash("folder2/bin"), info.Storage["Path"])
+	a.Equal(filepath.FromSlash("folder1/info.info"), info.Storage["InfoPath"])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
