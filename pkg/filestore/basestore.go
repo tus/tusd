@@ -96,7 +96,7 @@ func (store baseStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 
 func (store baseStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	infoPath := store.infoPath(id)
-	data, err := fs.ReadFile(store.FS.FS(), infoPath)
+	data, err := fs.ReadFile(store.FS.FS(), filepath.ToSlash(infoPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -285,7 +285,7 @@ func (upload *fileUpload) ServeContent(ctx context.Context, w http.ResponseWrite
 		return nil
 	}
 
-	http.ServeFileFS(w, r, upload.fs.FS(), upload.binPath)
+	http.ServeFileFS(w, r, upload.fs.FS(), filepath.ToSlash(upload.binPath))
 
 	return nil
 }
