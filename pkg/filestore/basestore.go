@@ -1,17 +1,7 @@
-// Package rootstore provides a storage backend based on the local file system.
-//
-// RootStore is a storage backend used as a handler.DataStore in handler.NewHandler.
-// It stores uploads in a directory specified by the user, using two different files per upload:
-//   - `[id].info` files store the file info in JSON format.
-//   - `[id]` files (no extension) contain the raw binary data uploaded.
-//
-// No cleanup is performed, so you may want to run a cronjob to ensure your disk
-// is not filled up with old and finished uploads.
-package rootstore
+package filestore
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,29 +12,33 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 var defaultFilePerm = os.FileMode(0664)
 var defaultDirectoryPerm = os.FileMode(0754)
 
+const (
+	// StorageKeyPath is the key of the path of uploaded file in handler.FileInfo.Storage
+	StorageKeyPath = "Path"
+	// StorageKeyInfoPath is the key of the path of .info file in handler.FileInfo.Storage
+	StorageKeyInfoPath = "InfoPath"
+)
+
 // See the handler.DataStore interface for documentation about the different
 // methods.
-type RootStore struct {
-	// Root is the root directory where all uploads are stored.
-	// See https://go.dev/blog/osroot for more information.
-	Root *os.Root
-}
+type baseStore struct {
+	// Relative or absolute path to store files in. baseStore does not check
+	// whether the path exists, use os.MkdirAll in this case on your own.
+	Path string
 
-// New creates a new file based storage backend. The directory specified will
-// be used as the only storage entry.
-func New(root *os.Root) RootStore {
-	return RootStore{root}
+	FS FS
 }
 
 // UseIn sets this store as the core data store in the passed composer and adds
 // all possible extension to it.
-func (store RootStore) UseIn(composer *handler.StoreComposer) {
+func (store baseStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
 	composer.UseConcater(store)
@@ -52,34 +46,41 @@ func (store RootStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseContentServer(store)
 }
 
-func (store RootStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
+func (store baseStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	if info.ID == "" {
-		info.ID = rand.Text()
+		info.ID = uid.Uid()
 	}
 
 	// The .info file's location can directly be deduced from the upload ID
 	infoPath := store.infoPath(info.ID)
 	// The binary file's location might be modified by the pre-create hook.
 	var binPath string
-	if info.Storage != nil && info.Storage["Path"] != "" {
-		binPath = info.Storage["Path"]
+	if info.Storage != nil && info.Storage[StorageKeyPath] != "" {
+		// filepath.Join treats absolute and relative paths the same, so we must
+		// handle them on our own. Absolute paths get used as-is, while relative
+		// paths are joined to the storage path.
+		if filepath.IsAbs(info.Storage[StorageKeyPath]) {
+			binPath = info.Storage[StorageKeyPath]
+		} else {
+			binPath = filepath.Join(store.Path, info.Storage[StorageKeyPath])
+		}
 	} else {
 		binPath = store.defaultBinPath(info.ID)
 	}
 
 	info.Storage = map[string]string{
-		"Type":     "rootstore",
-		"Path":     binPath,
-		"InfoPath": infoPath,
+		"Type":             "filestore",
+		StorageKeyPath:     binPath,
+		StorageKeyInfoPath: infoPath,
 	}
 
 	// Create binary file with no content
-	if err := createFile(store.Root, binPath, nil); err != nil {
+	if err := createFile(store.FS, binPath, nil); err != nil {
 		return nil, err
 	}
 
 	upload := &fileUpload{
-		root:     store.Root,
+		fs:       store.FS,
 		info:     info,
 		infoPath: infoPath,
 		binPath:  binPath,
@@ -93,9 +94,9 @@ func (store RootStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	return upload, nil
 }
 
-func (store RootStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
+func (store baseStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
 	infoPath := store.infoPath(id)
-	data, err := fs.ReadFile(store.Root.FS(), infoPath)
+	data, err := fs.ReadFile(store.FS.FS(), infoPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -112,15 +113,15 @@ func (store RootStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	// fall back to the default value (although the Path property should always be set in recent
 	// tusd versions).
 	var binPath string
-	if info.Storage != nil && info.Storage["Path"] != "" {
+	if info.Storage != nil && info.Storage[StorageKeyPath] != "" {
 		// No filepath.Join here because the joining already happened in NewUpload. Duplicate joining
 		// with relative paths lead to incorrect paths
-		binPath = info.Storage["Path"]
+		binPath = info.Storage[StorageKeyPath]
 	} else {
 		binPath = store.defaultBinPath(info.ID)
 	}
 
-	stat, err := store.Root.Stat(binPath)
+	stat, err := store.FS.Stat(binPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Interpret os.ErrNotExist as 404 Not Found
@@ -132,42 +133,42 @@ func (store RootStore) GetUpload(ctx context.Context, id string) (handler.Upload
 	info.Offset = stat.Size()
 
 	return &fileUpload{
-		root:     store.Root,
+		fs:       store.FS,
 		info:     info,
 		binPath:  binPath,
 		infoPath: infoPath,
 	}, nil
 }
 
-func (store RootStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
+func (store baseStore) AsTerminatableUpload(upload handler.Upload) handler.TerminatableUpload {
 	return upload.(*fileUpload)
 }
 
-func (store RootStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
+func (store baseStore) AsLengthDeclarableUpload(upload handler.Upload) handler.LengthDeclarableUpload {
 	return upload.(*fileUpload)
 }
 
-func (store RootStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
+func (store baseStore) AsConcatableUpload(upload handler.Upload) handler.ConcatableUpload {
 	return upload.(*fileUpload)
 }
 
-func (store RootStore) AsServableUpload(upload handler.Upload) handler.ServableUpload {
+func (store baseStore) AsServableUpload(upload handler.Upload) handler.ServableUpload {
 	return upload.(*fileUpload)
 }
 
 // defaultBinPath returns the path to the file storing the binary data, if it is
 // not customized using the pre-create hook.
-func (store RootStore) defaultBinPath(id string) string {
-	return id
+func (store baseStore) defaultBinPath(id string) string {
+	return filepath.Join(store.Path, id)
 }
 
 // infoPath returns the path to the .info file storing the file's info.
-func (store RootStore) infoPath(id string) string {
-	return id + ".info"
+func (store baseStore) infoPath(id string) string {
+	return filepath.Join(store.Path, id+".info")
 }
 
 type fileUpload struct {
-	root *os.Root
+	fs FS
 
 	// info stores the current information about the upload
 	info handler.FileInfo
@@ -182,7 +183,7 @@ func (upload *fileUpload) GetInfo(ctx context.Context) (handler.FileInfo, error)
 }
 
 func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
-	file, err := upload.root.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+	file, err := upload.fs.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return 0, err
 	}
@@ -200,19 +201,19 @@ func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.R
 }
 
 func (upload *fileUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
-	return upload.root.Open(upload.binPath)
+	return upload.fs.Open(upload.binPath)
 }
 
 func (upload *fileUpload) Terminate(ctx context.Context) error {
 	// We ignore errors indicating that the files cannot be found because we want
 	// to delete them anyways. The files might be removed by a cron job for cleaning up
 	// or some file might have been removed when tusd crashed during the termination.
-	err := upload.root.Remove(upload.binPath)
+	err := upload.fs.Remove(upload.binPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
-	err = upload.root.Remove(upload.infoPath)
+	err = upload.fs.Remove(upload.infoPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -221,7 +222,7 @@ func (upload *fileUpload) Terminate(ctx context.Context) error {
 }
 
 func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.Upload) (err error) {
-	file, err := upload.root.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
+	file, err := upload.fs.OpenFile(upload.binPath, os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
 		return err
 	}
@@ -244,7 +245,7 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 }
 
 func (upload *fileUpload) appendTo(file *os.File) error {
-	src, err := upload.root.Open(upload.binPath)
+	src, err := upload.fs.Open(upload.binPath)
 	if err != nil {
 		return err
 	}
@@ -269,7 +270,7 @@ func (upload *fileUpload) writeInfo() error {
 	if err != nil {
 		return err
 	}
-	return createFile(upload.root, upload.infoPath, data)
+	return createFile(upload.fs, upload.infoPath, data)
 }
 
 func (upload *fileUpload) FinishUpload(ctx context.Context) error {
@@ -277,26 +278,33 @@ func (upload *fileUpload) FinishUpload(ctx context.Context) error {
 }
 
 func (upload *fileUpload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	http.ServeFileFS(w, r, upload.root.FS(), upload.binPath)
+	if _, ok := upload.fs.(osFS); ok {
+		// If the filesystem is an osFS, we can use http.ServeFile directly
+		// to serve the file.
+		http.ServeFile(w, r, upload.binPath)
+		return nil
+	}
+
+	http.ServeFileFS(w, r, upload.fs.FS(), upload.binPath)
 
 	return nil
 }
 
 // createFile creates the file with the content. If the corresponding directory does not exist,
 // it is created. If the file already exists, its content is removed.
-func createFile(root *os.Root, path string, content []byte) error {
-	file, err := root.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+func createFile(fs FS, path string, content []byte) error {
+	file, err := fs.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// An upload ID containing slashes is mapped onto different directories on disk,
 			// for example, `myproject/uploadA` should be put into a folder called `myproject`.
 			// If we get an error indicating that a directory is missing, we try to create it.
-			if err := MkdirAll(root, filepath.Dir(path), defaultDirectoryPerm); err != nil {
+			if err := mkdirAll(fs, filepath.Dir(path), defaultDirectoryPerm); err != nil {
 				return fmt.Errorf("failed to create directory for %s: %s", path, err)
 			}
 
 			// Try creating the file again.
-			file, err = root.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
+			file, err = fs.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultFilePerm)
 			if err != nil {
 				// If that still doesn't work, error out.
 				return err
@@ -315,18 +323,25 @@ func createFile(root *os.Root, path string, content []byte) error {
 	return file.Close()
 }
 
-func MkdirAll(root *os.Root, dir string, perm os.FileMode) error {
+func mkdirAll(fs FS, dir string, perm os.FileMode) error {
 	if dir == "" {
 		return nil
 	}
 
+	if _, ok := fs.(osFS); ok {
+		// If the filesystem is an osFS, we can use os.MkdirAll directly
+		return os.MkdirAll(dir, perm)
+	}
+
 	parts := strings.Split(dir, string(os.PathSeparator))
+
+	fmt.Println("parts", parts)
 
 	for i := range len(parts) {
 		subDir := filepath.Join(parts[:i+1]...)
-		if _, err := root.Stat(subDir); os.IsNotExist(err) {
+		if _, err := fs.Stat(subDir); os.IsNotExist(err) {
 			// Create the directory if it does not exist
-			if err := root.Mkdir(subDir, perm); err != nil {
+			if err := fs.Mkdir(subDir, perm); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", subDir, err)
 			}
 		} else if err != nil {

@@ -1,4 +1,4 @@
-package rootstore
+package filestore
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ func TestRootStore(t *testing.T) {
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(3, len(info.Storage))
-	a.Equal("rootstore", info.Storage["Type"])
+	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(info.ID, info.Storage["Path"])
 	a.Equal(info.ID+".info", info.Storage["InfoPath"])
 
@@ -98,7 +98,7 @@ func TestRootStore(t *testing.T) {
 
 // TestCreateDirectories tests whether an upload with a slash in its ID causes
 // the correct directories to be created.
-func TestCreateDirectories(t *testing.T) {
+func TestRootStoreCreateDirectories(t *testing.T) {
 	a := assert.New(t)
 
 	tmp := t.TempDir()
@@ -129,7 +129,7 @@ func TestCreateDirectories(t *testing.T) {
 	a.EqualValues(0, info.Offset)
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(3, len(info.Storage))
-	a.Equal("rootstore", info.Storage["Type"])
+	a.Equal("filestore", info.Storage["Type"])
 	a.Equal(info.ID, info.Storage["Path"])
 	a.Equal(info.ID+".info", info.Storage["InfoPath"])
 
@@ -171,7 +171,7 @@ func TestCreateDirectories(t *testing.T) {
 	a.Equal(handler.ErrNotFound, err)
 }
 
-func TestNotFound(t *testing.T) {
+func TestRootStoreNotFound(t *testing.T) {
 	a := assert.New(t)
 
 	root, err := os.OpenRoot(t.TempDir())
@@ -188,7 +188,7 @@ func TestNotFound(t *testing.T) {
 	a.Equal(nil, upload)
 }
 
-func TestConcatUploads(t *testing.T) {
+func TestRootStoreConcatUploads(t *testing.T) {
 	a := assert.New(t)
 
 	tmp := t.TempDir()
@@ -250,7 +250,7 @@ func TestConcatUploads(t *testing.T) {
 	reader.(io.Closer).Close()
 }
 
-func TestDeclareLength(t *testing.T) {
+func TestRootStoreDeclareLength(t *testing.T) {
 	a := assert.New(t)
 
 	tmp := t.TempDir()
@@ -286,7 +286,7 @@ func TestDeclareLength(t *testing.T) {
 
 // TestCustomRelativePath tests whether the upload's destination can be customized
 // relative to the storage directory.
-func TestCustomRelativePath(t *testing.T) {
+func TestRootStoreCustomRelativePath(t *testing.T) {
 	a := assert.New(t)
 
 	tmp := t.TempDir()
@@ -316,8 +316,8 @@ func TestCustomRelativePath(t *testing.T) {
 	a.EqualValues(42, info.Size)
 	a.EqualValues(0, info.Offset)
 	a.Equal(3, len(info.Storage))
-	a.Equal("rootstore", info.Storage["Type"])
-	a.Equal("./folder2/bin", info.Storage["Path"])
+	a.Equal("filestore", info.Storage["Type"])
+	a.Equal("folder2/bin", info.Storage["Path"])
 	a.Equal("folder1/info.info", info.Storage["InfoPath"])
 
 	// Write data to upload
@@ -360,7 +360,7 @@ func TestCustomRelativePath(t *testing.T) {
 
 // TestCustomAbsolutePath tests whether the upload's destination can be customized
 // using an absolute path to the storage directory.
-func TestCustomAbsolutePath(t *testing.T) {
+func TestRootStoreCustomAbsolutePath(t *testing.T) {
 	a := assert.New(t)
 
 	root, err := os.OpenRoot(t.TempDir())
@@ -420,7 +420,7 @@ func TestMkdirAll(t *testing.T) {
 
 			t.Cleanup(func() { root.Close() })
 
-			tt.wantErr(t, MkdirAll(root, tt.args.dir, tt.args.perm), fmt.Sprintf("MkdirAll(%v, %v, %v)", root, tt.args.dir, tt.args.perm))
+			tt.wantErr(t, mkdirAll(root, tt.args.dir, tt.args.perm), fmt.Sprintf("mkdirAll(%v, %v, %v)", root, tt.args.dir, tt.args.perm))
 		})
 	}
 }
