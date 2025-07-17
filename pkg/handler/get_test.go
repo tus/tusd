@@ -59,7 +59,7 @@ func TestGet(t *testing.T) {
 			Method: "GET",
 			URL:    "yes",
 			ResHeader: map[string]string{
-				"Content-Length":      "5",
+				"Content-Length":      "20",
 				"Content-Type":        "image/jpeg",
 				"Content-Disposition": `inline;filename="file.jpg\"evil"`,
 			},
