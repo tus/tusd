@@ -25,7 +25,6 @@ jobs:
         with:
           images: |
             ghcr.io/tus/tusd
-            tusproject/tusd
           tags: |
             type=sha
             type=semver,pattern=v{{version}}
@@ -46,13 +45,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
-
-      -
-        name: Login to Docker Container Registry
-        uses: docker/login-action@v3.4.0
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
 
       -
         name: Build and push
@@ -95,23 +87,3 @@ jobs:
         uses: softprops/action-gh-release@v2.3.2
         with:
           files: tusd_*.*
-
-  deploy-heroku:
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout code
-        uses: actions/checkout@v4
-        
-      -
-        name: Install Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh 
-
-      -
-        name: Deploy to heroku
-        uses: akhileshns/heroku-deploy@v3.14.15
-        with:
-          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
-          heroku_app_name: ${{secrets.HEROKU_APP_NAME}}
-          heroku_email: ${{secrets.HEROKU_USER_EMAIL}}
-          stack: heroku-22
