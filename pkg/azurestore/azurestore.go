@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tus/tusd/v2/internal/uid"
-	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/fetlife/tusd/v2/internal/uid"
+	"github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 type AzureStore struct {

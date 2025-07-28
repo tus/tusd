@@ -284,7 +284,7 @@ type FileInfoChanges struct {
 	// If ID is not empty, it will be passed to the data store, allowing
 	// hooks to influence the upload ID. Be aware that a data store is not required to
 	// respect a pre-defined upload ID and might overwrite or modify it. However,
-	// all data stores in the github.com/tus/tusd package do respect pre-defined IDs.
+	// all data stores in the github.com/fetlife/tusd package do respect pre-defined IDs.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// If MetaData is not nil, it replaces the entire user-defined meta data from
 	// the upload creation request. You can add custom meta data fields this way
@@ -298,7 +298,7 @@ type FileInfoChanges struct {
 	// to the upload storage (e.g. destination file name). The details are specific for each
 	// data store and should be looked up in their respective documentation.
 	// Please be aware that this behavior is currently not supported by any data store in
-	// the github.com/tus/tusd package.
+	// the github.com/fetlife/tusd package.
 	Storage map[string]string `protobuf:"bytes,3,rep,name=storage,proto3" json:"storage,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

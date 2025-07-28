@@ -13,7 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-//go:generate mockgen -destination=./s3log_mock_test.go -package=s3log github.com/tus/tusd/v2/pkg/s3store S3API
+//go:generate mockgen -destination=./s3log_mock_test.go -package=s3log github.com/fetlife/tusd/v2/pkg/s3store S3API
 
 func TestLoggingS3API(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

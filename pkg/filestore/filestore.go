@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tus/tusd/v2/internal/uid"
-	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/fetlife/tusd/v2/internal/uid"
+	"github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 var defaultFilePerm = os.FileMode(0664)
@@ -199,7 +199,7 @@ func (upload *fileUpload) WriteChunk(ctx context.Context, offset int64, src io.R
 		return 0, err
 	}
 	// Avoid the use of defer file.Close() here to ensure no errors are lost
-	// See https://github.com/tus/tusd/issues/698.
+	// See https://github.com/fetlife/tusd/issues/698.
 
 	n, err := io.Copy(file, src)
 	upload.info.Offset += n
@@ -239,7 +239,7 @@ func (upload *fileUpload) ConcatUploads(ctx context.Context, uploads []handler.U
 	}
 	defer func() {
 		// Ensure that close error is propagated, if it occurs.
-		// See https://github.com/tus/tusd/issues/698.
+		// See https://github.com/fetlife/tusd/issues/698.
 		cerr := file.Close()
 		if err == nil {
 			err = cerr

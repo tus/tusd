@@ -15,9 +15,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/tus/tusd/v2/pkg/filelocker"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
+	"github.com/fetlife/tusd/v2/pkg/filelocker"
+	"github.com/fetlife/tusd/v2/pkg/filestore"
+	tusd "github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 func main() {
@@ -78,31 +78,31 @@ func main() {
 
 ```
 
-Please consult the [online documentation](https://pkg.go.dev/github.com/tus/tusd/v2/pkg) for more details about tusd's APIs and its sub-packages.
+Please consult the [online documentation](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg) for more details about tusd's APIs and its sub-packages.
 
 ## Implementing own storages
 
 The tusd server is built to be as flexible as possible and to allow the use of different upload storage mechanisms.
 
-If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`handler.DataStore`](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/handler#DataStore) interface and using the new struct in the [configuration object](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/handler#Config). Please consult the documentation about detailed information about the required methods.
+If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`handler.DataStore`](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/handler#DataStore) interface and using the new struct in the [configuration object](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/handler#Config). Please consult the documentation about detailed information about the required methods.
 
 ## Packages
 
 This repository does not only contain the HTTP server's code but also other
 useful tools:
 
-* [**s3store**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/s3store): A storage backend using AWS S3
-* [**filestore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filestore): A storage backend using the local file system
-* [**gcsstore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/gcsstore): A storage backend using Google cloud storage
-* [**memorylocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/memorylocker): An in-memory locker for handling concurrent uploads
-* [**filelocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filelocker): A disk-based locker for handling concurrent uploads
+* [**s3store**](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/s3store): A storage backend using AWS S3
+* [**filestore**](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/filestore): A storage backend using the local file system
+* [**gcsstore**](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/gcsstore): A storage backend using Google cloud storage
+* [**memorylocker**](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/memorylocker): An in-memory locker for handling concurrent uploads
+* [**filelocker**](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/filelocker): A disk-based locker for handling concurrent uploads
 
 ### 3rd-Party tusd Packages
 
 The following packages are supported by 3rd-party maintainers outside this repository. Please file issues respective to the packages in their respective repositories.
 
 * [**tusd-dynamo-locker**](https://github.com/chen-anders/tusd-dynamo-locker): A locker using AWS DynamoDB store
-* [**tusd-etcd3-locker**](https://github.com/tus/tusd-etcd3-locker): A locker using the distributed KV etcd3 store
+* [**tusd-etcd3-locker**](https://github.com/fetlife/tusd-etcd3-locker): A locker using the distributed KV etcd3 store
 
 ## Caveats
 
@@ -112,4 +112,4 @@ Since tusd v2, its handler uses Go's [`net/http.NewResponseController`](https://
 
 The NetworkControlError/NetworkTimeoutError means that the `ResponseWriter`, that was provided to tusd does not implement the `SetReadDeadline` and `SetWriteDeadline` functions. This can happen if you are using middleware before tusd that wraps the native `ResponseWriter` from net/http, thereby hiding the control APIs. The best way to circumvent this issue is by ensuring that the wrapped `ResponseWriter` implements an `Unwrap` method that returns the native `ResponseWriter`, as mentioned in the [Go documentation](https://pkg.go.dev/net/http#NewResponseController). If this error still pops up, please ensure that the `ResponseWriter` returned from `Unwrap` either provides the `SetReadDeadline` and `SetWriteDeadline` functions or an `Unwrap` function. This is especially necessary if multiple middlewares are stacked above each other.
 
-Additional information can be found in the issues [#1100](https://github.com/tus/tusd/issues/1100) and [#1107](https://github.com/tus/tusd/issues/1107).
+Additional information can be found in the issues [#1100](https://github.com/fetlife/tusd/issues/1100) and [#1107](https://github.com/fetlife/tusd/issues/1107).

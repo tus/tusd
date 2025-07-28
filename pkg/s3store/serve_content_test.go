@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
-	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 func TestS3StoreAsServerDataStore(t *testing.T) {

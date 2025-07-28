@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fetlife/tusd/v2/pkg/handler"
 	"github.com/stretchr/testify/assert"
-	"github.com/tus/tusd/v2/pkg/handler"
 )
 
 // Test interface implementation of Filestore

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/tus/tusd/v2/pkg/s3store"
+	"github.com/fetlife/tusd/v2/pkg/s3store"
 )
 
 var _ s3store.S3API = &loggingS3API{}

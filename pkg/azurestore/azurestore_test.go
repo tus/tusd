@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
+	"github.com/fetlife/tusd/v2/pkg/azurestore"
+	"github.com/fetlife/tusd/v2/pkg/handler"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/tus/tusd/v2/pkg/azurestore"
-	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-//go:generate mockgen -destination=./azurestore_mock_test.go -package=azurestore_test github.com/tus/tusd/v2/pkg/azurestore AzService,AzBlob
+//go:generate mockgen -destination=./azurestore_mock_test.go -package=azurestore_test github.com/fetlife/tusd/v2/pkg/azurestore AzService,AzBlob
 
 // Test interface implementations
 var _ handler.DataStore = azurestore.AzureStore{}

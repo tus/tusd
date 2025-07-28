@@ -37,8 +37,8 @@ To get started, have a look at the available [installation methods]({{ site.base
 
 ## Help
 
-If you have questions or run into problems, please read the [frequently asked questions]({{ site.baseurl }}/faq.html). If these didn't cover your issue, feel free to ask us in the [GitHub repository](https://github.com/tus/tusd) or in our [community forum](https://community.transloadit.com/c/tus/6). If you need private consulting, Transloadit offers [commercial support for tus](https://transloadit.com/open-source/support/).
+If you have questions or run into problems, please read the [frequently asked questions]({{ site.baseurl }}/faq.html). If these didn't cover your issue, feel free to ask us in the [GitHub repository](https://github.com/fetlife/tusd) or in our [community forum](https://community.transloadit.com/c/tus/6). If you need private consulting, Transloadit offers [commercial support for tus](https://transloadit.com/open-source/support/).
 
 ## License
 
-This project is licensed under the [MIT license](https://github.com/tus/tusd/blob/main/LICENSE.txt).
+This project is licensed under the [MIT license](https://github.com/fetlife/tusd/blob/main/LICENSE.txt).

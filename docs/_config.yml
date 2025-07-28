@@ -18,7 +18,7 @@ include:
 # External navigation links
 nav_external_links:
   - title: tusd on GitHub
-    url: https://github.com/tus/tusd
+    url: https://github.com/fetlife/tusd
     opens_in_new_tab: true
   - title: tus.io project
     url: https://tus.io
@@ -27,7 +27,7 @@ nav_external_links:
 # Footer "Edit this page on GitHub" link text
 gh_edit_link: true
 gh_edit_link_text: "Edit this page on GitHub."
-gh_edit_repository: "https://github.com/tus/tusd"
+gh_edit_repository: "https://github.com/fetlife/tusd"
 gh_edit_branch: "main"
 gh_edit_source: docs
 gh_edit_view_mode: "edit"

@@ -49,8 +49,8 @@ The hook execution uses a request-response pattern. For each event, a _hook requ
 The way how the hook request and response are encoded depends on each hook implementation. For example, for file and HTTP hooks, the data is JSON-encoded, while the gRPC hooks use a binary encoding.
 
 Details on what data is included in the documentation for the tusd package:
-- [github.com/tus/tusd/v2/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookRequest)
-- [github.com/tus/tusd/v2/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookResponse)
+- [github.com/fetlife/tusd/v2/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/hooks#HookRequest)
+- [github.com/fetlife/tusd/v2/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/fetlife/tusd/v2/pkg/hooks#HookResponse)
 
 Below you can find an annotated, JSON-ish encoded example of a hook request:
 
@@ -269,7 +269,7 @@ When the process exits with the zero exit code, tusd reads the process' stdout a
 
 The process' stderr is redirected to tusd's stderr and can be used for logging from inside the hook.
 
-An example is available at [github.com/tus/tusd/examples/hooks/file](https://github.com/tus/tusd/tree/main/examples/hooks/file).
+An example is available at [github.com/fetlife/tusd/examples/hooks/file](https://github.com/fetlife/tusd/tree/main/examples/hooks/file).
 
 ### HTTP(S) Hooks
 
@@ -299,7 +299,7 @@ When the endpoint responds with a 2XX status code, tusd reads the response body 
 
 By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
 
-A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
+A Python-based example is available at [github.com/fetlife/tusd/examples/hooks/http](https://github.com/fetlife/tusd/tree/main/examples/hooks/http).
 
 #### Retries
 
@@ -322,9 +322,9 @@ $ tusd -hooks-grpc localhost:8081
 ...
 ```
 
-The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+The endpoint must implement the hook handler service as specified in [github.com/fetlife/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/fetlife/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
 
-A Python-based example is available at [github.com/tus/tusd/examples/hooks/grpc](https://github.com/tus/tusd/tree/main/examples/hooks/grpc).
+A Python-based example is available at [github.com/fetlife/tusd/examples/hooks/grpc](https://github.com/fetlife/tusd/tree/main/examples/hooks/grpc).
 
 #### Retries
 
@@ -343,7 +343,7 @@ Plugin hooks provide a sweet spot between these two worlds. Tusd can load a plug
 
 This system is powered by [go-plugin](https://github.com/hashicorp/go-plugin), which allows plugins to be developed in Go as well as any other programming language using gRPC as a bridge. However, as of right now, tusd only supports plugins in Go using its `net/rpc` package. If you are interested in developing plugins without Go, please let us know!
 
-A template to get started can be found at [github.com/tus/tusd/examples/hooks/plugin](https://github.com/tus/tusd/tree/main/examples/hooks/plugin). The gist of it is that you create a binary that registers its hook handler with the go-plugin package. This binary is then passed to tusd, which will run and communicate with it.
+A template to get started can be found at [github.com/fetlife/tusd/examples/hooks/plugin](https://github.com/fetlife/tusd/tree/main/examples/hooks/plugin). The gist of it is that you create a binary that registers its hook handler with the go-plugin package. This binary is then passed to tusd, which will run and communicate with it.
 
 Assuming that the plugin is compiled into a binary called `hook_handler`, tusd can be started with the following command to load the plugin:
 

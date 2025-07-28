@@ -24,7 +24,7 @@ There are two lock providers in tusd right now:
 
 The problem with both is that their reach is limited to either the disk or the local tusd process. When scaling tusd horizontally across multiple servers, the locks do not extend to every server. One solution is to use sticky sessions, as is explained in the [tus FAQ](https://tus.io/faq#how-do-i-scale-tus).
 
-Another option is to use a distributed lock using Redis, [etcd](https://github.com/tus/tusd-etcd3-locker), and similar tools. As of right now, tusd does not yet offer distributed locks, but we are planning to support them in the near future.
+Another option is to use a distributed lock using Redis, [etcd](https://github.com/fetlife/tusd-etcd3-locker), and similar tools. As of right now, tusd does not yet offer distributed locks, but we are planning to support them in the near future.
 
 ## Avoiding locked uploads
 

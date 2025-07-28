@@ -9,14 +9,14 @@ import (
 
 	"golang.org/x/exp/slog"
 
-	"github.com/tus/tusd/v2/internal/s3log"
-	"github.com/tus/tusd/v2/pkg/azurestore"
-	"github.com/tus/tusd/v2/pkg/filelocker"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	"github.com/tus/tusd/v2/pkg/gcsstore"
-	"github.com/tus/tusd/v2/pkg/handler"
-	"github.com/tus/tusd/v2/pkg/memorylocker"
-	"github.com/tus/tusd/v2/pkg/s3store"
+	"github.com/fetlife/tusd/v2/internal/s3log"
+	"github.com/fetlife/tusd/v2/pkg/azurestore"
+	"github.com/fetlife/tusd/v2/pkg/filelocker"
+	"github.com/fetlife/tusd/v2/pkg/filestore"
+	"github.com/fetlife/tusd/v2/pkg/gcsstore"
+	"github.com/fetlife/tusd/v2/pkg/handler"
+	"github.com/fetlife/tusd/v2/pkg/memorylocker"
+	"github.com/fetlife/tusd/v2/pkg/s3store"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

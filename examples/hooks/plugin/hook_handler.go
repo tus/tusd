@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
+	"github.com/fetlife/tusd/v2/pkg/hooks"
+	tusdplugin "github.com/fetlife/tusd/v2/pkg/hooks/plugin"
 	"github.com/hashicorp/go-plugin"
-	"github.com/tus/tusd/v2/pkg/hooks"
-	tusdplugin "github.com/tus/tusd/v2/pkg/hooks/plugin"
 )
 
 // Here is the implementation of our hook handler

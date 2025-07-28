@@ -17,7 +17,7 @@ There are multiple methods for installing tusd. Please choose one that fits your
 
 You can download ready-to-use packages including binaries for OS X, Linux and
 Windows in various formats of the
-[latest release](https://github.com/tus/tusd/releases/latest).
+[latest release](https://github.com/fetlife/tusd/releases/latest).
 
 Once the archive is extracted, the file `tusd` (or `tusd.exe`) is ready to be executed.
 
@@ -30,7 +30,7 @@ Go, although tusd might also run with older versions.
 Once a recent Go version is installed, you can clone the git repository and build the binary:
 
 ```bash
-git clone https://github.com/tus/tusd.git
+git clone https://github.com/fetlife/tusd.git
 cd tusd
 
 go build -o tusd cmd/tusd/main.go
@@ -57,7 +57,7 @@ printf "minio" | docker secret create minio-username -
 printf "miniosecret" | docker secret create minio-password -
 ```
 
-Those commands create two secrets which are used inside the example [docker-compose.yml](https://github.com/tus/tusd/blob/main/examples/docker-compose.yml) file. The provided example assumes, that you also have a service named `minio` inside the same Docker Network.
+Those commands create two secrets which are used inside the example [docker-compose.yml](https://github.com/fetlife/tusd/blob/main/examples/docker-compose.yml) file. The provided example assumes, that you also have a service named `minio` inside the same Docker Network.
 We just append a `_FILE` suffix to the corresponding environment variables. The contents of the mounted file will be added to the environment variable without `_FILE` suffix.
 
 ## Kubernetes installation

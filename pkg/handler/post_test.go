@@ -10,7 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/tus/tusd/v2/pkg/handler"
+	. "github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 func TestPost(t *testing.T) {
@@ -320,7 +320,7 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "RespectForwardedWithQuotes", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			// See https://github.com/tus/tusd/issues/809
+			// See https://github.com/fetlife/tusd/issues/809
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			upload := NewMockFullUpload(ctrl)

@@ -61,7 +61,7 @@ Secondly, some of the reverse proxy's settings should be adjusted. The exact ste
 
 - *Forward hostname and scheme.* If the proxy rewrites the request URL, the tusd server does not know the original URL which was used to reach the proxy. This behavior can lead to situations, where tusd returns a redirect to a URL which can not be reached by the client. To avoid this issue, you can explicitly tell tusd which hostname and scheme to use by supplying the `X-Forwarded-Host` and `X-Forwarded-Proto` headers. Configure the proxy to set these headers to the original hostname and protocol when forwarding requests to tusd.
 
-Explicit examples for the above points can be found in the [Nginx configuration](https://github.com/tus/tusd/blob/main/examples/nginx.conf) which is used to power the [tusd.tusdemo.net](https://tusd.tusdemo.net) instance.
+Explicit examples for the above points can be found in the [Nginx configuration](https://github.com/fetlife/tusd/blob/main/examples/nginx.conf) which is used to power the [tusd.tusdemo.net](https://tusd.tusdemo.net) instance.
 
 ## Protocol settings
 

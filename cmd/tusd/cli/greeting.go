@@ -26,7 +26,7 @@ While you did an awesome job on getting tusd running, this is just the welcome
 message, so let's talk about the places that really matter:
 
 - %s - send your tus uploads to this endpoint
-%s- https://github.com/tus/tusd/issues - report your bugs here
+%s- https://github.com/fetlife/tusd/issues - report your bugs here
 
 So quit lollygagging, send over your files and experience the future!
 

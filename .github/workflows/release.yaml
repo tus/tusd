@@ -24,7 +24,7 @@ jobs:
         uses: docker/metadata-action@v5.7.0
         with:
           images: |
-            ghcr.io/tus/tusd
+            ghcr.io/fetlife/tusd
           tags: |
             type=sha
             type=semver,pattern=v{{version}}

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	. "github.com/tus/tusd/v2/pkg/handler"
+	. "github.com/fetlife/tusd/v2/pkg/handler"
 )
 
 func TestCORS(t *testing.T) {

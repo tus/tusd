@@ -66,7 +66,7 @@ message FileInfoChanges {
 	// If ID is not empty, it will be passed to the data store, allowing
 	// hooks to influence the upload ID. Be aware that a data store is not required to
 	// respect a pre-defined upload ID and might overwrite or modify it. However,
-	// all data stores in the github.com/tus/tusd package do respect pre-defined IDs.
+	// all data stores in the github.com/fetlife/tusd package do respect pre-defined IDs.
 	string id = 1;
 
 	// If MetaData is not nil, it replaces the entire user-defined meta data from
@@ -82,7 +82,7 @@ message FileInfoChanges {
 	// to the upload storage (e.g. destination file name). The details are specific for each
 	// data store and should be looked up in their respective documentation.
 	// Please be aware that this behavior is currently not supported by any data store in
-	// the github.com/tus/tusd package.
+	// the github.com/fetlife/tusd package.
 	map <string, string> storage = 3;
 }
 

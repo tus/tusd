@@ -22,7 +22,7 @@ import (
 type bodyReader struct {
 	// bytesCounter is the first field to ensure that it's properly aligned,
 	// otherwise we run into alignment issues on some 32-bit builds.
-	// See https://github.com/tus/tusd/issues/1047
+	// See https://github.com/fetlife/tusd/issues/1047
 	// See https://pkg.go.dev/sync/atomic#pkg-note-BUG
 	// TODO: In the future we should move all of these values to the safe
 	// atomic.Uint64 type, which takes care of alignment automatically.

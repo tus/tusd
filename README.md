@@ -22,7 +22,7 @@ nearly any other cloud provider could easily be added to tusd.
 **Protocol version:** 1.0.0
 
 This branch contains tusd v2. If you are looking for the previous major release, after which
-breaking changes have been introduced, please look at the [1.13.0 tag](https://github.com/tus/tusd/tree/v1.13.0).
+breaking changes have been introduced, please look at the [1.13.0 tag](https://github.com/fetlife/tusd/tree/v1.13.0).
 
 ## Documentation
 
@@ -30,8 +30,8 @@ The entire documentation, including guides on installing, using, and configuring
 
 ## Build status
 
-[![release](https://github.com/tus/tusd/actions/workflows/release.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/release.yaml)
-[![continuous-integration](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml)
+[![release](https://github.com/fetlife/tusd/actions/workflows/release.yaml/badge.svg)](https://github.com/fetlife/tusd/actions/workflows/release.yaml)
+[![continuous-integration](https://github.com/fetlife/tusd/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/fetlife/tusd/actions/workflows/continuous-integration.yaml)
 
 ## License
 

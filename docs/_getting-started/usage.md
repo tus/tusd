@@ -16,7 +16,7 @@ Starting the tusd upload server is as simple as invoking a single command. For e
 
 ```
 $ tusd -upload-dir=./data
-Using '/Users/marius/workspace/tus/tusd/data' as directory storage.
+Using '/Users/marius/workspace/fetlife/tusd/data' as directory storage.
 Using 0.00MB as maximum size.
 Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
 Using 0.0.0.0:8080 as address to listen.
