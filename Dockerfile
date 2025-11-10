@@ -44,6 +44,8 @@ RUN apk add --no-cache ca-certificates jq bash \
 
 COPY --from=builder /go/bin/tusd /usr/local/bin/tusd
 
+RUN apk add tcpdump
+
 EXPOSE 8080
 USER tusd
 
