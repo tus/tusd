@@ -54,6 +54,7 @@ var (
 	ErrNotImplemented                   = NewError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
 	ErrUploadNotFinished                = NewError("ERR_UPLOAD_NOT_FINISHED", "one of the partial uploads is not finished", http.StatusBadRequest)
 	ErrInvalidConcat                    = NewError("ERR_INVALID_CONCAT", "invalid Upload-Concat header", http.StatusBadRequest)
+	ErrConcatenationUnsupported         = NewError("ERR_CONCATENATION_UNSUPPORTED", "Upload-Concat header is not supported by server", http.StatusBadRequest)
 	ErrModifyFinal                      = NewError("ERR_MODIFY_FINAL", "modifying a final upload is not allowed", http.StatusForbidden)
 	ErrUploadLengthAndUploadDeferLength = NewError("ERR_AMBIGUOUS_UPLOAD_LENGTH", "provided both Upload-Length and Upload-Defer-Length", http.StatusBadRequest)
 	ErrInvalidUploadDeferLength         = NewError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
@@ -125,10 +126,10 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 
 	// Only promote extesions using the Tus-Extension header which are implemented
 	extensions := "creation,creation-with-upload"
-	if config.StoreComposer.UsesTerminater {
+	if config.StoreComposer.UsesTerminater && !config.DisableTermination {
 		extensions += ",termination"
 	}
-	if config.StoreComposer.UsesConcater {
+	if config.StoreComposer.UsesConcater && !config.DisableConcatenation {
 		extensions += ",concatenation"
 	}
 	if config.StoreComposer.UsesLengthDeferrer {
@@ -297,6 +298,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	var concatHeader string
 	if handler.composer.UsesConcater {
 		concatHeader = r.Header.Get("Upload-Concat")
+	}
+
+	if concatHeader != "" && handler.config.DisableConcatenation {
+		handler.sendError(c, ErrConcatenationUnsupported)
+		return
 	}
 
 	// Parse Upload-Concat header
@@ -1103,7 +1109,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	handler.sendResp(c, resp)
-	io.Copy(w, src)
+	if _, err := io.Copy(w, src); err != nil {
+		handler.sendError(c, err)
+		return
+	}
 
 	src.Close()
 }

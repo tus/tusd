@@ -180,6 +180,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			},
 		},
 	}, err)
+	a.Equal(handler.HTTPResponse{}, resp_got)
 
 	// Successful post-* hooks
 	uploadHandler.CreatedUploads <- event
