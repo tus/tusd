@@ -225,10 +225,6 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 	}
 
 	info.Offset = offset
-	err = store.writeInfo(ctx, store.keyWithPrefix(id), info)
-	if err != nil {
-		return info, err
-	}
 
 	return info, nil
 }
