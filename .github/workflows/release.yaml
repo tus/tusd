@@ -13,7 +13,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: |
           echo "GIT_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
@@ -21,7 +21,7 @@ jobs:
       -
         name: Docker meta
         id: docker_meta
-        uses: docker/metadata-action@v5.8.0
+        uses: docker/metadata-action@v5.10.0
         with:
           images: |
             ghcr.io/tus/tusd
@@ -77,7 +77,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       -
         name: Install Go
@@ -92,7 +92,7 @@ jobs:
       -
         name: GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2.4.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           files: tusd_*.*
 
@@ -101,7 +101,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         
       -
         name: Install Heroku CLI
