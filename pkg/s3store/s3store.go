@@ -1153,7 +1153,7 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 		Bucket: aws.String(store.Bucket),
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
-	store.observeRequestDuration(t, metricPutPartObject)
+	store.observeRequestDuration(t, metricDeletePartObject)
 	return err
 }
 
