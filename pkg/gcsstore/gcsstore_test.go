@@ -168,13 +168,11 @@ func TestGetInfo(t *testing.T) {
 		ID:     mockPartial2,
 	}
 
-	var size int64 = 100
+	var size1 int64 = 100
+	var size2 int64 = 200
+	var size3 int64 = 300
 
-	mockTusdInfo.Offset = 300
-	offsetInfoData, err := json.Marshal(mockTusdInfo)
-	assert.Nil(err)
-
-	infoR := bytes.NewReader(offsetInfoData)
+	mockTusdInfo.Offset = 600
 
 	ctx := context.Background()
 	gomock.InOrder(
@@ -183,11 +181,9 @@ func TestGetInfo(t *testing.T) {
 	)
 
 	ctxCancel, cancel := context.WithCancel(ctx)
-	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
-	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
-	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
-
-	service.EXPECT().WriteObject(ctx, params, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size1, nil)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size2, nil)
+	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size3, nil)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
@@ -337,12 +333,6 @@ func TestFinishUpload(t *testing.T) {
 
 	var size int64 = 100
 
-	mockTusdInfo.Offset = 300
-	offsetInfoData, err := json.Marshal(mockTusdInfo)
-	assert.Nil(err)
-
-	infoR := bytes.NewReader(offsetInfoData)
-
 	objectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     mockID,
@@ -366,8 +356,7 @@ func TestFinishUpload(t *testing.T) {
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
 	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
 
-	writeObject := service.EXPECT().WriteObject(ctx, infoParams, infoR).Return(int64(len(offsetInfoData)), nil).After(lastGetObjectSize)
-	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(writeObject)
+	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(lastGetObjectSize)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
