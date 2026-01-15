@@ -1058,7 +1058,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
 		Header: HTTPHeader{
-			"Content-Length":      strconv.FormatInt(info.Offset, 10),
+			"Content-Length":      strconv.FormatInt(info.Size, 10),
 			"Content-Type":        contentType,
 			"Content-Disposition": contentDisposition,
 		},
@@ -1087,7 +1087,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
-	if info.Offset == 0 {
+	if info.Size == 0 {
 		resp.StatusCode = http.StatusNoContent
 		handler.sendResp(c, resp)
 		return
