@@ -19,11 +19,12 @@ package hooks
 
 import (
 	"fmt"
+	"log/slog"
+	"slices"
+
+	"github.com/tus/tusd/v2/pkg/handler"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/tus/tusd/v2/pkg/handler"
-	"golang.org/x/exp/slices"
-	"golang.org/x/exp/slog"
 )
 
 // HookHandler is the main inferface to be implemented by all hook backends.

@@ -2,9 +2,8 @@ package cli
 
 import (
 	"log"
+	"log/slog"
 	"os"
-
-	"golang.org/x/exp/slog"
 )
 
 var stdout = log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)

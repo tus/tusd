@@ -3,10 +3,9 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 // httpContext is wrapper around context.Context that also carries the
