@@ -283,7 +283,7 @@ func TestWriteChunk(t *testing.T) {
 	data, err := json.Marshal(mockTusdInfo)
 	assert.Nil(err)
 
-	var offset int64 = mockSize / 2
+	var offset = mockSize / 2
 
 	gomock.InOrder(
 		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
@@ -327,7 +327,7 @@ func TestFinishUpload(t *testing.T) {
 	data, err := json.Marshal(mockTusdInfo)
 	assert.Nil(err)
 
-	var offset int64 = mockSize / 2
+	var offset = mockSize / 2
 
 	gomock.InOrder(
 		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),

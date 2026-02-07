@@ -3,12 +3,12 @@ package cli
 import (
 	"flag"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/tus/tusd/v2/internal/grouped_flags"
 	"github.com/tus/tusd/v2/pkg/hooks"
-	"golang.org/x/exp/slices"
 )
 
 var Flags struct {

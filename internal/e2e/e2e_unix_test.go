@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
+	"github.com/stretchr/testify/require"
 )
 
 // TestShutdown asserts that tusd closes all ongoing upload requests and shuts down
@@ -34,11 +34,11 @@ func TestShutdown(t *testing.T) {
 
 	// We limit the upstream connection to tusd to 5KB/s. The downstream connection
 	// from tusd is not limited.
-	proxy.AddToxic("", "bandwidth", "upstream", 1, toxiproxy.Attributes{
+	proxy.AddToxic("", "bandwidth", "upstream", 1, map[string]any{
 		"rate": 5,
 	})
 
-	// Endpoint address point to toxiproxy
+	// Endpoint address points to the network proxy.
 	endpoint := "http://" + proxy.Listen + "/files/"
 
 	// 50KB of random upload data
@@ -93,8 +93,6 @@ func TestShutdown(t *testing.T) {
 
 	// tusd should close the request and exit immediately after the signal.
 	duration := time.Since(start)
-	if !isApprox(duration, 2*time.Second, 0.1) {
-		t.Fatalf("invalid request duration %v", duration)
-	}
+	require.InDelta(t, 2*time.Second, duration, float64(2*time.Second)*0.1, "invalid request duration %v", duration)
 
 }
