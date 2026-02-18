@@ -30,8 +30,7 @@ func TestPartProducerConsumesEntireReaderWithoutError(t *testing.T) {
 	r := strings.NewReader(expectedStr)
 	pp, fileChan := newS3PartProducer(r, 0, "", testSummary)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go pp.produce(ctx, 1)
 
 	actualStr := ""
@@ -110,7 +109,7 @@ func safelyDrainChannelOrFail(c <-chan fileChunk, t *testing.T) {
 	// At this point, we've signaled that the producer should exit, but it may write a few files
 	// into the channel before closing it and exiting. Make sure that we get a nil value
 	// eventually.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if _, more := <-c; !more {
 			return
 		}

@@ -440,10 +440,7 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 
 	// The size of the incomplete part should not be counted, because the
 	// process of the incomplete part should be fully transparent to the user.
-	bytesUploaded = bytesUploaded - incompletePartSize
-	if bytesUploaded < 0 {
-		bytesUploaded = 0
-	}
+	bytesUploaded = max(bytesUploaded-incompletePartSize, 0)
 
 	upload.info.Offset += bytesUploaded
 

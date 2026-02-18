@@ -202,7 +202,7 @@ func TestConcatUploads(t *testing.T) {
 		"def",
 		"ghi",
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		upload, err := store.NewUpload(ctx, handler.FileInfo{Size: 3})
 		a.NoError(err)
 

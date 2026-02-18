@@ -1580,7 +1580,7 @@ func getIETFDraftUploadLength(r *http.Request) (length int64, lengthIsDeferred b
 func ParseMetadataHeader(header string) map[string]string {
 	meta := make(map[string]string)
 
-	for _, element := range strings.Split(header, ",") {
+	for element := range strings.SplitSeq(header, ",") {
 		element := strings.TrimSpace(element)
 
 		parts := strings.Split(element, " ")
@@ -1646,8 +1646,8 @@ func parseConcat(header string, basePath string) (isPartial bool, isFinal bool, 
 	if strings.HasPrefix(header, "final;") && len(header) > l {
 		isFinal = true
 
-		list := strings.Split(header[l:], " ")
-		for _, value := range list {
+		list := strings.SplitSeq(header[l:], " ")
+		for value := range list {
 			value := strings.TrimSpace(value)
 			if value == "" {
 				continue

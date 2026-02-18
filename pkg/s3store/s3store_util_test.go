@@ -19,7 +19,7 @@ func NewUploadPartInputMatcher(expect *s3.UploadPartInput) gomock.Matcher {
 	}
 }
 
-func (m UploadPartInputMatcher) Matches(x interface{}) bool {
+func (m UploadPartInputMatcher) Matches(x any) bool {
 	input, ok := x.(*s3.UploadPartInput)
 	if !ok {
 		return false
@@ -66,7 +66,7 @@ func NewPutObjectInputMatcher(expect *s3.PutObjectInput) gomock.Matcher {
 	}
 }
 
-func (m PutObjectInputMatcher) Matches(x interface{}) bool {
+func (m PutObjectInputMatcher) Matches(x any) bool {
 	input, ok := x.(*s3.PutObjectInput)
 	if !ok {
 		return false
