@@ -43,6 +43,7 @@ var Flags struct {
 	S3LogAPICalls                    bool
 	GCSBucket                        string
 	GCSObjectPrefix                  string
+	GCSEndpoint                      string
 	AzStorage                        string
 	AzContainerAccessType            string
 	AzBlobAccessTier                 string
@@ -149,6 +150,7 @@ func ParseFlags() {
 	fs.AddGroup("Google Cloud Storage options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 		f.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names")
+		f.StringVar(&Flags.GCSEndpoint, "gcs-endpoint", "", "Custom endpoint for GCS")
 	})
 
 	fs.AddGroup("Azure Storage options", func(f *flag.FlagSet) {

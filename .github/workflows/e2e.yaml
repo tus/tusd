@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [file, s3, azure]
+        backend: [file, s3, azure, gcs]
     runs-on: ubuntu-latest
     steps:
       -
@@ -67,6 +67,21 @@ jobs:
           done
 
       -
+        name: Start fake-gcs-server
+        if: matrix.backend == 'gcs'
+        run: |
+          mkdir -p gcs-data/e2e
+          docker run -d -p 4443:4443 -v $PWD/gcs-data:/data --name fake-gcs \
+            fsouza/fake-gcs-server -scheme http
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:4443/storage/v1/b; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then exit 1; fi
+            sleep 1
+          done
+
+      -
         name: Create S3 bucket
         if: matrix.backend == 's3'
         run: |
@@ -101,6 +116,12 @@ jobs:
           echo "AZURE_STORAGE_ACCOUNT=devstoreaccount1" >> $GITHUB_ENV
           echo "AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==" >> $GITHUB_ENV
           echo "TUSD_EXTRA_ARGS=-azure-storage=e2e -azure-endpoint=http://127.0.0.1:10000/devstoreaccount1" >> $GITHUB_ENV
+
+      -
+        name: Set GCS env
+        if: matrix.backend == 'gcs'
+        run: |
+          echo "TUSD_EXTRA_ARGS=-gcs-bucket=e2e -gcs-endpoint=http://127.0.0.1:4443/storage/v1" >> $GITHUB_ENV
 
       -
         name: Run e2e tests

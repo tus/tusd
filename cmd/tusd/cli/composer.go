@@ -18,10 +18,11 @@ import (
 	"github.com/tus/tusd/v2/pkg/memorylocker"
 	"github.com/tus/tusd/v2/pkg/s3store"
 
+	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/api/option"
 )
 
 var Composer *handler.StoreComposer
@@ -91,11 +92,18 @@ func CreateComposer() {
 		// Application Default Credentials discovery mechanism is attempted to fetch credentials,
 		// but an account file can be provided through the GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
-
-		service, err := gcsstore.NewGCSService(gcsSAF)
-		if err != nil {
-			stderr.Fatalf("Unable to create Google Cloud Storage service: %s\n", err)
+		opts := []option.ClientOption{storage.WithJSONReads()}
+		if gcsSAF != "" {
+			opts = append(opts, option.WithCredentialsFile(gcsSAF))
 		}
+		if Flags.GCSEndpoint != "" {
+			opts = append(opts, option.WithEndpoint(Flags.GCSEndpoint))
+		}
+		client, err := storage.NewClient(context.Background(), opts...)
+		if err != nil {
+			stderr.Fatalf("Unable to create Google Cloud Storage client: %s\n", err)
+		}
+		service := &gcsstore.GCSService{Client: client}
 
 		printStartupLog("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
 
