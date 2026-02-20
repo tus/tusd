@@ -1,0 +1,90 @@
+name: End-to-end tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [file, s3, azure]
+    runs-on: ubuntu-latest
+    services:
+      minio:
+        image: minio/minio
+        ports:
+          - 9000:9000
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1" --health-interval 5s --health-timeout 3s --health-retries 5
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite
+        ports:
+          - 10000:10000
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@v6
+
+      -
+        name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      -
+        name: Set tusd output
+        run: |
+          echo "TUSD_BINARY=$PWD/tusd" >> $GITHUB_ENV
+
+      -
+        name: Build tusd
+        run: |
+          go build -o $TUSD_BINARY ./cmd/tusd/main.go
+
+      -
+        name: Create S3 bucket
+        if: matrix.backend == 's3'
+        run: |
+          docker run --rm \
+            -e AWS_ACCESS_KEY_ID=minioadmin \
+            -e AWS_SECRET_ACCESS_KEY=minioadmin \
+            -e AWS_DEFAULT_REGION=us-east-1 \
+            --add-host=host.docker.internal:host-gateway \
+            amazon/aws-cli s3 mb s3://e2e --endpoint-url http://host.docker.internal:9000
+
+      -
+        name: Set S3 env
+        if: matrix.backend == 's3'
+        run: |
+          echo "AWS_ACCESS_KEY_ID=minioadmin" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=minioadmin" >> $GITHUB_ENV
+          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+          echo "TUSD_EXTRA_ARGS=-s3-bucket=e2e -s3-endpoint=http://localhost:9000 -s3-disable-ssl" >> $GITHUB_ENV
+
+      -
+        name: Create Azure container
+        if: matrix.backend == 'azure'
+        run: |
+          sleep 5
+          docker run --rm \
+            --add-host=host.docker.internal:host-gateway \
+            mcr.microsoft.com/azure-cli az storage container create -n e2e --connection-string "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://host.docker.internal:10000/devstoreaccount1;"
+
+      -
+        name: Set Azure env
+        if: matrix.backend == 'azure'
+        run: |
+          echo "AZURE_STORAGE_ACCOUNT=devstoreaccount1" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==" >> $GITHUB_ENV
+          echo "TUSD_EXTRA_ARGS=-azure-storage=e2e -azure-endpoint=http://127.0.0.1:10000/devstoreaccount1" >> $GITHUB_ENV
+
+      -
+        name: Run e2e tests
+        run: |
+          go test -race ./internal/e2e/...
