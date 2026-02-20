@@ -29,6 +29,7 @@ jobs:
         name: Clean module files
         run: |
           go mod tidy
+        shell: bash
 
       -
         name: Set tusd output
@@ -58,6 +59,7 @@ jobs:
         run: |
           go vet ./pkg/...
           go vet ./internal/...
+        shell: bash
 
   pages:
     runs-on: ubuntu-latest

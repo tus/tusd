@@ -37,27 +37,23 @@ func TestHookEventHeaderRace(t *testing.T) {
 
 	// Goroutine 1: Simulate async hook processing (JSON encoding)
 	// This is what happens in invokeHookAsync -> json.Marshal
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range iterations {
 			// This iterates over the Header map
 			_, _ = json.Marshal(event.HTTPRequest)
 		}
-	}()
+	})
 
 	// Goroutine 2: Simulate concurrent request header modification
 	// This could happen if another hook event is created for the same request
 	// or if middleware modifies headers
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range iterations {
 			// This writes to the Header map
 			c.req.Header.Set("X-Request-ID", "some-value")
 			c.req.Header.Del("X-Request-ID")
 		}
-	}()
+	})
 
 	wg.Wait()
 }
