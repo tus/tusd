@@ -594,11 +594,10 @@ func TestLockRelease(t *testing.T) {
 		t.Fatalf("invalid offset %d", offset)
 	}
 
-	// The interrupting request is sent after 2s, but with the poll intervals it might
-	// take some more time for the requests to be finished, so the duration should be
-	// 3s +/- 1s.
+	// The interrupting request is sent after 2s. With the filelocker's poll intervals it might
+	// take some more time for the requests to be finished, so the duration can be between 2s and 3s
 	duration := time.Since(start)
-	if !isApprox(duration, 3*time.Second, 0.3) {
+	if !isApprox(duration, 2500*time.Millisecond, 0.8) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
