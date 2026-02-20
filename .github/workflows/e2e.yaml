@@ -13,19 +13,6 @@ jobs:
       matrix:
         backend: [file, s3, azure]
     runs-on: ubuntu-latest
-    services:
-      minio:
-        image: minio/minio
-        ports:
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1" --health-interval 5s --health-timeout 3s --health-retries 5
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite
-        ports:
-          - 10000:10000
     steps:
       -
         name: Checkout code
@@ -46,6 +33,38 @@ jobs:
         name: Build tusd
         run: |
           go build -o $TUSD_BINARY ./cmd/tusd/main.go
+
+      -
+        name: Start MinIO
+        if: matrix.backend == 's3'
+        run: |
+          docker run -d -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            --name minio \
+            minio/minio server /data
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:9000/minio/health/live > /dev/null 2>&1; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then exit 1; fi
+            sleep 1
+          done
+
+      -
+        name: Start Azurite
+        if: matrix.backend == 'azure'
+        run: |
+          docker run -d -p 10000:10000 \
+            --name azurite \
+            mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1?restype=account; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then exit 1; fi
+            sleep 1
+          done
 
       -
         name: Create S3 bucket
@@ -71,7 +90,6 @@ jobs:
         name: Create Azure container
         if: matrix.backend == 'azure'
         run: |
-          sleep 5
           docker run --rm \
             --add-host=host.docker.internal:host-gateway \
             mcr.microsoft.com/azure-cli az storage container create -n e2e --connection-string "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://host.docker.internal:10000/devstoreaccount1;"
