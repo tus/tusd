@@ -55,7 +55,7 @@ func (h FileHook) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err
 
 	// Report error if the exit code was non-zero
 	if err, ok := err.(*exec.ExitError); ok {
-		return res, fmt.Errorf("unexpected return code %d from hook endpoint: %s", err.ProcessState.ExitCode(), string(output))
+		return res, fmt.Errorf("unexpected return code %d from hook endpoint: %s", err.ExitCode(), string(output))
 	}
 
 	if err != nil {
