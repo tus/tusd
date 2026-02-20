@@ -50,6 +50,7 @@ func TestNewUpload(t *testing.T) {
 	store := azurestore.New(service)
 	store.Container = mockContainer
 
+	blockBlob := NewMockAzBlob(mockCtrl)
 	infoBlob := NewMockAzBlob(mockCtrl)
 	assert.NotNil(infoBlob)
 
@@ -59,9 +60,10 @@ func TestNewUpload(t *testing.T) {
 	r := bytes.NewReader(data)
 
 	gomock.InOrder(
-		service.EXPECT().NewBlob(ctx, mockID).Return(NewMockAzBlob(mockCtrl), nil).Times(1),
+		service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
 		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
 		infoBlob.EXPECT().Upload(ctx, r).Return(nil).Times(1),
+		blockBlob.EXPECT().Upload(ctx, gomock.Any()).Return(nil).Times(1),
 	)
 
 	upload, err := store.NewUpload(context.Background(), mockTusdInfo)
@@ -82,6 +84,7 @@ func TestNewUploadWithPrefix(t *testing.T) {
 	store.Container = mockContainer
 	store.ObjectPrefix = objectPrefix
 
+	blockBlob := NewMockAzBlob(mockCtrl)
 	infoBlob := NewMockAzBlob(mockCtrl)
 	assert.NotNil(infoBlob)
 
@@ -98,9 +101,10 @@ func TestNewUploadWithPrefix(t *testing.T) {
 	r := bytes.NewReader(data)
 
 	gomock.InOrder(
-		service.EXPECT().NewBlob(ctx, objectPrefix+mockID).Return(NewMockAzBlob(mockCtrl), nil).Times(1),
+		service.EXPECT().NewBlob(ctx, objectPrefix+mockID).Return(blockBlob, nil).Times(1),
 		service.EXPECT().NewBlob(ctx, objectPrefix+mockID+".info").Return(infoBlob, nil).Times(1),
 		infoBlob.EXPECT().Upload(ctx, r).Return(nil).Times(1),
+		blockBlob.EXPECT().Upload(ctx, gomock.Any()).Return(nil).Times(1),
 	)
 
 	upload, err := store.NewUpload(context.Background(), mockTusdInfo)

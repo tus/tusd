@@ -200,17 +200,25 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error)
 }
 
 func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
-	// Get the offset of the file from azure storage
-	// For the blob, show each block (ID and size) that is a committed part of it.
-	var indexes []int
 	var offset int64
 
-	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeUncommitted, nil)
+	resp, err := blockBlob.BlobClient.GetBlockList(ctx, blockblob.BlockListTypeAll, nil)
 	if err != nil {
 		return 0, checkForNotFoundError(err)
 	}
 
-	// Need to get the uncommitted blocks so that we can commit them
+	// If no uncommitted blocks are found, the upload is complete and we just count
+	// the committed blocks. Unfinished uploads always contain an uncommitted block,
+	// which is created when the upload is started (see NewUpload).
+	// This is necessary to distinguish completed and new uploads when versioning is enabled.
+	if len(resp.UncommittedBlocks) == 0 {
+		for _, block := range resp.CommittedBlocks {
+			offset += *block.Size
+		}
+		return offset, nil
+	}
+
+	var indexes []int
 	for _, block := range resp.UncommittedBlocks {
 		offset += *block.Size
 		indexes = append(indexes, blockIDBase64ToInt(block.Name))
@@ -290,7 +298,6 @@ func blockIDIntToBase64(blockID int) string {
 }
 
 func blockIDBase64ToInt(blockID *string) int {
-	blockIDBase64ToBinary(blockID)
 	return int(binary.LittleEndian.Uint32(blockIDBase64ToBinary(blockID)))
 }
 
