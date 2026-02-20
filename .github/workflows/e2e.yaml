@@ -57,7 +57,7 @@ jobs:
         run: |
           docker run -d -p 10000:10000 \
             --name azurite \
-            mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+            mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
           for i in $(seq 1 30); do
             if curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1?restype=account; then
               break
