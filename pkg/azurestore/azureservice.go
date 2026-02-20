@@ -298,7 +298,6 @@ func blockIDIntToBase64(blockID int) string {
 }
 
 func blockIDBase64ToInt(blockID *string) int {
-	blockIDBase64ToBinary(blockID)
 	return int(binary.LittleEndian.Uint32(blockIDBase64ToBinary(blockID)))
 }
 
