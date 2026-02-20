@@ -89,6 +89,13 @@ func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (h
 		return nil, fmt.Errorf("azurestore: unable to create InfoHandler file:\n%s", err)
 	}
 
+	// Stage an empty sentinel block so that "no uncommitted blocks" reliably means upload complete.
+	// Without it we cannot distinguish completed uploads from a new upload that has not written any blocks yet.
+	// Committed blocks exist if versioning is enabled and a blob is overwritten.
+	if err := azUpload.BlockBlob.Upload(ctx, bytes.NewReader([]byte{})); err != nil {
+		return nil, err
+	}
+
 	return azUpload, nil
 }
 
