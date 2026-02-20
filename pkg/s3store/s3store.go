@@ -778,7 +778,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	errs := make([]error, 0, 3)
+	errCh := make(chan error, 4)
 
 	go func() {
 		defer wg.Done()
@@ -790,7 +790,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 			UploadId: aws.String(upload.multipartId),
 		})
 		if err != nil && !isAwsError[*types.NoSuchUpload](err) {
-			errs = append(errs, err)
+			errCh <- err
 		}
 	}()
 
@@ -817,24 +817,26 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 		})
 
 		if err != nil {
-			errs = append(errs, err)
+			errCh <- err
 			return
 		}
 
 		for _, s3Err := range res.Errors {
 			if *s3Err.Code != "NoSuchKey" {
-				errs = append(errs, fmt.Errorf("AWS S3 Error (%s) for object %s: %s", *s3Err.Code, *s3Err.Key, *s3Err.Message))
+				errCh <- fmt.Errorf("AWS S3 Error (%s) for object %s: %s", *s3Err.Code, *s3Err.Key, *s3Err.Message)
 			}
 		}
 	}()
 
 	wg.Wait()
 
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	close(errCh)
+	errs := make([]error, 0, 4)
+	for err := range errCh {
+		errs = append(errs, err)
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func (upload s3Upload) FinishUpload(ctx context.Context) error {
