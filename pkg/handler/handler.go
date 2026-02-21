@@ -32,6 +32,8 @@ func NewHandler(config Config) (*Handler, error) {
 		UnroutedHandler: handler,
 	}
 
+	// allowedMethods := []string{""}
+
 	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		path := strings.Trim(r.URL.Path, "/")
@@ -64,6 +66,7 @@ func NewHandler(config Config) (*Handler, error) {
 				handler.DelFile(w, r)
 			default:
 				// TODO: Only add GET and DELETE if they are supported
+				// TODO: POST with X-Method-Override is allowed
 				w.Header().Add("Allow", "GET, HEAD, PATCH, DELETE")
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				w.Write([]byte(`method not allowed`))

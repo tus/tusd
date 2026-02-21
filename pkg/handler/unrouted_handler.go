@@ -187,7 +187,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Allow overriding the HTTP method. The reason for this is
 		// that some libraries/environments do not support PATCH and
 		// DELETE requests, e.g. Flash in a browser and parts of Java.
-		if newMethod := r.Header.Get("X-HTTP-Method-Override"); r.Method == "POST" && newMethod != "" {
+		if newMethod := r.Header.Get("X-HTTP-Method-Override"); r.Method == "POST" && (newMethod == "PATCH" || newMethod == "DELETE") {
 			r.Method = newMethod
 		}
 
