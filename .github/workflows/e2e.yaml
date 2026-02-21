@@ -71,7 +71,7 @@ jobs:
         if: matrix.backend == 'gcs'
         run: |
           mkdir -p gcs-data/e2e
-          docker run -d -p 4443:4443 -v $PWD/gcs-data:/data --name fake-gcs \
+          docker run -d -p 4443:4443 -v $PWD/gcs-data:/storage --name fake-gcs \
             fsouza/fake-gcs-server -scheme http
           for i in $(seq 1 30); do
             if curl -s -o /dev/null http://127.0.0.1:4443/storage/v1/b; then
@@ -121,7 +121,8 @@ jobs:
         name: Set GCS env
         if: matrix.backend == 'gcs'
         run: |
-          echo "TUSD_EXTRA_ARGS=-gcs-bucket=e2e -gcs-endpoint=http://127.0.0.1:4443/storage/v1" >> $GITHUB_ENV
+          echo "export STORAGE_EMULATOR_HOST=http://127.0.0.1:4443" >> $GITHUB_ENV
+          echo "TUSD_EXTRA_ARGS=-gcs-bucket=e2e -gcs-endpoint=http://127.0.0.1:4443/storage/v1/" >> $GITHUB_ENV
 
       -
         name: Run e2e tests
