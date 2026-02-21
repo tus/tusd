@@ -72,8 +72,6 @@ jobs:
 
   build-binary:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       -
         name: Checkout code

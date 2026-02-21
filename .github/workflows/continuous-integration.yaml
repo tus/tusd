@@ -14,8 +14,6 @@ jobs:
         go-version: [stable, oldstable]
         platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
-    env:
-      GO111MODULE: on
     steps:
       -
         name: Checkout code
