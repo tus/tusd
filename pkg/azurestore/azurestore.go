@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"strings"
 
@@ -47,6 +48,7 @@ func (store AzureStore) UseIn(composer *handler.StoreComposer) {
 	composer.UseCore(store)
 	composer.UseTerminater(store)
 	composer.UseLengthDeferrer(store)
+	composer.UseContentServer(store)
 }
 
 func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
@@ -156,6 +158,10 @@ func (store AzureStore) AsLengthDeclarableUpload(upload handler.Upload) handler.
 	return upload.(*AzUpload)
 }
 
+func (store AzureStore) AsServableUpload(upload handler.Upload) handler.ServableUpload {
+	return upload.(*AzUpload)
+}
+
 func (upload *AzUpload) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	// Create a temporary file for holding the uploaded data
 	file, err := os.CreateTemp(upload.tempDir, "tusd-az-tmp-")
@@ -219,6 +225,11 @@ func (upload *AzUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 // Get the uploaded file from the Azure storage
 func (upload *AzUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	return upload.BlockBlob.Download(ctx)
+}
+
+// Serves the contents of the blob directly handling special HTTP headers like Range, if set
+func (upload *AzUpload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return upload.BlockBlob.ServeContent(ctx, w, r)
 }
 
 // Finish the file upload and commit the block list
