@@ -20,6 +20,8 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	defer ctrl.Finish()
 
 	store := filestore.New("some-path")
+	store.DirModePerm = 0775
+	store.FileModePerm = 0664
 	config := handler.Config{
 		StoreComposer: handler.NewStoreComposer(),
 	}

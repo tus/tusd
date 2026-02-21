@@ -164,11 +164,13 @@ func CreateComposer() {
 
 		printStartupLog("Using '%s' as directory storage.\n", dir)
 
-		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
+		if err := os.MkdirAll(dir, os.FileMode(Flags.DirPerms)); err != nil {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
 
 		store := filestore.New(dir)
+		store.DirModePerm = os.FileMode(Flags.DirPerms) & os.ModePerm
+		store.FileModePerm = os.FileMode(Flags.FilePerms) & os.ModePerm
 		store.UseIn(Composer)
 
 		locker := filelocker.New(dir)

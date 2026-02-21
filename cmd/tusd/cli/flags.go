@@ -2,11 +2,14 @@ package cli
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tus/tusd/v2/internal/grouped_flags"
+	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/hooks"
 	"golang.org/x/exp/slices"
 )
@@ -87,11 +90,36 @@ var Flags struct {
 	AcquireLockTimeout               time.Duration
 	FilelockHolderPollInterval       time.Duration
 	FilelockAcquirerPollInterval     time.Duration
+	FilePerms                        uint32
+	DirPerms                         uint32
 	GracefulRequestCompletionTimeout time.Duration
 	ExperimentalProtocol             bool
 }
 
+type ChmodPermsValue struct {
+	perms *uint32
+}
+
+func (v ChmodPermsValue) String() string {
+	if v.perms != nil {
+		return fmt.Sprintf("%o", *v.perms)
+	}
+	return ""
+}
+
+func (v ChmodPermsValue) Set(s string) error {
+	if u, err := strconv.ParseUint(s, 8, 32); err != nil {
+		return err
+	} else {
+		*v.perms = uint32(u)
+	}
+	return nil
+}
+
 func ParseFlags() {
+	Flags.DirPerms = filestore.DefaultDirPerm
+	Flags.FilePerms = filestore.DefaultFilePerm
+
 	fs := grouped_flags.NewFlagGroupSet(flag.ExitOnError)
 
 	fs.AddGroup("Listening options", func(f *flag.FlagSet) {
@@ -131,6 +159,8 @@ func ParseFlags() {
 		f.StringVar(&Flags.UploadDir, "upload-dir", "./data", "Directory to store uploads in")
 		f.DurationVar(&Flags.FilelockHolderPollInterval, "filelock-holder-poll-interval", 5*time.Second, "The holder of a lock polls regularly to see if another request handler needs the lock. This flag specifies the poll interval.")
 		f.DurationVar(&Flags.FilelockAcquirerPollInterval, "filelock-acquirer-poll-interval", 2*time.Second, "The acquirer of a lock polls regularly to see if the lock has been released. This flag specifies the poll interval.")
+		f.Var(&ChmodPermsValue{&Flags.DirPerms}, "dir-perms", "The created directory chmod(2) OCTAL value permissions.")
+		f.Var(&ChmodPermsValue{&Flags.FilePerms}, "file-perms", "The created file chmod(2) OCTAL value permissions.")
 	})
 
 	fs.AddGroup("AWS S3 storage options", func(f *flag.FlagSet) {

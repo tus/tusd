@@ -26,7 +26,7 @@ func TestFilestore(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -102,7 +102,7 @@ func TestCreateDirectories(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -168,7 +168,7 @@ func TestCreateDirectories(t *testing.T) {
 func TestNotFound(t *testing.T) {
 	a := assert.New(t)
 
-	store := FileStore{"./path"}
+	store := New("./path")
 	ctx := context.Background()
 
 	upload, err := store.GetUpload(ctx, "upload-that-does-not-exist")
@@ -183,7 +183,7 @@ func TestConcatUploads(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-concat-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload to hold concatenated upload
@@ -241,7 +241,7 @@ func TestDeclareLength(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-declare-length-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	upload, err := store.NewUpload(ctx, handler.FileInfo{
@@ -273,7 +273,7 @@ func TestCustomRelativePath(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -346,7 +346,7 @@ func TestCustomAbsolutePath(t *testing.T) {
 	tmp2, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp1}
+	store := New(tmp1)
 	ctx := context.Background()
 
 	// Create new upload, but the Path property points to a directory
