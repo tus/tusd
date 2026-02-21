@@ -72,6 +72,9 @@ jobs:
 
   build-binary:
     runs-on: ubuntu-latest
+    permissions:
+      # Needed to softprops/action-gh-release
+      contents: write
     steps:
       -
         name: Checkout code
