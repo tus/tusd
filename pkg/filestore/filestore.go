@@ -27,9 +27,6 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-// See the handler.DataStore interface for documentation about the different
-// methods.
-
 const (
 	// StorageKeyPath is the key of the path of uploaded file in handler.FileInfo.Storage
 	StorageKeyPath = "Path"
@@ -40,45 +37,34 @@ const (
 const DefaultDirPerm = 0775
 const DefaultFilePerm = 0664
 
-type FileStoreOptions struct {
-	DirPerm  uint32
-	FilePerm uint32
-}
-
-var defaultOptions = FileStoreOptions{
-	DirPerm:  DefaultDirPerm,
-	FilePerm: DefaultFilePerm,
-}
-
+// See the handler.DataStore interface for documentation about the different
+// methods.
 type FileStore struct {
-	// Relative or absolute path to store files in. FileStore does not check
-	// whether the path exists, use os.MkdirAll in this case on your own.
+	// Path is the relative or absolute path to store files in. FileStore does not
+	// check whether the path exists; use os.MkdirAll in this case on your own.
 	Path string
 
-	DirModePerm  fs.FileMode
+	// DirModePerm is the file mode (e.g. 0775) used when creating directories
+	// for uploads. Only the permission bits are used. If zero, DefaultDirPerm
+	// is used by New.
+	DirModePerm fs.FileMode
+
+	// FileModePerm is the file mode (e.g. 0664) used when creating upload files
+	// and their .info files. Only the permission bits are used. If zero,
+	// DefaultFilePerm is used by New.
 	FileModePerm fs.FileMode
 }
 
 // New creates a new file based storage backend. The directory specified will
 // be used as the only storage entry. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
+// The returned store uses DefaultDirPerm and DefaultFilePerm; set DirModePerm
+// and FileModePerm on the result to override.
 func New(path string) FileStore {
 	return FileStore{
 		Path:         path,
-		DirModePerm:  os.FileMode(defaultOptions.DirPerm) & os.ModePerm,
-		FileModePerm: os.FileMode(defaultOptions.FilePerm) & os.ModePerm,
-	}
-}
-
-func NewWithOptions(path string, options *FileStoreOptions) FileStore {
-	if options == nil {
-		options = &defaultOptions
-	}
-
-	return FileStore{
-		Path:         path,
-		DirModePerm:  os.FileMode(options.DirPerm) & os.ModePerm,
-		FileModePerm: os.FileMode(options.FilePerm) & os.ModePerm,
+		DirModePerm:  os.FileMode(DefaultDirPerm) & os.ModePerm,
+		FileModePerm: os.FileMode(DefaultFilePerm) & os.ModePerm,
 	}
 }
 

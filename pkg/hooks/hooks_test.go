@@ -19,10 +19,9 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store := filestore.NewWithOptions("some-path", &filestore.FileStoreOptions{
-		DirPerm:  0775,
-		FilePerm: 0664,
-	})
+	store := filestore.New("some-path")
+	store.DirModePerm = 0775
+	store.FileModePerm = 0664
 	config := handler.Config{
 		StoreComposer: handler.NewStoreComposer(),
 	}
