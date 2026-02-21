@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -147,7 +148,7 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 
 	r, err := store.Service.ReadObject(ctx, params)
 	if err != nil {
-		if err == storage.ErrObjectNotExist {
+		if errors.Is(err, storage.ErrObjectNotExist) {
 			return info, handler.ErrNotFound
 		}
 		return info, err
@@ -317,9 +318,15 @@ func (upload gcsUpload) Terminate(ctx context.Context) error {
 		Prefix: store.keyWithPrefix(id),
 	}
 
-	err := store.Service.DeleteObjectsWithFilter(ctx, filterParams)
-	if err != nil {
-		return err
+	if err := store.Service.DeleteObjectsWithFilter(ctx, filterParams); err != nil {
+		return fmt.Errorf("gcsstore: failed to delete blob objects: %w", err)
+	}
+
+	if err := store.Service.DeleteObject(ctx, GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     store.keyWithPrefix(id) + ".info",
+	}); err != nil {
+		return fmt.Errorf("gcsstore: failed to delete info object: %w", err)
 	}
 
 	return nil
