@@ -278,6 +278,11 @@ func TestTerminate(t *testing.T) {
 	ctx := context.Background()
 	service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil)
 
+	service.EXPECT().DeleteObject(ctx, gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     fmt.Sprintf("%s.info", mockID),
+	}).Return(nil)
+
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
