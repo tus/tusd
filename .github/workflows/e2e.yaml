@@ -121,7 +121,7 @@ jobs:
         name: Set GCS env
         if: matrix.backend == 'gcs'
         run: |
-          echo "export STORAGE_EMULATOR_HOST=http://127.0.0.1:4443" >> $GITHUB_ENV
+          echo "STORAGE_EMULATOR_HOST=http://127.0.0.1:4443" >> $GITHUB_ENV
           echo "TUSD_EXTRA_ARGS=-gcs-bucket=e2e -gcs-endpoint=http://127.0.0.1:4443/storage/v1/" >> $GITHUB_ENV
 
       -
