@@ -34,6 +34,7 @@ jobs:
         run: |
           go build -o $TUSD_BINARY ./cmd/tusd/main.go
 
+      # --- S3 (MinIO) ---
       -
         name: Start MinIO
         if: matrix.backend == 's3'
@@ -45,36 +46,6 @@ jobs:
             minio/minio server /data
           for i in $(seq 1 30); do
             if curl -s http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-              break
-            fi
-            if [ "$i" -eq 30 ]; then exit 1; fi
-            sleep 1
-          done
-
-      -
-        name: Start Azurite
-        if: matrix.backend == 'azure'
-        run: |
-          docker run -d -p 10000:10000 \
-            --name azurite \
-            mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
-          for i in $(seq 1 30); do
-            if curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1?restype=account; then
-              break
-            fi
-            if [ "$i" -eq 30 ]; then exit 1; fi
-            sleep 1
-          done
-
-      -
-        name: Start fake-gcs-server
-        if: matrix.backend == 'gcs'
-        run: |
-          mkdir -p gcs-data/e2e
-          docker run -d -p 4443:4443 -v $PWD/gcs-data:/storage --name fake-gcs \
-            fsouza/fake-gcs-server -scheme http
-          for i in $(seq 1 30); do
-            if curl -s -o /dev/null http://127.0.0.1:4443/storage/v1/b; then
               break
             fi
             if [ "$i" -eq 30 ]; then exit 1; fi
@@ -101,6 +72,22 @@ jobs:
           echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
           echo "TUSD_EXTRA_ARGS=-s3-bucket=e2e -s3-endpoint=http://localhost:9000 -s3-disable-ssl" >> $GITHUB_ENV
 
+      # --- Azure (Azurite) ---
+      -
+        name: Start Azurite
+        if: matrix.backend == 'azure'
+        run: |
+          docker run -d -p 10000:10000 \
+            --name azurite \
+            mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1?restype=account; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then exit 1; fi
+            sleep 1
+          done
+
       -
         name: Create Azure container
         if: matrix.backend == 'azure'
@@ -117,6 +104,22 @@ jobs:
           echo "AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==" >> $GITHUB_ENV
           echo "TUSD_EXTRA_ARGS=-azure-storage=e2e -azure-endpoint=http://127.0.0.1:10000/devstoreaccount1" >> $GITHUB_ENV
 
+      # --- GCS (fake-gcs-server) ---
+      -
+        name: Start fake-gcs-server
+        if: matrix.backend == 'gcs'
+        run: |
+          mkdir -p gcs-data/e2e
+          docker run -d -p 4443:4443 -v $PWD/gcs-data:/storage --name fake-gcs \
+            fsouza/fake-gcs-server -scheme http
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:4443/storage/v1/b; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then exit 1; fi
+            sleep 1
+          done
+
       -
         name: Set GCS env
         if: matrix.backend == 'gcs'
@@ -124,6 +127,7 @@ jobs:
           echo "STORAGE_EMULATOR_HOST=http://127.0.0.1:4443" >> $GITHUB_ENV
           echo "TUSD_EXTRA_ARGS=-gcs-bucket=e2e -gcs-endpoint=http://127.0.0.1:4443/storage/v1/" >> $GITHUB_ENV
 
+      # --- Run tests ---
       -
         name: Run e2e tests
         run: |
