@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/tus/tusd/v2/internal/grouped_flags"
 	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/hooks"
-	"golang.org/x/exp/slices"
 )
 
 var Flags struct {
