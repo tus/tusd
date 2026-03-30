@@ -7,6 +7,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ type HttpHook struct {
 	ForwardHeaders []string
 	Timeout        time.Duration
 	SizeLimit      int64
+	Insecure       bool
 
 	client *pester.Client
 }
@@ -36,6 +38,12 @@ func (h *HttpHook) Setup() error {
 	client.MaxRetries = h.MaxRetries
 	client.Backoff = func(_ int) time.Duration {
 		return h.Backoff
+	}
+	client.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: h.Insecure,
+		},
+		ForceAttemptHTTP2: true,
 	}
 
 	h.client = client
