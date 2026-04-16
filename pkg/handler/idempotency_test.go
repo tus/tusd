@@ -117,9 +117,6 @@ func TestIdempotency(t *testing.T) {
 				"Location": "http://tus.io/files/concat-upload-1",
 			},
 		}).Run(handler, t)
-
-		event = <-c
-		a.Equal("concat-upload-1", event.Upload.ID)
 	})
 
 	SubTest(t, "ConcatRetryIncomplete", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {

@@ -416,10 +416,16 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 						c.log = c.log.With("id", existingInfo.ID)
 						c.log.InfoContext(c, "UploadIdempotentReplay", "size", existingInfo.Size, "url", url)
 
-						resp, err = handler.emitFinishEvents(c, resp, existingInfo)
-						if err != nil {
-							handler.sendError(c, err)
-							return
+						// Only run PreFinishResponseCallback for response headers.
+						// Do NOT re-emit finish events (metrics, CompleteUploads hook)
+						// since this upload already completed previously.
+						if handler.config.PreFinishResponseCallback != nil {
+							resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, existingInfo))
+							if err != nil {
+								handler.sendError(c, err)
+								return
+							}
+							resp = resp.MergeWith(resp2)
 						}
 
 						handler.sendResp(c, resp)
