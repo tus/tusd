@@ -54,7 +54,10 @@ func (s *FileIdempotencyStore) FindUploadID(ctx context.Context, key string) (st
 
 	var mapping keyMapping
 	if err := json.Unmarshal(data, &mapping); err != nil {
-		return "", err
+		// File is corrupted (e.g. from a crash during write). Treat as
+		// missing so the handler falls through to create a new upload,
+		// which will overwrite this file via StoreUploadID.
+		return "", handler.ErrNotFound
 	}
 
 	if mapping.Key != key {
@@ -82,7 +85,13 @@ func (s *FileIdempotencyStore) StoreUploadID(ctx context.Context, key string, up
 		return err
 	}
 
-	return os.WriteFile(path, data, 0664)
+	// Write to a temp file first, then rename atomically to prevent
+	// corrupted mapping files if the process crashes mid-write.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0664); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func (s *FileIdempotencyStore) filePath(key string) string {

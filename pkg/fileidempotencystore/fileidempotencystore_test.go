@@ -59,4 +59,17 @@ func TestFileIdempotencyStore(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "second-id", id)
 	})
+
+	t.Run("CorruptedFileReturnErrNotFound", func(t *testing.T) {
+		// Write garbage to simulate a crash during write.
+		err := store.StoreUploadID(ctx, "corrupt-key", "good-id")
+		assert.NoError(t, err)
+
+		// Overwrite the file with invalid JSON.
+		path := store.filePath("corrupt-key")
+		assert.NoError(t, os.WriteFile(path, []byte("not json"), 0664))
+
+		_, err = store.FindUploadID(ctx, "corrupt-key")
+		assert.ErrorIs(t, err, handler.ErrNotFound)
+	})
 }
