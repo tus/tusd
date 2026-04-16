@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,7 @@ var (
 	// when the upload got interrupted. Most clients will not retry 4XX but only 5XX, so we responsd with 500 here.
 	ErrReadTimeout     = NewError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
 	ErrConnectionReset = NewError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
+	ErrConcatCorrupted = NewError("ERR_CONCAT_CORRUPTED", "previous concatenation attempt was partially completed and left the upload in an inconsistent state", http.StatusInternalServerError)
 )
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -390,16 +392,88 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	upload, err := handler.composer.Core.NewUpload(c, info)
-	if err != nil {
-		handler.sendError(c, err)
-		return
+	// If an idempotency key store is configured, check for retried requests.
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	var upload Upload
+	existingFound := false
+
+	if idempotencyKey != "" && handler.composer.UsesIdempotencyKeyStore {
+		existingUploadID, findErr := handler.composer.IdempotencyKeyStore.FindUploadID(c, idempotencyKey)
+		if findErr == nil {
+			existingUpload, getErr := handler.composer.Core.GetUpload(c, existingUploadID)
+			if getErr == nil {
+				existingInfo, infoErr := existingUpload.GetInfo(c)
+				if infoErr != nil {
+					handler.sendError(c, infoErr)
+					return
+				}
+
+				if isFinal && existingInfo.IsFinal && slices.Equal(existingInfo.PartialUploads, partialUploadIDs) {
+					if existingInfo.Offset == existingInfo.Size {
+						// Concat already completed successfully. Return existing upload.
+						url := handler.absFileURL(r, existingInfo.ID)
+						resp.Header["Location"] = url
+						c.log = c.log.With("id", existingInfo.ID)
+						c.log.InfoContext(c, "UploadIdempotentReplay", "size", existingInfo.Size, "url", url)
+
+						resp, err = handler.emitFinishEvents(c, resp, existingInfo)
+						if err != nil {
+							handler.sendError(c, err)
+							return
+						}
+
+						handler.sendResp(c, resp)
+						return
+					} else if existingInfo.Offset == 0 {
+						// Upload was created but concat never completed. Retry it.
+						upload = existingUpload
+						info = existingInfo
+						existingFound = true
+					} else {
+						handler.sendError(c, ErrConcatCorrupted)
+						return
+					}
+				} else if !isFinal {
+					// Non-concat upload already exists. Return it for the client to resume via PATCH.
+					url := handler.absFileURL(r, existingInfo.ID)
+					resp.Header["Location"] = url
+					resp.Header["Upload-Offset"] = strconv.FormatInt(existingInfo.Offset, 10)
+					c.log = c.log.With("id", existingInfo.ID)
+					c.log.InfoContext(c, "UploadIdempotentReplay", "size", existingInfo.Size, "url", url)
+
+					handler.sendResp(c, resp)
+					return
+				}
+				// If flags don't match (e.g. isFinal differs), fall through to new creation.
+			} else if !errors.Is(getErr, ErrNotFound) {
+				handler.sendError(c, getErr)
+				return
+			}
+			// Upload ID was stored but upload was since deleted/terminated. Fall through to create.
+		} else if !errors.Is(findErr, ErrNotFound) {
+			handler.sendError(c, findErr)
+			return
+		}
 	}
 
-	info, err = upload.GetInfo(c)
-	if err != nil {
-		handler.sendError(c, err)
-		return
+	if !existingFound {
+		upload, err = handler.composer.Core.NewUpload(c, info)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+
+		info, err = upload.GetInfo(c)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+
+		if idempotencyKey != "" && handler.composer.UsesIdempotencyKeyStore {
+			if storeErr := handler.composer.IdempotencyKeyStore.StoreUploadID(c, idempotencyKey, info.ID); storeErr != nil {
+				c.log.WarnContext(c, "FailedToStoreIdempotencyKey", "error", storeErr)
+			}
+		}
 	}
 
 	id := info.ID
@@ -409,12 +483,17 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	url := handler.absFileURL(r, id)
 	resp.Header["Location"] = url
 
-	handler.Metrics.incUploadsCreated()
-	c.log = c.log.With("id", id)
-	c.log.InfoContext(c, "UploadCreated", "size", size, "url", url)
+	if !existingFound {
+		handler.Metrics.incUploadsCreated()
+		c.log = c.log.With("id", id)
+		c.log.InfoContext(c, "UploadCreated", "size", size, "url", url)
 
-	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(c, info)
+		if handler.config.NotifyCreatedUploads {
+			handler.CreatedUploads <- newHookEvent(c, info)
+		}
+	} else {
+		c.log = c.log.With("id", id)
+		c.log.InfoContext(c, "UploadIdempotentRetry", "size", size, "url", url)
 	}
 
 	if isFinal {
