@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -22,6 +23,14 @@ import (
 type FileIdempotencyStore struct {
 	// Path is the directory in which .idempotency-key files are stored.
 	Path string
+
+	// DirModePerm is the permission bits used when creating directories.
+	// If zero, defaults to 0775.
+	DirModePerm fs.FileMode
+
+	// FileModePerm is the permission bits used when creating files.
+	// If zero, defaults to 0664.
+	FileModePerm fs.FileMode
 }
 
 // New creates a new file-based idempotency key store. The directory specified
@@ -81,14 +90,14 @@ func (s *FileIdempotencyStore) StoreUploadID(ctx context.Context, key string, up
 
 	path := s.filePath(key)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0775); err != nil {
+	if err := os.MkdirAll(dir, s.dirPerm()); err != nil {
 		return err
 	}
 
 	// Write to a temp file first, then rename atomically to prevent
 	// corrupted mapping files if the process crashes mid-write.
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0664); err != nil {
+	if err := os.WriteFile(tmp, data, s.filePerm()); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -98,4 +107,18 @@ func (s *FileIdempotencyStore) filePath(key string) string {
 	hash := sha256.Sum256([]byte(key))
 	name := hex.EncodeToString(hash[:]) + ".idempotency-key"
 	return filepath.Join(s.Path, name)
+}
+
+func (s *FileIdempotencyStore) dirPerm() fs.FileMode {
+	if s.DirModePerm == 0 {
+		return 0775
+	}
+	return s.DirModePerm
+}
+
+func (s *FileIdempotencyStore) filePerm() fs.FileMode {
+	if s.FileModePerm == 0 {
+		return 0664
+	}
+	return s.FileModePerm
 }

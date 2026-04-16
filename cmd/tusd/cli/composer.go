@@ -197,6 +197,8 @@ func CreateComposer() {
 
 		if !Flags.DisableIdempotency {
 			idempotencyStore := fileidempotencystore.New(dir)
+			idempotencyStore.DirModePerm = os.FileMode(Flags.DirPerms) & os.ModePerm
+			idempotencyStore.FileModePerm = os.FileMode(Flags.FilePerms) & os.ModePerm
 			idempotencyStore.UseIn(Composer)
 		}
 	}
