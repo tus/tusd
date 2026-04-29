@@ -28,6 +28,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
 			Timeout:        Flags.HttpHooksTimeout,
 			SizeLimit:      Flags.HttpHooksSizeLimit,
+			Insecure:       Flags.HttpHooksInsecure,
 		}
 	} else if Flags.GrpcHooksEndpoint != "" {
 		printStartupLog("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
