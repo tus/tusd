@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"time"
 
@@ -39,11 +40,23 @@ func (h *HttpHook) Setup() error {
 	client.Backoff = func(_ int) time.Duration {
 		return h.Backoff
 	}
+	// The transport uses the same values as the http.DefaultTransport
+	// except for TLSClientConfig.
 	client.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: h.Insecure,
 		},
-		ForceAttemptHTTP2: true,
 	}
 
 	h.client = client
