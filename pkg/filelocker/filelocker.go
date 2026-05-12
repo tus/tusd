@@ -132,7 +132,11 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 
 		select {
 		case <-ctx.Done():
-			// Context expired, so we return a timeout
+			// Context expired, so we return a timeout. Since the lock was never
+			// successfully acquired, Unlock() will not be called and the .stop
+			// file would otherwise remain on disk indefinitely. Remove it here
+			// so future acquisition attempts are not affected by stale state.
+			_ = os.Remove(lock.requestReleaseFile)
 			return handler.ErrLockTimeout
 		case <-time.After(lock.acquirerPollInterval):
 			// Continue with the next attempt after a short delay
