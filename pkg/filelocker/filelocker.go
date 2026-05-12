@@ -124,11 +124,13 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 
 		// If we are here, the lock is already held by another entity.
 		// We create the .stop file to signal the lock holder to release the lock.
+		// The handle is closed right away: the holder only checks the file's
+		// existence, and an open handle would block removal on Windows.
 		file, err := os.Create(lock.requestReleaseFile)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		file.Close()
 
 		select {
 		case <-ctx.Done():
