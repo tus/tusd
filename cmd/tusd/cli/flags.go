@@ -251,6 +251,10 @@ func ParseFlags() {
 
 	SetEnabledHooks()
 
+	if Flags.EnableH2C && Flags.TLSCertFile != "" {
+		stderr.Fatalf("Unencrypted HTTP/2 is not available if TLS is configured. -enable-h2c flag must not be combined with -tls-certificate.")
+	}
+
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
 	}
