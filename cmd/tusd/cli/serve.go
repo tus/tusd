@@ -229,9 +229,7 @@ func serveTLS(server *http.Server, listener net.Listener) error {
 		stderr.Fatalf("Invalid TLS mode chosen. Recommended valid modes are tls13, tls12 (default), and tls12-strong")
 	}
 
-	// Disable HTTP/2; the default non-TLS mode doesn't support it
-	server.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
-
+	// Leave TLSNextProto unset so net/http negotiates HTTP/2 over TLS when the client supports it.
 	return server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile)
 }
 
