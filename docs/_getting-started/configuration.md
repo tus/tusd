@@ -128,11 +128,17 @@ $ tusd -disable-cors
 
 ## HTTP/2
 
-By default, tusd only accepts HTTP/1.1 requests on the configured port.
+By default, tusd accepts (unencrypted) HTTP/1.1 requests on the configured port. Unencrypted HTTP/2 via “HTTP/2 with Prior Knowledge” ([RFC 9113, section 3.3](https://www.rfc-editor.org/rfc/rfc9113.html#name-starting-http-2-with-prior-)) can additional be enabled using `-enable-h2c`.
 
-If [HTTPS/TLS](#httpstls) is configured, tusd will also accept an encrypted HTTP/2 connection without any additional configuration, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2).
+If [HTTPS/TLS](#httpstls) is configured, tusd accepts encrypted HTTP/1.1 and HTTP/2 requests on the configured port. Unencrypted traffic is then not accepted anymore.
 
-Alternatively, if HTTPS/TLS is not enabled, support for HTTP/2 cleartext mode (h2c) can be activated using the `-enable-h2c` flag, where tusd also accepts unencrypted HTTP/2 requests. This is useful if a reverse proxy should connect to tusd over HTTP/2 (e.g. in GCP Cloud Run). Be aware that the first request on an upgraded connection (without prior knowledge) is [read fully into memory](https://pkg.go.dev/golang.org/x/net/http2/h2c#NewHandler). To avoid excessive memory usage from PATCH requests, it's recommended to only connect with prior knowledge about tusd's HTTP/2 support.
+The following table provides shows which connection modes are available for different configurations.
+
+| Configuration | Unencrypted HTTP/1.1 | Encrypted HTTP/1.1 | Encrypted HTTP/2 | Unencrypted HTTP/2 (h2c) |
+|---------------|:---:|:---:|:---:|:---:|
+| Default | yes | no | no | no |
+| `-enable-h2c` only | yes | no | no | yes |
+| `-tls-certificate` | no | yes | yes | no |
 
 ## HTTPS/TLS
 
