@@ -156,7 +156,7 @@ The following example generates a self-signed certificate for `localhost` and th
 
 ```bash
 # Generate self-signed certificate
-$ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost"
+$ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 Generating a 4096 bit RSA private key
 ........................++
 ..........................................++
