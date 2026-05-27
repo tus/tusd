@@ -21,13 +21,13 @@ import (
 )
 
 type HttpHook struct {
-	Endpoint       string
-	MaxRetries     int
-	Backoff        time.Duration
-	ForwardHeaders []string
-	Timeout        time.Duration
-	SizeLimit      int64
-	Insecure       bool
+	Endpoint           string
+	MaxRetries         int
+	Backoff            time.Duration
+	ForwardHeaders     []string
+	Timeout            time.Duration
+	SizeLimit          int64
+	InsecureSkipVerify bool
 
 	client *pester.Client
 }
@@ -53,7 +53,7 @@ func (h *HttpHook) Setup() error {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	if h.Insecure {
+	if h.InsecureSkipVerify {
 		t.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}

@@ -22,13 +22,13 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		printStartupLog("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
 		return &http.HttpHook{
-			Endpoint:       Flags.HttpHooksEndpoint,
-			MaxRetries:     Flags.HttpHooksRetry,
-			Backoff:        Flags.HttpHooksBackoff,
-			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
-			Timeout:        Flags.HttpHooksTimeout,
-			SizeLimit:      Flags.HttpHooksSizeLimit,
-			Insecure:       Flags.HttpHooksInsecure,
+			Endpoint:           Flags.HttpHooksEndpoint,
+			MaxRetries:         Flags.HttpHooksRetry,
+			Backoff:            Flags.HttpHooksBackoff,
+			ForwardHeaders:     strings.Split(Flags.HttpHooksForwardHeaders, ","),
+			Timeout:            Flags.HttpHooksTimeout,
+			SizeLimit:          Flags.HttpHooksSizeLimit,
+			InsecureSkipVerify: Flags.HttpHooksInsecureSkipVerify,
 		}
 	} else if Flags.GrpcHooksEndpoint != "" {
 		printStartupLog("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
