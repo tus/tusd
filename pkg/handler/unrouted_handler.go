@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -115,6 +116,51 @@ type UnroutedHandler struct {
 	CreatedUploads chan HookEvent
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
+
+	// concatTracker tracks the IDs of final uploads whose concatenation is
+	// currently running in a background goroutine. It is used to avoid starting
+	// a second concatenation for the same upload when a request is retried while
+	// the first attempt is still in progress. It is only used when
+	// Config.EnableBackgroundConcatenation is set. It is held by pointer so the
+	// handler struct itself remains copyable by value-receiver methods.
+	concatTracker *concatTracker
+}
+
+// concatTracker is a concurrency-safe set of upload IDs whose concatenation is
+// currently running in a background goroutine.
+type concatTracker struct {
+	mu  sync.Mutex
+	ids map[string]struct{}
+}
+
+func newConcatTracker() *concatTracker {
+	return &concatTracker{ids: make(map[string]struct{})}
+}
+
+// begin marks the given ID as in progress. It returns false if the ID was
+// already in progress, in which case the caller should not start a new
+// concatenation.
+func (t *concatTracker) begin(id string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, ok := t.ids[id]; ok {
+		return false
+	}
+	t.ids[id] = struct{}{}
+	return true
+}
+
+func (t *concatTracker) done(id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.ids, id)
+}
+
+func (t *concatTracker) inProgress(id string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	_, ok := t.ids[id]
+	return ok
 }
 
 // NewUnroutedHandler creates a new handler without routing using the given
@@ -150,6 +196,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
+		concatTracker:     newConcatTracker(),
 	}
 
 	return handler, nil
@@ -409,6 +456,20 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 				}
 
 				if isFinal && existingInfo.IsFinal && slices.Equal(existingInfo.PartialUploads, partialUploadIDs) {
+					if handler.config.EnableBackgroundConcatenation && handler.concatTracker.inProgress(existingInfo.ID) {
+						// A background concatenation for this upload is still running.
+						// Return the existing resource so the client keeps polling rather
+						// than starting a duplicate concat or misreading the partial offset
+						// as a corrupted state.
+						url := handler.absFileURL(r, existingInfo.ID)
+						resp.Header["Location"] = url
+						c.log = c.log.With("id", existingInfo.ID)
+						c.log.InfoContext(c, "UploadConcatInProgress", "url", url)
+
+						handler.sendResp(c, resp)
+						return
+					}
+
 					if existingInfo.Offset == existingInfo.Size {
 						// Concat already completed successfully. Return existing upload.
 						url := handler.absFileURL(r, existingInfo.ID)
@@ -503,17 +564,25 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if isFinal {
-		concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
-		if err := concatableUpload.ConcatUploads(c, partialUploads); err != nil {
-			handler.sendError(c, err)
-			return
-		}
-		info.Offset = size
+		if handler.config.EnableBackgroundConcatenation {
+			// Assemble the final upload in a background goroutine that outlives the
+			// request, then respond immediately. The client polls with HEAD requests
+			// to observe completion. This prevents the concatenation from being
+			// aborted when a client or proxy times out on a slow, large concat.
+			handler.startBackgroundConcat(c, upload, info, partialUploads, size)
+		} else {
+			concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
+			if err := concatableUpload.ConcatUploads(c, partialUploads); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+			info.Offset = size
 
-		resp, err = handler.emitFinishEvents(c, resp, info)
-		if err != nil {
-			handler.sendError(c, err)
-			return
+			resp, err = handler.emitFinishEvents(c, resp, info)
+			if err != nil {
+				handler.sendError(c, err)
+				return
+			}
 		}
 	}
 
@@ -1102,6 +1171,58 @@ func (handler *UnroutedHandler) emitFinishEvents(c *httpContext, resp HTTPRespon
 	}
 
 	return resp, nil
+}
+
+// startBackgroundConcat begins concatenating the partial uploads into the final
+// upload in a goroutine that is detached from the HTTP request lifetime. This
+// allows the concatenation to complete even if the client connection or an
+// intermediary proxy times out. The caller is expected to respond to the client
+// with 201 Created immediately; the client observes completion by polling the
+// upload with HEAD requests.
+//
+// If a concatenation for the same final upload is already in progress (e.g.
+// because of a retried request), this is a no-op so that the operation is not
+// started twice.
+func (handler *UnroutedHandler) startBackgroundConcat(c *httpContext, upload Upload, info FileInfo, partialUploads []Upload, size int64) {
+	if !handler.concatTracker.begin(info.ID) {
+		c.log.InfoContext(c, "UploadConcatAlreadyInProgress", "id", info.ID)
+		return
+	}
+
+	// Detach from the request context so the concatenation is not cancelled when
+	// the request ends. Values (e.g. for logging) are preserved.
+	detached := handler.newDetachedContext(c)
+
+	go func() {
+		defer handler.concatTracker.done(info.ID)
+
+		detached.log.InfoContext(detached, "UploadConcatBackgroundStart", "size", size)
+
+		concatableUpload := handler.composer.Concater.AsConcatableUpload(upload)
+		if err := concatableUpload.ConcatUploads(detached, partialUploads); err != nil {
+			detached.log.ErrorContext(detached, "UploadConcatBackgroundFailed", "error", err.Error())
+			return
+		}
+		info.Offset = size
+
+		if _, err := handler.emitFinishEvents(detached, HTTPResponse{Header: HTTPHeader{}}, info); err != nil {
+			detached.log.ErrorContext(detached, "UploadConcatBackgroundFinishFailed", "error", err.Error())
+		}
+	}()
+}
+
+// newDetachedContext returns an httpContext whose context is detached from the
+// request lifetime (it is never cancelled when the request ends) but retains the
+// request's values, the request instance, and the logger. The response writer is
+// intentionally omitted because the response has already been sent by the time
+// the detached work runs.
+func (handler *UnroutedHandler) newDetachedContext(c *httpContext) *httpContext {
+	return &httpContext{
+		Context: context.WithoutCancel(c.Context),
+		req:     c.req,
+		log:     c.log,
+		cancel:  func(error) {},
+	}
 }
 
 // GetFile handles requests to download a file using a GET request. This is not

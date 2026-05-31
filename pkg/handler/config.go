@@ -36,6 +36,15 @@ type Config struct {
 	// DisableConcatenation indicates whether the server will refuse POST requests
 	// for creating uploads that use the concatenation extension.
 	DisableConcatenation bool
+	// EnableBackgroundConcatenation indicates whether final (concatenation) uploads
+	// are assembled in a background goroutine that is detached from the HTTP request
+	// lifetime. When enabled, tusd responds with 201 Created as soon as the final
+	// upload resource is created and runs the concatenation asynchronously, so it can
+	// complete even if the client connection or an intermediary proxy times out. The
+	// client observes completion by polling the upload with HEAD requests until the
+	// offset equals the size. When disabled (the default), concatenation runs
+	// synchronously within the request and the response is only sent once it finishes.
+	EnableBackgroundConcatenation bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
