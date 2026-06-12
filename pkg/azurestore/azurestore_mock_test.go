@@ -132,6 +132,20 @@ func (mr *MockAzBlobMockRecorder) GetOffset(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffset", reflect.TypeOf((*MockAzBlob)(nil).GetOffset), arg0)
 }
 
+// StageSentinelBlock mocks base method.
+func (m *MockAzBlob) StageSentinelBlock(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StageSentinelBlock", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StageSentinelBlock indicates an expected call of StageSentinelBlock.
+func (mr *MockAzBlobMockRecorder) StageSentinelBlock(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StageSentinelBlock", reflect.TypeOf((*MockAzBlob)(nil).StageSentinelBlock), arg0)
+}
+
 // Upload mocks base method.
 func (m *MockAzBlob) Upload(arg0 context.Context, arg1 io.ReadSeeker) error {
 	m.ctrl.T.Helper()
