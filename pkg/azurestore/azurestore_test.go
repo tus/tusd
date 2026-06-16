@@ -63,7 +63,7 @@ func TestNewUpload(t *testing.T) {
 		service.EXPECT().NewBlob(ctx, mockID).Return(blockBlob, nil).Times(1),
 		service.EXPECT().NewBlob(ctx, mockID+".info").Return(infoBlob, nil).Times(1),
 		infoBlob.EXPECT().Upload(ctx, r).Return(nil).Times(1),
-		blockBlob.EXPECT().Upload(ctx, gomock.Any()).Return(nil).Times(1),
+		blockBlob.EXPECT().StageSentinelBlock(ctx).Return(nil).Times(1),
 	)
 
 	upload, err := store.NewUpload(context.Background(), mockTusdInfo)
@@ -104,7 +104,7 @@ func TestNewUploadWithPrefix(t *testing.T) {
 		service.EXPECT().NewBlob(ctx, objectPrefix+mockID).Return(blockBlob, nil).Times(1),
 		service.EXPECT().NewBlob(ctx, objectPrefix+mockID+".info").Return(infoBlob, nil).Times(1),
 		infoBlob.EXPECT().Upload(ctx, r).Return(nil).Times(1),
-		blockBlob.EXPECT().Upload(ctx, gomock.Any()).Return(nil).Times(1),
+		blockBlob.EXPECT().StageSentinelBlock(ctx).Return(nil).Times(1),
 	)
 
 	upload, err := store.NewUpload(context.Background(), mockTusdInfo)
