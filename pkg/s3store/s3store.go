@@ -79,6 +79,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -87,7 +88,6 @@ import (
 	"github.com/tus/tusd/v2/internal/semaphore"
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -440,10 +440,7 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 
 	// The size of the incomplete part should not be counted, because the
 	// process of the incomplete part should be fully transparent to the user.
-	bytesUploaded = bytesUploaded - incompletePartSize
-	if bytesUploaded < 0 {
-		bytesUploaded = 0
-	}
+	bytesUploaded = max(bytesUploaded-incompletePartSize, 0)
 
 	upload.info.Offset += bytesUploaded
 
@@ -781,7 +778,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	errs := make([]error, 0, 3)
+	errCh := make(chan error, 4)
 
 	go func() {
 		defer wg.Done()
@@ -793,7 +790,7 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 			UploadId: aws.String(upload.multipartId),
 		})
 		if err != nil && !isAwsError[*types.NoSuchUpload](err) {
-			errs = append(errs, err)
+			errCh <- err
 		}
 	}()
 
@@ -820,24 +817,26 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 		})
 
 		if err != nil {
-			errs = append(errs, err)
+			errCh <- err
 			return
 		}
 
 		for _, s3Err := range res.Errors {
 			if *s3Err.Code != "NoSuchKey" {
-				errs = append(errs, fmt.Errorf("AWS S3 Error (%s) for object %s: %s", *s3Err.Code, *s3Err.Key, *s3Err.Message))
+				errCh <- fmt.Errorf("AWS S3 Error (%s) for object %s: %s", *s3Err.Code, *s3Err.Key, *s3Err.Message)
 			}
 		}
 	}()
 
 	wg.Wait()
 
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	close(errCh)
+	errs := make([]error, 0, 4)
+	for err := range errCh {
+		errs = append(errs, err)
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func (upload s3Upload) FinishUpload(ctx context.Context) error {
@@ -1153,7 +1152,7 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 		Bucket: aws.String(store.Bucket),
 		Key:    store.metadataKeyWithPrefix(uploadId + ".part"),
 	})
-	store.observeRequestDuration(t, metricPutPartObject)
+	store.observeRequestDuration(t, metricDeletePartObject)
 	return err
 }
 

@@ -594,11 +594,10 @@ func TestLockRelease(t *testing.T) {
 		t.Fatalf("invalid offset %d", offset)
 	}
 
-	// The interrupting request is sent after 2s, but with the poll intervals it might
-	// take some more time for the requests to be finished, so the duration should be
-	// 3s +/- 1s.
+	// The interrupting request is sent after 2s. With the filelocker's poll intervals it might
+	// take some more time for the requests to be finished, so the duration can be between 2s and 3s
 	duration := time.Since(start)
-	if !isApprox(duration, 3*time.Second, 0.3) {
+	if !isApprox(duration, 2500*time.Millisecond, 0.8) {
 		t.Fatalf("invalid request duration %v", duration)
 	}
 }
@@ -835,9 +834,20 @@ func TestStopUpload(t *testing.T) {
 	}
 }
 
+// getTusdExtraArgs returns extra tusd flags from TUSD_EXTRA_ARGS (e.g. for S3/Azure backends in CI).
+func getTusdExtraArgs() []string {
+	s := os.Getenv("TUSD_EXTRA_ARGS")
+	if s == "" {
+		return nil
+	}
+	return strings.Fields(s)
+}
+
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
-	args = append([]string{"-port=0"}, args...)
-	cmd = exec.CommandContext(ctx, TUSD_BINARY, args...)
+	base := []string{"-port=0"}
+	base = append(base, getTusdExtraArgs()...)
+	base = append(base, args...)
+	cmd = exec.CommandContext(ctx, TUSD_BINARY, base...)
 	// Note: Leave stderr alone. It is not a good idea to connect the
 	// child's output to the test's output because this can lead to deadlocks.
 	// In Go <1.21, tests can just hang forever. In Go >=1.21, it will fail

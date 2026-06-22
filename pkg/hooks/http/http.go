@@ -7,10 +7,12 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"time"
 
@@ -19,12 +21,13 @@ import (
 )
 
 type HttpHook struct {
-	Endpoint       string
-	MaxRetries     int
-	Backoff        time.Duration
-	ForwardHeaders []string
-	Timeout        time.Duration
-	SizeLimit      int64
+	Endpoint           string
+	MaxRetries         int
+	Backoff            time.Duration
+	ForwardHeaders     []string
+	Timeout            time.Duration
+	SizeLimit          int64
+	InsecureSkipVerify bool
 
 	client *pester.Client
 }
@@ -37,6 +40,25 @@ func (h *HttpHook) Setup() error {
 	client.Backoff = func(_ int) time.Duration {
 		return h.Backoff
 	}
+	// The transport uses the same values as the http.DefaultTransport.
+	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if h.InsecureSkipVerify {
+		t.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	client.Transport = t
 
 	h.client = client
 

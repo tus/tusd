@@ -3,6 +3,7 @@
 set -e
 
 version="$(git tag -l --points-at HEAD)"
+[[ -z "$version" ]] && version="v0.0.0-snapshot-$(git rev-parse --short HEAD)"
 commit=$(git log --format="%H" -n 1)
 
 function compile {

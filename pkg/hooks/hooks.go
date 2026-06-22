@@ -19,10 +19,10 @@ package hooks
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tus/tusd/v2/pkg/handler"
-	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 )
 

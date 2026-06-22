@@ -109,7 +109,7 @@ func NewReaderMatcher(expect string) gomock.Matcher {
 	}
 }
 
-func (m readerMatcher) Matches(x interface{}) bool {
+func (m readerMatcher) Matches(x any) bool {
 	input, ok := x.(io.Reader)
 	if !ok {
 		return false

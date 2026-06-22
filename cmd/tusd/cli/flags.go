@@ -2,13 +2,16 @@ package cli
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tus/tusd/v2/internal/grouped_flags"
+	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/hooks"
-	"golang.org/x/exp/slices"
 )
 
 var Flags struct {
@@ -43,6 +46,7 @@ var Flags struct {
 	S3LogAPICalls                    bool
 	GCSBucket                        string
 	GCSObjectPrefix                  string
+	GCSEndpoint                      string
 	AzStorage                        string
 	AzContainerAccessType            string
 	AzBlobAccessTier                 string
@@ -57,6 +61,7 @@ var Flags struct {
 	HttpHooksBackoff                 time.Duration
 	HttpHooksTimeout                 time.Duration
 	HttpHooksSizeLimit               int64
+	HttpHooksInsecureSkipVerify      bool
 	GrpcHooksEndpoint                string
 	GrpcHooksRetry                   int
 	GrpcHooksBackoff                 time.Duration
@@ -86,11 +91,36 @@ var Flags struct {
 	AcquireLockTimeout               time.Duration
 	FilelockHolderPollInterval       time.Duration
 	FilelockAcquirerPollInterval     time.Duration
+	FilePerms                        uint32
+	DirPerms                         uint32
 	GracefulRequestCompletionTimeout time.Duration
 	ExperimentalProtocol             bool
 }
 
+type ChmodPermsValue struct {
+	perms *uint32
+}
+
+func (v ChmodPermsValue) String() string {
+	if v.perms != nil {
+		return fmt.Sprintf("%o", *v.perms)
+	}
+	return ""
+}
+
+func (v ChmodPermsValue) Set(s string) error {
+	if u, err := strconv.ParseUint(s, 8, 32); err != nil {
+		return err
+	} else {
+		*v.perms = uint32(u)
+	}
+	return nil
+}
+
 func ParseFlags() {
+	Flags.DirPerms = filestore.DefaultDirPerm
+	Flags.FilePerms = filestore.DefaultFilePerm
+
 	fs := grouped_flags.NewFlagGroupSet(flag.ExitOnError)
 
 	fs.AddGroup("Listening options", func(f *flag.FlagSet) {
@@ -130,6 +160,8 @@ func ParseFlags() {
 		f.StringVar(&Flags.UploadDir, "upload-dir", "./data", "Directory to store uploads in")
 		f.DurationVar(&Flags.FilelockHolderPollInterval, "filelock-holder-poll-interval", 5*time.Second, "The holder of a lock polls regularly to see if another request handler needs the lock. This flag specifies the poll interval.")
 		f.DurationVar(&Flags.FilelockAcquirerPollInterval, "filelock-acquirer-poll-interval", 2*time.Second, "The acquirer of a lock polls regularly to see if the lock has been released. This flag specifies the poll interval.")
+		f.Var(&ChmodPermsValue{&Flags.DirPerms}, "dir-perms", "The created directory chmod(2) OCTAL value permissions.")
+		f.Var(&ChmodPermsValue{&Flags.FilePerms}, "file-perms", "The created file chmod(2) OCTAL value permissions.")
 	})
 
 	fs.AddGroup("AWS S3 storage options", func(f *flag.FlagSet) {
@@ -149,6 +181,7 @@ func ParseFlags() {
 	fs.AddGroup("Google Cloud Storage options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.GCSBucket, "gcs-bucket", "", "Use Google Cloud Storage with this bucket as storage backend (requires the GCS_SERVICE_ACCOUNT_FILE environment variable to be set)")
 		f.StringVar(&Flags.GCSObjectPrefix, "gcs-object-prefix", "", "Prefix for GCS object names")
+		f.StringVar(&Flags.GCSEndpoint, "gcs-endpoint", "", "Custom endpoint for GCS")
 	})
 
 	fs.AddGroup("Azure Storage options", func(f *flag.FlagSet) {
@@ -175,6 +208,7 @@ func ParseFlags() {
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
 		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests")
 		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
+		f.BoolVar(&Flags.HttpHooksInsecureSkipVerify, "hooks-http-skip-verify", false, "Skip TLS certificate verification for HTTPS hook requests (tls.Config.InsecureSkipVerify)")
 	})
 
 	fs.AddGroup("gRPC hook options", func(f *flag.FlagSet) {
@@ -218,6 +252,10 @@ func ParseFlags() {
 	}
 
 	SetEnabledHooks()
+
+	if Flags.EnableH2C && Flags.TLSCertFile != "" {
+		stderr.Fatalf("Unencrypted HTTP/2 is not available if TLS is configured. -enable-h2c flag must not be combined with -tls-certificate.")
+	}
 
 	if Flags.FileHooksDir != "" {
 		Flags.FileHooksDir, _ = filepath.Abs(Flags.FileHooksDir)
