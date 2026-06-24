@@ -242,19 +242,45 @@ func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWri
 	}
 	result, err := blockBlob.BlobClient.DownloadStream(ctx, downloadOptions)
 	if err != nil {
+		var azureError *azcore.ResponseError
+		if errors.As(err, &azureError) {
+			if http.StatusNotFound == azureError.StatusCode {
+				// Either upload is incomplete, or the upload content blob has been deleted and it cannot be served.
+				return handler.ErrNotFound
+			}
+
+			// Pass-through 412 and 416 with relevant headers
+			if http.StatusRequestedRangeNotSatisfiable == azureError.StatusCode ||
+				http.StatusPreconditionFailed == azureError.StatusCode {
+				if azureError.RawResponse != nil {
+					for _, header := range []string{"Content-Range", "X-Ms-Error-Code", "X-Ms-Request-Id", "Date"} {
+						if val := azureError.RawResponse.Header.Get(header); val != "" {
+							w.Header().Set(header, val)
+						}
+					}
+				}
+				w.WriteHeader(azureError.StatusCode)
+				return nil
+			}
+		}
 		return err
 	}
 	defer result.Body.Close()
 
-	statusCode := http.StatusOK
-	if result.ContentRange != nil {
-		// Use 206 Partial Content for range requests
-		statusCode = http.StatusPartialContent
-	} else if result.ContentLength != nil && *result.ContentLength == 0 {
-		statusCode = http.StatusNoContent
+	// Azure SDK reports some errors of `DownloadStream` only via ErrorCode and does not expose the response
+	// StatusCode, therefore we need to handle ErrorCode
+	if result.ErrorCode != nil {
+		statusCode := http.StatusInternalServerError
+		code := bloberror.Code(*result.ErrorCode)
+		if code == bloberror.ConditionNotMet {
+			// We could check download options here, but just propagating ConditionNotMet should suffice
+			statusCode = http.StatusNotModified
+		}
+		w.WriteHeader(statusCode)
+		return nil
 	}
 
-	// Add Accept-Ranges,Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in azure response
+	// Add Accept-Ranges, Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in azure response
 	if result.AcceptRanges != nil {
 		w.Header().Set("Accept-Ranges", *result.AcceptRanges)
 	}
@@ -276,6 +302,9 @@ func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWri
 	if result.ContentType != nil {
 		w.Header().Set("Content-Type", *result.ContentType)
 	}
+	if len(result.ContentMD5) > 0 {
+		w.Header().Set("Content-MD5", base64.StdEncoding.EncodeToString(result.ContentMD5))
+	}
 	if result.CacheControl != nil {
 		w.Header().Set("Cache-Control", *result.CacheControl)
 	}
@@ -286,9 +315,19 @@ func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWri
 		w.Header().Set("Last-Modified", result.LastModified.Format(http.TimeFormat))
 	}
 
+	// No errors. We either got a resposne with all, partial or no content (empty blob).
+	// For an empty blob, we'll return 200 OK like azure blob API and golang FileServer.
+	statusCode := http.StatusOK
+	if result.ContentRange != nil {
+		statusCode = http.StatusPartialContent
+	}
 	w.WriteHeader(statusCode)
 
-	_, err = io.Copy(w, result.Body)
+	// Copy body, unless the ContentLength is 0
+	err = nil
+	if result.ContentLength == nil || *result.ContentLength > 0 {
+		_, err = io.Copy(w, result.Body)
+	}
 	return err
 }
 
@@ -434,7 +473,9 @@ func checkForNotFoundError(err error) error {
 
 // parse the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present
 func ParseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error) {
-	input := azblob.DownloadStreamOptions{AccessConditions: &azblob.AccessConditions{}}
+	input := azblob.DownloadStreamOptions{AccessConditions: &azblob.AccessConditions{
+		ModifiedAccessConditions: &blob.ModifiedAccessConditions{},
+	}}
 
 	if val := r.Header.Get("Range"); val != "" {
 		// zero value count indicates from the offset to the resource's end, suffix-length is not required
