@@ -13,7 +13,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - run: |
           echo "GIT_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
@@ -78,7 +78,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       -
         name: Install Go
