@@ -95,6 +95,27 @@ If the metadata contains a `filetype` key, its value is used to set the `Content
 
 When receiving a `PATCH` request, parts of its body will be temporarily stored on disk before they can be transferred to S3. This is necessary to meet the minimum part size for an S3 multipart upload enforced by S3 and to allow the AWS SDK to calculate a checksum. Once the part has been uploaded to S3, the temporary file will be removed immediately. Therefore, please ensure that the server running this storage backend has enough disk space available to hold these temporary files.
 
+### Consistency requirements
+
+Tusd requires **strong read-after-write consistency** from its object store.
+When a chunk smaller than the minimum part size arrives, tusd stores it in a
+temporary object and reads it back on a later request to assemble the final
+object; completing an upload likewise reads back that temporary object to
+promote it into the multipart upload. If the store serves a stale or missing
+read of an object tusd just wrote, uploads can fail or be assembled incorrectly.
+
+AWS S3 provides this for all operations. Most S3-compatible stores do too, but
+if you run one, confirm its consistency guarantees:
+
+- [AWS S3](https://aws.amazon.com/s3/consistency/)
+- [Cloudflare R2](https://developers.cloudflare.com/r2/reference/consistency/)
+- [Ceph RadosGW](https://docs.ceph.com/en/reef/dev/radosgw/bucket_index/)
+
+If you run multiple tusd instances against the same bucket, also configure a
+distributed [lock provider]({{ site.baseurl }}/advanced-topics/locks/) so that requests for a single
+upload are serialized. Tusd's storage layer relies on that serialization and
+does not perform conditional (compare-and-swap) writes of its own.
+
 ## Usage with MinIO
 
 [MinIO](https://min.io/) is an object storage solution that provides an S3-compatible API, making it suitable as a replacement for AWS S3 during development/testing or even in production. To get started, please install the MinIO server according to their documentation. There are different installation methods available (Docker, package managers or direct download), but we will not go further into them. We assume that the `minio` (server) and `mc` (client) commands are installed. First, start MinIO with example credentials:

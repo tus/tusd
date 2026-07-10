@@ -17,6 +17,10 @@
 // the HTTP endpoint used for sending requests to, adjust the `BaseEndpoint`
 // option in the AWS SDK For Go V2 (https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3#Options).
 //
+// S3Store requires strong read-after-write consistency from the backing store;
+// for multi-instance deployments a distributed Locker must serialize requests
+// per upload (the storage layer performs no conditional writes of its own).
+//
 // # Implementation
 //
 // Once a new tus upload is initiated, multiple objects in S3 are created:
@@ -430,6 +434,11 @@ func (upload *s3Upload) WriteChunk(ctx context.Context, offset int64, src io.Rea
 		if err := store.deleteIncompletePartForUpload(ctx, upload.objectId); err != nil {
 			return 0, err
 		}
+		// The ".part" object is gone now. Keep the cached size consistent so a
+		// FinishUpload later in this same request (on this same upload object)
+		// does not act on a stale non-zero incompletePartSize. uploadParts below
+		// re-sets it if it parks a new incomplete part.
+		upload.incompletePartSize = 0
 
 		// Prepend an incomplete part, if necessary and adapt the offset
 		src = io.MultiReader(incompletePartFile, src)
@@ -815,7 +824,6 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 				Quiet: aws.Bool(true),
 			},
 		})
-
 		if err != nil {
 			errCh <- err
 			return
@@ -842,10 +850,77 @@ func (upload s3Upload) Terminate(ctx context.Context) error {
 func (upload s3Upload) FinishUpload(ctx context.Context) error {
 	store := upload.store
 
-	// Get uploaded parts
-	_, parts, _, err := upload.getInternalInfo(ctx)
+	// Get uploaded parts and whether an incomplete part is lingering.
+	info, parts, incompletePartSize, err := upload.getInternalInfo(ctx)
 	if err != nil {
 		return err
+	}
+
+	// A sub-MinPartSize tail can be parked in a ".part" object instead of a real
+	// multipart part (e.g. a deferred-length upload whose final chunk was written
+	// while the length was still deferred). Completing without it would silently
+	// drop its bytes, so when such an incomplete part lingers, use the now-known
+	// declared size to decide what to do with it. When there is no incomplete part
+	// (the common case, and the concatenation path, which builds parts without
+	// real sizes), complete with the multipart parts as-is.
+	if incompletePartSize > 0 {
+		var partsSize int64
+		for _, part := range parts {
+			partsSize += part.size
+		}
+
+		switch {
+		case partsSize == info.Size:
+			// The declared size is already covered by the multipart parts, so the
+			// leftover incomplete part is stale (e.g. a completion that was retried
+			// after the part was promoted but before the ".part" object was deleted).
+			// Remove it, but do not promote it again.
+			if err := store.deleteIncompletePartForUpload(ctx, upload.objectId); err != nil {
+				return err
+			}
+		case partsSize+incompletePartSize == info.Size:
+			// Promote the parked tail into a real final part before completing.
+			incompletePartFile, err := store.downloadIncompletePartForUpload(ctx, upload.objectId)
+			if err != nil {
+				return err
+			}
+			if incompletePartFile == nil {
+				return fmt.Errorf("s3store: expected an incomplete part file for upload %s but did not get any", upload.objectId)
+			}
+			defer cleanUpTempFile(incompletePartFile)
+
+			// Number the promoted part after the last real part. Using the last
+			// part's number (rather than len(parts)) keeps this robust to any gaps
+			// in what ListParts returned.
+			partNumber := int32(1)
+			if len(parts) > 0 {
+				partNumber = parts[len(parts)-1].number + 1
+			}
+
+			t := time.Now()
+			etag, err := upload.putPartForUpload(ctx, &s3.UploadPartInput{
+				Bucket:     aws.String(store.Bucket),
+				Key:        store.keyWithPrefix(upload.objectId),
+				UploadId:   aws.String(upload.multipartId),
+				PartNumber: aws.Int32(partNumber),
+			}, incompletePartFile, incompletePartSize)
+			store.observeRequestDuration(t, metricUploadPart)
+			if err != nil {
+				return err
+			}
+
+			parts = append(parts, &s3Part{
+				etag:   etag,
+				number: partNumber,
+				size:   incompletePartSize,
+			})
+
+			if err := store.deleteIncompletePartForUpload(ctx, upload.objectId); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("s3store: cannot finish upload %s: multipart parts (%d bytes) plus incomplete part (%d bytes) do not match the declared size (%d bytes)", upload.objectId, partsSize, incompletePartSize, info.Size)
+		}
 	}
 
 	if len(parts) == 0 {
