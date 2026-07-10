@@ -112,7 +112,7 @@ if you run one, confirm its consistency guarantees:
 - [Ceph RadosGW](https://docs.ceph.com/en/reef/dev/radosgw/bucket_index/)
 
 If you run multiple tusd instances against the same bucket, also configure a
-distributed [locker](https://github.com/tus/tusd) so that requests for a single
+distributed [lock provider]({{ site.baseurl }}/advanced-topics/locks/) so that requests for a single
 upload are serialized. Tusd's storage layer relies on that serialization and
 does not perform conditional (compare-and-swap) writes of its own.
 
