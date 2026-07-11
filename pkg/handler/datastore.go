@@ -193,6 +193,23 @@ type Lock interface {
 	Unlock() error
 }
 
+// IdempotencyKeyStore is the interface for persisting mappings from client-provided
+// Idempotency-Key header values to upload IDs. This allows the handler to detect
+// retried upload creation requests and return the existing upload instead of
+// creating a duplicate. Implementations may store mappings in memory, on disk,
+// or in an external service.
+//
+// See https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-07.html
+type IdempotencyKeyStore interface {
+	// FindUploadID returns the upload ID previously associated with the given
+	// idempotency key. If no mapping exists, ErrNotFound must be returned.
+	FindUploadID(ctx context.Context, key string) (string, error)
+
+	// StoreUploadID persists a mapping from the given idempotency key to the
+	// given upload ID.
+	StoreUploadID(ctx context.Context, key string, uploadID string) error
+}
+
 type ServableUpload interface {
 	// ServeContent serves the uploaded data as specified by the GET request.
 	// It allows data stores to delegate the handling of range requests and conditional

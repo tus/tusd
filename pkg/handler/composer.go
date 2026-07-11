@@ -14,8 +14,10 @@ type StoreComposer struct {
 	Concater           ConcaterDataStore
 	UsesLengthDeferrer bool
 	LengthDeferrer     LengthDeferrerDataStore
-	ContentServer      ContentServerDataStore
-	UsesContentServer  bool
+	ContentServer              ContentServerDataStore
+	UsesContentServer          bool
+	UsesIdempotencyKeyStore    bool
+	IdempotencyKeyStore        IdempotencyKeyStore
 }
 
 // NewStoreComposer creates a new and empty store composer.
@@ -58,6 +60,12 @@ func (store *StoreComposer) Capabilities() string {
 	} else {
 		str += "✗"
 	}
+	str += ` IdempotencyKeyStore: `
+	if store.UsesIdempotencyKeyStore {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
 
 	return str
 }
@@ -91,4 +99,9 @@ func (store *StoreComposer) UseLengthDeferrer(ext LengthDeferrerDataStore) {
 func (store *StoreComposer) UseContentServer(ext ContentServerDataStore) {
 	store.UsesContentServer = ext != nil
 	store.ContentServer = ext
+}
+
+func (store *StoreComposer) UseIdempotencyKeyStore(ext IdempotencyKeyStore) {
+	store.UsesIdempotencyKeyStore = ext != nil
+	store.IdempotencyKeyStore = ext
 }
