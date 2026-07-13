@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +73,7 @@ var (
 	// when the upload got interrupted. Most clients will not retry 4XX but only 5XX, so we responsd with 500 here.
 	ErrReadTimeout     = NewError("ERR_READ_TIMEOUT", "timeout while reading request body", http.StatusInternalServerError)
 	ErrConnectionReset = NewError("ERR_CONNECTION_RESET", "TCP connection reset by peer", http.StatusInternalServerError)
+	ErrConcatCorrupted = NewError("ERR_CONCAT_CORRUPTED", "previous concatenation attempt was partially completed and left the upload in an inconsistent state", http.StatusInternalServerError)
 )
 
 // UnroutedHandler exposes methods to handle requests as part of the tus protocol,
@@ -390,16 +394,80 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	upload, err := handler.composer.Core.NewUpload(c, info)
-	if err != nil {
-		handler.sendError(c, err)
-		return
+	// For final uploads (concatenation), derive a deterministic upload ID from
+	// the partial upload IDs. This makes the concat operation idempotent: if the
+	// request is interrupted (e.g. by a WAF timeout) and retried, the same final
+	// upload ID will be used, allowing us to detect and resume from the previous
+	// attempt rather than creating a duplicate.
+	if isFinal && info.ID == "" {
+		info.ID = concatDeterministicID(partialUploadIDs)
 	}
 
-	info, err = upload.GetInfo(c)
-	if err != nil {
-		handler.sendError(c, err)
-		return
+	// For final uploads with a known ID, check if a previous concat attempt
+	// already created this upload. If so, we can skip creation and resume from
+	// wherever the previous attempt left off.
+	var upload Upload
+	existingFound := false
+	if isFinal {
+		existingUpload, getErr := handler.composer.Core.GetUpload(c, info.ID)
+		if getErr == nil {
+			existingInfo, infoErr := existingUpload.GetInfo(c)
+			if infoErr != nil {
+				handler.sendError(c, infoErr)
+				return
+			}
+
+			// Verify this is actually the same concat operation (same partials in same order)
+			if existingInfo.IsFinal && slices.Equal(existingInfo.PartialUploads, partialUploadIDs) {
+				if existingInfo.Offset == existingInfo.Size {
+					// Concatenation already completed. Return the existing upload.
+					id := existingInfo.ID
+					url := handler.absFileURL(r, id)
+					resp.Header["Location"] = url
+
+					c.log = c.log.With("id", id)
+					c.log.InfoContext(c, "UploadConcatAlreadyComplete", "size", existingInfo.Size, "url", url)
+
+					resp, err = handler.emitFinishEvents(c, resp, existingInfo)
+					if err != nil {
+						handler.sendError(c, err)
+						return
+					}
+
+					handler.sendResp(c, resp)
+					return
+				} else if existingInfo.Offset == 0 {
+					// Upload was created but concat never completed. Retry it.
+					upload = existingUpload
+					info = existingInfo
+					existingFound = true
+				} else {
+					// Partial concat (0 < offset < size): inconsistent state.
+					handler.sendError(c, ErrConcatCorrupted)
+					return
+				}
+			}
+			// If IsFinal is false or partials don't match, fall through to NewUpload
+			// which will fail with a storage-level conflict for the duplicate ID.
+		} else if !errors.Is(getErr, ErrNotFound) {
+			handler.sendError(c, getErr)
+			return
+		}
+		// ErrNotFound: no previous attempt exists, proceed to create.
+	}
+
+	if !existingFound {
+		upload, err = handler.composer.Core.NewUpload(c, info)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+
+		info, err = upload.GetInfo(c)
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
 	}
 
 	id := info.ID
@@ -409,12 +477,17 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	url := handler.absFileURL(r, id)
 	resp.Header["Location"] = url
 
-	handler.Metrics.incUploadsCreated()
-	c.log = c.log.With("id", id)
-	c.log.InfoContext(c, "UploadCreated", "size", size, "url", url)
+	if !existingFound {
+		handler.Metrics.incUploadsCreated()
+		c.log = c.log.With("id", id)
+		c.log.InfoContext(c, "UploadCreated", "size", size, "url", url)
 
-	if handler.config.NotifyCreatedUploads {
-		handler.CreatedUploads <- newHookEvent(c, info)
+		if handler.config.NotifyCreatedUploads {
+			handler.CreatedUploads <- newHookEvent(c, info)
+		}
+	} else {
+		c.log = c.log.With("id", id)
+		c.log.InfoContext(c, "UploadConcatRetrying", "size", size, "url", url)
 	}
 
 	if isFinal {
@@ -1708,6 +1781,20 @@ func getRequestId(r *http.Request) string {
 	}
 
 	return reqId
+}
+
+// concatDeterministicID derives a deterministic upload ID from the ordered list of
+// partial upload IDs. This ensures that retried concat requests for the same set of
+// partials (in the same order) produce the same final upload ID, enabling idempotency.
+func concatDeterministicID(partialUploadIDs []string) string {
+	h := sha256.New()
+	for i, id := range partialUploadIDs {
+		if i > 0 {
+			h.Write([]byte("\n"))
+		}
+		h.Write([]byte(id))
+	}
+	return "concat-" + hex.EncodeToString(h.Sum(nil))[:32]
 }
 
 // validateUploadId checks whether an ID included in a FileInfoChanges struct is allowed.
