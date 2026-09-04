@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.8-alpine AS builder
 WORKDIR /go/src/github.com/tus/tusd
 
 # Add gcc and libc-dev early so it is cached
@@ -35,7 +35,8 @@ WORKDIR /srv/tusd-data
 COPY ./docker/entrypoint.sh /usr/local/share/docker-entrypoint.sh
 COPY ./docker/load-env.sh /usr/local/share/load-env.sh
 
-RUN apk add --no-cache ca-certificates jq bash \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates jq bash \
     && addgroup -g 1000 tusd \
     && adduser -u 1000 -G tusd -s /bin/sh -D tusd \
     && mkdir -p /srv/tusd-hooks \
