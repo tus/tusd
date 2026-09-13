@@ -35,20 +35,23 @@ jobs:
           go build -o $TUSD_BINARY ./cmd/tusd/main.go
 
       # --- S3 (MinIO) ---
+      # MinIO no longer publishes community Docker images; install from source instead.
       -
         name: Start MinIO
         if: matrix.backend == 's3'
         run: |
-          docker run -d -p 9000:9000 \
-            -e MINIO_ROOT_USER=minioadmin \
-            -e MINIO_ROOT_PASSWORD=minioadmin \
-            --name minio \
-            minio/minio server /data
+          go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+          mkdir -p "$RUNNER_TEMP/minio-data"
+          MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin \
+            minio server "$RUNNER_TEMP/minio-data" >"$RUNNER_TEMP/minio.log" 2>&1 &
           for i in $(seq 1 30); do
             if curl -s http://localhost:9000/minio/health/live > /dev/null 2>&1; then
               break
             fi
-            if [ "$i" -eq 30 ]; then exit 1; fi
+            if [ "$i" -eq 30 ]; then
+              cat "$RUNNER_TEMP/minio.log" || true
+              exit 1
+            fi
             sleep 1
           done
 
@@ -62,7 +65,6 @@ jobs:
             -e AWS_DEFAULT_REGION=us-east-1 \
             --add-host=host.docker.internal:host-gateway \
             amazon/aws-cli s3 mb s3://e2e --endpoint-url http://host.docker.internal:9000
-
       -
         name: Set S3 env
         if: matrix.backend == 's3'
