@@ -33,6 +33,9 @@ type Config struct {
 	// DisableTermination indicates whether the server will refuse termination
 	// requests of the uploaded file, by not mounting the DELETE handler.
 	DisableTermination bool
+	// DisableConcatenation indicates whether the server will refuse POST requests
+	// for creating uploads that use the concatenation extension.
+	DisableConcatenation bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
@@ -75,6 +78,13 @@ type Config struct {
 	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
 	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
 	PreFinishResponseCallback func(hook HookEvent) (HTTPResponse, error)
+	// PreUploadTerminateCallback will be invoked on DELETE requests before an upload is terminated,
+	// giving the application the opportunity to reject the termination. For example, to ensure resources
+	// used by other services are not deleted.
+	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.
+	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
+	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
+	PreUploadTerminateCallback func(hook HookEvent) (HTTPResponse, error)
 	// GracefulRequestCompletionTimeout is the timeout for operations to complete after an HTTP
 	// request has ended (successfully or by error). For example, if an HTTP request is interrupted,
 	// instead of stopping immediately, the handler and data store will be given some additional

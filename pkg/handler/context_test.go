@@ -20,7 +20,7 @@ type contextValueMatcher struct {
 	expectedValue any
 }
 
-func (m contextValueMatcher) Matches(a interface{}) bool {
+func (m contextValueMatcher) Matches(a any) bool {
 	ctx, ok := a.(context.Context)
 	if !ok {
 		return false
@@ -41,7 +41,7 @@ type contextCancelMatcher struct {
 	maxDelay time.Duration
 }
 
-func (m contextCancelMatcher) Matches(a interface{}) bool {
+func (m contextCancelMatcher) Matches(a any) bool {
 	ctx, ok := a.(context.Context)
 	if !ok {
 		return false

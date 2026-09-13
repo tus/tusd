@@ -10,11 +10,61 @@ Tusd can store files directly on Azure Blob Storage or other compatible services
 
 ## Configuration
 
-To enable this backend, you must supply the corresponding access credentials using environment variables and specify the container name using `-azure-storage`, for example:
+To enable this backend, you must supply the account name in the `AZURE_STORAGE_ACCOUNT` environment variable and specify the container name using the `-azure-storage` argument. The account can be authenticated either using a storage account key specified in the `AZURE_STORAGE_KEY` environment variable or using Entra ID. Please consult the [Authentication](#authentication) section for more details.
 
 ```bash
 $ export AZURE_STORAGE_ACCOUNT=xxxxx
-$ export AZURE_STORAGE_KEY=xxxxx
+$ export AZURE_STORAGE_KEY=xxxxx # for key-based authentication
+$ tusd -azure-storage=my-test-container
+[tusd] 2024/02/23 11:34:03.411021 Using Azure endpoint https://xxxxx.blob.core.windows.net.
+...
+```
+
+### Authentication
+
+Tusd can authenticate Azure storage accounts using either the account key or Entra ID tokens.
+
+#### Storage Account Key
+
+Storage account key can be used to authenticate with a storage account. This will give the tusd process full access to all containers in the storage account. To use storage account key based authentication, the `AZURE_STORAGE_KEY` environment variable must be set to the account key:
+
+```bash
+$ export AZURE_STORAGE_ACCOUNT=xxxxx
+$ export AZURE_STORAGE_KEY=xxxxx # mandatory for key-based authentication
+$ tusd -azure-storage=my-test-container
+[tusd] 2024/02/23 11:34:03.411021 Using Azure endpoint https://xxxxx.blob.core.windows.net.
+...
+```
+
+#### Entra ID
+
+Entra ID based authentication allows fine-grained access control and is recommended due to better security. To use Entra ID based authentication, the `AZURE_STORAGE_KEY` environment variable must be empty or unset. The [DefaultAzureCredential chain](https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/credential-chains#defaultazurecredential-overview) is used to retrieve the token. Other credential providers are currentlynot supported.
+
+The `DefaultAzureCredential` chain works as follows:
+
+| Order | Credential                      | Description                                                                                                                                                                                                                                                                                                                                    |
+|-------|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1     | [Environment][env-cred]         | Reads a collection of [environment variables][env-vars] to determine if an application service principal (application user) is configured for the app. If so, `DefaultAzureCredential` uses these values to authenticate the app to Azure. This method is most often used in server environments but can also be used when developing locally. |
+| 2     | [Workload Identity][wi-cred]    | If the app is deployed to an Azure host with Workload Identity enabled, authenticate that account.                                                                                                                                                                                                                                             |
+| 3     | [Managed Identity][mi-cred]     | If the app is deployed to an Azure host with Managed Identity enabled, authenticate the app to Azure using that Managed Identity.                                                                                                                                                                                                              |
+| 4     | [Azure CLI][az-cred]            | If the developer authenticated to Azure using Azure CLI's `az login` command, authenticate the app to Azure using that same account.                                                                                                                                                                                                           |
+| 5     | [Azure Developer CLI][azd-cred] | If the developer authenticated to Azure using Azure Developer CLI's `azd auth login` command, authenticate with that account.                                                                                                                                                                                                                  |
+
+[env-cred]: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#EnvironmentCredential
+[wi-cred]: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#WorkloadIdentityCredential
+[mi-cred]: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#ManagedIdentityCredential
+[az-cred]: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#AzureCLICredential
+[azd-cred]: https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#AzureDeveloperCLICredential
+
+For further details please refer to [azure-sdk-for-go azidentity](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/azidentity/README.md)
+
+Example using Azure CLI:
+
+```bash
+$ az login # login to your azure account and tenant
+
+$ export AZURE_STORAGE_ACCOUNT=xxxxx
+$ export AZURE_STORAGE_KEY="" # no key for Entra ID authentication
 $ tusd -azure-storage=my-test-container
 [tusd] 2024/02/23 11:34:03.411021 Using Azure endpoint https://xxxxx.blob.core.windows.net.
 ...
@@ -58,3 +108,27 @@ By default, the objects are stored at the root of the container. For example the
 
 - `abcdef123.info`: Informational object
 - `abcdef123`: File object
+
+## Testing with Azurite
+
+With [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage), a local Azure Blob Storage service can be emulated for testing tusd without using the Azure services in the cloud. To get started, please install Azurite ([installation instructions](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage#install-azurite)) and the Azure CLI ([installation instructions](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)). Next, start the local Azurite application:
+
+```sh
+$ azurite --location ./azurite-data
+```
+
+Azurite provides Blob Storage at `http://127.0.0.1:10000` by default and saves the associated data in `./azurite-data`. For testing, you can use the [well-known storage account](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite?tabs=npm%2Cblob-storage#well-known-storage-account-and-key) `devstoreaccount1` and its key.
+
+Next, create a container called `mycontainer` using the Azure CLI:
+
+```sh
+$ az storage container create --name mycontainer --connection-string "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+```
+
+Azurite is now set up, and we can start tusd:
+
+```sh
+$ AZURE_STORAGE_ACCOUNT=devstoreaccount1 AZURE_STORAGE_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw== ./tusd -azure-storage=mycontainer -azure-endpoint=http://127.0.0.1:10000
+```
+
+Tusd is then usable at `http://localhost:8080/files/` and saves the uploads to the local Azurite instance.

@@ -148,6 +148,14 @@ func TestConcat(t *testing.T) {
 				BasePath:              "files",
 				StoreComposer:         composer,
 				NotifyCompleteUploads: true,
+				PreFinishResponseCallback: func(hook HookEvent) (HTTPResponse, error) {
+					a.Equal("foo", hook.Upload.ID)
+					return HTTPResponse{
+						Header: HTTPHeader{
+							"X-Custom-Resp-Header": "hello",
+						},
+					}, nil
+				},
 			})
 
 			c := make(chan HookEvent, 1)
@@ -160,10 +168,13 @@ func TestConcat(t *testing.T) {
 					// A space between `final;` and the first URL should be allowed due to
 					// compatibility reasons, even if the specification does not define
 					// it. Therefore this character is included in this test case.
-					"Upload-Concat":   "final; http://tus.io/files/a /files/b/",
-					"X-Custom-Header": "tada",
+					"Upload-Concat":       "final; http://tus.io/files/a /files/b/",
+					"X-Custom-Req-Header": "tada",
 				},
 				Code: http.StatusCreated,
+				ResHeader: map[string]string{
+					"X-Custom-Resp-Header": "hello",
+				},
 			}).Run(handler, t)
 
 			event := <-c
@@ -178,7 +189,7 @@ func TestConcat(t *testing.T) {
 			req := event.HTTPRequest
 			a.Equal("POST", req.Method)
 			a.Equal("", req.URI)
-			a.Equal("tada", req.Header.Get("X-Custom-Header"))
+			a.Equal("tada", req.Header.Get("X-Custom-Req-Header"))
 		})
 
 		SubTest(t, "Status", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
@@ -381,5 +392,23 @@ func TestConcat(t *testing.T) {
 				Code: http.StatusCreated,
 			}).Run(handler, t)
 		})
+	})
+
+	SubTest(t, "DisableConcatenation", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			BasePath:             "files",
+			StoreComposer:        composer,
+			DisableConcatenation: true,
+		})
+
+		(&httpTest{
+			Method: "POST",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Upload-Concat": "final; http://tus.io/files/aaa/123 /files/bbb/123",
+			},
+			Code:    http.StatusBadRequest,
+			ResBody: "ERR_CONCATENATION_UNSUPPORTED: Upload-Concat header is not supported by server\n",
+		}).Run(handler, t)
 	})
 }

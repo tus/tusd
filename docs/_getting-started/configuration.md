@@ -22,7 +22,7 @@ By default, tusd listens on port 8080 and all available interfaces. This can be 
 $ tusd -host 127.0.0.1 -port 1337
 ```
 
-Once running, tusd accepts HTTP/1.1 requests on the configured port. If [HTTPS/TLS](#httpstls) is configured, tusd will also accept HTTP/2 connection, thanks to [Go's transparent support](https://pkg.go.dev/net/http#hdr-HTTP_2). HTTP/3 and QUIC is currently not supported without the use of an external proxy.
+Once running, tusd accepts HTTP requests on the configured port.
 
 ### UNIX socket
 
@@ -126,6 +126,20 @@ Alternatively, you can completely disable any CORS-related logic in tusd and han
 $ tusd -disable-cors
 ```
 
+## HTTP/2
+
+By default, tusd accepts (unencrypted) HTTP/1.1 requests on the configured port. Unencrypted HTTP/2 via “HTTP/2 with Prior Knowledge” ([RFC 9113, section 3.3](https://www.rfc-editor.org/rfc/rfc9113.html#name-starting-http-2-with-prior-)) can additionally be enabled using `-enable-h2c`.
+
+If [HTTPS/TLS](#httpstls) is configured, tusd accepts encrypted HTTP/1.1 and HTTP/2 requests on the configured port. Unencrypted traffic is then not accepted anymore.
+
+The following table shows which connection modes are supported for different configurations:
+
+| Configuration | Unencrypted HTTP/1.1 | Encrypted HTTP/1.1 | Encrypted HTTP/2 | Unencrypted HTTP/2 (h2c) |
+|---------------|:---:|:---:|:---:|:---:|
+| Default | yes | no | no | no |
+| `-enable-h2c` only | yes | no | no | yes |
+| `-tls-certificate` | no | yes | yes | no |
+
 ## HTTPS/TLS
 
 If you want tusd to be accessible via HTTPS, there are two options:
@@ -142,7 +156,7 @@ The following example generates a self-signed certificate for `localhost` and th
 
 ```bash
 # Generate self-signed certificate
-$ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost"
+$ openssl req -x509 -new -newkey rsa:4096 -nodes -sha256 -days 3650 -keyout localhost.key -out localhost.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 Generating a 4096 bit RSA private key
 ........................++
 ..........................................++

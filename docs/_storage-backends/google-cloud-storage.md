@@ -6,11 +6,21 @@ nav_order: 5
 
 # Google Cloud Storage
 
-Tusd can store files directly on Google Cloud Storage. The uploaded file is directly transferred to S3 while the user is performing the upload without storing the entire file on disk first.
+Tusd can store files directly on Google Cloud Storage. The uploaded file is directly transferred to Storage Bucket while the user is performing the upload without storing the entire file on disk first.
 
 ## Configuration
 
-To enable this backend, you must supply the path to the corresponding account file using environment variables and specify the bucket name using `-gcs-bucket`, for example:
+To enable this backend, you must specify the bucket name using `-gcs-bucket`, for example:
+
+```bash
+$ tusd -gcs-bucket=my-test-bucket.com
+[tusd] Using 'gcs://my-test-bucket.com' as GCS bucket for storage.
+...
+```
+
+By default, [Application Default Credentials discovery mechanism](https://cloud.google.com/docs/authentication/external/set-up-adc) will be attempted.
+
+If `GCS_SERVICE_ACCOUNT_FILE` environment variable is provided, that account will be used instead:
 
 ```bash
 $ export GCS_SERVICE_ACCOUNT_FILE=./account.json

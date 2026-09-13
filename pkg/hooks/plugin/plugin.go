@@ -93,8 +93,8 @@ var pluginMap = map[string]plugin.Plugin{
 type HookHandlerRPC struct{ client *rpc.Client }
 
 func (g *HookHandlerRPC) Setup() error {
-	var res interface{}
-	err := g.client.Call("Plugin.Setup", new(interface{}), &res)
+	var res any
+	err := g.client.Call("Plugin.Setup", new(any), &res)
 	return err
 }
 
@@ -115,7 +115,7 @@ type HookHandlerRPCServer struct {
 	Impl hooks.HookHandler
 }
 
-func (s *HookHandlerRPCServer) Setup(args interface{}, resp *interface{}) error {
+func (s *HookHandlerRPCServer) Setup(args any, resp *any) error {
 	return s.Impl.Setup()
 }
 
@@ -139,10 +139,10 @@ type HookHandlerPlugin struct {
 	Impl hooks.HookHandler
 }
 
-func (p *HookHandlerPlugin) Server(*plugin.MuxBroker) (interface{}, error) {
+func (p *HookHandlerPlugin) Server(*plugin.MuxBroker) (any, error) {
 	return &HookHandlerRPCServer{Impl: p.Impl}, nil
 }
 
-func (HookHandlerPlugin) Client(b *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
+func (HookHandlerPlugin) Client(b *plugin.MuxBroker, c *rpc.Client) (any, error) {
 	return &HookHandlerRPC{client: c}, nil
 }

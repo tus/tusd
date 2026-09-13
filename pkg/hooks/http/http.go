@@ -6,9 +6,13 @@ package http
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"net"
 	"net/http"
 	"time"
 
@@ -17,10 +21,13 @@ import (
 )
 
 type HttpHook struct {
-	Endpoint       string
-	MaxRetries     int
-	Backoff        time.Duration
-	ForwardHeaders []string
+	Endpoint           string
+	MaxRetries         int
+	Backoff            time.Duration
+	ForwardHeaders     []string
+	Timeout            time.Duration
+	SizeLimit          int64
+	InsecureSkipVerify bool
 
 	client *pester.Client
 }
@@ -33,6 +40,25 @@ func (h *HttpHook) Setup() error {
 	client.Backoff = func(_ int) time.Duration {
 		return h.Backoff
 	}
+	// The transport uses the same values as the http.DefaultTransport.
+	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if h.InsecureSkipVerify {
+		t.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	client.Transport = t
 
 	h.client = client
 
@@ -45,7 +71,15 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 		return hookRes, err
 	}
 
-	httpReq, err := http.NewRequest("POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
+	ctx := hookReq.Event.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
 	if err != nil {
 		return hookRes, err
 	}
@@ -66,7 +100,7 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	}
 	defer httpRes.Body.Close()
 
-	httpBody, err := io.ReadAll(httpRes.Body)
+	httpBody, err := io.ReadAll(io.LimitReader(httpRes.Body, h.SizeLimit+1))
 	if err != nil {
 		return hookRes, err
 	}
@@ -74,6 +108,23 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 	// Report an error, if the response has a non-2XX status code
 	if httpRes.StatusCode < http.StatusOK || httpRes.StatusCode >= http.StatusMultipleChoices {
 		return hookRes, fmt.Errorf("unexpected response code from hook endpoint (%d): %s", httpRes.StatusCode, string(httpBody))
+	}
+
+	if int64(len(httpBody)) > h.SizeLimit {
+		return hookRes, fmt.Errorf("hook response exceeded maximum size of %d bytes", h.SizeLimit)
+	}
+
+	contentType := httpRes.Header.Get("Content-Type")
+	if contentType == "" {
+		return hookRes, fmt.Errorf("hook response does not contain the 'Content-Type: application/json' header")
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return hookRes, fmt.Errorf("failed to parse Content-Type header: %w", err)
+	}
+	if mediaType != "application/json" {
+		return hookRes, fmt.Errorf("expected hook response Content-Type to be application/json, but got '%s'", contentType)
 	}
 
 	if err = json.Unmarshal(httpBody, &hookRes); err != nil {

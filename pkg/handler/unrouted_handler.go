@@ -28,12 +28,12 @@ const (
 	interopVersion3 draftVersion = "3" // From draft version -01
 	interopVersion4 draftVersion = "4" // From draft version -02
 	interopVersion5 draftVersion = "5" // From draft version -03
+	interopVersion6 draftVersion = "6" // From draft version -04 and -05
 )
 
 var (
 	reForwardedHost  = regexp.MustCompile(`host="?([^;"]+)`)
 	reForwardedProto = regexp.MustCompile(`proto=(https?)`)
-	reMimeType       = regexp.MustCompile(`^[a-z]+\/[a-z0-9\-\+\.]+$`)
 	// We only allow certain URL-safe characters in upload IDs. URL-safe in this means
 	// that their are allowed in a URI's path component according to RFC 3986.
 	// See https://datatracker.ietf.org/doc/html/rfc3986#section-3.3
@@ -54,11 +54,13 @@ var (
 	ErrNotImplemented                   = NewError("ERR_NOT_IMPLEMENTED", "feature not implemented", http.StatusNotImplemented)
 	ErrUploadNotFinished                = NewError("ERR_UPLOAD_NOT_FINISHED", "one of the partial uploads is not finished", http.StatusBadRequest)
 	ErrInvalidConcat                    = NewError("ERR_INVALID_CONCAT", "invalid Upload-Concat header", http.StatusBadRequest)
+	ErrConcatenationUnsupported         = NewError("ERR_CONCATENATION_UNSUPPORTED", "Upload-Concat header is not supported by server", http.StatusBadRequest)
 	ErrModifyFinal                      = NewError("ERR_MODIFY_FINAL", "modifying a final upload is not allowed", http.StatusForbidden)
 	ErrUploadLengthAndUploadDeferLength = NewError("ERR_AMBIGUOUS_UPLOAD_LENGTH", "provided both Upload-Length and Upload-Defer-Length", http.StatusBadRequest)
 	ErrInvalidUploadDeferLength         = NewError("ERR_INVALID_UPLOAD_LENGTH_DEFER", "invalid Upload-Defer-Length header", http.StatusBadRequest)
 	ErrUploadStoppedByServer            = NewError("ERR_UPLOAD_STOPPED", "upload has been stopped by server", http.StatusBadRequest)
 	ErrUploadRejectedByServer           = NewError("ERR_UPLOAD_REJECTED", "upload creation has been rejected by server", http.StatusBadRequest)
+	ErrUploadTerminationRejected        = NewError("ERR_UPLOAD_TERMINATION_REJECTED", "upload termination has been rejected by server", http.StatusBadRequest)
 	ErrUploadInterrupted                = NewError("ERR_UPLOAD_INTERRUPTED", "upload has been interrupted by another request for this upload resource", http.StatusBadRequest)
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
@@ -124,10 +126,10 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 
 	// Only promote extesions using the Tus-Extension header which are implemented
 	extensions := "creation,creation-with-upload"
-	if config.StoreComposer.UsesTerminater {
+	if config.StoreComposer.UsesTerminater && !config.DisableTermination {
 		extensions += ",termination"
 	}
-	if config.StoreComposer.UsesConcater {
+	if config.StoreComposer.UsesConcater && !config.DisableConcatenation {
 		extensions += ",concatenation"
 	}
 	if config.StoreComposer.UsesLengthDeferrer {
@@ -176,10 +178,10 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// We also update the write deadline, but makes sure that it is larger than the read deadline, so we
 		// can still write a response in the case of a read timeout.
 		if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
-			c.log.Warn("NetworkControlError", "error", err)
+			c.log.WarnContext(c, "NetworkControlError", "error", err)
 		}
 		if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
-			c.log.Warn("NetworkControlError", "error", err)
+			c.log.WarnContext(c, "NetworkControlError", "error", err)
 		}
 
 		// Allow overriding the HTTP method. The reason for this is
@@ -189,7 +191,7 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 			r.Method = newMethod
 		}
 
-		c.log.Info("RequestIncoming")
+		c.log.InfoContext(c, "RequestIncoming")
 
 		handler.Metrics.incRequestsTotal(r.Method)
 
@@ -235,8 +237,16 @@ func (handler *UnroutedHandler) Middleware(h http.Handler) http.Handler {
 		// Set appropriated headers in case of OPTIONS method allowing protocol
 		// discovery and end with an 204 No Content
 		if r.Method == "OPTIONS" {
+			ietfDraftLimits := "min-size=0"
+
 			if handler.config.MaxSize > 0 {
-				header.Set("Tus-Max-Size", strconv.FormatInt(handler.config.MaxSize, 10))
+				maxSizeStr := strconv.FormatInt(handler.config.MaxSize, 10)
+				header.Set("Tus-Max-Size", maxSizeStr)
+				ietfDraftLimits += ",max-size=" + maxSizeStr
+			}
+
+			if handler.usesIETFDraft(r) {
+				header.Set("Upload-Limit", ietfDraftLimits)
 			}
 
 			header.Set("Tus-Version", "1.0.0")
@@ -288,6 +298,11 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	var concatHeader string
 	if handler.composer.UsesConcater {
 		concatHeader = r.Header.Get("Upload-Concat")
+	}
+
+	if concatHeader != "" && handler.config.DisableConcatenation {
+		handler.sendError(c, ErrConcatenationUnsupported)
+		return
 	}
 
 	// Parse Upload-Concat header
@@ -396,7 +411,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	handler.Metrics.incUploadsCreated()
 	c.log = c.log.With("id", id)
-	c.log.Info("UploadCreated", "size", size, "url", url)
+	c.log.InfoContext(c, "UploadCreated", "size", size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(c, info)
@@ -410,8 +425,10 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		}
 		info.Offset = size
 
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+		resp, err = handler.emitFinishEvents(c, resp, info)
+		if err != nil {
+			handler.sendError(c, err)
+			return
 		}
 	}
 
@@ -460,9 +477,15 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	info := FileInfo{
 		MetaData: make(MetaData),
 	}
-	if willCompleteUpload && r.ContentLength != -1 {
-		// If the client wants to perform the upload in one request with Content-Length, we know the final upload size.
-		info.Size = r.ContentLength
+
+	size, sizeIsDeferred, err := getIETFDraftUploadLength(r)
+	if err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
+	if !sizeIsDeferred {
+		info.Size = size
 	} else {
 		// Error out if the storage does not support upload length deferring, but we need it.
 		if !handler.composer.UsesLengthDeferrer {
@@ -543,16 +566,19 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	id := info.ID
 	url := handler.absFileURL(r, id)
+	limits := handler.getIETFDraftUploadLimits(info)
 	resp.Header["Location"] = url
+	resp.Header["Upload-Limit"] = limits
 
 	// Send 104 response
 	w.Header().Set("Location", url)
 	w.Header().Set("Upload-Draft-Interop-Version", string(currentUploadDraftInteropVersion))
+	w.Header().Set("Upload-Limit", limits)
 	w.WriteHeader(104)
 
 	handler.Metrics.incUploadsCreated()
 	c.log = c.log.With("id", id)
-	c.log.Info("UploadCreated", "size", info.Size, "url", url)
+	c.log.InfoContext(c, "UploadCreated", "size", info.Size, "url", url)
 
 	if handler.config.NotifyCreatedUploads {
 		handler.CreatedUploads <- newHookEvent(c, info)
@@ -671,6 +697,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			resp.Header["Upload-Defer-Length"] = UploadLengthDeferred
 		} else {
 			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+			// TODO: Shouldn't this rather be offset? Basically, whatever GET would return.
+			// But this then also depends on the storage backend if that's even supported.
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
 
@@ -679,6 +707,12 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		isUploadCompleteNow := !info.SizeIsDeferred && info.Offset == info.Size
 		setIETFDraftUploadComplete(r, resp, isUploadCompleteNow)
 		resp.Header["Upload-Draft-Interop-Version"] = string(getIETFDraftInteropVersion(r))
+
+		if !info.SizeIsDeferred {
+			resp.Header["Upload-Length"] = strconv.FormatInt(info.Size, 10)
+		}
+
+		resp.Header["Upload-Limit"] = handler.getIETFDraftUploadLimits(info)
 
 		// Draft -01 and -02 require a 204 No Content response. Version -03 allows 200 OK as well,
 		// but we stick to 204 to not make the logic less complex.
@@ -695,10 +729,18 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 
 	isTusV1 := !handler.usesIETFDraft(r)
 
-	// Check for presence of application/offset+octet-stream
+	// Check for presence of application/offset+octet-stream (tus v1) or application/partial-upload (IETF draft since -04)
 	if isTusV1 && r.Header.Get("Content-Type") != "application/offset+octet-stream" {
 		handler.sendError(c, ErrInvalidContentType)
 		return
+	}
+
+	if !isTusV1 {
+		currentInteropVersion := getIETFDraftInteropVersion(r)
+		if currentInteropVersion != interopVersion3 && currentInteropVersion != interopVersion4 && currentInteropVersion != interopVersion5 && r.Header.Get("Content-Type") != "application/partial-upload" {
+			handler.sendError(c, ErrInvalidContentType)
+			return
+		}
 	}
 
 	// Check for presence of a valid Upload-Offset Header
@@ -855,7 +897,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		maxSize = length
 	}
 
-	c.log.Info("ChunkWriteStart", "maxSize", maxSize, "offset", offset)
+	c.log.InfoContext(c, "ChunkWriteStart", "maxSize", maxSize, "offset", offset)
 
 	var bytesWritten int64
 	var err error
@@ -871,12 +913,12 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
 			if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
-				c.log.Warn("NetworkTimeoutError", "error", err)
+				c.log.WarnContext(c, "NetworkTimeoutError", "error", err)
 			}
 
 			// The write deadline is updated accordingly to ensure that we can also write responses.
 			if err := c.resC.SetWriteDeadline(time.Now().Add(2 * handler.config.NetworkTimeout)); err != nil {
-				c.log.Warn("NetworkTimeoutError", "error", err)
+				c.log.WarnContext(c, "NetworkTimeoutError", "error", err)
 			}
 		}
 
@@ -899,7 +941,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// it in the response, if the store did not also return an error.
 		bodyErr := c.body.hasError()
 		if bodyErr != nil {
-			c.log.Error("BodyReadError", "error", bodyErr.Error())
+			c.log.ErrorContext(c, "BodyReadError", "error", bodyErr.Error())
 			if err == nil {
 				err = bodyErr
 			}
@@ -911,12 +953,12 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			if terminateErr := handler.terminateUpload(c, upload, info); terminateErr != nil {
 				// We only log this error and not show it to the user since this
 				// termination error is not relevant to the uploading client
-				c.log.Error("UploadStopTerminateError", "error", terminateErr.Error())
+				c.log.ErrorContext(c, "UploadStopTerminateError", "error", terminateErr.Error())
 			}
 		}
 	}
 
-	c.log.Info("ChunkWriteComplete", "bytesWritten", bytesWritten)
+	c.log.InfoContext(c, "ChunkWriteComplete", "bytesWritten", bytesWritten)
 
 	// Send new offset to client
 	newOffset := offset + bytesWritten
@@ -936,31 +978,42 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 
 // finishUploadIfComplete checks whether an upload is completed (i.e. upload offset
 // matches upload size) and if so, it will call the data store's FinishUpload
-// function and send the necessary message on the CompleteUpload channel.
+// function and emit the necessary events for the hooks.
 func (handler *UnroutedHandler) finishUploadIfComplete(c *httpContext, resp HTTPResponse, upload Upload, info FileInfo) (HTTPResponse, error) {
 	// If the upload is completed, ...
 	if !info.SizeIsDeferred && info.Offset == info.Size {
+		var err error
 		// ... allow the data storage to finish and cleanup the upload
-		if err := upload.FinishUpload(c); err != nil {
+		if err = upload.FinishUpload(c); err != nil {
 			return resp, err
 		}
 
-		// ... allow the hook callback to run before sending the response
-		if handler.config.PreFinishResponseCallback != nil {
-			resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
-			if err != nil {
-				return resp, err
-			}
-			resp = resp.MergeWith(resp2)
+		// ... and call pre-finish callback and send post-finish notification.
+		resp, err = handler.emitFinishEvents(c, resp, info)
+		if err != nil {
+			return resp, err
 		}
+	}
 
-		c.log.Info("UploadFinished", "size", info.Size)
-		handler.Metrics.incUploadsFinished()
+	return resp, nil
+}
 
-		// ... send the info out to the channel
-		if handler.config.NotifyCompleteUploads {
-			handler.CompleteUploads <- newHookEvent(c, info)
+// emitFinishEvents calls the PreFinishResponseCallback function and sends
+// the necessary message on the CompleteUpload channel.
+func (handler *UnroutedHandler) emitFinishEvents(c *httpContext, resp HTTPResponse, info FileInfo) (HTTPResponse, error) {
+	if handler.config.PreFinishResponseCallback != nil {
+		resp2, err := handler.config.PreFinishResponseCallback(newHookEvent(c, info))
+		if err != nil {
+			return resp, err
 		}
+		resp = resp.MergeWith(resp2)
+	}
+
+	c.log.InfoContext(c, "UploadFinished", "size", info.Size)
+	handler.Metrics.incUploadsFinished()
+
+	if handler.config.NotifyCompleteUploads {
+		handler.CompleteUploads <- newHookEvent(c, info)
 	}
 
 	return resp, nil
@@ -1000,6 +1053,7 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Fall back to the existing GetReader implementation if ContentServerDataStore is not implemented
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
 		StatusCode: http.StatusOK,
@@ -1011,10 +1065,40 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		Body: "", // Body is intentionally left empty, and we copy it manually in later.
 	}
 
+	// If the data store implements ContentServerDataStore, use delegate the handling
+	// of GET requests to the data store.
+	// Otherwise, we will use the existing GetReader implementation.
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+
+		// Pass file type and name to the implementation, but it may override them.
+		w.Header().Set("Content-Type", resp.Header["Content-Type"])
+		w.Header().Set("Content-Disposition", resp.Header["Content-Disposition"])
+
+		// Use loggingResponseWriter to get the ResponseOutgoing log entry that
+		// normally handler.sendResp would produce.
+		loggingW := &loggingResponseWriter{ResponseWriter: w, logger: c.log}
+
+		err = servableUpload.ServeContent(c, loggingW, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
+		return
+	}
+
 	// If no data has been uploaded yet, respond with an empty "204 No Content" status.
 	if info.Offset == 0 {
 		resp.StatusCode = http.StatusNoContent
 		handler.sendResp(c, resp)
+		return
+	}
+
+	if handler.composer.UsesContentServer {
+		servableUpload := handler.composer.ContentServer.AsServableUpload(upload)
+		err = servableUpload.ServeContent(c, w, r)
+		if err != nil {
+			handler.sendError(c, err)
+		}
 		return
 	}
 
@@ -1025,7 +1109,10 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	handler.sendResp(c, resp)
-	io.Copy(w, src)
+	if _, err := io.Copy(w, src); err != nil {
+		handler.sendError(c, err)
+		return
+	}
 
 	src.Close()
 }
@@ -1033,9 +1120,9 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 // mimeInlineBrowserWhitelist is a map containing MIME types which should be
 // allowed to be rendered by browser inline, instead of being forced to be
 // downloaded. For example, HTML or SVG files are not allowed, since they may
-// contain malicious JavaScript. In a similiar fashion PDF is not on this list
+// contain malicious JavaScript. In a similar fashion, PDF is not on this list
 // as their parsers commonly contain vulnerabilities which can be exploited.
-// The values of this map does not convey any meaning and are therefore just
+// The values of this map do not convey any meaning and are therefore just
 // empty structs.
 var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"text/plain": {},
@@ -1046,14 +1133,17 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 	"image/bmp":  {},
 	"image/webp": {},
 
-	"audio/wave":      {},
-	"audio/wav":       {},
-	"audio/x-wav":     {},
-	"audio/x-pn-wav":  {},
-	"audio/webm":      {},
-	"video/webm":      {},
-	"audio/ogg":       {},
-	"video/ogg":       {},
+	"audio/wave":     {},
+	"audio/wav":      {},
+	"audio/x-wav":    {},
+	"audio/x-pn-wav": {},
+	"audio/webm":     {},
+	"audio/ogg":      {},
+
+	"video/mp4":  {},
+	"video/webm": {},
+	"video/ogg":  {},
+
 	"application/ogg": {},
 }
 
@@ -1061,23 +1151,22 @@ var mimeInlineBrowserWhitelist = map[string]struct{}{
 // Content-Disposition headers for a given upload. These values should be used
 // in responses for GET requests to ensure that only non-malicious file types
 // are shown directly in the browser. It will extract the file name and type
-// from the "fileame" and "filetype".
+// from the "filename" and "filetype".
 // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
 func filterContentType(info FileInfo) (contentType string, contentDisposition string) {
 	filetype := info.MetaData["filetype"]
 
-	if reMimeType.MatchString(filetype) {
-		// If the filetype from metadata is well formed, we forward use this
-		// for the Content-Type header. However, only whitelisted mime types
-		// will be allowed to be shown inline in the browser
+	if ft, _, err := mime.ParseMediaType(filetype); err == nil {
+		// If the filetype from metadata is well-formed, we forward use this for the Content-Type header.
+		// However, only allowlisted mime types	will be allowed to be shown inline in the browser
 		contentType = filetype
-		if _, isWhitelisted := mimeInlineBrowserWhitelist[filetype]; isWhitelisted {
+		if _, isWhitelisted := mimeInlineBrowserWhitelist[ft]; isWhitelisted {
 			contentDisposition = "inline"
 		} else {
 			contentDisposition = "attachment"
 		}
 	} else {
-		// If the filetype from the metadata is not well formed, we use a
+		// If the filetype from the metadata is not well-formed, we use a
 		// default type and force the browser to download the content.
 		contentType = "application/octet-stream"
 		contentDisposition = "attachment"
@@ -1125,12 +1214,25 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var info FileInfo
-	if handler.config.NotifyTerminatedUploads {
+	if handler.config.NotifyTerminatedUploads || handler.config.PreUploadTerminateCallback != nil {
 		info, err = upload.GetInfo(c)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
+	}
+
+	resp := HTTPResponse{
+		StatusCode: http.StatusNoContent,
+	}
+
+	if handler.config.PreUploadTerminateCallback != nil {
+		resp2, err := handler.config.PreUploadTerminateCallback(newHookEvent(c, info))
+		if err != nil {
+			handler.sendError(c, err)
+			return
+		}
+		resp = resp.MergeWith(resp2)
 	}
 
 	err = handler.terminateUpload(c, upload, info)
@@ -1139,9 +1241,7 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	handler.sendResp(c, HTTPResponse{
-		StatusCode: http.StatusNoContent,
-	})
+	handler.sendResp(c, resp)
 }
 
 // terminateUpload passes a given upload to the DataStore's Terminater,
@@ -1161,7 +1261,7 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 		handler.TerminatedUploads <- newHookEvent(c, info)
 	}
 
-	c.log.Info("UploadTerminated")
+	c.log.InfoContext(c, "UploadTerminated")
 	handler.Metrics.incUploadsTerminated()
 
 	return nil
@@ -1172,9 +1272,10 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 	r := c.req
 
-	detailedErr, ok := err.(Error)
-	if !ok {
-		c.log.Error("InternalServerError", "message", err.Error())
+	var detailedErr Error
+
+	if !errors.As(err, &detailedErr) {
+		c.log.ErrorContext(c, "InternalServerError", "message", err.Error())
 		detailedErr = NewError("ERR_INTERNAL_SERVER_ERROR", err.Error(), http.StatusInternalServerError)
 	}
 
@@ -1192,7 +1293,7 @@ func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
 func (handler *UnroutedHandler) sendResp(c *httpContext, resp HTTPResponse) {
 	resp.writeTo(c.res)
 
-	c.log.Info("ResponseOutgoing", "status", resp.StatusCode, "body", resp.Body)
+	c.log.InfoContext(c, "ResponseOutgoing", "status", resp.StatusCode, "body", resp.Body)
 }
 
 // Make an absolute URLs to the given upload id. If the base path is absolute
@@ -1275,6 +1376,14 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 		}
 	}
 
+	// Remove default ports
+	if proto == "http" {
+		host = strings.TrimSuffix(host, ":80")
+	}
+	if proto == "https" {
+		host = strings.TrimSuffix(host, ":443")
+	}
+
 	return
 }
 
@@ -1345,7 +1454,7 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, err
 
 	// No need to wrap this in a sync.OnceFunc because c.cancel will be a noop after the first call.
 	releaseLock := func() {
-		c.log.Info("UploadInterrupted")
+		c.log.InfoContext(c, "UploadInterrupted")
 		c.cancel(ErrUploadInterrupted)
 	}
 
@@ -1363,11 +1472,24 @@ func (handler UnroutedHandler) usesIETFDraft(r *http.Request) bool {
 	return handler.config.EnableExperimentalProtocol && interopVersionHeader != ""
 }
 
+// getIETFDraftUploadLimits returns the Upload-Limit header for a given upload
+// according to the set resumable upload draft version from IETF.
+func (handler UnroutedHandler) getIETFDraftUploadLimits(info FileInfo) string {
+	limits := "min-size=0"
+	if handler.config.MaxSize > 0 {
+		limits += ",max-size=" + strconv.FormatInt(handler.config.MaxSize, 10)
+	} else if !info.SizeIsDeferred {
+		limits += ",max-size=" + strconv.FormatInt(info.Size, 10)
+	}
+
+	return limits
+}
+
 // getIETFDraftInteropVersion returns the resumable upload draft interop version from the headers.
 func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 	version := draftVersion(r.Header.Get("Upload-Draft-Interop-Version"))
 	switch version {
-	case interopVersion3, interopVersion4, interopVersion5:
+	case interopVersion3, interopVersion4, interopVersion5, interopVersion6:
 		return version
 	default:
 		return ""
@@ -1379,7 +1501,7 @@ func getIETFDraftInteropVersion(r *http.Request) draftVersion {
 func isIETFDraftUploadComplete(r *http.Request) bool {
 	currentUploadDraftInteropVersion := getIETFDraftInteropVersion(r)
 	switch currentUploadDraftInteropVersion {
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		return r.Header.Get("Upload-Complete") == "?1"
 	case interopVersion3:
 		return r.Header.Get("Upload-Incomplete") == "?0"
@@ -1400,7 +1522,7 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 		} else {
 			resp.Header["Upload-Incomplete"] = "?1"
 		}
-	case interopVersion4, interopVersion5:
+	case interopVersion4, interopVersion5, interopVersion6:
 		if isComplete {
 			resp.Header["Upload-Complete"] = "?1"
 		} else {
@@ -1409,13 +1531,56 @@ func setIETFDraftUploadComplete(r *http.Request, resp HTTPResponse, isComplete b
 	}
 }
 
+// getIETFDraftUploadLength returns the length of an upload as defined in the
+// resumable upload draft from IETF. This can either be in the Upload-Length
+// header or in the Content-Length header.
+func getIETFDraftUploadLength(r *http.Request) (length int64, lengthIsDeferred bool, err error) {
+	var lengthFromUploadLength int64
+	hasLengthFromUploadLength := false
+	var lengthFromContentLength int64
+	hasLengthFromContentLength := false
+
+	willCompleteUpload := isIETFDraftUploadComplete(r)
+	if willCompleteUpload && r.ContentLength != -1 {
+		lengthFromContentLength = r.ContentLength
+		hasLengthFromContentLength = true
+	}
+
+	uploadLengthStr := r.Header.Get("Upload-Length")
+	if uploadLengthStr != "" {
+		var err error
+		lengthFromUploadLength, err = strconv.ParseInt(uploadLengthStr, 10, 64)
+		if err != nil {
+			return 0, false, ErrInvalidUploadLength
+		}
+
+		hasLengthFromUploadLength = true
+	}
+
+	// If both lengths are set, they must match
+	if hasLengthFromContentLength && hasLengthFromUploadLength && lengthFromUploadLength != lengthFromContentLength {
+		return 0, false, ErrInvalidUploadLength
+	}
+
+	// Return whichever length is set
+	if hasLengthFromUploadLength {
+		return lengthFromUploadLength, false, nil
+	}
+	if hasLengthFromContentLength {
+		return lengthFromContentLength, false, nil
+	}
+
+	// No length set, so it's deferred
+	return 0, true, nil
+}
+
 // ParseMetadataHeader parses the Upload-Metadata header as defined in the
 // File Creation extension.
 // e.g. Upload-Metadata: name bHVucmpzLnBuZw==,type aW1hZ2UvcG5n
 func ParseMetadataHeader(header string) map[string]string {
 	meta := make(map[string]string)
 
-	for _, element := range strings.Split(header, ",") {
+	for element := range strings.SplitSeq(header, ",") {
 		element := strings.TrimSpace(element)
 
 		parts := strings.Split(element, " ")
@@ -1481,8 +1646,8 @@ func parseConcat(header string, basePath string) (isPartial bool, isFinal bool, 
 	if strings.HasPrefix(header, "final;") && len(header) > l {
 		isFinal = true
 
-		list := strings.Split(header[l:], " ")
-		for _, value := range list {
+		list := strings.SplitSeq(header[l:], " ")
+		for value := range list {
 			value := strings.TrimSpace(value)
 			if value == "" {
 				continue
@@ -1567,3 +1732,20 @@ func validateUploadId(newId string) error {
 
 	return nil
 }
+
+// loggingResponseWriter is a wrapper around http.ResponseWriter that logs the
+// final status code similar to UnroutedHandler.sendResp.
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	logger *slog.Logger
+}
+
+func (w *loggingResponseWriter) WriteHeader(statusCode int) {
+	if statusCode >= 200 {
+		w.logger.Info("ResponseOutgoing", "status", statusCode)
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Unwrap provides access to the underlying http.ResponseWriter.
+func (w *loggingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }

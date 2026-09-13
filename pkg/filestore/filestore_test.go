@@ -3,6 +3,8 @@ package filestore
 import (
 	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +26,7 @@ func TestFilestore(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -45,8 +47,8 @@ func TestFilestore(t *testing.T) {
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
-	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
+	a.Equal(filepath.Join(tmp, info.ID), info.Storage[StorageKeyPath])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage[StorageKeyInfoPath])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -68,6 +70,21 @@ func TestFilestore(t *testing.T) {
 	a.Equal("hello world", string(content))
 	reader.(io.Closer).Close()
 
+	// Serve content
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Range", "bytes=0-4")
+
+	err = store.AsServableUpload(upload).ServeContent(context.Background(), w, r)
+	a.Nil(err)
+
+	a.Equal(http.StatusPartialContent, w.Code)
+	a.Equal("5", w.Header().Get("Content-Length"))
+	a.Equal("text/plain; charset=utf-8", w.Header().Get("Content-Type"))
+	a.Equal("bytes 0-4/11", w.Header().Get("Content-Range"))
+	a.NotEqual("", w.Header().Get("Last-Modified"))
+	a.Equal("hello", w.Body.String())
+
 	// Terminate upload
 	a.NoError(store.AsTerminatableUpload(upload).Terminate(ctx))
 
@@ -85,7 +102,7 @@ func TestCreateDirectories(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -107,8 +124,8 @@ func TestCreateDirectories(t *testing.T) {
 	a.Equal(handler.MetaData{"hello": "world"}, info.MetaData)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.Join(tmp, info.ID), info.Storage["Path"])
-	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage["InfoPath"])
+	a.Equal(filepath.Join(tmp, info.ID), info.Storage[StorageKeyPath])
+	a.Equal(filepath.Join(tmp, info.ID+".info"), info.Storage[StorageKeyInfoPath])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -151,7 +168,7 @@ func TestCreateDirectories(t *testing.T) {
 func TestNotFound(t *testing.T) {
 	a := assert.New(t)
 
-	store := FileStore{"./path"}
+	store := New("./path")
 	ctx := context.Background()
 
 	upload, err := store.GetUpload(ctx, "upload-that-does-not-exist")
@@ -166,7 +183,7 @@ func TestConcatUploads(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-concat-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload to hold concatenated upload
@@ -185,7 +202,7 @@ func TestConcatUploads(t *testing.T) {
 		"def",
 		"ghi",
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		upload, err := store.NewUpload(ctx, handler.FileInfo{Size: 3})
 		a.NoError(err)
 
@@ -224,7 +241,7 @@ func TestDeclareLength(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-declare-length-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	upload, err := store.NewUpload(ctx, handler.FileInfo{
@@ -256,7 +273,7 @@ func TestCustomRelativePath(t *testing.T) {
 	tmp, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp}
+	store := New(tmp)
 	ctx := context.Background()
 
 	// Create new upload
@@ -277,8 +294,8 @@ func TestCustomRelativePath(t *testing.T) {
 	a.EqualValues(0, info.Offset)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(filepath.Join(tmp, "./folder2/bin"), info.Storage["Path"])
-	a.Equal(filepath.Join(tmp, "./folder1/info.info"), info.Storage["InfoPath"])
+	a.Equal(filepath.Join(tmp, "./folder2/bin"), info.Storage[StorageKeyPath])
+	a.Equal(filepath.Join(tmp, "./folder1/info.info"), info.Storage[StorageKeyInfoPath])
 
 	// Write data to upload
 	bytesWritten, err := upload.WriteChunk(ctx, 0, strings.NewReader("hello world"))
@@ -329,7 +346,7 @@ func TestCustomAbsolutePath(t *testing.T) {
 	tmp2, err := os.MkdirTemp("", "tusd-filestore-")
 	a.NoError(err)
 
-	store := FileStore{tmp1}
+	store := New(tmp1)
 	ctx := context.Background()
 
 	// Create new upload, but the Path property points to a directory
@@ -351,8 +368,8 @@ func TestCustomAbsolutePath(t *testing.T) {
 	a.EqualValues(0, info.Offset)
 	a.Equal(3, len(info.Storage))
 	a.Equal("filestore", info.Storage["Type"])
-	a.Equal(binPath, info.Storage["Path"])
-	a.Equal(filepath.Join(tmp1, "my-upload.info"), info.Storage["InfoPath"])
+	a.Equal(binPath, info.Storage[StorageKeyPath])
+	a.Equal(filepath.Join(tmp1, "my-upload.info"), info.Storage[StorageKeyInfoPath])
 
 	statInfo, err := os.Stat(binPath)
 	a.NoError(err)

@@ -13,30 +13,38 @@ import (
 
 func getHookHandler(config *handler.Config) hooks.HookHandler {
 	if Flags.FileHooksDir != "" {
-		stdout.Printf("Using '%s' for hooks", Flags.FileHooksDir)
+		printStartupLog("Using '%s' for hooks", Flags.FileHooksDir)
 
 		return &file.FileHook{
 			Directory: Flags.FileHooksDir,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
-		stdout.Printf("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
+		printStartupLog("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
 
 		return &http.HttpHook{
-			Endpoint:       Flags.HttpHooksEndpoint,
-			MaxRetries:     Flags.HttpHooksRetry,
-			Backoff:        Flags.HttpHooksBackoff,
-			ForwardHeaders: strings.Split(Flags.HttpHooksForwardHeaders, ","),
+			Endpoint:           Flags.HttpHooksEndpoint,
+			MaxRetries:         Flags.HttpHooksRetry,
+			Backoff:            Flags.HttpHooksBackoff,
+			ForwardHeaders:     strings.Split(Flags.HttpHooksForwardHeaders, ","),
+			Timeout:            Flags.HttpHooksTimeout,
+			SizeLimit:          Flags.HttpHooksSizeLimit,
+			InsecureSkipVerify: Flags.HttpHooksInsecureSkipVerify,
 		}
 	} else if Flags.GrpcHooksEndpoint != "" {
-		stdout.Printf("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
+		printStartupLog("Using '%s' as the endpoint for gRPC hooks", Flags.GrpcHooksEndpoint)
 
 		return &grpc.GrpcHook{
-			Endpoint:   Flags.GrpcHooksEndpoint,
-			MaxRetries: Flags.GrpcHooksRetry,
-			Backoff:    Flags.GrpcHooksBackoff,
+			Endpoint:                        Flags.GrpcHooksEndpoint,
+			MaxRetries:                      Flags.GrpcHooksRetry,
+			Backoff:                         Flags.GrpcHooksBackoff,
+			Secure:                          Flags.GrpcHooksSecure,
+			ServerTLSCertificateFilePath:    Flags.GrpcHooksServerTLSCertFile,
+			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
+			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
+			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
 		}
 	} else if Flags.PluginHookPath != "" {
-		stdout.Printf("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
+		printStartupLog("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
 
 		return &plugin.PluginHook{
 			Path:          Flags.PluginHookPath,

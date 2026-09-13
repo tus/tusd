@@ -145,7 +145,7 @@ func TestHead(t *testing.T) {
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
-		for _, interopVersion := range []string{"3", "4", "5"} {
+		for _, interopVersion := range []string{"3", "4", "5", "6"} {
 			SubTest(t, "InteropVersion"+interopVersion, func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
 				SubTest(t, "IncompleteUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 					ctrl := gomock.NewController(t)
@@ -176,6 +176,8 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
+							"Upload-Length":                "10",
+							"Upload-Limit":                 "min-size=0,max-size=10",
 						}, false, interopVersion),
 					}).Run(handler, t)
 				})
@@ -209,6 +211,8 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "10",
+							"Upload-Length":                "10",
+							"Upload-Limit":                 "min-size=0,max-size=10",
 						}, true, interopVersion),
 					}).Run(handler, t)
 				})
@@ -229,6 +233,7 @@ func TestHead(t *testing.T) {
 					handler, _ := NewHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
+						MaxSize:                    400,
 					})
 
 					(&httpTest{
@@ -241,6 +246,8 @@ func TestHead(t *testing.T) {
 						ResHeader: addIETFUploadCompleteHeader(map[string]string{
 							"Upload-Draft-Interop-Version": interopVersion,
 							"Upload-Offset":                "5",
+							"Upload-Length":                "",
+							"Upload-Limit":                 "min-size=0,max-size=400",
 						}, false, interopVersion),
 					}).Run(handler, t)
 				})

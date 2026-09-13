@@ -109,7 +109,7 @@ func NewReaderMatcher(expect string) gomock.Matcher {
 	}
 }
 
-func (m readerMatcher) Matches(x interface{}) bool {
+func (m readerMatcher) Matches(x any) bool {
 	input, ok := x.(io.Reader)
 	if !ok {
 		return false
@@ -142,7 +142,7 @@ func addIETFUploadCompleteHeader(header map[string]string, isComplete bool, inte
 		} else {
 			header["Upload-Incomplete"] = "?1"
 		}
-	case "4", "5":
+	case "4", "5", "6":
 		if isComplete {
 			header["Upload-Complete"] = "?1"
 		} else {
@@ -150,5 +150,14 @@ func addIETFUploadCompleteHeader(header map[string]string, isComplete bool, inte
 		}
 	}
 
+	return header
+}
+
+// addIETFContentTypeHeader writes the Content-Type header depending on the interop version.
+func addIETFContentTypeHeader(header map[string]string, interopVersion string) map[string]string {
+	switch interopVersion {
+	case "6":
+		header["Content-Type"] = "application/partial-upload"
+	}
 	return header
 }

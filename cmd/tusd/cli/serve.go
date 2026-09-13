@@ -38,6 +38,7 @@ func Serve() {
 		EnableExperimentalProtocol:       Flags.ExperimentalProtocol,
 		DisableDownload:                  Flags.DisableDownload,
 		DisableTermination:               Flags.DisableTermination,
+		DisableConcatenation:             Flags.DisableConcatenation,
 		StoreComposer:                    Composer,
 		UploadProgressInterval:           Flags.ProgressHooksInterval,
 		AcquireLockTimeout:               Flags.AcquireLockTimeout,
@@ -56,7 +57,7 @@ func Serve() {
 			enabledHooksString = append(enabledHooksString, string(h))
 		}
 
-		stdout.Printf("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
+		printStartupLog("Enabled hook events: %s", strings.Join(enabledHooksString, ", "))
 
 	} else {
 		handler, err = tushandler.NewHandler(config)
@@ -65,20 +66,20 @@ func Serve() {
 		stderr.Fatalf("Unable to create handler: %s", err)
 	}
 
-	stdout.Printf("Supported tus extensions: %s\n", handler.SupportedExtensions())
+	printStartupLog("Supported tus extensions: %s\n", handler.SupportedExtensions())
 
 	basepath := Flags.Basepath
 	address := ""
 
 	if Flags.HttpSock != "" {
 		address = Flags.HttpSock
-		stdout.Printf("Using %s as socket to listen.\n", address)
+		printStartupLog("Using %s as socket to listen.\n", address)
 	} else {
 		address = Flags.HttpHost + ":" + Flags.HttpPort
-		stdout.Printf("Using %s as address to listen.\n", address)
+		printStartupLog("Using %s as address to listen.\n", address)
 	}
 
-	stdout.Printf("Using %s as the base path.\n", basepath)
+	printStartupLog("Using %s as the base path.\n", basepath)
 
 	mux := http.NewServeMux()
 	if basepath == "/" {
@@ -126,7 +127,7 @@ func Serve() {
 	}
 
 	if Flags.HttpSock == "" {
-		stdout.Printf("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
+		printStartupLog("You can now upload files to: %s://%s%s", protocol, listener.Addr(), basepath)
 	}
 
 	serverCtx, cancelServerCtx := context.WithCancelCause(context.Background())
@@ -160,6 +161,13 @@ func Serve() {
 
 	if protocol == "http" {
 		// Non-TLS mode
+		if Flags.EnableH2C {
+			// Enable cleartext HTTP/2 (h2c) next to unencrypted HTTP/1.1.
+			p := new(http.Protocols)
+			p.SetHTTP1(true)
+			p.SetUnencryptedHTTP2(true)
+			server.Protocols = p
+		}
 		err = server.Serve(listener)
 	} else {
 		// TLS mode
@@ -218,9 +226,7 @@ func serveTLS(server *http.Server, listener net.Listener) error {
 		stderr.Fatalf("Invalid TLS mode chosen. Recommended valid modes are tls13, tls12 (default), and tls12-strong")
 	}
 
-	// Disable HTTP/2; the default non-TLS mode doesn't support it
-	server.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
-
+	// Leave TLSNextProto unset so net/http negotiates HTTP/2 over TLS when the client supports it.
 	return server.ServeTLS(listener, Flags.TLSCertFile, Flags.TLSKeyFile)
 }
 

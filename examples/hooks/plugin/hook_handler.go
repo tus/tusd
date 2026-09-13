@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/hashicorp/go-plugin"
@@ -81,6 +80,4 @@ func main() {
 		HandshakeConfig: handshakeConfig,
 		Plugins:         pluginMap,
 	})
-
-	fmt.Println("DOONE")
 }

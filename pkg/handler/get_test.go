@@ -110,7 +110,7 @@ func TestGet(t *testing.T) {
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 0,
 				MetaData: map[string]string{
-					"filetype": "non-a-valid-mime-type",
+					"filetype": "non a valid mime type",
 				},
 			}, nil),
 		)

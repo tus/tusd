@@ -45,17 +45,19 @@ func TestNewUpload(t *testing.T) {
 			Bucket: aws.String("bucket"),
 			Key:    aws.String("uploadId"),
 			Metadata: map[string]string{
-				"foo": "hello",
-				"bar": "men???hi",
+				"foo":      "hello",
+				"bar":      "men???hi",
+				"filetype": "application/pdf",
 			},
+			ContentType: aws.String("application/pdf"),
 		}).Return(&s3.CreateMultipartUploadOutput{
 			UploadId: aws.String("multipartId"),
 		}, nil),
 		s3obj.EXPECT().PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket:        aws.String("bucket"),
 			Key:           aws.String("uploadId.info"),
-			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
-			ContentLength: aws.Int64(261),
+			Body:          bytes.NewReader([]byte(`{"ID":"uploadId","Size":500,"SizeIsDeferred":false,"Offset":0,"MetaData":{"bar":"menü\r\nhi","filetype":"application/pdf","foo":"hello"},"IsPartial":false,"IsFinal":false,"PartialUploads":null,"Storage":{"Bucket":"bucket","Key":"uploadId","MultipartUpload":"multipartId","Type":"s3store"}}`)),
+			ContentLength: aws.Int64(290),
 		}),
 	)
 
@@ -63,8 +65,9 @@ func TestNewUpload(t *testing.T) {
 		ID:   "uploadId",
 		Size: 500,
 		MetaData: map[string]string{
-			"foo": "hello",
-			"bar": "menü\r\nhi",
+			"foo":      "hello",
+			"bar":      "menü\r\nhi",
+			"filetype": "application/pdf",
 		},
 	}
 
@@ -1098,7 +1101,7 @@ func TestTerminateWithErrors(t *testing.T) {
 	assert.Nil(err)
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
-	assert.Equal("Multiple errors occurred:\n\tAWS S3 Error (hello) for object uploadId: it's me.\n", err.Error())
+	assert.Equal("AWS S3 Error (hello) for object uploadId: it's me.", err.Error())
 }
 
 func TestConcatUploadsUsingMultipart(t *testing.T) {

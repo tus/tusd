@@ -81,7 +81,12 @@ type GCSService struct {
 // NewGCSService returns a GCSService object given a GCloud service account file path.
 func NewGCSService(filename string) (*GCSService, error) {
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, option.WithCredentialsFile(filename))
+	var opts []option.ClientOption
+	if filename != "" {
+		opts = append(opts, option.WithCredentialsFile(filename))
+	}
+	client, err := storage.NewClient(ctx, opts...)
+
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +145,7 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 	}
 	objSrcs := make([]*storage.ObjectHandle, len(srcs))
 	var crc uint32
-	for i := 0; i < len(srcs); i++ {
+	for i := range srcs {
 		objSrcs[i] = service.Client.Bucket(bucket).Object(srcs[i])
 		srcAttrs, err := service.GetObjectAttrs(ctx, GCSObjectParams{
 			Bucket: bucket,
@@ -165,7 +170,7 @@ func (service *GCSService) compose(ctx context.Context, bucket string, srcs []st
 		return err
 	}
 
-	for i := 0; i < COMPOSE_RETRIES; i++ {
+	for range COMPOSE_RETRIES {
 		dstCRC, err := service.ComposeFrom(ctx, objSrcs, dstParams, attrs.ContentType)
 		if err != nil {
 			return err
@@ -218,7 +223,7 @@ func (service *GCSService) recursiveCompose(ctx context.Context, srcs []string, 
 	tmpSrcLen := int(math.Ceil(float64(len(srcs)) / float64(MAX_OBJECT_COMPOSITION)))
 	tmpSrcs := make([]string, tmpSrcLen)
 
-	for i := 0; i < tmpSrcLen; i++ {
+	for i := range tmpSrcLen {
 		start := i * MAX_OBJECT_COMPOSITION
 		end := MAX_OBJECT_COMPOSITION * (i + 1)
 		if tmpSrcLen-i == 1 {

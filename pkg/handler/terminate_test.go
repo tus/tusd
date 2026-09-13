@@ -54,9 +54,14 @@ func TestTerminate(t *testing.T) {
 		composer.UseTerminater(store)
 		composer.UseLocker(locker)
 
+		preTerminateCalled := false
 		handler, _ := NewHandler(Config{
 			StoreComposer:           composer,
 			NotifyTerminatedUploads: true,
+			PreUploadTerminateCallback: func(hook HookEvent) (HTTPResponse, error) {
+				preTerminateCalled = true
+				return HTTPResponse{}, nil
+			},
 		})
 
 		c := make(chan HookEvent, 1)
@@ -81,6 +86,69 @@ func TestTerminate(t *testing.T) {
 		req := event.HTTPRequest
 		a.Equal("DELETE", req.Method)
 		a.Equal("foo", req.URI)
+
+		a.True(preTerminateCalled)
+	})
+
+	SubTest(t, "RejectTermination", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockFullLocker(ctrl)
+		lock := NewMockFullLock(ctrl)
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			locker.EXPECT().NewLock("foo").Return(lock, nil),
+			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			store.EXPECT().GetUpload(gomock.Any(), "foo").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:   "foo",
+				Size: 10,
+			}, nil),
+			lock.EXPECT().Unlock().Return(nil),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseTerminater(store)
+		composer.UseLocker(locker)
+
+		a := assert.New(t)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:           composer,
+			NotifyTerminatedUploads: true,
+			PreUploadTerminateCallback: func(hook HookEvent) (HTTPResponse, error) {
+				a.Equal("foo", hook.Upload.ID)
+				a.Equal(int64(10), hook.Upload.Size)
+
+				req := hook.HTTPRequest
+				a.Equal("DELETE", req.Method)
+				a.Equal("foo", req.URI)
+
+				return HTTPResponse{}, ErrUploadTerminationRejected
+			},
+		})
+
+		c := make(chan HookEvent, 1)
+		handler.TerminatedUploads = c
+
+		(&httpTest{
+			Method: "DELETE",
+			URL:    "foo",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+			},
+			Code:    http.StatusBadRequest,
+			ResBody: "ERR_UPLOAD_TERMINATION_REJECTED: upload termination has been rejected by server\n",
+		}).Run(handler, t)
+
+		select {
+		case <-c:
+			a.Fail("Expected termination to be rejected")
+		default:
+			// Expected no event
+		}
 	})
 
 	SubTest(t, "NotProvided", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {

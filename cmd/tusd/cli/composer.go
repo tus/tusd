@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/exp/slog"
+
+	"github.com/tus/tusd/v2/internal/s3log"
 	"github.com/tus/tusd/v2/pkg/azurestore"
 	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
@@ -15,10 +18,11 @@ import (
 	"github.com/tus/tusd/v2/pkg/memorylocker"
 	"github.com/tus/tusd/v2/pkg/s3store"
 
+	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/api/option"
 )
 
 var Composer *handler.StoreComposer
@@ -37,15 +41,16 @@ func CreateComposer() {
 
 		if Flags.S3Endpoint == "" {
 			if Flags.S3TransferAcceleration {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
+				printStartupLog("Using 's3://%s' as S3 bucket for storage with AWS S3 Transfer Acceleration enabled.\n", Flags.S3Bucket)
 			} else {
-				stdout.Printf("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
+				printStartupLog("Using 's3://%s' as S3 bucket for storage.\n", Flags.S3Bucket)
 			}
 		} else {
-			stdout.Printf("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
+			printStartupLog("Using '%s/%s' as S3 endpoint and bucket for storage.\n", Flags.S3Endpoint, Flags.S3Bucket)
 		}
 
-		s3Client := s3.NewFromConfig(s3Config, func(o *s3.Options) {
+		var s3Client s3store.S3API
+		s3Client = s3.NewFromConfig(s3Config, func(o *s3.Options) {
 			o.UseAccelerate = Flags.S3TransferAcceleration
 
 			// Disable HTTPS and only use HTTP (helpful for debugging requests).
@@ -57,9 +62,17 @@ func CreateComposer() {
 			}
 		})
 
+		if Flags.S3LogAPICalls {
+			if !Flags.VerboseOutput {
+				stderr.Fatalf("The -s3-log-api-calls flag requires verbose mode (-verbose) to be enabled")
+			}
+			s3Client = s3log.New(s3Client, slog.Default())
+		}
+
 		store := s3store.New(Flags.S3Bucket, s3Client)
 		store.ObjectPrefix = Flags.S3ObjectPrefix
 		store.PreferredPartSize = Flags.S3PartSize
+		store.MinPartSize = Flags.S3MinPartSize
 		store.MaxBufferedParts = Flags.S3MaxBufferedParts
 		store.DisableContentHashes = Flags.S3DisableContentHashes
 		store.SetConcurrentPartUploads(Flags.S3ConcurrentPartUploads)
@@ -76,19 +89,23 @@ func CreateComposer() {
 				"Please remove underscore from the value", Flags.GCSObjectPrefix)
 		}
 
-		// Derivce credentials from service account file path passed in
-		// GCS_SERVICE_ACCOUNT_FILE environment variable.
+		// Application Default Credentials discovery mechanism is attempted to fetch credentials,
+		// but an account file can be provided through the GCS_SERVICE_ACCOUNT_FILE environment variable.
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
-		if gcsSAF == "" {
-			stderr.Fatalf("No service account file provided for Google Cloud Storage using the GCS_SERVICE_ACCOUNT_FILE environment variable.\n")
+		opts := []option.ClientOption{storage.WithJSONReads()}
+		if gcsSAF != "" {
+			opts = append(opts, option.WithCredentialsFile(gcsSAF))
 		}
-
-		service, err := gcsstore.NewGCSService(gcsSAF)
+		if Flags.GCSEndpoint != "" {
+			opts = append(opts, option.WithEndpoint(Flags.GCSEndpoint))
+		}
+		client, err := storage.NewClient(context.Background(), opts...)
 		if err != nil {
-			stderr.Fatalf("Unable to create Google Cloud Storage service: %s\n", err)
+			stderr.Fatalf("Unable to create Google Cloud Storage client: %s\n", err)
 		}
+		service := &gcsstore.GCSService{Client: client}
 
-		stdout.Printf("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
+		printStartupLog("Using 'gcs://%s' as GCS bucket for storage.\n", Flags.GCSBucket)
 
 		store := gcsstore.New(Flags.GCSBucket, service)
 		store.ObjectPrefix = Flags.GCSObjectPrefix
@@ -105,7 +122,9 @@ func CreateComposer() {
 
 		accountKey := os.Getenv("AZURE_STORAGE_KEY")
 		if accountKey == "" {
-			stderr.Fatalf("No service account key for Azure BlockBlob Storage using the AZURE_STORAGE_KEY environment variable.\n")
+			printStartupLog("Azure BlockBlob Storage authentication using identity")
+		} else {
+			printStartupLog("Azure BlockBlob Storage authentication using account key")
 		}
 
 		azureEndpoint := Flags.AzEndpoint
@@ -114,7 +133,7 @@ func CreateComposer() {
 		if azureEndpoint == "" {
 			azureEndpoint = fmt.Sprintf("https://%s.blob.core.windows.net", accountName)
 		}
-		stdout.Printf("Using Azure endpoint %s.\n", azureEndpoint)
+		printStartupLog("Using Azure endpoint %s.\n", azureEndpoint)
 
 		azConfig := &azurestore.AzConfig{
 			AccountName:         accountName,
@@ -127,7 +146,7 @@ func CreateComposer() {
 
 		azService, err := azurestore.NewAzureService(azConfig)
 		if err != nil {
-			stderr.Fatalf(err.Error())
+			stderr.Fatalf("Unable to create Azure BlockBlob Storage service: %s", err)
 		}
 
 		store := azurestore.New(azService)
@@ -143,12 +162,15 @@ func CreateComposer() {
 			stderr.Fatalf("Unable to make absolute path: %s", err)
 		}
 
-		stdout.Printf("Using '%s' as directory storage.\n", dir)
-		if err := os.MkdirAll(dir, os.FileMode(0774)); err != nil {
+		printStartupLog("Using '%s' as directory storage.\n", dir)
+
+		if err := os.MkdirAll(dir, os.FileMode(Flags.DirPerms)); err != nil {
 			stderr.Fatalf("Unable to ensure directory exists: %s", err)
 		}
 
 		store := filestore.New(dir)
+		store.DirModePerm = os.FileMode(Flags.DirPerms) & os.ModePerm
+		store.FileModePerm = os.FileMode(Flags.FilePerms) & os.ModePerm
 		store.UseIn(Composer)
 
 		locker := filelocker.New(dir)
@@ -157,5 +179,5 @@ func CreateComposer() {
 		locker.UseIn(Composer)
 	}
 
-	stdout.Printf("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)
+	printStartupLog("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)
 }

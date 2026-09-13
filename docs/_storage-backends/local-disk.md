@@ -19,7 +19,7 @@ When a new upload is created, for example with the upload ID `abcdef123`, tusd c
 
 ## Custom storage location
 
-The locations of the two files mentioned above can be fully customized using the [pre-create hook](({ site.baseurl }}/advanced-topics/hooks/). The location of the `.info` file is derived from the upload ID, which can be customized by the pre-create hook using the [`ChangeFileInfo.ID` setting]({ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses). Similarly, the location where the file content is saved is by default derived from the upload ID, but can be fully customized using the [`ChangeFileInfo.Storage.Path` setting]({ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses).
+The locations of the two files mentioned above can be fully customized using the [pre-create hook]({{ site.baseurl }}/advanced-topics/hooks/). The location of the `.info` file is derived from the upload ID, which can be customized by the pre-create hook using the [`ChangeFileInfo.ID` setting]({{ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses). Similarly, the location where the file content is saved is by default derived from the upload ID, but can be fully customized using the [`ChangeFileInfo.Storage.Path` setting]({{ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses).
 
 For example, if the pre-create hook returns the following hook response, an upload with ID `project-123/abc` is created, the info file is saved at `./uploads/project-123/abc.info`, and the file content is saved at `./uploads/project-123/abc/presentation.pdf`:
 
