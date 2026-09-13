@@ -86,15 +86,21 @@ func TestShutdown(t *testing.T) {
 		t.Fatalf("invalid response body %s", string(body))
 	}
 
-	// Wait until tusd exits on its own. It should exit as soon as the request is finished.
+	// The shutdown response should be sent immediately after the signal.
+	responseDuration := time.Since(start)
+	if !isApprox(responseDuration, 2*time.Second, 0.1) {
+		t.Fatalf("invalid response duration %v", responseDuration)
+	}
+
+	// Wait until tusd exits on its own. It should exit soon after the request is finished.
 	if err := cmd.Wait(); err != nil {
 		t.Fatal(err)
 	}
 
-	// tusd should close the request and exit immediately after the signal.
-	duration := time.Since(start)
-	if !isApprox(duration, 2*time.Second, 0.1) {
-		t.Fatalf("invalid request duration %v", duration)
+	// On Go 1.27+, net/http may sleep an extra ~500ms (rstAvoidanceDelay) when closing a
+	// connection with unread request body data, so allow more headroom than for the response.
+	exitDuration := time.Since(start)
+	if exitDuration > 3*time.Second {
+		t.Fatalf("invalid exit duration %v", exitDuration)
 	}
-
 }
