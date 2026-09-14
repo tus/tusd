@@ -1,6 +1,7 @@
 tusd/data
 cover.out
 data/
+dist/
 node_modules/
 .DS_Store
 ./tusd
