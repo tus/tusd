@@ -8,6 +8,8 @@
 syntax = "proto3";
 package proto;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "hooks/grpc/proto";
 
 // HookRequest contains the information about the hook type, the involved upload,
@@ -56,6 +58,11 @@ message FileInfo {
 	// for example a file path. The available values vary depending on what data
 	// store is used. This map may also be nil.
 	map <string, string> storage = 9;
+	// ExpiresAt is the time after which the upload is considered expired. It is not
+	// set if the upload does not expire. Expiration is only enforced as long as an
+	// upload is not finished yet, with partial uploads from the concatenation
+	// extension being an exception.
+	google.protobuf.Timestamp expiresAt = 10;
 }
 
 // FileInfoChanges collects changes the should be made to a FileInfo object. This
@@ -84,6 +91,12 @@ message FileInfoChanges {
 	// Please be aware that this behavior is currently not supported by any data store in
 	// the github.com/tus/tusd package.
 	map <string, string> storage = 3;
+
+	// If ExpiresAt is set, it replaces the expiration time of the upload, which is derived
+	// from the server-wide expiration duration by default. Set it to the zero timestamp to
+	// prevent the upload from expiring at all. A time in the past is rejected, since the
+	// upload would not be usable after its creation.
+	google.protobuf.Timestamp expiresAt = 4;
 }
 
 

@@ -26,6 +26,8 @@ var Flags struct {
 	DisableDownload                  bool
 	DisableTermination               bool
 	DisableConcatenation             bool
+	DisableExpiration                bool
+	Expiration                       time.Duration
 	DisableCors                      bool
 	CorsAllowOrigin                  string
 	CorsAllowCredentials             bool
@@ -144,6 +146,8 @@ func ParseFlags() {
 		f.BoolVar(&Flags.DisableTermination, "disable-termination", false, "Disable the termination endpoint")
 		f.BoolVar(&Flags.DisableConcatenation, "disable-concatenation", false, "Disable support for the concatenation extension")
 		f.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
+		f.BoolVar(&Flags.DisableExpiration, "disable-expiration", false, "Disable support for the expiration extension, ignoring the expiration time of all uploads")
+		f.DurationVar(&Flags.Expiration, "expiration", 0, "Duration after their creation that unfinished uploads expire, e.g. 24h. Expired uploads are not served anymore, but are only removed once a client terminates them. If not set, uploads do not expire by default, but an expiration time can still be set for individual uploads using the pre-create hook.")
 	})
 
 	fs.AddGroup("CORS options", func(f *flag.FlagSet) {
@@ -193,7 +197,7 @@ func ParseFlags() {
 	})
 
 	fs.AddGroup("General hook options", func(f *flag.FlagSet) {
-		f.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
+		f.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish,post-expire", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
 		f.DurationVar(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1*time.Second, "Interval at which the post-receive progress hooks are emitted for each active upload")
 	})
 
