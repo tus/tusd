@@ -893,8 +893,10 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			maxSize = math.MaxInt64
 		}
 	}
+	// Cap by Content-Length when present, but never raise the limit above the
+	// MaxSize/remaining-size clamp computed above (see #1032).
 	if length > 0 {
-		maxSize = length
+		maxSize = min(maxSize, length)
 	}
 
 	c.log.InfoContext(c, "ChunkWriteStart", "maxSize", maxSize, "offset", offset)
