@@ -78,7 +78,7 @@ nfpms:
       - tusd-deb
     package_name: tusd
     file_name_template: "tusd_{{ .Os }}_{{ .Arch }}"
-    maintainer: Marius <maerious@gmail.com>
+    maintainer: Marius Kleidl <oss@mariuskleidl.net>
     description: The official server implementation of the tus resumable upload protocol.
     homepage: https://github.com/tus/tusd
     license: MIT
