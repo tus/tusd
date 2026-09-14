@@ -723,6 +723,28 @@ func TestPost(t *testing.T) {
 					}, res.InformationalResponses)
 				})
 
+				SubTest(t, "CreateExceedingMaxSizeWithContentLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+					// Regression for #1386: draft creates that derive size from Content-Length
+					// must enforce MaxSize before the upload is created.
+					handler, _ := NewHandler(Config{
+						StoreComposer:              composer,
+						BasePath:                   "/files/",
+						EnableExperimentalProtocol: true,
+						MaxSize:                    5,
+					})
+
+					(&httpTest{
+						Method: "POST",
+						ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+							"Upload-Draft-Interop-Version": interopVersion,
+							"Content-Type":                 "text/plain",
+						}, true, interopVersion),
+						ReqBody: strings.NewReader("hello world"),
+						Code:    http.StatusRequestEntityTooLarge,
+						ResBody: "ERR_MAX_SIZE_EXCEEDED: maximum size exceeded\n",
+					}).Run(handler, t)
+				})
+
 				if interopVersion != "3" && interopVersion != "4" && interopVersion != "5" {
 					SubTest(t, "UploadLengthAndContentLengthMatch", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
 						ctrl := gomock.NewController(t)
@@ -849,6 +871,47 @@ func TestPost(t *testing.T) {
 								"Upload-Offset":                "6",
 								"Upload-Limit":                 "min-size=0,max-size=11",
 							},
+						}).Run(handler, t)
+					})
+
+					SubTest(t, "CreateExceedingMaxSizeWithUploadLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+						// Regression for #1386: draft creates with Upload-Length must enforce MaxSize
+						// the same way the tus v1 path does.
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							BasePath:                   "/files/",
+							EnableExperimentalProtocol: true,
+							MaxSize:                    400,
+						})
+
+						(&httpTest{
+							Method: "POST",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Upload-Length":                "500",
+								"Upload-Complete":              "?0",
+							},
+							Code:    http.StatusRequestEntityTooLarge,
+							ResBody: "ERR_MAX_SIZE_EXCEEDED: maximum size exceeded\n",
+						}).Run(handler, t)
+					})
+
+					SubTest(t, "InvalidNegativeUploadLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+						handler, _ := NewHandler(Config{
+							StoreComposer:              composer,
+							BasePath:                   "/files/",
+							EnableExperimentalProtocol: true,
+						})
+
+						(&httpTest{
+							Method: "POST",
+							ReqHeader: map[string]string{
+								"Upload-Draft-Interop-Version": interopVersion,
+								"Upload-Length":                "-1",
+								"Upload-Complete":              "?0",
+							},
+							Code:    http.StatusBadRequest,
+							ResBody: "ERR_INVALID_UPLOAD_LENGTH: missing or invalid Upload-Length header\n",
 						}).Run(handler, t)
 					})
 				}

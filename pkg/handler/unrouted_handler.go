@@ -341,8 +341,8 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Test whether the size is still allowed
-	if handler.config.MaxSize > 0 && size > handler.config.MaxSize {
-		handler.sendError(c, ErrMaxSizeExceeded)
+	if err := handler.validateMaxSize(size); err != nil {
+		handler.sendError(c, err)
 		return
 	}
 
@@ -480,6 +480,13 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	size, sizeIsDeferred, err := getIETFDraftUploadLength(r)
 	if err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
+	// Enforce MaxSize for known lengths. Deferred uploads (size 0 here) are
+	// bounded later in writeChunk.
+	if err := handler.validateMaxSize(size); err != nil {
 		handler.sendError(c, err)
 		return
 	}
@@ -815,8 +822,10 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 			handler.sendError(c, ErrInvalidUploadLength)
 			return
 		}
-		uploadLength, err := strconv.ParseInt(r.Header.Get("Upload-Length"), 10, 64)
-		if err != nil || uploadLength < 0 || uploadLength < info.Offset || (handler.config.MaxSize > 0 && uploadLength > handler.config.MaxSize) {
+		uploadLength, err := parseUploadLength(r.Header.Get("Upload-Length"))
+		if err != nil || uploadLength < info.Offset || handler.validateMaxSize(uploadLength) != nil {
+			// Keep ErrInvalidUploadLength for PATCH length declaration failures,
+			// including MaxSize violations, to preserve existing client-facing behavior.
 			handler.sendError(c, ErrInvalidUploadLength)
 			return
 		}
@@ -1418,6 +1427,23 @@ func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string)
 	return
 }
 
+// parseUploadLength parses an Upload-Length header value and rejects negative lengths.
+func parseUploadLength(header string) (int64, error) {
+	uploadLength, err := strconv.ParseInt(header, 10, 64)
+	if err != nil || uploadLength < 0 {
+		return 0, ErrInvalidUploadLength
+	}
+	return uploadLength, nil
+}
+
+// validateMaxSize returns ErrMaxSizeExceeded if size is larger than the configured maximum.
+func (handler *UnroutedHandler) validateMaxSize(size int64) error {
+	if handler.config.MaxSize > 0 && size > handler.config.MaxSize {
+		return ErrMaxSizeExceeded
+	}
+	return nil
+}
+
 // Verify that the Upload-Length and Upload-Defer-Length headers are acceptable for creating a
 // new upload
 func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeader string, uploadDeferLengthHeader string) (uploadLength int64, uploadLengthDeferred bool, err error) {
@@ -1434,10 +1460,7 @@ func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeade
 	} else if lengthIsDeferred {
 		uploadLengthDeferred = true
 	} else {
-		uploadLength, err = strconv.ParseInt(uploadLengthHeader, 10, 64)
-		if err != nil || uploadLength < 0 {
-			err = ErrInvalidUploadLength
-		}
+		uploadLength, err = parseUploadLength(uploadLengthHeader)
 	}
 
 	return
@@ -1551,9 +1574,9 @@ func getIETFDraftUploadLength(r *http.Request) (length int64, lengthIsDeferred b
 	uploadLengthStr := r.Header.Get("Upload-Length")
 	if uploadLengthStr != "" {
 		var err error
-		lengthFromUploadLength, err = strconv.ParseInt(uploadLengthStr, 10, 64)
+		lengthFromUploadLength, err = parseUploadLength(uploadLengthStr)
 		if err != nil {
-			return 0, false, ErrInvalidUploadLength
+			return 0, false, err
 		}
 
 		hasLengthFromUploadLength = true
