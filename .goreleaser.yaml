@@ -32,7 +32,7 @@ builds:
       - goos: windows
         goarch: arm
 
-  # Separate build so we only ship amd64/arm64 .deb packages (same as before).
+  # Separate build so we only ship amd64/arm64 .deb packages.
   - id: tusd-deb
     main: ./cmd/tusd
     binary: tusd
@@ -66,8 +66,6 @@ archives:
       - LICENSE.txt
       - README.md
     # Puts binary + LICENSE + README under tusd_{os}_{arch}/.
-    # Previously LICENSE/README sat at the archive root while only the binary
-    # lived in that directory — intentional cleanup for the next major release.
     wrap_in_directory: true
 
 nfpms:
