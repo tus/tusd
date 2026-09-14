@@ -306,6 +306,44 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "DeferredLengthExceedingMaxSizeWithContentLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// Regression test for #1032: when Upload-Defer-Length is used, a PATCH with
+		// Content-Length must still respect MaxSize. Previously the Content-Length
+		// unconditionally overrode the MaxSize clamp, allowing oversized uploads.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:             "yes",
+				Offset:         5,
+				Size:           0,
+				SizeIsDeferred: true,
+			}, nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+			MaxSize:       20,
+		})
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "5",
+			},
+			ReqBody: strings.NewReader("hellothisismorethan15bytes"),
+			Code:    http.StatusRequestEntityTooLarge,
+			ResBody: "ERR_UPLOAD_SIZE_EXCEEDED: upload's size exceeded\n",
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "DeclareLengthOnFinalChunk", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
