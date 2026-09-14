@@ -77,7 +77,6 @@ nfpms:
     ids:
       - tusd-deb
     package_name: tusd
-    # Align with archive names (tusd_linux_amd64.tar.gz → tusd_linux_amd64.deb).
     file_name_template: "tusd_{{ .Os }}_{{ .Arch }}"
     maintainer: Marius <maerious@gmail.com>
     description: The official server implementation of the tus resumable upload protocol.
