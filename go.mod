@@ -1,6 +1,6 @@
 module github.com/tus/tusd/v2
 
-go 1.25.8
+go 1.25.14
 
 require (
 	cloud.google.com/go/storage v1.66.0
@@ -29,7 +29,7 @@ require (
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	golang.org/x/sync v0.22.0
 	google.golang.org/api v0.287.1
-	google.golang.org/grpc v1.82.1
+	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
