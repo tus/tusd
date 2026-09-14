@@ -31,8 +31,6 @@ builds:
         goarch: arm
       - goos: windows
         goarch: arm
-      - goos: windows
-        goarch: arm64
 
   # Separate build so we only ship amd64/arm64 .deb packages (same as before).
   - id: tusd-deb
