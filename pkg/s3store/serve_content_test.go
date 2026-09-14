@@ -16,9 +16,17 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-
-	"github.com/tus/tusd/v2/pkg/handler"
 )
+
+func newTestServableUpload(store *S3Store) *s3Upload {
+	return &s3Upload{
+		store:        store,
+		uploadId:     "uploadId",
+		objectKey:    "uploadId",
+		objectBucket: "bucket",
+		multipartId:  "multipartId",
+	}
+}
 
 func TestS3StoreAsServerDataStore(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -28,12 +36,7 @@ func TestS3StoreAsServerDataStore(t *testing.T) {
 	s3obj := NewMockS3API(mockCtrl)
 	store := New("bucket", s3obj)
 
-	upload := &s3Upload{
-		store:       &store,
-		info:        &handler.FileInfo{},
-		objectId:    "uploadId",
-		multipartId: "multipartId",
-	}
+	upload := newTestServableUpload(&store)
 
 	servableUpload := store.AsServableUpload(upload)
 	assert.NotNil(servableUpload)
@@ -59,15 +62,12 @@ func TestS3ServableUploadServeContent(t *testing.T) {
 		CacheControl:  aws.String("max-age=3600"),
 	}, nil)
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.Nil(err)
 
 	assert.Equal(http.StatusOK, w.Code)
@@ -98,16 +98,13 @@ func TestS3ServableUploadServeContentWithRange(t *testing.T) {
 		ETag:          aws.String("etag123"),
 	}, nil)
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Range", "bytes=10-19")
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.Nil(err)
 
 	assert.Equal(http.StatusPartialContent, w.Code)
@@ -132,15 +129,12 @@ func TestS3ServableUploadServeContentInternalError(t *testing.T) {
 		Key:    aws.String("uploadId"),
 	}).Return(nil, expectedError)
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.Equal(expectedError, err)
 }
 
@@ -165,15 +159,12 @@ func TestS3ServableUploadServeContentIncomplete(t *testing.T) {
 		},
 	})
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.Equal(errIncompleteUpload, err)
 }
 
@@ -205,13 +196,10 @@ func TestS3ServableUploadServeContentRangeNotSatisfiable(t *testing.T) {
 		},
 	})
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 	w := httptest.NewRecorder()
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.NoError(err)
 	assert.Equal(http.StatusRequestedRangeNotSatisfiable, w.Code)
 	assert.Equal("bytes */100", w.Header().Get("Content-Range"))
@@ -249,13 +237,10 @@ func TestS3ServableUploadServeContentNotModified(t *testing.T) {
 		},
 	})
 
-	upload, err := store.GetUpload(context.Background(), "uploadId+multipartId")
-	assert.Nil(err)
-
-	servableUpload := store.AsServableUpload(upload)
+	servableUpload := store.AsServableUpload(newTestServableUpload(&store))
 	w := httptest.NewRecorder()
 
-	err = servableUpload.ServeContent(context.Background(), w, r)
+	err := servableUpload.ServeContent(context.Background(), w, r)
 	assert.NoError(err)
 	assert.Equal(http.StatusNotModified, w.Code)
 	assert.Equal(`"some-other-etag"`, w.Header().Get("ETag"))
