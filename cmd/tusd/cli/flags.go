@@ -95,6 +95,8 @@ var Flags struct {
 	DirPerms                         uint32
 	GracefulRequestCompletionTimeout time.Duration
 	ExperimentalProtocol             bool
+	DisableIdempotency               bool
+	EnableBackgroundConcatenation    bool
 }
 
 type ChmodPermsValue struct {
@@ -143,6 +145,8 @@ func ParseFlags() {
 		f.BoolVar(&Flags.DisableDownload, "disable-download", false, "Disable the download endpoint")
 		f.BoolVar(&Flags.DisableTermination, "disable-termination", false, "Disable the termination endpoint")
 		f.BoolVar(&Flags.DisableConcatenation, "disable-concatenation", false, "Disable support for the concatenation extension")
+		f.BoolVar(&Flags.DisableIdempotency, "disable-idempotency", false, "Disable support for the Idempotency-Key header to detect retried upload creation requests")
+		f.BoolVar(&Flags.EnableBackgroundConcatenation, "enable-background-concatenation", false, "Assemble final (concatenation) uploads in a background process so they can complete even if the client connection or a proxy times out. Clients poll the upload with HEAD requests to observe completion.")
 		f.Int64Var(&Flags.MaxSize, "max-size", 0, "Maximum size of a single upload in bytes")
 	})
 
