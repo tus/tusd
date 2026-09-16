@@ -112,6 +112,8 @@ func TestConcat(t *testing.T) {
 			uploadB := NewMockFullUpload(ctrl)
 			uploadC := NewMockFullUpload(ctrl)
 
+			concatID := "concat-7e18f737311b2dc3b2f269dd78396b03"
+
 			gomock.InOrder(
 				store.EXPECT().GetUpload(gomock.Any(), "a").Return(uploadA, nil),
 				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
@@ -125,7 +127,10 @@ func TestConcat(t *testing.T) {
 					Size:      5,
 					Offset:    5,
 				}, nil),
+				// Idempotency check: look up the deterministic concat ID
+				store.EXPECT().GetUpload(gomock.Any(), concatID).Return(nil, ErrNotFound),
 				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+					ID:             concatID,
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
@@ -133,7 +138,7 @@ func TestConcat(t *testing.T) {
 					MetaData:       make(map[string]string),
 				}).Return(uploadC, nil),
 				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
-					ID:             "foo",
+					ID:             concatID,
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
@@ -149,7 +154,7 @@ func TestConcat(t *testing.T) {
 				StoreComposer:         composer,
 				NotifyCompleteUploads: true,
 				PreFinishResponseCallback: func(hook HookEvent) (HTTPResponse, error) {
-					a.Equal("foo", hook.Upload.ID)
+					a.Equal(concatID, hook.Upload.ID)
 					return HTTPResponse{
 						Header: HTTPHeader{
 							"X-Custom-Resp-Header": "hello",
@@ -179,7 +184,7 @@ func TestConcat(t *testing.T) {
 
 			event := <-c
 			info := event.Upload
-			a.Equal("foo", info.ID)
+			a.Equal(concatID, info.ID)
 			a.EqualValues(10, info.Size)
 			a.EqualValues(10, info.Offset)
 			a.False(info.IsPartial)
@@ -338,6 +343,184 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
+		// Test idempotent retry when concat already completed successfully.
+		SubTest(t, "IdempotentRetryComplete", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			a := assert.New(t)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
+			concatID := "concat-7e18f737311b2dc3b2f269dd78396b03"
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().GetUpload(gomock.Any(), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				// Idempotency check: upload already exists and is complete
+				store.EXPECT().GetUpload(gomock.Any(), concatID).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:             concatID,
+					Size:           10,
+					Offset:         10,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+				}, nil),
+				// No NewUpload or ConcatUploads should be called
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:              "files",
+				StoreComposer:         composer,
+				NotifyCompleteUploads: true,
+			})
+
+			c := make(chan HookEvent, 1)
+			handler.CompleteUploads = c
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;http://tus.io/files/a /files/b",
+				},
+				Code: http.StatusCreated,
+			}).Run(handler, t)
+
+			event := <-c
+			info := event.Upload
+			a.Equal(concatID, info.ID)
+			a.EqualValues(10, info.Size)
+			a.EqualValues(10, info.Offset)
+			a.True(info.IsFinal)
+		})
+
+		// Test idempotent retry when upload was created but concat didn't complete.
+		SubTest(t, "IdempotentRetryIncomplete", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			a := assert.New(t)
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
+			concatID := "concat-7e18f737311b2dc3b2f269dd78396b03"
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().GetUpload(gomock.Any(), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				// Idempotency check: upload exists but concat hasn't happened yet
+				store.EXPECT().GetUpload(gomock.Any(), concatID).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:             concatID,
+					Size:           10,
+					Offset:         0,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+				}, nil),
+				// Should retry the concatenation
+				store.EXPECT().AsConcatableUpload(uploadC).Return(uploadC),
+				uploadC.EXPECT().ConcatUploads(gomock.Any(), []Upload{uploadA, uploadB}).Return(nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:              "files",
+				StoreComposer:         composer,
+				NotifyCompleteUploads: true,
+			})
+
+			c := make(chan HookEvent, 1)
+			handler.CompleteUploads = c
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;http://tus.io/files/a /files/b",
+				},
+				Code: http.StatusCreated,
+			}).Run(handler, t)
+
+			event := <-c
+			info := event.Upload
+			a.Equal(concatID, info.ID)
+			a.EqualValues(10, info.Size)
+			a.EqualValues(10, info.Offset)
+			a.True(info.IsFinal)
+		})
+
+		// Test that a partially corrupted concat (0 < offset < size) returns an error.
+		SubTest(t, "IdempotentRetryCorrupted", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			uploadA := NewMockFullUpload(ctrl)
+			uploadB := NewMockFullUpload(ctrl)
+			uploadC := NewMockFullUpload(ctrl)
+
+			concatID := "concat-7e18f737311b2dc3b2f269dd78396b03"
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "a").Return(uploadA, nil),
+				uploadA.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				store.EXPECT().GetUpload(gomock.Any(), "b").Return(uploadB, nil),
+				uploadB.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					IsPartial: true,
+					Size:      5,
+					Offset:    5,
+				}, nil),
+				// Idempotency check: upload exists with partial data (corrupted)
+				store.EXPECT().GetUpload(gomock.Any(), concatID).Return(uploadC, nil),
+				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:             concatID,
+					Size:           10,
+					Offset:         3,
+					IsFinal:        true,
+					PartialUploads: []string{"a", "b"},
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:      "files",
+				StoreComposer: composer,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;http://tus.io/files/a /files/b",
+				},
+				Code:    http.StatusInternalServerError,
+				ResBody: "ERR_CONCAT_CORRUPTED: previous concatenation attempt was partially completed and left the upload in an inconsistent state\n",
+			}).Run(handler, t)
+		})
+
 		// Test that we can concatenate uploads, whose IDs contain slashes.
 		SubTest(t, "UploadIDsWithSlashes", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
@@ -345,6 +528,8 @@ func TestConcat(t *testing.T) {
 			uploadA := NewMockFullUpload(ctrl)
 			uploadB := NewMockFullUpload(ctrl)
 			uploadC := NewMockFullUpload(ctrl)
+
+			concatID := "concat-0f2c19317a7803781021b9b987dc84e7"
 
 			gomock.InOrder(
 				store.EXPECT().GetUpload(gomock.Any(), "aaa/123").Return(uploadA, nil),
@@ -359,7 +544,10 @@ func TestConcat(t *testing.T) {
 					Size:      5,
 					Offset:    5,
 				}, nil),
+				// Idempotency check: look up the deterministic concat ID
+				store.EXPECT().GetUpload(gomock.Any(), concatID).Return(nil, ErrNotFound),
 				store.EXPECT().NewUpload(gomock.Any(), FileInfo{
+					ID:             concatID,
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
@@ -367,7 +555,7 @@ func TestConcat(t *testing.T) {
 					MetaData:       make(map[string]string),
 				}).Return(uploadC, nil),
 				uploadC.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
-					ID:             "foo",
+					ID:             concatID,
 					Size:           10,
 					IsPartial:      false,
 					IsFinal:        true,
