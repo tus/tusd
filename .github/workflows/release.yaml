@@ -71,14 +71,17 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
 
   build-binary:
+    # Binary releases are only published for version tags.
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
-      # Required for gh release create / gh release upload
       contents: write
     steps:
       -
         name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       -
         name: Install Go
@@ -87,15 +90,11 @@ jobs:
           go-version: 'stable'
 
       -
-        name: Build TUSD
-        run: ./scripts/build_all.sh
-
-      -
-        name: GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        name: Release with GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" --title "$TAG" --generate-notes || true
-          gh release upload "$TAG" tusd_*.* --clobber
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

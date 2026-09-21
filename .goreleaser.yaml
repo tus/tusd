@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: tusd
+
+builds:
+  - id: tusd
+    main: ./cmd/tusd
+    binary: tusd
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.VersionName={{.Tag}}
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.GitCommit={{.FullCommit}}
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.BuildDate={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - "386"
+      - amd64
+      - arm
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+
+  # Separate build so we only ship amd64/arm64 .deb packages.
+  - id: tusd-deb
+    main: ./cmd/tusd
+    binary: tusd
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.VersionName={{.Tag}}
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.GitCommit={{.FullCommit}}
+      - -X github.com/tus/tusd/v2/cmd/tusd/cli.BuildDate={{.Date}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    ids:
+      - tusd
+    name_template: "tusd_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: darwin
+        formats: [zip]
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE.txt
+      - README.md
+    # Puts binary + LICENSE + README under tusd_{os}_{arch}/.
+    wrap_in_directory: true
+
+nfpms:
+  - id: deb
+    ids:
+      - tusd-deb
+    package_name: tusd
+    file_name_template: "tusd_{{ .Os }}_{{ .Arch }}"
+    maintainer: Marius Kleidl <oss@mariuskleidl.net>
+    description: The official server implementation of the tus resumable upload protocol.
+    homepage: https://github.com/tus/tusd
+    license: MIT
+    section: devel
+    priority: optional
+    bindir: /usr/bin
+    formats:
+      - deb
+
+checksum:
+  algorithm: sha256
+  split: true
+  name_template: "{{ .ArtifactName }}.sha256"
+
+changelog:
+  # Prefer GitHub's native release notes (same idea as `gh release create --generate-notes`).
+  use: github-native
+
+release:
+  name_template: "{{.Tag}}"
+  mode: replace
