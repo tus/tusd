@@ -60,6 +60,44 @@ func TestFileLocker_Timeout(t *testing.T) {
 	assertEmptyDirectory(dir, a)
 }
 
+func TestFileLocker_Timeout_StopFileCleanedUp(t *testing.T) {
+	// Regression test: when Lock() times out without ever successfully
+	// acquiring the lock, the .stop file it created to signal the holder
+	// must be cleaned up. Otherwise the .stop file remains on disk
+	// indefinitely, which is especially problematic on filesystems where
+	// flock() can return ErrBusy spuriously (e.g. SMB/CIFS) — subsequent
+	// retries observe stale state and fail deterministically.
+	a := assert.New(t)
+
+	dir, err := os.MkdirTemp("", "tusd-file-locker")
+	a.NoError(err)
+
+	locker := New(dir)
+	locker.AcquirerPollInterval = 10 * time.Millisecond
+
+	lock1, err := locker.NewLock("one")
+	a.NoError(err)
+	a.NoError(lock1.Lock(context.Background(), func() {}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	lock2, err := locker.NewLock("one")
+	a.NoError(err)
+	err = lock2.Lock(ctx, func() {
+		panic("must not be called")
+	})
+	a.Equal(err, handler.ErrLockTimeout)
+
+	// The .stop file created by lock2's contended acquisition must not
+	// linger on disk after the acquisition failed.
+	_, err = os.Stat(dir + "/one.stop")
+	a.True(os.IsNotExist(err), "stop file should have been removed after ErrLockTimeout, got err=%v", err)
+
+	a.NoError(lock1.Unlock())
+	assertEmptyDirectory(dir, a)
+}
+
 func TestFileLocker_RequestUnlock(t *testing.T) {
 	a := assert.New(t)
 
