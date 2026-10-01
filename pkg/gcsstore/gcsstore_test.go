@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
 	"cloud.google.com/go/storage"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/tus/tusd/v2/pkg/gcsstore"
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -284,6 +286,139 @@ func TestTerminate(t *testing.T) {
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
 	assert.Nil(err)
+}
+
+func TestUseIn(t *testing.T) {
+	store := gcsstore.New(mockBucket, NewMockGCSAPI(gomock.NewController(t)))
+	composer := handler.NewStoreComposer()
+	store.UseIn(composer)
+
+	assert.Equal(t, store, composer.Core)
+	assert.True(t, composer.UsesTerminater)
+	assert.Equal(t, store, composer.Terminater)
+	assert.True(t, composer.UsesConcater)
+	assert.Equal(t, store, composer.Concater)
+}
+
+func TestConcatUploads(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		prefix    string
+		keyPrefix string
+	}{
+		{name: "WithoutPrefix"},
+		{name: "WithPrefix", prefix: "path/to/uploads", keyPrefix: "path/to/uploads/"},
+		{name: "WithTrailingSlash", prefix: "path/to/uploads/", keyPrefix: "path/to/uploads/"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service := NewMockGCSAPI(gomock.NewController(t))
+			store := gcsstore.New(mockBucket, service)
+			store.ObjectPrefix = tc.prefix
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			composer := handler.NewStoreComposer()
+			store.UseIn(composer)
+			require.True(t, composer.UsesConcater)
+
+			// Preserve the supplied order and repeated uploads, rather than sorting or deduplicating.
+			partialIDs := []string{"partial-b", "partial-a", "partial-b"}
+			partials := make([]handler.Upload, len(partialIDs))
+			for i, id := range partialIDs {
+				var err error
+				partials[i], err = store.GetUpload(ctx, id)
+				require.NoError(t, err)
+				expectConcatPartialInfo(t, ctx, service, id, tc.keyPrefix+id)
+			}
+
+			service.EXPECT().ComposeObjects(ctx, gcsstore.GCSComposeParams{
+				Bucket:      mockBucket,
+				Destination: tc.keyPrefix + mockID,
+				Sources: []string{
+					tc.keyPrefix + "partial-b",
+					tc.keyPrefix + "partial-a",
+					tc.keyPrefix + "partial-b",
+				},
+			}).Return(nil)
+
+			upload, err := store.GetUpload(ctx, mockID)
+			require.NoError(t, err)
+			assert.NoError(t, composer.Concater.AsConcatableUpload(upload).ConcatUploads(ctx, partials))
+		})
+	}
+}
+
+func TestConcatUploadsGetInfoError(t *testing.T) {
+	for _, failedIndex := range []int{0, 1} {
+		t.Run(fmt.Sprintf("Partial%d", failedIndex), func(t *testing.T) {
+			service := NewMockGCSAPI(gomock.NewController(t))
+			store := gcsstore.New(mockBucket, service)
+			ctx := context.Background()
+			infoErr := errors.New("cannot read partial upload info")
+			partialIDs := []string{"partial-a", "partial-b", "partial-c"}
+			partials := make([]handler.Upload, len(partialIDs))
+			for i, id := range partialIDs {
+				var err error
+				partials[i], err = store.GetUpload(ctx, id)
+				require.NoError(t, err)
+				if i < failedIndex {
+					expectConcatPartialInfo(t, ctx, service, id, id)
+				} else if i == failedIndex {
+					service.EXPECT().ReadObject(ctx, gcsstore.GCSObjectParams{
+						Bucket: mockBucket,
+						ID:     id + ".info",
+					}).Return(nil, infoErr)
+				}
+			}
+
+			// No further uploads may be read or composed after the first error.
+			upload, err := store.GetUpload(ctx, mockID)
+			require.NoError(t, err)
+			err = store.AsConcatableUpload(upload).ConcatUploads(ctx, partials)
+			assert.ErrorIs(t, err, infoErr)
+		})
+	}
+}
+
+func TestConcatUploadsComposeError(t *testing.T) {
+	service := NewMockGCSAPI(gomock.NewController(t))
+	store := gcsstore.New(mockBucket, service)
+	ctx := context.Background()
+	composeErr := errors.New("cannot compose uploads")
+
+	partial, err := store.GetUpload(ctx, "partial")
+	require.NoError(t, err)
+	expectConcatPartialInfo(t, ctx, service, "partial", "partial")
+	service.EXPECT().ComposeObjects(ctx, gcsstore.GCSComposeParams{
+		Bucket:      mockBucket,
+		Destination: mockID,
+		Sources:     []string{"partial"},
+	}).Return(composeErr)
+
+	upload, err := store.GetUpload(ctx, mockID)
+	require.NoError(t, err)
+	err = store.AsConcatableUpload(upload).ConcatUploads(ctx, []handler.Upload{partial})
+	assert.ErrorIs(t, err, composeErr)
+}
+
+func expectConcatPartialInfo(t *testing.T, ctx context.Context, service *MockGCSAPI, id, key string) {
+	t.Helper()
+	info := handler.FileInfo{ID: id, Size: mockSize, Offset: mockSize, IsPartial: true}
+	data, err := json.Marshal(info)
+	require.NoError(t, err)
+	params := gcsstore.GCSObjectParams{Bucket: mockBucket, ID: key + ".info"}
+
+	gomock.InOrder(
+		service.EXPECT().ReadObject(ctx, params).Return(MockReader{bytes.NewReader(data)}, nil),
+		service.EXPECT().FilterObjects(ctx, gcsstore.GCSFilterParams{
+			Bucket: mockBucket,
+			Prefix: key,
+		}).Return([]string{key}, nil),
+		service.EXPECT().GetObjectSize(gomock.Any(), gcsstore.GCSObjectParams{
+			Bucket: mockBucket,
+			ID:     key,
+		}).Return(int64(mockSize), nil),
+	)
 }
 
 func TestFinishUpload(t *testing.T) {
