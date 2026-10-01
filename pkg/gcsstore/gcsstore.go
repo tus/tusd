@@ -292,6 +292,11 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 		return err
 	}
 
+	return upload.setObjectMetadata(ctx)
+}
+
+func (upload gcsUpload) setObjectMetadata(ctx context.Context) error {
+	store := upload.store
 	info, err := upload.GetInfo(ctx)
 	if err != nil {
 		return err
@@ -299,7 +304,7 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 
 	objectParams := GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     store.keyWithPrefix(id),
+		ID:     store.keyWithPrefix(upload.id),
 	}
 
 	err = store.Service.SetObjectMetadata(ctx, objectParams, info.MetaData)
@@ -368,7 +373,7 @@ func (upload gcsUpload) ConcatUploads(ctx context.Context, partialUploads []hand
 		return err
 	}
 
-	return nil
+	return upload.setObjectMetadata(ctx)
 }
 
 func (store GCSStore) keyWithPrefix(key string) string {
