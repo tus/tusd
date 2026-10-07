@@ -65,6 +65,8 @@ var (
 	ErrServerShutdown                   = NewError("ERR_SERVER_SHUTDOWN", "request has been interrupted because the server is shutting down", http.StatusServiceUnavailable)
 	ErrOriginNotAllowed                 = NewError("ERR_ORIGIN_NOT_ALLOWED", "request origin is not allowed", http.StatusForbidden)
 	ErrUnexpectedEOF                    = NewError("ERR_UNEXPECTED_EOF", "server expected to receive more bytes", http.StatusBadRequest)
+	ErrUploadExpired                    = NewError("ERR_UPLOAD_EXPIRED", "upload has expired", http.StatusGone)
+	ErrInvalidExpiration                = NewError("ERR_INVALID_EXPIRATION", "expiration time must not be in the past", http.StatusInternalServerError)
 
 	// These two responses are 500 for backwards compatability. Clients might receive a timeout response
 	// when the upload got interrupted. Most clients will not retry 4XX but only 5XX, so we responsd with 500 here.
@@ -111,6 +113,12 @@ type UnroutedHandler struct {
 	// this channel will only happen if the NotifyCreatedUploads field is set to
 	// true in the Config structure.
 	CreatedUploads chan HookEvent
+	// ExpiredUploads is used to send notifications whenever a request tries to access
+	// an upload that has expired. The HookEvent will contain the information about the
+	// upload as gathered before the request was rejected. Sending to this channel will
+	// only happen if the NotifyExpiredUploads field is set to true in the Config
+	// structure.
+	ExpiredUploads chan HookEvent
 	// Metrics provides numbers of the usage for this handler.
 	Metrics Metrics
 }
@@ -135,6 +143,9 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 	if config.StoreComposer.UsesLengthDeferrer {
 		extensions += ",creation-defer-length"
 	}
+	if !config.DisableExpiration {
+		extensions += ",expiration"
+	}
 
 	handler := &UnroutedHandler{
 		config:            config,
@@ -145,6 +156,7 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		TerminatedUploads: make(chan HookEvent),
 		UploadProgress:    make(chan HookEvent),
 		CreatedUploads:    make(chan HookEvent),
+		ExpiredUploads:    make(chan HookEvent),
 		logger:            config.Logger,
 		extensions:        extensions,
 		Metrics:           newMetrics(),
@@ -356,6 +368,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 		IsPartial:      isPartial,
 		IsFinal:        isFinal,
 		PartialUploads: partialUploadIDs,
+		ExpiresAt:      handler.defaultExpiration(),
 	}
 
 	resp := HTTPResponse{
@@ -385,6 +398,15 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 			info.MetaData = changes.MetaData
 		}
 
+		if changes.ExpiresAt != nil && !handler.config.DisableExpiration {
+			if err := validateExpiration(*changes.ExpiresAt); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
+			info.ExpiresAt = *changes.ExpiresAt
+		}
+
 		if changes.Storage != nil {
 			info.Storage = changes.Storage
 		}
@@ -408,6 +430,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	// include it in cases of failure when an error is returned
 	url := handler.absFileURL(r, id)
 	resp.Header["Location"] = url
+	handler.setExpirationHeader(resp, info)
 
 	handler.Metrics.incUploadsCreated()
 	c.log = c.log.With("id", id)
@@ -475,7 +498,8 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	willCompleteUpload := isIETFDraftUploadComplete(r)
 
 	info := FileInfo{
-		MetaData: make(MetaData),
+		MetaData:  make(MetaData),
+		ExpiresAt: handler.defaultExpiration(),
 	}
 
 	size, sizeIsDeferred, err := getIETFDraftUploadLength(r)
@@ -552,6 +576,15 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 		if changes.MetaData != nil {
 			info.MetaData = changes.MetaData
+		}
+
+		if changes.ExpiresAt != nil && !handler.config.DisableExpiration {
+			if err := validateExpiration(*changes.ExpiresAt); err != nil {
+				handler.sendError(c, err)
+				return
+			}
+
+			info.ExpiresAt = *changes.ExpiresAt
 		}
 
 		if changes.Storage != nil {
@@ -672,6 +705,11 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if err := handler.checkExpiration(c, info); err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
 	resp := HTTPResponse{
 		Header: HTTPHeader{
 			"Cache-Control": "no-store",
@@ -708,6 +746,8 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 			// But this then also depends on the storage backend if that's even supported.
 			resp.Header["Content-Length"] = strconv.FormatInt(info.Size, 10)
 		}
+
+		handler.setExpirationHeader(resp, info)
 
 		resp.StatusCode = http.StatusOK
 	} else {
@@ -786,6 +826,11 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := handler.checkExpiration(c, info); err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
 	// Modifying a final upload is not allowed
 	if info.IsFinal {
 		handler.sendError(c, ErrModifyFinal)
@@ -805,6 +850,8 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 		StatusCode: http.StatusNoContent,
 		Header:     make(HTTPHeader, 1), // Initialize map, so writeChunk can set the Upload-Offset header.
 	}
+
+	handler.setExpirationHeader(resp, info)
 
 	// Do not proxy the call to the data store if the upload is already completed
 	if !info.SizeIsDeferred && info.Offset == info.Size {
@@ -1064,6 +1111,11 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if err := handler.checkExpiration(c, info); err != nil {
+		handler.sendError(c, err)
+		return
+	}
+
 	// Fall back to the existing GetReader implementation if ContentServerDataStore is not implemented
 	contentType, contentDisposition := filterContentType(info)
 	resp := HTTPResponse{
@@ -1278,6 +1330,70 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 	return nil
 }
 
+// defaultExpiration returns the time at which an upload created right now expires,
+// based on Config.DefaultExpiration. If uploads do not expire by default, the zero value
+// of time.Time is returned.
+func (handler *UnroutedHandler) defaultExpiration() time.Time {
+	if handler.config.DisableExpiration || handler.config.DefaultExpiration <= 0 {
+		return time.Time{}
+	}
+
+	return time.Now().Add(handler.config.DefaultExpiration)
+}
+
+// validateExpiration ensures that an expiration time obtained from the pre-create hook
+// can be used. A time in the past is rejected because the upload would not be usable
+// after its creation.
+func validateExpiration(expiresAt time.Time) error {
+	if !expiresAt.IsZero() && time.Now().After(expiresAt) {
+		return ErrInvalidExpiration
+	}
+
+	return nil
+}
+
+// expirationApplies returns whether the expiration time of the given upload is relevant.
+// This is only the case if the extension is enabled, an expiration time is set and the
+// upload is not finished yet.
+// Partial uploads from the concatenation extension are an exception, as they are not
+// usable on their own and therefore keep expiring after all their data has been
+// transmitted.
+func (handler *UnroutedHandler) expirationApplies(info FileInfo) bool {
+	if handler.config.DisableExpiration || info.ExpiresAt.IsZero() {
+		return false
+	}
+
+	isFinished := !info.SizeIsDeferred && info.Offset == info.Size
+	return !isFinished || info.IsPartial
+}
+
+// setExpirationHeader adds the Upload-Expires header to the response if the upload
+// expires. Its value is an RFC 7231 datetime, as required by the expiration extension.
+func (handler *UnroutedHandler) setExpirationHeader(resp HTTPResponse, info FileInfo) {
+	if !handler.expirationApplies(info) {
+		return
+	}
+
+	resp.Header["Upload-Expires"] = info.ExpiresAt.UTC().Format(http.TimeFormat)
+}
+
+// checkExpiration returns ErrUploadExpired if the expiration time of the given upload
+// has passed, in which case it also sends the corresponding message on the
+// ExpiredUploads channel. Callers must stop serving the upload if an error is returned.
+func (handler *UnroutedHandler) checkExpiration(c *httpContext, info FileInfo) error {
+	if !handler.expirationApplies(info) || time.Now().Before(info.ExpiresAt) {
+		return nil
+	}
+
+	c.log.InfoContext(c, "UploadExpired", "expiresAt", info.ExpiresAt.UTC().Format(http.TimeFormat))
+
+	if handler.config.NotifyExpiredUploads {
+		handler.ExpiredUploads <- newHookEvent(c, info)
+	}
+
+	return ErrUploadExpired
+}
+
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
@@ -1401,17 +1517,21 @@ func getHostAndProtocol(r *http.Request, allowForwarded bool) (host, proto strin
 // The get sum of all sizes for a list of upload ids while checking whether
 // all of these uploads are finished yet. This is used to calculate the size
 // of a final resource.
-func (handler *UnroutedHandler) sizeOfUploads(ctx context.Context, ids []string) (partialUploads []Upload, size int64, err error) {
+func (handler *UnroutedHandler) sizeOfUploads(c *httpContext, ids []string) (partialUploads []Upload, size int64, err error) {
 	partialUploads = make([]Upload, len(ids))
 
 	for i, id := range ids {
-		upload, err := handler.composer.Core.GetUpload(ctx, id)
+		upload, err := handler.composer.Core.GetUpload(c, id)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		info, err := upload.GetInfo(ctx)
+		info, err := upload.GetInfo(c)
 		if err != nil {
+			return nil, 0, err
+		}
+
+		if err := handler.checkExpiration(c, info); err != nil {
 			return nil, 0, err
 		}
 

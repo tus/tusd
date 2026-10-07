@@ -90,6 +90,33 @@ The [tus termination extension](https://tus.io/protocols/resumable-upload#termin
 $ tusd -disable-termination
 ```
 
+### Upload expiration
+
+The [tus expiration extension](https://tus.io/protocols/resumable-upload#expiration) allows the server to declare a time after which an unfinished upload can no longer be resumed. This is useful to stop serving uploads that clients have abandoned. The extension is available by default, but uploads do not expire unless an expiration time is set for them. Use the `-expiration` flag to set the duration after their creation that uploads expire:
+
+```bash
+# Unfinished uploads expire 24 hours after their creation
+$ tusd -expiration 24h
+```
+
+If you don't want a single duration to apply to all uploads, you can leave the flag unset and instead set the expiration time for individual uploads in the pre-create hook, as described below.
+
+If you don't want uploads to expire at all, use the `-disable-expiration` flag. Tusd then ignores the expiration time of all uploads and does not advertise the extension:
+
+```bash
+$ tusd -disable-expiration
+```
+
+Tusd includes the expiration time in the `Upload-Expires` header of responses to POST, HEAD, and PATCH requests. Once the expiration time has passed, requests attempting to resume or download the upload are answered with `410 Gone`.
+
+Please be aware of the following characteristics:
+
+- Expiration is only enforced as long as an upload is not finished yet. Once all data has been transmitted, the upload is served regardless of its expiration time. Partial uploads from the [concatenation extension](https://tus.io/protocols/resumable-upload#concatenation) are an exception, as they are not usable on their own and therefore keep expiring after all their data has been transmitted.
+
+- Tusd does not delete expired uploads on its own and does not run a background job to look for them. An expired upload still occupies space in the storage backend until a client terminates it using a DELETE request, which stays possible after the expiration. If you need expired uploads to be cleaned up automatically, use the `post-expire` hook or a scheduled task of your own.
+
+- The expiration time of an individual upload can be set in the [pre-create hook]({{ site.baseurl }}/advanced-topics/hooks/) using the `ChangeFileInfo.ExpiresAt` property, which overrides the `-expiration` value and also works if that flag is not set at all. Note that the expiration time is fixed when an upload is created and is not extended while data is being transmitted.
+
 ## Storage backend
 
 Tusd has been designed with flexible storage backends in mind and can store the received uploads on local disk or various cloud provides (AWS S3, Azure Cloud Storage, and Google Cloud Storage). By default, tusd will store uploads in the directory specified by the `-upload-dir` flag (which defaults to `./data`). Please consult the dedicated [Storage Backends section]({{ site.baseurl }}/storage-backends/overview/) for details on how to use a different storage backend and configure them.
@@ -169,7 +196,7 @@ $ tusd -upload-dir=./data -host=127.0.0.1 -port=8443 -tls-certificate=localhost.
 [tusd] Using 127.0.0.1:8443 as address to listen.
 [tusd] Using /files/ as the base path.
 [tusd] Using /metrics as the metrics path.
-[tusd] Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length
+[tusd] Supported tus extensions: creation,creation-with-upload,termination,concatenation,creation-defer-length,expiration
 [tusd] You can now upload files to: https://127.0.0.1:8443/files/
 
 # tusd is now accessible via HTTPS

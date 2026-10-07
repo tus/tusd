@@ -98,10 +98,11 @@ const (
 	HookPreCreate     HookType = "pre-create"
 	HookPreFinish     HookType = "pre-finish"
 	HookPreTerminate  HookType = "pre-terminate"
+	HookPostExpire    HookType = "post-expire"
 )
 
 // AvailableHooks is a slice of all hooks that are implemented by tusd.
-var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPreTerminate, HookPostTerminate, HookPostFinish, HookPreFinish}
+var AvailableHooks []HookType = []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPreTerminate, HookPostTerminate, HookPostFinish, HookPreFinish, HookPostExpire}
 
 func preCreateCallback(event handler.HookEvent, hookHandler HookHandler) (handler.HTTPResponse, handler.FileInfoChanges, error) {
 	ok, hookRes, err := invokeHookSync(HookPreCreate, event, hookHandler)
@@ -194,6 +195,7 @@ func SetupHookMetrics() {
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
 	MetricsHookErrorsTotal.WithLabelValues(string(HookPreTerminate)).Add(0)
+	MetricsHookErrorsTotal.WithLabelValues(string(HookPostExpire)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostTerminate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostReceive)).Add(0)
@@ -201,6 +203,7 @@ func SetupHookMetrics() {
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreCreate)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreFinish)).Add(0)
 	MetricsHookInvocationsTotal.WithLabelValues(string(HookPreTerminate)).Add(0)
+	MetricsHookInvocationsTotal.WithLabelValues(string(HookPostExpire)).Add(0)
 }
 
 func invokeHookAsync(typ HookType, event handler.HookEvent, hookHandler HookHandler) {
@@ -252,8 +255,8 @@ func invokeHookSync(typ HookType, event handler.HookEvent, hookHandler HookHandl
 //	unroutedHandler := routedHandler.UnroutedHandler
 //
 // Note: NewHandlerWithHooks sets up a goroutine to consume the notfication channels (CompleteUploads, TerminatedUploads,
-// CreatedUploads, UploadProgress) on the created handler. These channels must not be consumed by the caller or otherwise
-// events might not be passed to the hook handler.
+// CreatedUploads, UploadProgress, ExpiredUploads) on the created handler. These channels must not be consumed by the
+// caller or otherwise events might not be passed to the hook handler.
 func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enabledHooks []HookType) (*handler.Handler, error) {
 	if err := hookHandler.Setup(); err != nil {
 		return nil, fmt.Errorf("unable to setup hooks for handler: %s", err)
@@ -264,6 +267,7 @@ func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enable
 	config.NotifyTerminatedUploads = slices.Contains(enabledHooks, HookPostTerminate)
 	config.NotifyUploadProgress = slices.Contains(enabledHooks, HookPostReceive)
 	config.NotifyCreatedUploads = slices.Contains(enabledHooks, HookPostCreate)
+	config.NotifyExpiredUploads = slices.Contains(enabledHooks, HookPostExpire)
 
 	// Install callbacks for pre-* hooks
 	if slices.Contains(enabledHooks, HookPreCreate) {
@@ -301,6 +305,8 @@ func NewHandlerWithHooks(config *handler.Config, hookHandler HookHandler, enable
 				invokeHookAsync(HookPostCreate, event, hookHandler)
 			case event := <-handler.UploadProgress:
 				go postReceiveCallback(event, hookHandler)
+			case event := <-handler.ExpiredUploads:
+				invokeHookAsync(HookPostExpire, event, hookHandler)
 			}
 		}
 	}()

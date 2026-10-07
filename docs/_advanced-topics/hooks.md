@@ -35,6 +35,7 @@ The table below provides an overview of all available hooks.
 | post-finish    | No        | after all upload data has been received and after a response is sent.  | post-processing of upload, logging of upload end                                | Yes                 |
 | pre-terminate  | Yes       | before an upload will be terminated.                                   | checking if an upload should be deleted                                         | No                  |
 | post-terminate | No        | after an upload has been terminated.                                   | clean up of allocated resources                                                 | Yes                 |
+| post-expire    | No        | when a request accesses an upload that has expired.                    | clean up of expired uploads, logging of abandoned uploads                       | Yes                 |
 
 Users should be aware of following things:
 - If a hook is _blocking_, tusd will wait with further processing until the hook is completed. This is useful for validation and authentication, where further processing should be stopped if the hook determines to do so. However, long execution time may impact the user experience because the upload processing is blocked while the hook executes.
@@ -81,6 +82,9 @@ Below you can find an annotated, JSON-ish encoded example of a hook request:
             "IsPartial": false,
             "IsFinal": false,
             "PartialUploads": null,
+            // ExpiresAt is the time after which the upload is considered expired.
+            // It is the zero time if the upload does not expire.
+            "ExpiresAt": "2024-05-17T14:12:35.849Z",
             // Storage contains information about where the upload is stored. The exact values
             // depend on the storage that is used and are not available in the pre-create hook.
             "Storage": {
@@ -221,7 +225,13 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
 
             // Other storages, such as S3Store, GCSStore, and AzureStore, do not support the Storage
             // property yet.
-        }
+        },
+        // Set the time after which this upload expires, overriding the server-wide default
+        // from the `-expiration` flag. Expired uploads are not served anymore and respond with
+        // 410 Gone, but tusd does not remove them on its own.
+        // Use the zero time (0001-01-01T00:00:00Z) to prevent this upload from expiring at all.
+        // A time in the past is rejected, since the upload would not be usable after its creation.
+        "ExpiresAt": "2024-05-17T14:12:35.849Z"
     },
 
     // StopUpload will cause the upload to be stopped during a PATCH request.

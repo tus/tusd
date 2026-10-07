@@ -36,6 +36,18 @@ type Config struct {
 	// DisableConcatenation indicates whether the server will refuse POST requests
 	// for creating uploads that use the concatenation extension.
 	DisableConcatenation bool
+	// DisableExpiration indicates whether the server will ignore the expiration of
+	// uploads, by not advertising the expiration extension and by serving uploads even
+	// after their expiration time has passed.
+	DisableExpiration bool
+	// DefaultExpiration defines the duration after their creation that uploads expire by
+	// default. If its value is 0 or smaller, uploads do not expire by default and an
+	// expiration time must be set per upload using FileInfoChanges.ExpiresAt in the
+	// pre-create hook. This value is ignored if DisableExpiration is set.
+	// Note that expired uploads are not served anymore, but tusd does not remove them on
+	// its own. Their storage is only freed once a client terminates the upload using a
+	// DELETE request, which remains possible after the expiration.
+	DefaultExpiration time.Duration
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
 	// Defaults to DefaultCorsConfig.
@@ -52,6 +64,9 @@ type Config struct {
 	// NotifyCreatedUploads indicates whether sending notifications about
 	// the upload having been created using the CreatedUploads channel should be enabled.
 	NotifyCreatedUploads bool
+	// NotifyExpiredUploads indicates whether sending notifications about requests
+	// accessing an expired upload using the ExpiredUploads channel should be enabled.
+	NotifyExpiredUploads bool
 	// UploadProgressInterval specifies the interval at which the upload progress
 	// notifications are sent to the UploadProgress channel, if enabled.
 	// Defaults to 1s.
@@ -147,7 +162,7 @@ var DefaultCorsConfig = CorsConfig{
 	AllowMethods:     "POST, HEAD, PATCH, OPTIONS, GET, DELETE",
 	AllowHeaders:     "Authorization, Origin, X-Requested-With, X-Request-ID, X-HTTP-Method-Override, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version",
 	MaxAge:           "86400",
-	ExposeHeaders:    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version",
+	ExposeHeaders:    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version, Upload-Expires",
 }
 
 func (config *Config) validate() error {

@@ -834,6 +834,159 @@ func TestStopUpload(t *testing.T) {
 	}
 }
 
+// TestUploadExpiration tests that tusd stops serving an unfinished upload once its
+// expiration time has passed, while a finished upload is still served.
+func TestUploadExpiration(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	endpoint, _, _ := spawnTusd(ctx, t, "-expiration=2s")
+
+	data := bytes.NewBufferString("hello world")
+	length := data.Len()
+
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(length))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	// The creation response must announce when the upload expires.
+	expires, err := http.ParseTime(res.Header.Get("Upload-Expires"))
+	if err != nil {
+		t.Fatalf("invalid Upload-Expires header %q: %s", res.Header.Get("Upload-Expires"), err)
+	}
+	if !isApprox(time.Until(expires), 2*time.Second, 0.5) {
+		t.Fatalf("invalid expiration time %v", expires)
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	// Wait for the upload to expire without transmitting any data.
+	<-time.After(3 * time.Second)
+
+	req, err = http.NewRequest("HEAD", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusGone {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	req, err = http.NewRequest("PATCH", uploadUrl, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Offset", "0")
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusGone {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	// Terminating an expired upload must still be possible, as this is the only way for
+	// a client to free its storage.
+	req, err = http.NewRequest("DELETE", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+}
+
+// TestFinishedUploadDoesNotExpire tests that an upload which has been finished before its
+// expiration time is still served afterwards.
+func TestFinishedUploadDoesNotExpire(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	endpoint, _, _ := spawnTusd(ctx, t, "-expiration=2s")
+
+	data := bytes.NewBufferString("hello world")
+	length := data.Len()
+
+	req, err := http.NewRequest("POST", endpoint, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(length))
+	req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	<-time.After(3 * time.Second)
+
+	req, err = http.NewRequest("HEAD", uploadUrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Add("Tus-Resumable", "1.0.0")
+
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	if offset := res.Header.Get("Upload-Offset"); offset != strconv.Itoa(length) {
+		t.Fatalf("invalid offset %s", offset)
+	}
+}
+
 // getTusdExtraArgs returns extra tusd flags from TUSD_EXTRA_ARGS (e.g. for S3/Azure backends in CI).
 func getTusdExtraArgs() []string {
 	s := os.Getenv("TUSD_EXTRA_ARGS")
