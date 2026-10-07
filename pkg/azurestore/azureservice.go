@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -82,6 +84,8 @@ type AzBlob interface {
 	StageSentinelBlock(ctx context.Context) error
 	// Download returns a readcloser to download the contents of the blob
 	Download(ctx context.Context) (io.ReadCloser, error)
+	// Serves the contents of the blob directly handling special HTTP headers like Range, if set
+	ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error
 	// Get the offset of the blob and its indexes
 	GetOffset(ctx context.Context) (int64, error)
 	// Commit the uploaded blocks to the BlockBlob
@@ -230,6 +234,103 @@ func (blockBlob *BlockBlob) Download(ctx context.Context) (io.ReadCloser, error)
 	return resp.Body, nil
 }
 
+// Serve content respecting range header
+func (blockBlob *BlockBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	var downloadOptions, err = ParseDownloadOptions(r)
+	if err != nil {
+		return err
+	}
+	result, err := blockBlob.BlobClient.DownloadStream(ctx, downloadOptions)
+	if err != nil {
+		var azureError *azcore.ResponseError
+		if errors.As(err, &azureError) {
+			if http.StatusNotFound == azureError.StatusCode {
+				// Either upload is incomplete, or the upload content blob has been deleted and it cannot be served.
+				return handler.ErrNotFound
+			}
+
+			// Pass-through 412 and 416 with relevant headers
+			if http.StatusRequestedRangeNotSatisfiable == azureError.StatusCode ||
+				http.StatusPreconditionFailed == azureError.StatusCode {
+				if azureError.RawResponse != nil {
+					for _, header := range []string{"Content-Range", "X-Ms-Error-Code", "X-Ms-Request-Id", "Date"} {
+						if val := azureError.RawResponse.Header.Get(header); val != "" {
+							w.Header().Set(header, val)
+						}
+					}
+				}
+				w.WriteHeader(azureError.StatusCode)
+				return nil
+			}
+		}
+		return err
+	}
+	defer result.Body.Close()
+
+	// Azure SDK reports some errors of `DownloadStream` only via ErrorCode and does not expose the response
+	// StatusCode, therefore we need to handle ErrorCode
+	if result.ErrorCode != nil {
+		statusCode := http.StatusInternalServerError
+		code := bloberror.Code(*result.ErrorCode)
+		if code == bloberror.ConditionNotMet {
+			// We could check download options here, but just propagating ConditionNotMet should suffice
+			statusCode = http.StatusNotModified
+		}
+		w.WriteHeader(statusCode)
+		return nil
+	}
+
+	// Add Accept-Ranges, Content-*, Cache-Control, ETag, Expires, Last-Modified headers if present in azure response
+	if result.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", *result.AcceptRanges)
+	}
+	if result.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", *result.ContentDisposition)
+	}
+	if result.ContentEncoding != nil {
+		w.Header().Set("Content-Encoding", *result.ContentEncoding)
+	}
+	if result.ContentLanguage != nil {
+		w.Header().Set("Content-Language", *result.ContentLanguage)
+	}
+	if result.ContentLength != nil {
+		w.Header().Set("Content-Length", strconv.FormatInt(*result.ContentLength, 10))
+	}
+	if result.ContentRange != nil {
+		w.Header().Set("Content-Range", *result.ContentRange)
+	}
+	if result.ContentType != nil {
+		w.Header().Set("Content-Type", *result.ContentType)
+	}
+	if len(result.ContentMD5) > 0 {
+		w.Header().Set("Content-MD5", base64.StdEncoding.EncodeToString(result.ContentMD5))
+	}
+	if result.CacheControl != nil {
+		w.Header().Set("Cache-Control", *result.CacheControl)
+	}
+	if result.ETag != nil && *result.ETag != "" {
+		w.Header().Set("ETag", string(*result.ETag))
+	}
+	if result.LastModified != nil {
+		w.Header().Set("Last-Modified", result.LastModified.Format(http.TimeFormat))
+	}
+
+	// No errors. We either got a resposne with all, partial or no content (empty blob).
+	// For an empty blob, we'll return 200 OK like azure blob API and golang FileServer.
+	statusCode := http.StatusOK
+	if result.ContentRange != nil {
+		statusCode = http.StatusPartialContent
+	}
+	w.WriteHeader(statusCode)
+
+	// Copy body, unless the ContentLength is 0
+	err = nil
+	if result.ContentLength == nil || *result.ContentLength > 0 {
+		_, err = io.Copy(w, result.Body)
+	}
+	return err
+}
+
 func (blockBlob *BlockBlob) GetOffset(ctx context.Context) (int64, error) {
 	var offset int64
 
@@ -309,6 +410,11 @@ func (infoBlob *InfoBlob) Download(ctx context.Context) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// ServeContent is not needed for infoBlob
+func (infoBlob *InfoBlob) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	return errors.New("azurestore: ServeContent is not implemented for InfoBlob")
+}
+
 // infoBlob does not utilise offset, so just return 0, nil
 func (infoBlob *InfoBlob) GetOffset(ctx context.Context) (int64, error) {
 	return 0, nil
@@ -363,4 +469,50 @@ func checkForNotFoundError(err error) error {
 		}
 	}
 	return err
+}
+
+// parse the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present
+func ParseDownloadOptions(r *http.Request) (*azblob.DownloadStreamOptions, error) {
+	input := azblob.DownloadStreamOptions{AccessConditions: &azblob.AccessConditions{
+		ModifiedAccessConditions: &blob.ModifiedAccessConditions{},
+	}}
+
+	if val := r.Header.Get("Range"); val != "" {
+		// zero value count indicates from the offset to the resource's end, suffix-length is not required
+		input.Range = azblob.HTTPRange{Offset: 0, Count: 0}
+		bytesEnd := 0
+		if _, err := fmt.Sscanf(val, "bytes=%d-%d", &input.Range.Offset, &bytesEnd); err != nil {
+			if _, err := fmt.Sscanf(val, "bytes=%d-", &input.Range.Offset); err != nil {
+				return nil, err
+			}
+		}
+		if bytesEnd != 0 {
+			input.Range.Count = int64(bytesEnd) - input.Range.Offset + 1
+		}
+	}
+	if val := r.Header.Get("If-Match"); val != "" {
+		etagIfMatch := azcore.ETag(val)
+		input.AccessConditions.ModifiedAccessConditions.IfMatch = &etagIfMatch
+	}
+	if val := r.Header.Get("If-None-Match"); val != "" {
+		etagIfNoneMatch := azcore.ETag(val)
+		input.AccessConditions.ModifiedAccessConditions.IfNoneMatch = &etagIfNoneMatch
+	}
+	if val := r.Header.Get("If-Modified-Since"); val != "" {
+		t, err := http.ParseTime(val)
+		if err != nil {
+			return nil, err
+		}
+		input.AccessConditions.ModifiedAccessConditions.IfModifiedSince = &t
+
+	}
+	if val := r.Header.Get("If-Unmodified-Since"); val != "" {
+		t, err := http.ParseTime(val)
+		if err != nil {
+			return nil, err
+		}
+		input.AccessConditions.ModifiedAccessConditions.IfUnmodifiedSince = &t
+	}
+
+	return &input, nil
 }
