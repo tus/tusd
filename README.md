@@ -33,6 +33,13 @@ The entire documentation, including guides on installing, using, and configuring
 [![release](https://github.com/tus/tusd/actions/workflows/release.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/release.yaml)
 [![continuous-integration](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/tus/tusd/actions/workflows/continuous-integration.yaml)
 
+## Sponsor
+
+tus is funded by its community through [Open Collective](https://opencollective.com/tus).
+Your support pays for maintaining tusd and the other official implementations, for
+keeping them interoperable, and for our work on standardizing resumable uploads at the
+IETF. See [tus.io/#sponsor](https://tus.io/#sponsor) for more about how to help.
+
 ## License
 
 This project is licensed under the MIT license, see `LICENSE.txt`.
