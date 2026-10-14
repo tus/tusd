@@ -13,8 +13,10 @@ import (
 	"github.com/tus/tusd/v2/pkg/azurestore"
 	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
+	"github.com/tus/tusd/v2/pkg/fileidempotencystore"
 	"github.com/tus/tusd/v2/pkg/gcsstore"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/memoryidempotencystore"
 	"github.com/tus/tusd/v2/pkg/memorylocker"
 	"github.com/tus/tusd/v2/pkg/s3store"
 
@@ -83,6 +85,11 @@ func CreateComposer() {
 
 		// Attach the metrics from S3 store to the global Prometheus registry
 		store.RegisterMetrics(prometheus.DefaultRegisterer)
+
+		if !Flags.DisableIdempotency {
+			idempotencyStore := memoryidempotencystore.New()
+			idempotencyStore.UseIn(Composer)
+		}
 	} else if Flags.GCSBucket != "" {
 		if Flags.GCSObjectPrefix != "" && strings.Contains(Flags.GCSObjectPrefix, "_") {
 			stderr.Fatalf("gcs-object-prefix value (%s) can't contain underscore. "+
@@ -113,6 +120,11 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+
+		if !Flags.DisableIdempotency {
+			idempotencyStore := memoryidempotencystore.New()
+			idempotencyStore.UseIn(Composer)
+		}
 	} else if Flags.AzStorage != "" {
 
 		accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
@@ -156,6 +168,11 @@ func CreateComposer() {
 
 		locker := memorylocker.New()
 		locker.UseIn(Composer)
+
+		if !Flags.DisableIdempotency {
+			idempotencyStore := memoryidempotencystore.New()
+			idempotencyStore.UseIn(Composer)
+		}
 	} else {
 		dir, err := filepath.Abs(Flags.UploadDir)
 		if err != nil {
@@ -177,6 +194,13 @@ func CreateComposer() {
 		locker.AcquirerPollInterval = Flags.FilelockAcquirerPollInterval
 		locker.HolderPollInterval = Flags.FilelockHolderPollInterval
 		locker.UseIn(Composer)
+
+		if !Flags.DisableIdempotency {
+			idempotencyStore := fileidempotencystore.New(dir)
+			idempotencyStore.DirModePerm = os.FileMode(Flags.DirPerms) & os.ModePerm
+			idempotencyStore.FileModePerm = os.FileMode(Flags.FilePerms) & os.ModePerm
+			idempotencyStore.UseIn(Composer)
+		}
 	}
 
 	printStartupLog("Using %.2fMB as maximum size.\n", float64(Flags.MaxSize)/1024/1024)
