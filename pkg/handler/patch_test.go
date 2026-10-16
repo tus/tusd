@@ -673,6 +673,69 @@ func TestPatch(t *testing.T) {
 		a.False(more)
 	})
 
+	SubTest(t, "NotifyUploadProgressAfterRequestEnd", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// The last progress event is emitted once the request has ended. Its context must still
+		// be usable, otherwise hooks like post-receive fail before they are sent.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   100,
+			}, nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer:        composer,
+			NotifyUploadProgress: true,
+			// Longer than the request, so only the final event is emitted.
+			UploadProgressInterval:           time.Hour,
+			GracefulRequestCompletionTimeout: time.Millisecond,
+		})
+
+		c := make(chan HookEvent)
+		handler.UploadProgress = c
+
+		reader, writer := io.Pipe()
+		a := assert.New(t)
+
+		go func() {
+			writer.Write([]byte("first "))
+			writer.Close()
+		}()
+
+		requestCtx, endRequest := context.WithCancel(context.Background())
+		(&httpTest{
+			Context: requestCtx,
+			Method:  "PATCH",
+			URL:     "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusNoContent,
+		}).Run(handler, t)
+		// net/http cancels the request context once ServeHTTP returns.
+		endRequest()
+
+		select {
+		case event := <-c:
+			a.Equal(int64(6), event.Upload.Offset)
+			a.NoError(event.Context.Err())
+		case <-time.After(time.Second):
+			t.Fatal("no progress event after the request ended")
+		}
+
+		close(handler.UploadProgress)
+	})
+
 	SubTest(t, "StopUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
