@@ -1343,6 +1343,10 @@ func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileIn
 		for {
 			select {
 			case <-c.Done():
+				// The request is over, so c is cancelled. Hand the final event a context that
+				// keeps c's values but not its cancellation, or post-receive hooks fail before
+				// they are sent.
+				hook.Context = context.WithoutCancel(c)
 				emitProgress()
 				return
 			case <-time.After(handler.config.UploadProgressInterval):
