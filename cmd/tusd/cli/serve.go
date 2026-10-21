@@ -39,6 +39,8 @@ func Serve() {
 		DisableDownload:                  Flags.DisableDownload,
 		DisableTermination:               Flags.DisableTermination,
 		DisableConcatenation:             Flags.DisableConcatenation,
+		DisableExpiration:                Flags.DisableExpiration,
+		DefaultExpiration:                Flags.Expiration,
 		StoreComposer:                    Composer,
 		UploadProgressInterval:           Flags.ProgressHooksInterval,
 		AcquireLockTimeout:               Flags.AcquireLockTimeout,

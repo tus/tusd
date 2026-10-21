@@ -23,7 +23,7 @@ func TestOptions(t *testing.T) {
 		(&httpTest{
 			Method: "OPTIONS",
 			ResHeader: map[string]string{
-				"Tus-Extension": "creation,creation-with-upload,termination,concatenation,creation-defer-length",
+				"Tus-Extension": "creation,creation-with-upload,termination,concatenation,creation-defer-length,expiration",
 				"Tus-Version":   "1.0.0",
 				"Tus-Resumable": "1.0.0",
 				"Tus-Max-Size":  "400",
@@ -81,7 +81,7 @@ func TestOptions(t *testing.T) {
 		(&httpTest{
 			Method: "OPTIONS",
 			ResHeader: map[string]string{
-				"Tus-Extension": "creation,creation-with-upload",
+				"Tus-Extension": "creation,creation-with-upload,expiration",
 				"Tus-Version":   "1.0.0",
 				"Tus-Resumable": "1.0.0",
 			},
@@ -102,7 +102,7 @@ func TestOptions(t *testing.T) {
 		(&httpTest{
 			Method: "OPTIONS",
 			ResHeader: map[string]string{
-				"Tus-Extension": "creation,creation-with-upload",
+				"Tus-Extension": "creation,creation-with-upload,expiration",
 				"Tus-Version":   "1.0.0",
 				"Tus-Resumable": "1.0.0",
 			},

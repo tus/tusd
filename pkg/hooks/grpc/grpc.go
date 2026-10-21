@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type GrpcHook struct {
@@ -123,6 +124,7 @@ func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 				IsFinal:        event.Upload.IsFinal,
 				PartialUploads: event.Upload.PartialUploads,
 				Storage:        event.Upload.Storage,
+				ExpiresAt:      marshalTime(event.Upload.ExpiresAt),
 			},
 			HttpRequest: &pb.HTTPRequest{
 				Method:     event.HTTPRequest.Method,
@@ -132,6 +134,16 @@ func marshal(hookReq hooks.HookRequest) *pb.HookRequest {
 			},
 		},
 	}
+}
+
+// marshalTime converts a time into its Protocol Buffers representation. The zero value of
+// time.Time is represented by the absence of a timestamp.
+func marshalTime(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+
+	return timestamppb.New(t)
 }
 
 func getHeader(httpHeader http.Header) (hookHeader map[string]string) {
@@ -160,6 +172,11 @@ func unmarshal(res *pb.HookResponse) (hookRes hooks.HookResponse) {
 		hookRes.ChangeFileInfo.ID = changes.Id
 		hookRes.ChangeFileInfo.MetaData = changes.MetaData
 		hookRes.ChangeFileInfo.Storage = changes.Storage
+
+		if changes.ExpiresAt != nil {
+			expiresAt := changes.ExpiresAt.AsTime()
+			hookRes.ChangeFileInfo.ExpiresAt = &expiresAt
+		}
 	}
 
 	return hookRes

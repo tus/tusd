@@ -40,7 +40,7 @@ func TestCORS(t *testing.T) {
 			},
 			ResHeader: map[string]string{
 				"Access-Control-Allow-Origin":      "https://tus.io",
-				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version",
+				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version, Upload-Expires",
 				"Vary":                             "Origin",
 				"Access-Control-Allow-Methods":     "",
 				"Access-Control-Allow-Headers":     "",
@@ -89,7 +89,7 @@ func TestCORS(t *testing.T) {
 			},
 			ResHeader: map[string]string{
 				"Access-Control-Allow-Origin":      "http://tus.io",
-				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version",
+				"Access-Control-Expose-Headers":    "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat, Upload-Incomplete, Upload-Complete, Upload-Draft-Interop-Version, Upload-Expires",
 				"Vary":                             "Origin",
 				"Access-Control-Allow-Methods":     "",
 				"Access-Control-Allow-Headers":     "",
