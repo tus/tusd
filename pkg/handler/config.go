@@ -2,11 +2,10 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
