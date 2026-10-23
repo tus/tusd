@@ -3,10 +3,9 @@ package s3log
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
-
-	"golang.org/x/exp/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"

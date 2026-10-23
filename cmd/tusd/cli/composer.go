@@ -3,11 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/exp/slog"
 
 	"github.com/tus/tusd/v2/internal/s3log"
 	"github.com/tus/tusd/v2/pkg/azurestore"
