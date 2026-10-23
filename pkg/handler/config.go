@@ -180,6 +180,10 @@ func (config *Config) validate() error {
 		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
 	}
 
+	if !config.StoreComposer.UsesLocker || config.StoreComposer.Locker == nil {
+		return errors.New("tusd: StoreComposer must contain a non-nil Locker. A locker is required to avoid data loss from concurrent requests. See https://tus.github.io/tusd/advanced-topics/locks/")
+	}
+
 	if config.UploadProgressInterval <= 0 {
 		config.UploadProgressInterval = 1 * time.Second
 	}

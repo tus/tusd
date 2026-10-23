@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tus/tusd/v2/pkg/filestore"
 	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v2/pkg/memorylocker"
 )
 
 //go:generate mockgen -source=hooks.go -destination=hooks_mock_test.go -package=hooks
@@ -26,6 +27,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		StoreComposer: handler.NewStoreComposer(),
 	}
 	store.UseIn(config.StoreComposer)
+	memorylocker.New().UseIn(config.StoreComposer)
 	hookHandler := NewMockHookHandler(ctrl)
 
 	event := handler.HookEvent{

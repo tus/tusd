@@ -33,7 +33,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:         composer,
 			NotifyCompleteUploads: true,
 		})
@@ -85,7 +85,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -120,7 +120,7 @@ func TestPatch(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -147,7 +147,7 @@ func TestPatch(t *testing.T) {
 
 		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, err)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -176,7 +176,7 @@ func TestPatch(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -206,7 +206,7 @@ func TestPatch(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -224,7 +224,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "InvalidContentTypeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -242,7 +242,7 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "InvalidOffsetFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -282,7 +282,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -325,7 +325,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hellothisismore")).Return(int64(15), nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			MaxSize:       20,
 		})
@@ -363,7 +363,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			MaxSize:       20,
 		})
@@ -405,7 +405,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			MaxSize:       20,
 		})
@@ -454,7 +454,7 @@ func TestPatch(t *testing.T) {
 			upload2.EXPECT().FinishUpload(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			MaxSize:       20,
 		})
@@ -515,7 +515,7 @@ func TestPatch(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -570,7 +570,7 @@ func TestPatch(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -614,7 +614,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().WriteChunk(gomock.Any(), int64(10), NewReaderMatcher("first second third")).Return(int64(18), nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:        composer,
 			NotifyUploadProgress: true,
 		})
@@ -690,7 +690,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().Terminate(gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:        composer,
 			NotifyUploadProgress: true,
 		})
@@ -767,7 +767,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -812,7 +812,7 @@ func TestPatch(t *testing.T) {
 			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("first ")).Return(int64(6), nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -873,7 +873,7 @@ func TestPatch(t *testing.T) {
 						upload.EXPECT().FinishUpload(gomock.Any()),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -917,7 +917,7 @@ func TestPatch(t *testing.T) {
 						upload.EXPECT().FinishUpload(gomock.Any()),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -952,7 +952,7 @@ func TestPatch(t *testing.T) {
 						upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hel")).Return(int64(3), nil),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -987,7 +987,7 @@ func TestPatch(t *testing.T) {
 						upload.EXPECT().WriteChunk(gomock.Any(), int64(5), NewReaderMatcher("hel")).Return(int64(3), nil),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -1009,7 +1009,7 @@ func TestPatch(t *testing.T) {
 
 				if interopVersion != "3" && interopVersion != "4" && interopVersion != "5" {
 					SubTest(t, "InvalidContentType", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							EnableExperimentalProtocol: true,
 						})

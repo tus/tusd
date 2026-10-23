@@ -11,7 +11,7 @@ import (
 
 func TestCORS(t *testing.T) {
 	SubTest(t, "DefaultConfiguration", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -53,7 +53,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	SubTest(t, "CustomAllowedOrigin", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			Cors: &CorsConfig{
 				AllowOrigin:   regexp.MustCompile(`^https?://tus\.io$`),
@@ -102,7 +102,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	SubTest(t, "CustomForbiddenOrigin", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			Cors: &CorsConfig{
 				AllowOrigin: regexp.MustCompile(`^https?://tus\.io$`),
@@ -147,7 +147,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	SubTest(t, "CustomConfig", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			Cors: &CorsConfig{
 				AllowOrigin:      regexp.MustCompile(`^https?://tus\.io$`),
@@ -197,7 +197,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	SubTest(t, "DisabledConfig", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			Cors: &CorsConfig{
 				Disable: true,
@@ -240,7 +240,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	SubTest(t, "AppendHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 

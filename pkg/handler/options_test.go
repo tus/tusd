@@ -15,7 +15,7 @@ func TestOptions(t *testing.T) {
 		composer.UseTerminater(store)
 		composer.UseLengthDeferrer(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 			MaxSize:       400,
 		})
@@ -33,7 +33,7 @@ func TestOptions(t *testing.T) {
 	})
 
 	SubTest(t, "InvalidVersion", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -50,7 +50,7 @@ func TestOptions(t *testing.T) {
 		composer := NewStoreComposer()
 		composer.UseCore(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:              composer,
 			EnableExperimentalProtocol: true,
 			MaxSize:                    400,
@@ -73,7 +73,7 @@ func TestOptions(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseConcater(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:        composer,
 			DisableConcatenation: true,
 		})
@@ -94,7 +94,7 @@ func TestOptions(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseTerminater(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:      composer,
 			DisableTermination: true,
 		})

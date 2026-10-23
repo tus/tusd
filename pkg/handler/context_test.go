@@ -86,7 +86,7 @@ func TestContext(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:        composer,
 			BasePath:             "https://buy.art/files/",
 			NotifyCreatedUploads: true,
@@ -128,7 +128,7 @@ func TestContext(t *testing.T) {
 			upload.EXPECT().WriteChunk(contextCancelMatcher{150 * time.Millisecond, 250 * time.Millisecond}, int64(10), gomock.Any()),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:                    composer,
 			GracefulRequestCompletionTimeout: 100 * time.Millisecond,
 		})

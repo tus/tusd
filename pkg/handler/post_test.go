@@ -39,7 +39,7 @@ func TestPost(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:        composer,
 			BasePath:             "https://buy.art/files/",
 			NotifyCreatedUploads: true,
@@ -88,7 +88,7 @@ func TestPost(t *testing.T) {
 			upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer:         composer,
 			BasePath:              "https://buy.art/files/",
 			NotifyCompleteUploads: true,
@@ -122,7 +122,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			MaxSize:       400,
 			StoreComposer: composer,
 			BasePath:      "/files/",
@@ -141,7 +141,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "InvalidUploadLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -157,7 +157,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "UploadLengthAndUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -174,7 +174,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "NeitherUploadLengthNorUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -189,7 +189,7 @@ func TestPost(t *testing.T) {
 	})
 
 	SubTest(t, "InvalidUploadDeferLengthFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -222,7 +222,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
 			})
@@ -259,7 +259,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
@@ -297,7 +297,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
@@ -337,7 +337,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
@@ -374,7 +374,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
@@ -412,7 +412,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer:           composer,
 				BasePath:                "/files/",
 				RespectForwardedHeaders: true,
@@ -469,7 +469,7 @@ func TestPost(t *testing.T) {
 			composer.UseCore(store)
 			composer.UseLocker(locker)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
 			})
@@ -508,7 +508,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
 			})
@@ -542,7 +542,7 @@ func TestPost(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
 			})
@@ -565,7 +565,7 @@ func TestPost(t *testing.T) {
 		})
 
 		SubTest(t, "UploadToFinalUpload", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 				BasePath:      "/files/",
 			})
@@ -623,7 +623,7 @@ func TestPost(t *testing.T) {
 					composer.UseCore(store)
 					composer.UseLocker(locker)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						BasePath:                   "/files/",
 						EnableExperimentalProtocol: true,
@@ -687,7 +687,7 @@ func TestPost(t *testing.T) {
 					composer.UseLocker(locker)
 					composer.UseLengthDeferrer(store)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						BasePath:                   "/files/",
 						EnableExperimentalProtocol: true,
@@ -726,7 +726,7 @@ func TestPost(t *testing.T) {
 				SubTest(t, "CreateExceedingMaxSizeWithContentLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 					// Regression for #1386: draft creates that derive size from Content-Length
 					// must enforce MaxSize before the upload is created.
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						BasePath:                   "/files/",
 						EnableExperimentalProtocol: true,
@@ -775,7 +775,7 @@ func TestPost(t *testing.T) {
 						composer.UseCore(store)
 						composer.UseLocker(locker)
 
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							BasePath:                   "/files/",
 							EnableExperimentalProtocol: true,
@@ -803,7 +803,7 @@ func TestPost(t *testing.T) {
 						ctrl := gomock.NewController(t)
 						defer ctrl.Finish()
 
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							BasePath:                   "/files/",
 							EnableExperimentalProtocol: true,
@@ -850,7 +850,7 @@ func TestPost(t *testing.T) {
 						composer.UseCore(store)
 						composer.UseLocker(locker)
 
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							BasePath:                   "/files/",
 							EnableExperimentalProtocol: true,
@@ -877,7 +877,7 @@ func TestPost(t *testing.T) {
 					SubTest(t, "CreateExceedingMaxSizeWithUploadLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 						// Regression for #1386: draft creates with Upload-Length must enforce MaxSize
 						// the same way the tus v1 path does.
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							BasePath:                   "/files/",
 							EnableExperimentalProtocol: true,
@@ -897,7 +897,7 @@ func TestPost(t *testing.T) {
 					})
 
 					SubTest(t, "InvalidNegativeUploadLength", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-						handler, _ := NewHandler(Config{
+						handler, _ := newTestHandler(Config{
 							StoreComposer:              composer,
 							BasePath:                   "/files/",
 							EnableExperimentalProtocol: true,
