@@ -15,9 +15,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/tus/tusd/v2/pkg/filelocker"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v3/pkg/filelocker"
+	"github.com/tus/tusd/v3/pkg/filestore"
+	tusd "github.com/tus/tusd/v3/pkg/handler"
 )
 
 func main() {
@@ -29,10 +29,10 @@ func main() {
 	// by implementing the tusd.DataStore interface.
 	store := filestore.New("./uploads")
 
-	// A locking mechanism helps preventing data loss or corruption from
-	// parallel requests to a upload resource. A good match for the disk-based
-	// storage is the filelocker package which uses disk-based file lock for
-	// coordinating access.
+	// A locking mechanism is required. It prevents data loss or corruption from
+	// parallel requests to an upload resource. A good match for the disk-based
+	// storage is the filelocker package, which uses disk-based file locks for
+	// coordinating access. handler.NewHandler returns an error if no locker is set.
 	// More information is available at https://tus.github.io/tusd/advanced-topics/locks/.
 	locker := filelocker.New("./uploads")
 
@@ -78,24 +78,24 @@ func main() {
 
 ```
 
-Please consult the [online documentation](https://pkg.go.dev/github.com/tus/tusd/v2/pkg) for more details about tusd's APIs and its sub-packages.
+Please consult the [online documentation](https://pkg.go.dev/github.com/tus/tusd/v3/pkg) for more details about tusd's APIs and its sub-packages.
 
 ## Implementing own storages
 
 The tusd server is built to be as flexible as possible and to allow the use of different upload storage mechanisms.
 
-If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`handler.DataStore`](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/handler#DataStore) interface and using the new struct in the [configuration object](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/handler#Config). Please consult the documentation about detailed information about the required methods.
+If you have different requirements, you can build your own storage backend which will save the files to a remote FTP server or similar. Doing so is as simple as implementing the [`handler.DataStore`](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/handler#DataStore) interface and using the new struct in the [configuration object](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/handler#Config). Please consult the documentation about detailed information about the required methods.
 
 ## Packages
 
 This repository does not only contain the HTTP server's code but also other
 useful tools:
 
-* [**s3store**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/s3store): A storage backend using AWS S3
-* [**filestore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filestore): A storage backend using the local file system
-* [**gcsstore**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/gcsstore): A storage backend using Google cloud storage
-* [**memorylocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/memorylocker): An in-memory locker for handling concurrent uploads
-* [**filelocker**](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/filelocker): A disk-based locker for handling concurrent uploads
+* [**s3store**](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/s3store): A storage backend using AWS S3
+* [**filestore**](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/filestore): A storage backend using the local file system
+* [**gcsstore**](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/gcsstore): A storage backend using Google cloud storage
+* [**memorylocker**](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/memorylocker): An in-memory locker for handling concurrent uploads
+* [**filelocker**](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/filelocker): A disk-based locker for handling concurrent uploads
 
 ### 3rd-Party tusd Packages
 

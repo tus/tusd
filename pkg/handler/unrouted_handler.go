@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"mime"
 	"net/http"
@@ -13,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 const UploadLengthDeferred = "1"
@@ -433,15 +432,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	if containsChunk {
-		if handler.composer.UsesLocker {
-			lock, err := handler.lockUpload(c, id)
-			if err != nil {
-				handler.sendError(c, err)
-				return
-			}
-
-			defer lock.Unlock()
+		lock, err := handler.lockUpload(c, id)
+		if err != nil {
+			handler.sendError(c, err)
+			return
 		}
+
+		defer lock.Unlock()
 
 		resp, err = handler.writeChunk(c, resp, upload, info)
 		if err != nil {
@@ -592,15 +589,13 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 2. Lock upload
-	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
-		if err != nil {
-			handler.sendError(c, err)
-			return
-		}
-
-		defer lock.Unlock()
+	lock, err := handler.lockUpload(c, id)
+	if err != nil {
+		handler.sendError(c, err)
+		return
 	}
+
+	defer lock.Unlock()
 
 	// 3. Write chunk
 	resp, err = handler.writeChunk(c, resp, upload, info)
@@ -650,15 +645,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	}
 	c.log = c.log.With("id", id)
 
-	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
-		if err != nil {
-			handler.sendError(c, err)
-			return
-		}
-
-		defer lock.Unlock()
+	lock, err := handler.lockUpload(c, id)
+	if err != nil {
+		handler.sendError(c, err)
+		return
 	}
+
+	defer lock.Unlock()
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
 	if err != nil {
@@ -764,15 +757,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	}
 	c.log = c.log.With("id", id)
 
-	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
-		if err != nil {
-			handler.sendError(c, err)
-			return
-		}
-
-		defer lock.Unlock()
+	lock, err := handler.lockUpload(c, id)
+	if err != nil {
+		handler.sendError(c, err)
+		return
 	}
+
+	defer lock.Unlock()
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
 	if err != nil {
@@ -1042,15 +1033,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	}
 	c.log = c.log.With("id", id)
 
-	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
-		if err != nil {
-			handler.sendError(c, err)
-			return
-		}
-
-		defer lock.Unlock()
+	lock, err := handler.lockUpload(c, id)
+	if err != nil {
+		handler.sendError(c, err)
+		return
 	}
+
+	defer lock.Unlock()
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
 	if err != nil {
@@ -1208,15 +1197,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 	c.log = c.log.With("id", id)
 
-	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
-		if err != nil {
-			handler.sendError(c, err)
-			return
-		}
-
-		defer lock.Unlock()
+	lock, err := handler.lockUpload(c, id)
+	if err != nil {
+		handler.sendError(c, err)
+		return
 	}
+
+	defer lock.Unlock()
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
 	if err != nil {

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tus/tusd/v2/internal/grouped_flags"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	"github.com/tus/tusd/v2/pkg/hooks"
+	"github.com/tus/tusd/v3/internal/grouped_flags"
+	"github.com/tus/tusd/v3/pkg/filestore"
+	"github.com/tus/tusd/v3/pkg/hooks"
 )
 
 var Flags struct {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v3/pkg/handler"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -20,8 +20,8 @@ func (store S3Store) AsServableUpload(upload handler.Upload) handler.ServableUpl
 
 func (upload *s3Upload) ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	input := &s3.GetObjectInput{
-		Bucket: aws.String(upload.store.Bucket),
-		Key:    upload.store.keyWithPrefix(upload.objectId),
+		Bucket: aws.String(upload.objectBucket),
+		Key:    aws.String(upload.objectKey),
 	}
 
 	// Forward the Range, If-Match, If-None-Match, If-Unmodified-Since, If-Modified-Since headers if present

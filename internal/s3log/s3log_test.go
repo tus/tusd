@@ -3,17 +3,16 @@ package s3log
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
-
-	"golang.org/x/exp/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 )
 
-//go:generate mockgen -destination=./s3log_mock_test.go -package=s3log github.com/tus/tusd/v2/pkg/s3store S3API
+//go:generate mockgen -destination=./s3log_mock_test.go -package=s3log github.com/tus/tusd/v3/pkg/s3store S3API
 
 func TestLoggingS3API(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

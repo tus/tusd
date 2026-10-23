@@ -77,8 +77,8 @@ type FileInfoChanges struct {
 	// If Storage is not nil, it is passed to the data store to allow for minor adjustments
 	// to the upload storage (e.g. destination file name). The details are specific for each
 	// data store and should be looked up in their respective documentation.
-	// Please be aware that this behavior is currently not supported by any data store in
-	// the github.com/tus/tusd package.
+	// s3store honors Storage["Key"] and Storage["Bucket"] when choosing where the
+	// finished object is written. Other data stores may ignore this field.
 	Storage map[string]string
 }
 

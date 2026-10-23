@@ -26,8 +26,10 @@ remote FTP server or cloud providers such as AWS S3.
 
 The only hard requirements for a data store can be found in the DataStore
 interface. It contains methods for creating uploads (NewUpload), writing to
-them (WriteChunk) and retrieving their status (GetInfo). However, there
-are many more features which are not mandatory but may still be used.
+them (WriteChunk) and retrieving their status (GetInfo). A Locker is also
+required: NewHandler returns an error when the composer has no locker, because
+uploads without a lock can lose data when requests overlap. Other features
+are not mandatory but may still be used.
 These are contained in their own interfaces which all share the *DataStore
 suffix. For example, GetReaderDataStore which enables downloading uploads or
 TerminaterDataStore which allows uploads to be terminated.
@@ -38,7 +40,7 @@ implementation and these additional extensions:
 	composer := tusd.NewStoreComposer()
 	composer.UseCore(dataStore) // Implements DataStore
 	composer.UseTerminater(terminater) // Implements TerminaterDataStore
-	composer.UseLocker(locker) // Implements LockerDataStore
+	composer.UseLocker(locker) // Required. Implements Locker
 
 The corresponding methods for adding an extension to the composer are prefixed
 with Use* followed by the name of the corresponding interface. However, most

@@ -36,7 +36,7 @@ class HookHandlerStub(object):
             channel: A grpc.Channel.
         """
         self.InvokeHook = channel.unary_unary(
-                '/proto.HookHandler/InvokeHook',
+                '/tusd.HookHandler/InvokeHook',
                 request_serializer=hook__pb2.HookRequest.SerializeToString,
                 response_deserializer=hook__pb2.HookResponse.FromString,
                 _registered_method=True)
@@ -67,9 +67,9 @@ def add_HookHandlerServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'proto.HookHandler', rpc_method_handlers)
+            'tusd.HookHandler', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('proto.HookHandler', rpc_method_handlers)
+    server.add_registered_method_handlers('tusd.HookHandler', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -91,7 +91,7 @@ class HookHandler(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/proto.HookHandler/InvokeHook',
+            '/tusd.HookHandler/InvokeHook',
             hook__pb2.HookRequest.SerializeToString,
             hook__pb2.HookResponse.FromString,
             options,

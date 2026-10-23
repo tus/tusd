@@ -49,8 +49,8 @@ The hook execution uses a request-response pattern. For each event, a _hook requ
 The way how the hook request and response are encoded depends on each hook implementation. For example, for file and HTTP hooks, the data is JSON-encoded, while the gRPC hooks use a binary encoding.
 
 Details on what data is included in the documentation for the tusd package:
-- [github.com/tus/tusd/v2/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookRequest)
-- [github.com/tus/tusd/v2/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookResponse)
+- [github.com/tus/tusd/v3/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/hooks#HookRequest)
+- [github.com/tus/tusd/v3/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/hooks#HookResponse)
 
 Below you can find an annotated, JSON-ish encoded example of a hook request:
 
@@ -217,9 +217,17 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
             // When the filestore is used, the Path property defines where the uploaded file is saved.
             // The path may be absolute or relative, and point towards a location outside of the directory
             // defined using the `-dir` flag. If it's relative, the path will be resolved relative to `-dir`.
-            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf"
+            "Path": "./upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf",
 
-            // Other storages, such as S3Store, GCSStore, and AzureStore, do not support the Storage
+            // When the S3 storage is used, the Key property defines the key under which the uploaded file is saved.
+            // If the key is not set, it defaults to using the upload ID as the key. In addition, the Bucket property
+            // defines the bucket where the uploaded file is saved. Note that the info and part files will still
+            // be stored in the bucket that the S3 storage has been configured for.
+            // Please consult https://tus.github.io/tusd/storage-backends/aws-s3/#custom-storage-location for more details.
+            "Key": "upload-e7a036dc-33f4-451f-9520-49032b87e952/presentation.pdf",
+            "Bucket": "customer-ABC"
+
+            // Other storages, such as GCSStore, and AzureStore, do not support the Storage
             // property yet.
         }
     },
@@ -322,7 +330,7 @@ $ tusd -hooks-grpc localhost:8081
 ...
 ```
 
-The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). The protobuf package name is `tusd`, so the service is `tusd.HookHandler`. Its `InvokeHook` method will be invoked for each triggered event and will be passed the hook request.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/grpc](https://github.com/tus/tusd/tree/main/examples/hooks/grpc).
 

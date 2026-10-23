@@ -18,6 +18,8 @@ The problem is, however, that the client might know that the connection is broke
 
 For every incoming request to an upload resource, tusd must acquire the associated lock before it fetches or modifies the upload resource. This includes the `POST`, `PATCH`, `DELETE`, `HEAD`, and `GET` requests. Even though `HEAD` requests are not modifying the upload, it is not safe with tusd to fetch the upload state while another request is modifying the upload. Once the request is processed (either successfully or not), the associated lock will be released.
 
+When you embed tusd as a library, a locker is mandatory. `handler.NewHandler` returns an error if the store composer has no locker, so a missing lock cannot slip into production unnoticed. The tusd binary still chooses a locker for you: file locks for disk storage, and memory locks for S3, GCS, and Azure.
+
 There are two lock providers in tusd right now:
 1. The **file locker** uses disk-based PID files to acquire and release locks. This is the default lock implementation when disk-based upload storage is used. 
 2. The **memory locker** uses in-memory mutexes for managing locks. This is the default lock implementation when the S3, GCS, or Azure upload storage is used.

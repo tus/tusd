@@ -2,11 +2,10 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"time"
-
-	"golang.org/x/exp/slog"
 )
 
 // Config provides a way to configure the Handler depending on your needs.
@@ -179,6 +178,10 @@ func (config *Config) validate() error {
 
 	if config.StoreComposer.Core == nil {
 		return errors.New("tusd: StoreComposer in Config needs to contain a non-nil core")
+	}
+
+	if !config.StoreComposer.UsesLocker || config.StoreComposer.Locker == nil {
+		return errors.New("tusd: StoreComposer must contain a non-nil Locker. A locker is required to avoid data loss from concurrent requests. See https://tus.github.io/tusd/advanced-topics/locks/")
 	}
 
 	if config.UploadProgressInterval <= 0 {

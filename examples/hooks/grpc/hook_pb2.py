@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nhook.proto\x12\x05proto\"8\n\x0bHookRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x1b\n\x05\x65vent\x18\x02 \x01(\x0b\x32\x0c.proto.Event\"Q\n\x05\x45vent\x12\x1f\n\x06upload\x18\x01 \x01(\x0b\x32\x0f.proto.FileInfo\x12\'\n\x0bhttpRequest\x18\x02 \x01(\x0b\x32\x12.proto.HTTPRequest\"\xc9\x02\n\x08\x46ileInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x16\n\x0esizeIsDeferred\x18\x03 \x01(\x08\x12\x0e\n\x06offset\x18\x04 \x01(\x03\x12/\n\x08metaData\x18\x05 \x03(\x0b\x32\x1d.proto.FileInfo.MetaDataEntry\x12\x11\n\tisPartial\x18\x06 \x01(\x08\x12\x0f\n\x07isFinal\x18\x07 \x01(\x08\x12\x16\n\x0epartialUploads\x18\x08 \x03(\t\x12-\n\x07storage\x18\t \x03(\x0b\x32\x1c.proto.FileInfo.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xec\x01\n\x0f\x46ileInfoChanges\x12\n\n\x02id\x18\x01 \x01(\t\x12\x36\n\x08metaData\x18\x02 \x03(\x0b\x32$.proto.FileInfoChanges.MetaDataEntry\x12\x34\n\x07storage\x18\x03 \x03(\x0b\x32#.proto.FileInfoChanges.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9d\x01\n\x0bHTTPRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0b\n\x03uri\x18\x02 \x01(\t\x12\x12\n\nremoteAddr\x18\x03 \x01(\t\x12.\n\x06header\x18\x04 \x03(\x0b\x32\x1e.proto.HTTPRequest.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x93\x01\n\x0cHookResponse\x12)\n\x0chttpResponse\x18\x01 \x01(\x0b\x32\x13.proto.HTTPResponse\x12\x14\n\x0crejectUpload\x18\x02 \x01(\x08\x12.\n\x0e\x63hangeFileInfo\x18\x04 \x01(\x0b\x32\x16.proto.FileInfoChanges\x12\x12\n\nstopUpload\x18\x03 \x01(\x08\"\x90\x01\n\x0cHTTPResponse\x12\x12\n\nstatusCode\x18\x01 \x01(\x03\x12/\n\x06header\x18\x02 \x03(\x0b\x32\x1f.proto.HTTPResponse.HeaderEntry\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\x46\n\x0bHookHandler\x12\x37\n\nInvokeHook\x12\x12.proto.HookRequest\x1a\x13.proto.HookResponse\"\x00\x42\x12Z\x10hooks/grpc/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nhook.proto\x12\x04tusd\"7\n\x0bHookRequest\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x1a\n\x05\x65vent\x18\x02 \x01(\x0b\x32\x0b.tusd.Event\"O\n\x05\x45vent\x12\x1e\n\x06upload\x18\x01 \x01(\x0b\x32\x0e.tusd.FileInfo\x12&\n\x0bhttpRequest\x18\x02 \x01(\x0b\x32\x11.tusd.HTTPRequest\"\xc7\x02\n\x08\x46ileInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x16\n\x0esizeIsDeferred\x18\x03 \x01(\x08\x12\x0e\n\x06offset\x18\x04 \x01(\x03\x12.\n\x08metaData\x18\x05 \x03(\x0b\x32\x1c.tusd.FileInfo.MetaDataEntry\x12\x11\n\tisPartial\x18\x06 \x01(\x08\x12\x0f\n\x07isFinal\x18\x07 \x01(\x08\x12\x16\n\x0epartialUploads\x18\x08 \x03(\t\x12,\n\x07storage\x18\t \x03(\x0b\x32\x1b.tusd.FileInfo.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xea\x01\n\x0f\x46ileInfoChanges\x12\n\n\x02id\x18\x01 \x01(\t\x12\x35\n\x08metaData\x18\x02 \x03(\x0b\x32#.tusd.FileInfoChanges.MetaDataEntry\x12\x33\n\x07storage\x18\x03 \x03(\x0b\x32\".tusd.FileInfoChanges.StorageEntry\x1a/\n\rMetaDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a.\n\x0cStorageEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9c\x01\n\x0bHTTPRequest\x12\x0e\n\x06method\x18\x01 \x01(\t\x12\x0b\n\x03uri\x18\x02 \x01(\t\x12\x12\n\nremoteAddr\x18\x03 \x01(\t\x12-\n\x06header\x18\x04 \x03(\x0b\x32\x1d.tusd.HTTPRequest.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x91\x01\n\x0cHookResponse\x12(\n\x0chttpResponse\x18\x01 \x01(\x0b\x32\x12.tusd.HTTPResponse\x12\x14\n\x0crejectUpload\x18\x02 \x01(\x08\x12-\n\x0e\x63hangeFileInfo\x18\x04 \x01(\x0b\x32\x15.tusd.FileInfoChanges\x12\x12\n\nstopUpload\x18\x03 \x01(\x08\"\x8f\x01\n\x0cHTTPResponse\x12\x12\n\nstatusCode\x18\x01 \x01(\x03\x12.\n\x06header\x18\x02 \x03(\x0b\x32\x1e.tusd.HTTPResponse.HeaderEntry\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\x44\n\x0bHookHandler\x12\x35\n\nInvokeHook\x12\x11.tusd.HookRequest\x1a\x12.tusd.HookResponse\"\x00\x42\x12Z\x10hooks/grpc/protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -44,32 +44,32 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_HTTPREQUEST_HEADERENTRY']._serialized_options = b'8\001'
   _globals['_HTTPRESPONSE_HEADERENTRY']._loaded_options = None
   _globals['_HTTPRESPONSE_HEADERENTRY']._serialized_options = b'8\001'
-  _globals['_HOOKREQUEST']._serialized_start=21
-  _globals['_HOOKREQUEST']._serialized_end=77
-  _globals['_EVENT']._serialized_start=79
-  _globals['_EVENT']._serialized_end=160
-  _globals['_FILEINFO']._serialized_start=163
-  _globals['_FILEINFO']._serialized_end=492
-  _globals['_FILEINFO_METADATAENTRY']._serialized_start=397
-  _globals['_FILEINFO_METADATAENTRY']._serialized_end=444
-  _globals['_FILEINFO_STORAGEENTRY']._serialized_start=446
-  _globals['_FILEINFO_STORAGEENTRY']._serialized_end=492
-  _globals['_FILEINFOCHANGES']._serialized_start=495
-  _globals['_FILEINFOCHANGES']._serialized_end=731
-  _globals['_FILEINFOCHANGES_METADATAENTRY']._serialized_start=397
-  _globals['_FILEINFOCHANGES_METADATAENTRY']._serialized_end=444
-  _globals['_FILEINFOCHANGES_STORAGEENTRY']._serialized_start=446
-  _globals['_FILEINFOCHANGES_STORAGEENTRY']._serialized_end=492
-  _globals['_HTTPREQUEST']._serialized_start=734
-  _globals['_HTTPREQUEST']._serialized_end=891
-  _globals['_HTTPREQUEST_HEADERENTRY']._serialized_start=846
-  _globals['_HTTPREQUEST_HEADERENTRY']._serialized_end=891
-  _globals['_HOOKRESPONSE']._serialized_start=894
-  _globals['_HOOKRESPONSE']._serialized_end=1041
-  _globals['_HTTPRESPONSE']._serialized_start=1044
-  _globals['_HTTPRESPONSE']._serialized_end=1188
-  _globals['_HTTPRESPONSE_HEADERENTRY']._serialized_start=846
-  _globals['_HTTPRESPONSE_HEADERENTRY']._serialized_end=891
-  _globals['_HOOKHANDLER']._serialized_start=1190
-  _globals['_HOOKHANDLER']._serialized_end=1260
+  _globals['_HOOKREQUEST']._serialized_start=20
+  _globals['_HOOKREQUEST']._serialized_end=75
+  _globals['_EVENT']._serialized_start=77
+  _globals['_EVENT']._serialized_end=156
+  _globals['_FILEINFO']._serialized_start=159
+  _globals['_FILEINFO']._serialized_end=486
+  _globals['_FILEINFO_METADATAENTRY']._serialized_start=391
+  _globals['_FILEINFO_METADATAENTRY']._serialized_end=438
+  _globals['_FILEINFO_STORAGEENTRY']._serialized_start=440
+  _globals['_FILEINFO_STORAGEENTRY']._serialized_end=486
+  _globals['_FILEINFOCHANGES']._serialized_start=489
+  _globals['_FILEINFOCHANGES']._serialized_end=723
+  _globals['_FILEINFOCHANGES_METADATAENTRY']._serialized_start=391
+  _globals['_FILEINFOCHANGES_METADATAENTRY']._serialized_end=438
+  _globals['_FILEINFOCHANGES_STORAGEENTRY']._serialized_start=440
+  _globals['_FILEINFOCHANGES_STORAGEENTRY']._serialized_end=486
+  _globals['_HTTPREQUEST']._serialized_start=726
+  _globals['_HTTPREQUEST']._serialized_end=882
+  _globals['_HTTPREQUEST_HEADERENTRY']._serialized_start=837
+  _globals['_HTTPREQUEST_HEADERENTRY']._serialized_end=882
+  _globals['_HOOKRESPONSE']._serialized_start=885
+  _globals['_HOOKRESPONSE']._serialized_end=1030
+  _globals['_HTTPRESPONSE']._serialized_start=1033
+  _globals['_HTTPRESPONSE']._serialized_end=1176
+  _globals['_HTTPRESPONSE_HEADERENTRY']._serialized_start=837
+  _globals['_HTTPRESPONSE_HEADERENTRY']._serialized_end=882
+  _globals['_HOOKHANDLER']._serialized_start=1178
+  _globals['_HOOKHANDLER']._serialized_end=1246
 # @@protoc_insertion_point(module_scope)

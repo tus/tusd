@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/tus/tusd/v2/pkg/handler"
+	. "github.com/tus/tusd/v3/pkg/handler"
 )
 
 func TestConcat(t *testing.T) {
@@ -17,7 +17,7 @@ func TestConcat(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseConcater(store)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -54,7 +54,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:      "files",
 				StoreComposer: composer,
 			})
@@ -83,7 +83,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:      "files",
 				StoreComposer: composer,
 			})
@@ -144,7 +144,7 @@ func TestConcat(t *testing.T) {
 				uploadC.EXPECT().ConcatUploads(gomock.Any(), []Upload{uploadA, uploadB}).Return(nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:              "files",
 				StoreComposer:         composer,
 				NotifyCompleteUploads: true,
@@ -208,7 +208,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:      "files",
 				StoreComposer: composer,
 			})
@@ -245,7 +245,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:      "files",
 				StoreComposer: composer,
 			})
@@ -274,7 +274,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				MaxSize:       100,
 				BasePath:      "files",
 				StoreComposer: composer,
@@ -305,7 +305,7 @@ func TestConcat(t *testing.T) {
 				}, nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 			})
 
@@ -323,7 +323,7 @@ func TestConcat(t *testing.T) {
 		})
 
 		SubTest(t, "InvalidConcatHeaderFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				StoreComposer: composer,
 			})
 
@@ -378,7 +378,7 @@ func TestConcat(t *testing.T) {
 				uploadC.EXPECT().ConcatUploads(gomock.Any(), []Upload{uploadA, uploadB}).Return(nil),
 			)
 
-			handler, _ := NewHandler(Config{
+			handler, _ := newTestHandler(Config{
 				BasePath:      "files",
 				StoreComposer: composer,
 			})
@@ -395,7 +395,7 @@ func TestConcat(t *testing.T) {
 	})
 
 	SubTest(t, "DisableConcatenation", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			BasePath:             "files",
 			StoreComposer:        composer,
 			DisableConcatenation: true,

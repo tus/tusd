@@ -1,4 +1,4 @@
-module github.com/tus/tusd/v2
+module github.com/tus/tusd/v3
 
 go 1.26.0
 

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	tushandler "github.com/tus/tusd/v2/pkg/handler"
-	"github.com/tus/tusd/v2/pkg/hooks"
-	"github.com/tus/tusd/v2/pkg/hooks/plugin"
+	tushandler "github.com/tus/tusd/v3/pkg/handler"
+	"github.com/tus/tusd/v3/pkg/hooks"
+	"github.com/tus/tusd/v3/pkg/hooks/plugin"
 )
 
 const (

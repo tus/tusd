@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/tus/tusd/v2/pkg/filelocker"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
+	"github.com/tus/tusd/v3/pkg/filelocker"
+	"github.com/tus/tusd/v3/pkg/filestore"
+	tusd "github.com/tus/tusd/v3/pkg/handler"
 )
 
 func main() {
@@ -18,10 +18,10 @@ func main() {
 	// by implementing the tusd.DataStore interface.
 	store := filestore.New("./uploads")
 
-	// A locking mechanism helps preventing data loss or corruption from
-	// parallel requests to a upload resource. A good match for the disk-based
-	// storage is the filelocker package which uses disk-based file lock for
-	// coordinating access.
+	// A locking mechanism is required. It prevents data loss or corruption from
+	// parallel requests to an upload resource. A good match for the disk-based
+	// storage is the filelocker package, which uses disk-based file locks for
+	// coordinating access. handler.NewHandler returns an error if no locker is set.
 	// More information is available at https://tus.github.io/tusd/advanced-topics/locks/.
 	locker := filelocker.New("./uploads")
 

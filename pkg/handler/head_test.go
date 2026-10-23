@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/tus/tusd/v2/pkg/handler"
+	. "github.com/tus/tusd/v3/pkg/handler"
 )
 
 func TestHead(t *testing.T) {
@@ -35,7 +35,7 @@ func TestHead(t *testing.T) {
 		composer.UseCore(store)
 		composer.UseLocker(locker)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -65,7 +65,7 @@ func TestHead(t *testing.T) {
 	SubTest(t, "UploadNotFoundFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		store.EXPECT().GetUpload(gomock.Any(), "no").Return(nil, ErrNotFound)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -97,7 +97,7 @@ func TestHead(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -127,7 +127,7 @@ func TestHead(t *testing.T) {
 			}, nil),
 		)
 
-		handler, _ := NewHandler(Config{
+		handler, _ := newTestHandler(Config{
 			StoreComposer: composer,
 		})
 
@@ -161,7 +161,7 @@ func TestHead(t *testing.T) {
 						}, nil),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -196,7 +196,7 @@ func TestHead(t *testing.T) {
 						}, nil),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 					})
@@ -230,7 +230,7 @@ func TestHead(t *testing.T) {
 						}, nil),
 					)
 
-					handler, _ := NewHandler(Config{
+					handler, _ := newTestHandler(Config{
 						StoreComposer:              composer,
 						EnableExperimentalProtocol: true,
 						MaxSize:                    400,
