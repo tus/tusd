@@ -79,9 +79,37 @@ By default, the objects are stored at the root of the bucket. For example the ob
 - `abcdef123`: File object
 - `abcdef123.part`: Temporary object
 
+For details on customizing the storage location, please read the next section below.
+
 {: .note }
 
 The file object is not visible in the S3 bucket before the upload is finished because the transferred file data is stored in the associated S3 multipart upload. Once the upload is complete, the chunks from the S3 multipart are reassembled into the file, creating the file object and removing the S3 multipart upload. In addition, the S3 multipart upload is not directly visible in the S3 bucket because it does not represent a complete object. Please don't be confused if you don't see the changes in the bucket while the file is being uploaded.
+
+### Custom storage location
+
+The locations of the three objects mentioned above can be fully customized using the [pre-create hook]({{ site.baseurl }}/advanced-topics/hooks/). The keys of the `.info` and `.part` objects are derived from the upload ID, which can be customized by the pre-create hook using the [`ChangeFileInfo.ID` setting]({{ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses). Both objects will always be saved in the bucket configured in the `-s3-bucket` flag. Similarly, the location where the file object containing the uploaded data is saved is by default derived from the upload ID, but can be fully customized using the [`ChangeFileInfo.Storage.Key` and `ChangeFileInfo.Storage.Bucket` settings]({{ site.baseurl }}/advanced-topics/hooks/#hook-requests-and-responses).
+
+For example, consider that the pre-create hook returns the following hook response and tusd is configured with `-s3-bucket=upload-info`:
+
+```js
+{
+    "ChangeFileInfo": {
+        "ID": "project-123/abc",
+        "Storage": {
+            "Key": "project-123/abc/presentation.pdf",
+            "Bucket": "customer-ABC"
+        }
+    },
+}
+```
+
+Then the following objects will be created during the upload:
+
+- An informational object at `project-123/abc.info` in the `upload-info` bucket.
+- A temporary object at `project-123/abc.part` in the `upload-info` bucket (if needed).
+- The file object containing the uploaded data at `project-123/abc/presentation.pdf` in the `customer-ABC` bucket.
+
+If an object prefix with the `-s3-object-prefix` flag is configured, the prefix is prepended to the keys of all three objects.
 
 ### Metadata
 
