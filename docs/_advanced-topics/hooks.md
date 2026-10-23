@@ -49,8 +49,8 @@ The hook execution uses a request-response pattern. For each event, a _hook requ
 The way how the hook request and response are encoded depends on each hook implementation. For example, for file and HTTP hooks, the data is JSON-encoded, while the gRPC hooks use a binary encoding.
 
 Details on what data is included in the documentation for the tusd package:
-- [github.com/tus/tusd/v2/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookRequest)
-- [github.com/tus/tusd/v2/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/tus/tusd/v2/pkg/hooks#HookResponse)
+- [github.com/tus/tusd/v3/pkg/hooks.HookRequest](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/hooks#HookRequest)
+- [github.com/tus/tusd/v3/pkg/hooks.HookResponse](https://pkg.go.dev/github.com/tus/tusd/v3/pkg/hooks#HookResponse)
 
 Below you can find an annotated, JSON-ish encoded example of a hook request:
 

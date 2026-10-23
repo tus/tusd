@@ -8,9 +8,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/tus/tusd/v2/pkg/filestore"
-	"github.com/tus/tusd/v2/pkg/handler"
-	"github.com/tus/tusd/v2/pkg/memorylocker"
+	"github.com/tus/tusd/v3/pkg/filestore"
+	"github.com/tus/tusd/v3/pkg/handler"
+	"github.com/tus/tusd/v3/pkg/memorylocker"
 )
 
 //go:generate mockgen -source=hooks.go -destination=hooks_mock_test.go -package=hooks
