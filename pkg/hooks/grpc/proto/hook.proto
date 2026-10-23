@@ -6,7 +6,7 @@
 // In addition, it may be necessary to update the protobuf or gRPC dependencies as well.
 
 syntax = "proto3";
-package proto;
+package tusd;
 
 option go_package = "hooks/grpc/proto";
 
@@ -81,8 +81,8 @@ message FileInfoChanges {
 	// If Storage is not nil, it is passed to the data store to allow for minor adjustments
 	// to the upload storage (e.g. destination file name). The details are specific for each
 	// data store and should be looked up in their respective documentation.
-	// Please be aware that this behavior is currently not supported by any data store in
-	// the github.com/tus/tusd package.
+	// s3store honors Storage["Key"] and Storage["Bucket"] when choosing where the
+	// finished object is written. Other data stores may ignore this field.
 	map <string, string> storage = 3;
 }
 

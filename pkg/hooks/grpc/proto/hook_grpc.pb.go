@@ -40,7 +40,7 @@ func NewHookHandlerClient(cc grpc.ClientConnInterface) HookHandlerClient {
 
 func (c *hookHandlerClient) InvokeHook(ctx context.Context, in *HookRequest, opts ...grpc.CallOption) (*HookResponse, error) {
 	out := new(HookResponse)
-	err := c.cc.Invoke(ctx, "/proto.HookHandler/InvokeHook", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/tusd.HookHandler/InvokeHook", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func _HookHandler_InvokeHook_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.HookHandler/InvokeHook",
+		FullMethod: "/tusd.HookHandler/InvokeHook",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HookHandlerServer).InvokeHook(ctx, req.(*HookRequest))
@@ -102,7 +102,7 @@ func _HookHandler_InvokeHook_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var HookHandler_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.HookHandler",
+	ServiceName: "tusd.HookHandler",
 	HandlerType: (*HookHandlerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

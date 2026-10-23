@@ -330,7 +330,7 @@ $ tusd -hooks-grpc localhost:8081
 ...
 ```
 
-The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). Its `InvokeHook` method will be invoked for each triggered events and will be passed the hook request.
+The endpoint must implement the hook handler service as specified in [github.com/tus/tusd/pkg/hooks/grpc/proto/hook.proto](https://github.com/tus/tusd/blob/main/pkg/hooks/grpc/proto/hook.proto). The protobuf package name is `tusd`, so the service is `tusd.HookHandler`. Its `InvokeHook` method will be invoked for each triggered event and will be passed the hook request.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/grpc](https://github.com/tus/tusd/tree/main/examples/hooks/grpc).
 
