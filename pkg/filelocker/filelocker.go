@@ -1,19 +1,14 @@
-// Package filelocker provide an upload locker based on the local file system.
+// Package filelocker provides an upload locker based on the local file system.
 //
 // It provides an exclusive upload locking mechanism using lock files
 // which are stored on disk. Each of them stores the PID of the process which
 // acquired the lock. This allows locks to be automatically freed when a process
 // is unable to release it on its own because the process is not alive anymore.
-// For more information, consult the documentation for handler.LockerDataStore
-// interface, which is implemented by FileLocker.
 //
-// If somebody tries to acquire a lock that is already held, the `requestRelease`
-// callback will be invoked that was provided when the lock was successfully
-// acquired the first time. The lock holder should then cease its operation and
-// release the lock properly, so somebody else can acquire it. Under the hood, this
-// is implemented using an additional file. When an already held lock should be
-// released, a `.stop` file is created on disk. The lock holder regularly checks
-// if this file exists. If so, it will call its `requestRelease` function.
+// The same value is the signaler. A waiter creates a .stop file to ask the
+// holder to abort. The holder polls for that file. Release notifications are
+// not available from the file system, so WatchReleased stays quiet and the
+// handler retries on its timer.
 package filelocker
 
 import (
@@ -29,35 +24,30 @@ import (
 	"github.com/tus/lockfile"
 )
 
-// See the handler.DataStore interface for documentation about the different
-// methods.
+// See the handler.Lock and handler.Signaler interfaces for documentation
+// about the different methods.
 type FileLocker struct {
 	// Relative or absolute path to store files in. FileStore does not check
 	// whether the path exists, use os.MkdirAll in this case on your own.
 	Path string
 
 	// HolderPollInterval specifies how often the holder of a lock should check
-	// if it should release the lock. The check involves querying if a `.stop`
-	// file exists on disk. Defaults to 1 second.
+	// if another request asked it to release. The check looks for a .stop
+	// file on disk. Defaults to 5 seconds.
 	HolderPollInterval time.Duration
-
-	// AcquirerPollInterval specifies how often the acquirer of a lock should
-	// check if the lock has already been released. The checks are stopped if
-	// the context provided to Lock is cancelled. Defaults to 3 seconds.
-	AcquirerPollInterval time.Duration
 }
 
-// New creates a new file based storage backend. The directory specified will
-// be used as the only storage entry. This method does not check
+// New creates a new file based locker. The directory specified will
+// be used to store lock files. This method does not check
 // whether the path exists, use os.MkdirAll to ensure.
-// In addition, a locking mechanism is provided.
 func New(path string) FileLocker {
-	return FileLocker{path, 5 * time.Second, 2 * time.Second}
+	return FileLocker{Path: path, HolderPollInterval: 5 * time.Second}
 }
 
-// UseIn adds this locker to the passed composer.
+// UseIn adds this locker and signaler to the passed composer.
 func (locker FileLocker) UseIn(composer *handler.StoreComposer) {
 	composer.UseLocker(locker)
+	composer.UseSignaler(locker)
 }
 
 func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
@@ -70,38 +60,42 @@ func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
 	// check whether the provided path is absolute since we just resolved it
 	// on our own.
 	return &fileUploadLock{
-		file: lockfile.Lockfile(path),
-
-		requestReleaseFile:   filepath.Join(locker.Path, id+".stop"),
-		holderPollInterval:   locker.HolderPollInterval,
-		acquirerPollInterval: locker.AcquirerPollInterval,
-		stopHolderPoll:       make(chan struct{}),
+		file:               lockfile.Lockfile(path),
+		requestReleaseFile: filepath.Join(locker.Path, id+".stop"),
 	}, nil
 }
 
 type fileUploadLock struct {
-	file lockfile.Lockfile
-
-	requestReleaseFile   string
-	holderPollInterval   time.Duration
-	acquirerPollInterval time.Duration
-	stopHolderPoll       chan struct{}
+	file               lockfile.Lockfile
+	requestReleaseFile string
+	cancel             context.CancelCauseFunc
+	acquired           bool
 }
 
-func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) error {
+func (lock *fileUploadLock) Acquire(acquireCtx, holdCtx context.Context) (context.Context, error) {
+	if lock.acquired {
+		return nil, handler.ErrLockBusy
+	}
+
 	for {
+		if err := acquireCtx.Err(); err != nil {
+			return nil, err
+		}
+
 		err := lock.file.TryLock()
 		if err == nil {
-			// Lock has been aquired, so we are good to go.
-			break
+			held, cancel := context.WithCancelCause(holdCtx)
+			lock.cancel = cancel
+			lock.acquired = true
+			return held, nil
 		}
 		if err == lockfile.ErrNotExist {
 			// ErrNotExist means that the file was not visible on disk yet. This
 			// might happen when the disk is under some load. Wait a short amount
 			// and retry.
 			select {
-			case <-ctx.Done():
-				return handler.ErrLockTimeout
+			case <-acquireCtx.Done():
+				return nil, acquireCtx.Err()
 			case <-time.After(10 * time.Millisecond):
 				continue
 			}
@@ -115,58 +109,25 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 		// normalizing the upload ID to remove the folder structure as well an turn projectA/upload1
 		// into projectA-upload1.
 		if errors.Is(err, fs.ErrNotExist) {
-			return handler.ErrNotFound
+			return nil, handler.ErrNotFound
 		}
-		if err != lockfile.ErrBusy {
-			// If we get something different than ErrBusy, bubble the error up.
-			return err
+		if err == lockfile.ErrBusy {
+			return nil, handler.ErrLockBusy
 		}
-
-		// If we are here, the lock is already held by another entity.
-		// We create the .stop file to signal the lock holder to release the lock.
-		file, err := os.Create(lock.requestReleaseFile)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		select {
-		case <-ctx.Done():
-			// Context expired, so we return a timeout
-			return handler.ErrLockTimeout
-		case <-time.After(lock.acquirerPollInterval):
-			// Continue with the next attempt after a short delay
-			continue
-		}
+		return nil, err
 	}
-
-	// Start polling if the .stop is created.
-	go func() {
-		for {
-			select {
-			case <-lock.stopHolderPoll:
-				return
-			case <-time.After(lock.holderPollInterval):
-				_, err := os.Stat(lock.requestReleaseFile)
-				if err == nil {
-					// Somebody created the file, so we should request the handler
-					// to stop the current request
-					requestRelease()
-					return
-				}
-			}
-		}
-	}()
-
-	return nil
 }
 
-func (lock fileUploadLock) Unlock() error {
-	// Stop polling if we should unlock
-	close(lock.stopHolderPoll)
+func (lock *fileUploadLock) Release(context.Context) error {
+	if !lock.acquired {
+		return nil
+	}
+	lock.acquired = false
+	if lock.cancel != nil {
+		lock.cancel(context.Canceled)
+	}
 
 	err := lock.file.Unlock()
-
 	// A "no such file or directory" will be returned if no lockfile was found.
 	// Since this means that the file has never been locked, we drop the error
 	// and continue as if nothing happened.
@@ -174,9 +135,59 @@ func (lock fileUploadLock) Unlock() error {
 		err = nil
 	}
 
-	// Try removing the file that is used for requesting a release. The error is
-	// ignored on purpose.
 	_ = os.Remove(lock.requestReleaseFile)
-
 	return err
 }
+
+// Subscribe polls for the .stop file until ctx ends. The poll is running
+// before Subscribe returns only in the sense that the goroutine has been
+// started; a .stop file created before the first poll remains until it is seen.
+func (locker FileLocker) Subscribe(ctx context.Context, id string, onRelease func()) error {
+	interval := locker.HolderPollInterval
+	if interval <= 0 {
+		interval = 5 * time.Second
+	}
+	stopFile := filepath.Join(locker.Path, id+".stop")
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			if _, err := os.Stat(stopFile); err == nil {
+				onRelease()
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+	return nil
+}
+
+// RequestRelease creates the .stop file and returns. The holder observes it
+// on its next poll.
+func (locker FileLocker) RequestRelease(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	file, err := os.Create(filepath.Join(locker.Path, id+".stop"))
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+// WatchReleased has nothing to observe. The returned channel stays quiet and
+// open. The handler's retry timer is the wake-up.
+func (locker FileLocker) WatchReleased(context.Context, string) (<-chan struct{}, error) {
+	return make(chan struct{}), nil
+}
+
+// NotifyReleased has no cross-process wake-up to send.
+func (locker FileLocker) NotifyReleased(context.Context, string) {}

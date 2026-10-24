@@ -98,6 +98,11 @@ type Config struct {
 	// client.
 	// Defaults to 20s.
 	AcquireLockTimeout time.Duration
+	// LockRetryInterval is how long a request handler waits between attempts to
+	// acquire a lock that is already held. A release notification can wake the
+	// handler sooner.
+	// Defaults to 2s.
+	LockRetryInterval time.Duration
 	// NetworkTimeout is the timeout for individual read operations on the request body. If the
 	// read operation succeeds in this time window, the handler will continue consuming the body.
 	// If a read operation times out, the handler will stop reading and close the request.
@@ -191,6 +196,10 @@ func (config *Config) validate() error {
 
 	if config.AcquireLockTimeout <= 0 {
 		config.AcquireLockTimeout = 20 * time.Second
+	}
+
+	if config.LockRetryInterval <= 0 {
+		config.LockRetryInterval = 2 * time.Second
 	}
 
 	if config.NetworkTimeout <= 0 {

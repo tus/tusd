@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -33,7 +34,7 @@ func TestGet(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
-			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				Offset: 5,
@@ -44,7 +45,7 @@ func TestGet(t *testing.T) {
 				},
 			}, nil),
 			upload.EXPECT().GetReader(gomock.Any()).Return(reader, nil),
-			lock.EXPECT().Unlock().Return(nil),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
 		)
 
 		composer := NewStoreComposer()

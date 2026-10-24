@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -460,9 +461,9 @@ func TestPost(t *testing.T) {
 					},
 				}, nil),
 				locker.EXPECT().NewLock("foo").Return(lock, nil),
-				lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+				lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
-				lock.EXPECT().Unlock().Return(nil),
+				lock.EXPECT().Release(gomock.Any()).Return(nil),
 			)
 
 			composer := NewStoreComposer()
@@ -613,10 +614,10 @@ func TestPost(t *testing.T) {
 							},
 						}, nil),
 						locker.EXPECT().NewLock("foo").Return(lock, nil),
-						lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+						lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 						upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
 						upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
-						lock.EXPECT().Unlock().Return(nil),
+						lock.EXPECT().Release(gomock.Any()).Return(nil),
 					)
 
 					composer := NewStoreComposer()
@@ -677,9 +678,9 @@ func TestPost(t *testing.T) {
 							SizeIsDeferred: true,
 						}, nil),
 						locker.EXPECT().NewLock("foo").Return(lock, nil),
-						lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+						lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 						upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
-						lock.EXPECT().Unlock().Return(nil),
+						lock.EXPECT().Release(gomock.Any()).Return(nil),
 					)
 
 					composer := NewStoreComposer()
@@ -765,10 +766,10 @@ func TestPost(t *testing.T) {
 								Size:           11,
 							}, nil),
 							locker.EXPECT().NewLock("foo").Return(lock, nil),
-							lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+							lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 							upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello world")).Return(int64(11), nil),
 							upload.EXPECT().FinishUpload(gomock.Any()).Return(nil),
-							lock.EXPECT().Unlock().Return(nil),
+							lock.EXPECT().Release(gomock.Any()).Return(nil),
 						)
 
 						composer := NewStoreComposer()
@@ -841,9 +842,9 @@ func TestPost(t *testing.T) {
 								Size:           11,
 							}, nil),
 							locker.EXPECT().NewLock("foo").Return(lock, nil),
-							lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+							lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 							upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello ")).Return(int64(6), nil),
-							lock.EXPECT().Unlock().Return(nil),
+							lock.EXPECT().Release(gomock.Any()).Return(nil),
 						)
 
 						composer := NewStoreComposer()

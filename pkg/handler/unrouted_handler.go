@@ -434,13 +434,13 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 
 	if containsChunk {
 		if handler.composer.UsesLocker {
-			lock, err := handler.lockUpload(c, id)
+			release, err := handler.lockUpload(c, id)
 			if err != nil {
 				handler.sendError(c, err)
 				return
 			}
 
-			defer lock.Unlock()
+			defer release()
 		}
 
 		resp, err = handler.writeChunk(c, resp, upload, info)
@@ -593,13 +593,13 @@ func (handler *UnroutedHandler) PostFileV2(w http.ResponseWriter, r *http.Reques
 
 	// 2. Lock upload
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
+		release, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 
-		defer lock.Unlock()
+		defer release()
 	}
 
 	// 3. Write chunk
@@ -651,13 +651,13 @@ func (handler *UnroutedHandler) HeadFile(w http.ResponseWriter, r *http.Request)
 	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
+		release, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 
-		defer lock.Unlock()
+		defer release()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
@@ -765,13 +765,13 @@ func (handler *UnroutedHandler) PatchFile(w http.ResponseWriter, r *http.Request
 	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
+		release, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 
-		defer lock.Unlock()
+		defer release()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
@@ -1043,13 +1043,13 @@ func (handler *UnroutedHandler) GetFile(w http.ResponseWriter, r *http.Request) 
 	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
+		release, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 
-		defer lock.Unlock()
+		defer release()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
@@ -1209,13 +1209,13 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	c.log = c.log.With("id", id)
 
 	if handler.composer.UsesLocker {
-		lock, err := handler.lockUpload(c, id)
+		release, err := handler.lockUpload(c, id)
 		if err != nil {
 			handler.sendError(c, err)
 			return
 		}
 
-		defer lock.Unlock()
+		defer release()
 	}
 
 	upload, err := handler.composer.Core.GetUpload(c, id)
@@ -1281,6 +1281,13 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
+	// A store that stopped because the lease ended reports the context
+	// error. Name the lease loss in the response.
+	if errors.Is(context.Cause(c.Context), ErrLeaseLost) &&
+		(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		err = ErrLeaseLost
+	}
+
 	r := c.req
 
 	var detailedErr Error
@@ -1466,28 +1473,122 @@ func (handler *UnroutedHandler) validateNewUploadLengthHeaders(uploadLengthHeade
 	return
 }
 
-// lockUpload creates a new lock for the given upload ID and attempts to lock it.
-// The created lock is returned if it was aquired successfully.
-func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (Lock, error) {
+// lockUpload acquires the lease for id and returns a function that releases it.
+// While the lease is held, storage calls using c stop when the lease is lost.
+func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (func(), error) {
 	lock, err := handler.composer.Locker.NewLock(id)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancelContext := context.WithTimeout(c, handler.config.AcquireLockTimeout)
-	defer cancelContext()
+	// Capture the context value. c itself is an *httpContext, and its embedded
+	// context is replaced below. The lease must stay tied to the context from
+	// before that replacement.
+	parent := c.Context
+	acquireCtx, cancelAcquire := context.WithTimeout(parent, handler.config.AcquireLockTimeout)
+	defer cancelAcquire()
 
-	// No need to wrap this in a sync.OnceFunc because c.cancel will be a noop after the first call.
-	releaseLock := func() {
-		c.log.InfoContext(c, "UploadInterrupted")
-		c.cancel(ErrUploadInterrupted)
+	// signalCtx outlives the acquire attempt and is cancelled after Release.
+	signalCtx, stopSignal := context.WithCancel(context.Background())
+	var signaler Signaler
+	if handler.composer.UsesSignaler {
+		signaler = handler.composer.Signaler
 	}
 
-	if err := lock.Lock(ctx, releaseLock); err != nil {
-		return nil, err
+	release := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := lock.Release(ctx); err != nil {
+			handler.logger.ErrorContext(ctx, "Failed to release upload lock", "id", id, "error", err)
+		}
+		if signaler != nil {
+			signaler.NotifyReleased(ctx, id)
+		}
+		stopSignal()
 	}
 
-	return lock, nil
+	var released <-chan struct{}
+	if signaler != nil {
+		released, err = signaler.WatchReleased(signalCtx, id)
+		if err != nil {
+			stopSignal()
+			return nil, err
+		}
+	}
+
+	var held context.Context
+	for {
+		held, err = lock.Acquire(acquireCtx, parent)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, ErrLockBusy) {
+			stopSignal()
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, ErrLockTimeout
+			}
+			return nil, err
+		}
+
+		if signaler != nil {
+			if err := signaler.RequestRelease(acquireCtx, id); err != nil {
+				stopSignal()
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return nil, ErrLockTimeout
+				}
+				return nil, err
+			}
+		}
+
+		timer := time.NewTimer(handler.config.LockRetryInterval)
+		select {
+		case <-released:
+			timer.Stop()
+		case <-timer.C:
+		case <-acquireCtx.Done():
+			timer.Stop()
+			stopSignal()
+			return nil, ErrLockTimeout
+		}
+	}
+
+	if signaler != nil {
+		if err := signaler.Subscribe(signalCtx, id, func() {
+			c.log.InfoContext(c, "UploadInterrupted")
+			c.cancel(ErrUploadInterrupted)
+		}); err != nil {
+			release()
+			return nil, err
+		}
+	}
+
+	c.Context = cancelWhen(parent, held)
+	go func() {
+		<-held.Done()
+		if errors.Is(context.Cause(held), ErrLeaseLost) {
+			c.log.InfoContext(c, "LeaseLost")
+			c.cancel(ErrLeaseLost)
+		}
+	}()
+	return release, nil
+}
+
+// cancelWhen returns a child of parent that is also cancelled when other ends.
+// The cancellation cause from other is preserved.
+func cancelWhen(parent, other context.Context) context.Context {
+	ctx, cancel := context.WithCancelCause(parent)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-other.Done():
+			cause := context.Cause(other)
+			if cause == nil {
+				cause = context.Canceled
+			}
+			cancel(cause)
+		}
+	}()
+	return ctx
 }
 
 // usesIETFDraft returns whether a HTTP request uses a supported version of the resumable upload draft from IETF

@@ -42,6 +42,7 @@ func Serve() {
 		StoreComposer:                    Composer,
 		UploadProgressInterval:           Flags.ProgressHooksInterval,
 		AcquireLockTimeout:               Flags.AcquireLockTimeout,
+		LockRetryInterval:                Flags.FilelockAcquirerPollInterval,
 		GracefulRequestCompletionTimeout: Flags.GracefulRequestCompletionTimeout,
 		NetworkTimeout:                   Flags.NetworkTimeout,
 	}
