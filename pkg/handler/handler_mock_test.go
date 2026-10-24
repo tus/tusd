@@ -294,29 +294,30 @@ func (m *MockFullLock) EXPECT() *MockFullLockMockRecorder {
 }
 
 // Lock mocks base method.
-func (m *MockFullLock) Lock(ctx context.Context, requestUnlock func()) error {
+func (m *MockFullLock) Acquire(acquireCtx, holdCtx context.Context) (context.Context, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Lock", ctx, requestUnlock)
+	ret := m.ctrl.Call(m, "Acquire", acquireCtx, holdCtx)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Acquire indicates an expected call of Acquire.
+func (mr *MockFullLockMockRecorder) Acquire(acquireCtx, holdCtx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Acquire", reflect.TypeOf((*MockFullLock)(nil).Acquire), acquireCtx, holdCtx)
+}
+
+// Release mocks base method.
+func (m *MockFullLock) Release(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Release", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Lock indicates an expected call of Lock.
-func (mr *MockFullLockMockRecorder) Lock(ctx, requestUnlock interface{}) *gomock.Call {
+// Release indicates an expected call of Release.
+func (mr *MockFullLockMockRecorder) Release(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockFullLock)(nil).Lock), ctx, requestUnlock)
-}
-
-// Unlock mocks base method.
-func (m *MockFullLock) Unlock() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unlock")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Unlock indicates an expected call of Unlock.
-func (mr *MockFullLockMockRecorder) Unlock() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockFullLock)(nil).Unlock))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockFullLock)(nil).Release), ctx)
 }

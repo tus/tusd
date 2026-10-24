@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -500,7 +501,7 @@ func TestPatch(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
-			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
@@ -508,7 +509,7 @@ func TestPatch(t *testing.T) {
 				Size:   20,
 			}, nil),
 			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("hello")).Return(int64(5), nil),
-			lock.EXPECT().Unlock().Return(nil),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
 		)
 
 		composer := NewStoreComposer()
@@ -533,23 +534,19 @@ func TestPatch(t *testing.T) {
 	})
 
 	SubTest(t, "RequestUnlock", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
-		// This test ensures that the handler will stop an onging write if another request wants the lock.
+		// This test ensures that the handler will stop an ongoing write if another request wants the lock.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		locker := NewMockFullLocker(ctrl)
 		lock := NewMockFullLock(ctrl)
 		upload := NewMockFullUpload(ctrl)
+		signaler := &releaseSignaler{}
 
-		var requestReleaseFn func()
-
-		// Mock a typical data store. The lock's requestRelease function is exposed, so we can
-		// later call it. The WriteChunk mock simulates a real store, which waits until the source is closed
-		// instead of returning immediately.
+		// The signaler's Subscribe callback is what another request invokes.
+		// WriteChunk waits until the source is closed instead of returning immediately.
 		gomock.InOrder(
 			locker.EXPECT().NewLock("yes").Return(lock, nil),
-			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Do(func(_ context.Context, requestRelease func()) {
-				requestReleaseFn = requestRelease
-			}).Return(nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:     "yes",
@@ -563,12 +560,13 @@ func TestPatch(t *testing.T) {
 				}
 				return int64(len(data)), err
 			}),
-			lock.EXPECT().Unlock().Return(nil),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
 		)
 
 		composer := NewStoreComposer()
 		composer.UseCore(store)
 		composer.UseLocker(locker)
+		composer.UseSignaler(signaler)
 
 		handler, _ := NewHandler(Config{
 			StoreComposer: composer,
@@ -580,7 +578,7 @@ func TestPatch(t *testing.T) {
 		reader, writer := io.Pipe()
 		go func() {
 			writer.Write([]byte("hello"))
-			requestReleaseFn()
+			signaler.fire()
 		}()
 
 		(&httpTest{
@@ -1031,4 +1029,35 @@ func TestPatch(t *testing.T) {
 			})
 		}
 	})
+}
+
+// releaseSignaler is a test double for the handler.Signaler used by the
+// request-interruption test.
+type releaseSignaler struct {
+	mu        sync.Mutex
+	onRelease func()
+}
+
+func (s *releaseSignaler) Subscribe(_ context.Context, _ string, onRelease func()) error {
+	s.mu.Lock()
+	s.onRelease = onRelease
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *releaseSignaler) RequestRelease(context.Context, string) error { return nil }
+
+func (s *releaseSignaler) WatchReleased(context.Context, string) (<-chan struct{}, error) {
+	return make(chan struct{}), nil
+}
+
+func (s *releaseSignaler) NotifyReleased(context.Context, string) {}
+
+func (s *releaseSignaler) fire() {
+	s.mu.Lock()
+	fn := s.onRelease
+	s.mu.Unlock()
+	if fn != nil {
+		fn()
+	}
 }

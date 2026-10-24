@@ -164,35 +164,6 @@ type LengthDeclarableUpload interface {
 	DeclareLength(ctx context.Context, length int64) error
 }
 
-// Locker is the interface required for custom lock persisting mechanisms.
-// Common ways to store this information is in memory, on disk or using an
-// external service, such as Redis.
-// When multiple processes are attempting to access an upload, whether it be
-// by reading or writing, a synchronization mechanism is required to prevent
-// data corruption, especially to ensure correct offset values and the proper
-// order of chunks inside a single upload.
-type Locker interface {
-	// NewLock creates a new unlocked lock object for the given upload ID.
-	NewLock(id string) (Lock, error)
-}
-
-// Lock is the interface for a lock as returned from a Locker.
-type Lock interface {
-	// Lock attempts to obtain an exclusive lock for the upload specified
-	// by its id.
-	// If the lock can be acquired, it will return without error. The requestUnlock
-	// callback is invoked when another caller attempts to create a lock. In this
-	// case, the holder of the lock should attempt to release the lock as soon
-	// as possible
-	// If the lock is already held, the holder's requestUnlock function will be
-	// invoked to request the lock to be released. If the context is cancelled before
-	// the lock can be acquired, ErrLockTimeout will be returned without acquiring
-	// the lock.
-	Lock(ctx context.Context, requestUnlock func()) error
-	// Unlock releases an existing lock for the given upload.
-	Unlock() error
-}
-
 type ServableUpload interface {
 	// ServeContent serves the uploaded data as specified by the GET request.
 	// It allows data stores to delegate the handling of range requests and conditional

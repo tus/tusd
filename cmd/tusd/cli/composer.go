@@ -174,7 +174,6 @@ func CreateComposer() {
 		store.UseIn(Composer)
 
 		locker := filelocker.New(dir)
-		locker.AcquirerPollInterval = Flags.FilelockAcquirerPollInterval
 		locker.HolderPollInterval = Flags.FilelockHolderPollInterval
 		locker.UseIn(Composer)
 	}

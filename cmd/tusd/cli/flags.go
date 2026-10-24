@@ -158,8 +158,8 @@ func ParseFlags() {
 
 	fs.AddGroup("File storage option", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.UploadDir, "upload-dir", "./data", "Directory to store uploads in")
-		f.DurationVar(&Flags.FilelockHolderPollInterval, "filelock-holder-poll-interval", 5*time.Second, "The holder of a lock polls regularly to see if another request handler needs the lock. This flag specifies the poll interval.")
-		f.DurationVar(&Flags.FilelockAcquirerPollInterval, "filelock-acquirer-poll-interval", 2*time.Second, "The acquirer of a lock polls regularly to see if the lock has been released. This flag specifies the poll interval.")
+		f.DurationVar(&Flags.FilelockHolderPollInterval, "filelock-holder-poll-interval", 5*time.Second, "The holder of a file lock polls regularly to see if another request handler needs the lock. This flag specifies the poll interval.")
+		f.DurationVar(&Flags.FilelockAcquirerPollInterval, "filelock-acquirer-poll-interval", 2*time.Second, "Interval between attempts to acquire an upload lock while it is held by another request. A release notification can wake the handler sooner.")
 		f.Var(&ChmodPermsValue{&Flags.DirPerms}, "dir-perms", "The created directory chmod(2) OCTAL value permissions.")
 		f.Var(&ChmodPermsValue{&Flags.FilePerms}, "file-perms", "The created file chmod(2) OCTAL value permissions.")
 	})

@@ -9,72 +9,141 @@ import (
 	"github.com/tus/tusd/v2/pkg/handler"
 )
 
-var _ handler.Locker = &MemoryLocker{}
+var (
+	_ handler.Locker   = &MemoryLocker{}
+	_ handler.Signaler = &MemoryLocker{}
+)
 
-func TestMemoryLocker_LockAndUnlock(t *testing.T) {
+func TestMemoryLocker_AcquireAndRelease(t *testing.T) {
 	a := assert.New(t)
-
 	locker := New()
 
 	lock1, err := locker.NewLock("one")
 	a.NoError(err)
 
-	a.NoError(lock1.Lock(context.Background(), func() {
-		panic("must not be called")
-	}))
-	a.NoError(lock1.Unlock())
+	held, err := lock1.Acquire(context.Background(), context.Background())
+	a.NoError(err)
+	a.NoError(held.Err())
+
+	a.NoError(lock1.Release(context.Background()))
+	a.ErrorIs(held.Err(), context.Canceled)
+	a.NoError(lock1.Release(context.Background()))
 }
 
-func TestMemoryLocker_Timeout(t *testing.T) {
+func TestMemoryLocker_Busy(t *testing.T) {
 	a := assert.New(t)
-
 	locker := New()
-	releaseRequestCalled := false
 
 	lock1, err := locker.NewLock("one")
 	a.NoError(err)
-	a.NoError(lock1.Lock(context.Background(), func() {
-		releaseRequestCalled = true
-		// We note that the function has been called, but do not
-		// release the lock
-	}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
-	defer cancel()
+	_, err = lock1.Acquire(context.Background(), context.Background())
+	a.NoError(err)
 
 	lock2, err := locker.NewLock("one")
 	a.NoError(err)
-	err = lock2.Lock(ctx, func() {
-		panic("must not be called")
-	})
-
-	a.Equal(err, handler.ErrLockTimeout)
-	a.True(releaseRequestCalled)
-}
-
-func TestMemoryLocker_RequestUnlock(t *testing.T) {
-	a := assert.New(t)
-
-	locker := New()
-	releaseRequestCalled := false
-
-	lock1, err := locker.NewLock("one")
-	a.NoError(err)
-	a.NoError(lock1.Lock(context.Background(), func() {
-		releaseRequestCalled = true
-		<-time.After(10 * time.Millisecond)
-		a.NoError(lock1.Unlock())
-	}))
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	_, err = lock2.Acquire(ctx, context.Background())
+	a.ErrorIs(err, handler.ErrLockBusy)
+	a.NoError(ctx.Err())
+
+	a.NoError(lock1.Release(context.Background()))
+	_, err = lock2.Acquire(context.Background(), context.Background())
+	a.NoError(err)
+	a.NoError(lock2.Release(context.Background()))
+}
+
+func TestMemoryLocker_ReleaseDoesNotDropReplacement(t *testing.T) {
+	a := assert.New(t)
+	locker := New()
+
+	lock1, err := locker.NewLock("one")
+	a.NoError(err)
+	_, err = lock1.Acquire(context.Background(), context.Background())
+	a.NoError(err)
+	a.NoError(lock1.Release(context.Background()))
 
 	lock2, err := locker.NewLock("one")
 	a.NoError(err)
-	a.NoError(lock2.Lock(ctx, func() {
-		panic("must not be called")
-	}))
-	a.NoError(lock2.Unlock())
+	_, err = lock2.Acquire(context.Background(), context.Background())
+	a.NoError(err)
 
-	a.True(releaseRequestCalled)
+	a.NoError(lock1.Release(context.Background()))
+
+	lock3, err := locker.NewLock("one")
+	a.NoError(err)
+	_, err = lock3.Acquire(context.Background(), context.Background())
+	a.ErrorIs(err, handler.ErrLockBusy)
+	a.NoError(lock2.Release(context.Background()))
+}
+
+func TestMemoryLocker_HeldSurvivesAcquireContext(t *testing.T) {
+	a := assert.New(t)
+	locker := New()
+
+	lock, err := locker.NewLock("one")
+	a.NoError(err)
+
+	acquireCtx, cancel := context.WithCancel(context.Background())
+	held, err := lock.Acquire(acquireCtx, context.Background())
+	a.NoError(err)
+	cancel()
+	a.NoError(held.Err())
+	a.NoError(lock.Release(context.Background()))
+}
+
+func TestMemoryLocker_RequestRelease(t *testing.T) {
+	a := assert.New(t)
+	locker := New()
+
+	lock1, err := locker.NewLock("one")
+	a.NoError(err)
+	_, err = lock1.Acquire(context.Background(), context.Background())
+	a.NoError(err)
+
+	a.NoError(locker.RequestRelease(context.Background(), "one"))
+
+	signalCtx, stop := context.WithCancel(context.Background())
+	defer stop()
+	called := make(chan struct{}, 1)
+	a.NoError(locker.Subscribe(signalCtx, "one", func() {
+		select {
+		case called <- struct{}{}:
+		default:
+		}
+	}))
+
+	a.NoError(locker.RequestRelease(context.Background(), "one"))
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("release callback was not invoked")
+	}
+
+	a.NoError(lock1.Release(context.Background()))
+}
+
+func TestMemoryLocker_NotifyReleased(t *testing.T) {
+	a := assert.New(t)
+	locker := New()
+
+	watchCtx, stop := context.WithCancel(context.Background())
+	defer stop()
+	released, err := locker.WatchReleased(watchCtx, "one")
+	a.NoError(err)
+
+	locker.NotifyReleased(context.Background(), "one")
+	select {
+	case <-released:
+	case <-time.After(time.Second):
+		t.Fatal("release notification was not delivered")
+	}
+
+	locker.NotifyReleased(context.Background(), "one")
+	locker.NotifyReleased(context.Background(), "one")
+	select {
+	case <-released:
+	case <-time.After(time.Second):
+		t.Fatal("coalesced release notification was not delivered")
+	}
 }

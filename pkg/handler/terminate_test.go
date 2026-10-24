@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestTerminate(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("foo").Return(lock, nil),
-			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 			store.EXPECT().GetUpload(gomock.Any(), "foo").Return(upload, nil),
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:   "foo",
@@ -46,7 +47,7 @@ func TestTerminate(t *testing.T) {
 			}, nil),
 			store.EXPECT().AsTerminatableUpload(upload).Return(upload),
 			upload.EXPECT().Terminate(gomock.Any()).Return(nil),
-			lock.EXPECT().Unlock().Return(nil),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
 		)
 
 		composer := NewStoreComposer()
@@ -99,13 +100,13 @@ func TestTerminate(t *testing.T) {
 
 		gomock.InOrder(
 			locker.EXPECT().NewLock("foo").Return(lock, nil),
-			lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Return(nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(context.Background(), nil),
 			store.EXPECT().GetUpload(gomock.Any(), "foo").Return(upload, nil),
 			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
 				ID:   "foo",
 				Size: 10,
 			}, nil),
-			lock.EXPECT().Unlock().Return(nil),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
 		)
 
 		composer := NewStoreComposer()
