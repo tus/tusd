@@ -595,6 +595,63 @@ func TestPatch(t *testing.T) {
 		}).Run(handler, t)
 	})
 
+	SubTest(t, "LeaseLost", func(t *testing.T, store *MockFullDataStore, _ *StoreComposer) {
+		// A renewal failure cancels the held context. The handler must stop
+		// the body and respond with the lease-lost error.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		locker := NewMockFullLocker(ctrl)
+		lock := NewMockFullLock(ctrl)
+		upload := NewMockFullUpload(ctrl)
+		held, cancelHeld := context.WithCancelCause(context.Background())
+
+		gomock.InOrder(
+			locker.EXPECT().NewLock("yes").Return(lock, nil),
+			lock.EXPECT().Acquire(gomock.Any(), gomock.Any()).Return(held, nil),
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+				ID:     "yes",
+				Offset: 0,
+				Size:   20,
+			}, nil),
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, src io.Reader) (int64, error) {
+				data, err := io.ReadAll(src)
+				if string(data) != "hello" {
+					panic("unexpected result of reading source")
+				}
+				return int64(len(data)), err
+			}),
+			lock.EXPECT().Release(gomock.Any()).Return(nil),
+		)
+
+		composer := NewStoreComposer()
+		composer.UseCore(store)
+		composer.UseLocker(locker)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		reader, writer := io.Pipe()
+		go func() {
+			_, _ = writer.Write([]byte("hello"))
+			cancelHeld(ErrLeaseLost)
+		}()
+
+		(&httpTest{
+			Method: "PATCH",
+			URL:    "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusInternalServerError,
+			ResBody: "ERR_LEASE_LOST: lost exclusive access to this upload before the request finished\n",
+		}).Run(handler, t)
+	})
+
 	SubTest(t, "NotifyUploadProgress", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

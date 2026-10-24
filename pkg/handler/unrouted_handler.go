@@ -1281,6 +1281,13 @@ func (handler *UnroutedHandler) terminateUpload(c *httpContext, upload Upload, i
 // Send the error in the response body. The status code will be looked up in
 // ErrStatusCodes. If none is found 500 Internal Error will be used.
 func (handler *UnroutedHandler) sendError(c *httpContext, err error) {
+	// A store that stopped because the lease ended reports the context
+	// error. Name the lease loss in the response.
+	if errors.Is(context.Cause(c.Context), ErrLeaseLost) &&
+		(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		err = ErrLeaseLost
+	}
+
 	r := c.req
 
 	var detailedErr Error
@@ -1556,6 +1563,13 @@ func (handler *UnroutedHandler) lockUpload(c *httpContext, id string) (func(), e
 	}
 
 	c.Context = cancelWhen(parent, held)
+	go func() {
+		<-held.Done()
+		if errors.Is(context.Cause(held), ErrLeaseLost) {
+			c.log.InfoContext(c, "LeaseLost")
+			c.cancel(ErrLeaseLost)
+		}
+	}()
 	return release, nil
 }
 
