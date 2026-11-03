@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -20,8 +21,14 @@ type httpContext struct {
 	resC *http.ResponseController
 	req  *http.Request
 
-	// body is nil by default and set by the user if the request body is consumed.
-	body *bodyReader
+	// body is nil by default and set by the user (using setBody) if the request body
+	// is consumed. It is read by the goroutine started in newContext, so it must only
+	// be accessed through its atomic methods.
+	body atomic.Pointer[bodyReader]
+
+	// cancellable is the context that is cancelled by cancel and carries the reason
+	// for an interruption as its cause.
+	cancellable context.Context
 
 	// cancel allows a user to cancel the internal request context, causing
 	// the request body to be closed.
@@ -52,22 +59,46 @@ func (h UnroutedHandler) newContext(w http.ResponseWriter, r *http.Request) *htt
 		res:     w,
 		resC:    http.NewResponseController(w),
 		req:     r,
-		body:    nil, // body can be filled later for PATCH requests
 		cancel:  cancelHandling,
 		log:     h.logger.With("method", r.Method, "path", r.URL.Path, "requestId", getRequestId(r)),
+
+		cancellable: cancellableCtx,
 	}
 
 	go func() {
 		<-cancellableCtx.Done()
 
 		// If the cause is one of our own errors, close a potential body and relay the error.
-		cause := context.Cause(cancellableCtx)
-		if (errors.Is(cause, ErrServerShutdown) || errors.Is(cause, ErrUploadInterrupted) || errors.Is(cause, ErrUploadStoppedByServer)) && ctx.body != nil {
-			ctx.body.closeWithError(cause)
+		// If the body is not set up yet, setBody takes care of this.
+		if body := ctx.body.Load(); body != nil {
+			if cause := ctx.interruptCause(); cause != nil {
+				body.closeWithError(cause)
+			}
 		}
 	}()
 
 	return ctx
+}
+
+// interruptCause returns the error with which the request was interrupted, or nil if
+// it was not interrupted by one of our own errors.
+func (c *httpContext) interruptCause() error {
+	cause := context.Cause(c.cancellable)
+	if errors.Is(cause, ErrServerShutdown) || errors.Is(cause, ErrUploadInterrupted) || errors.Is(cause, ErrUploadStoppedByServer) {
+		return cause
+	}
+	return nil
+}
+
+// setBody stores the request body reader. If the request was interrupted before the
+// body was available, the goroutine in newContext found no body to close, so the body is
+// closed here. The cause is checked after the body is stored: either this check sees the
+// interruption or the goroutine sees the body (or both, which is harmless).
+func (c *httpContext) setBody(body *bodyReader) {
+	c.body.Store(body)
+	if cause := c.interruptCause(); cause != nil {
+		body.closeWithError(cause)
+	}
 }
 
 // getContext tries to retrieve a httpContext from the request or constructs a new one.
