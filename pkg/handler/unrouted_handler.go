@@ -919,8 +919,8 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		// http.MaxBytesReader instead of io.LimitedReader because it returns an error
 		// if too much data is provided (handled in bodyReader) and also stops the server
 		// from reading the remaining request body.
-		c.body = newBodyReader(c, maxSize)
-		c.body.onReadDone = func() {
+		body := newBodyReader(c, maxSize)
+		body.onReadDone = func() {
 			// Update the read deadline for every successful read operation. This ensures that the request handler
 			// keeps going while data is transmitted but that dead connections can also time out and be cleaned up.
 			if err := c.resC.SetReadDeadline(time.Now().Add(handler.config.NetworkTimeout)); err != nil {
@@ -932,6 +932,10 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 				c.log.WarnContext(c, "NetworkTimeoutError", "error", err)
 			}
 		}
+
+		// Make the body known to the context, so an interruption closes it. This also
+		// closes it right away if the request was interrupted before this point.
+		c.setBody(body)
 
 		// We use a callback to allow the hook system to cancel an upload. The callback
 		// cancels the request context causing the request body to be closed with the
@@ -946,11 +950,11 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 			handler.sendProgressMessages(c, info)
 		}
 
-		bytesWritten, err = upload.WriteChunk(c, offset, c.body)
+		bytesWritten, err = upload.WriteChunk(c, offset, body)
 
 		// If we encountered an error while reading the body from the HTTP request, log it, but only include
 		// it in the response, if the store did not also return an error.
-		bodyErr := c.body.hasError()
+		bodyErr := body.hasError()
 		if bodyErr != nil {
 			c.log.ErrorContext(c, "BodyReadError", "error", bodyErr.Error())
 			if err == nil {
@@ -1332,7 +1336,7 @@ func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileIn
 	originalOffset := hook.Upload.Offset
 
 	emitProgress := func() {
-		hook.Upload.Offset = originalOffset + c.body.bytesRead()
+		hook.Upload.Offset = originalOffset + c.body.Load().bytesRead()
 		if hook.Upload.Offset != previousOffset {
 			handler.UploadProgress <- hook
 			previousOffset = hook.Upload.Offset
