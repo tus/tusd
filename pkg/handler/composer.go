@@ -14,8 +14,8 @@ type StoreComposer struct {
 	Concater           ConcaterDataStore
 	UsesLengthDeferrer bool
 	LengthDeferrer     LengthDeferrerDataStore
-	ContentServer      ContentServerDataStore
 	UsesContentServer  bool
+	ContentServer      ContentServerDataStore
 }
 
 // NewStoreComposer creates a new and empty store composer.
@@ -54,6 +54,12 @@ func (store *StoreComposer) Capabilities() string {
 	}
 	str += ` LengthDeferrer: `
 	if store.UsesLengthDeferrer {
+		str += "✓"
+	} else {
+		str += "✗"
+	}
+	str += ` ContentServer: `
+	if store.UsesContentServer {
 		str += "✓"
 	} else {
 		str += "✗"

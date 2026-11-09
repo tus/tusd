@@ -52,6 +52,8 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		},
 	}
 
+	expiresAt := time.Now().Add(24 * time.Hour)
+
 	change := handler.FileInfoChanges{
 		ID: "id2",
 		MetaData: handler.MetaData{
@@ -60,6 +62,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		Storage: map[string]string{
 			"location": "foo",
 		},
+		ExpiresAt: &expiresAt,
 	}
 
 	error := errors.New("oh no")
@@ -127,7 +130,12 @@ func TestNewHandlerWithHooks(t *testing.T) {
 		Event: event,
 	})
 
-	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish, HookPreTerminate})
+	hookHandler.EXPECT().InvokeHook(HookRequest{
+		Type:  HookPostExpire,
+		Event: event,
+	})
+
+	uploadHandler, err := NewHandlerWithHooks(&config, hookHandler, []HookType{HookPreCreate, HookPostCreate, HookPostReceive, HookPostTerminate, HookPostFinish, HookPreFinish, HookPreTerminate, HookPostExpire})
 	a.NoError(err)
 
 	// Successful pre-create hook
@@ -189,6 +197,7 @@ func TestNewHandlerWithHooks(t *testing.T) {
 	uploadHandler.UploadProgress <- event
 	uploadHandler.CompleteUploads <- event
 	uploadHandler.TerminatedUploads <- event
+	uploadHandler.ExpiredUploads <- event
 
 	// Wait a short amount for all goroutines to settle
 	<-time.After(100 * time.Millisecond)

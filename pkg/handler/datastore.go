@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 )
 
 type MetaData map[string]string
@@ -29,6 +30,14 @@ type FileInfo struct {
 	// ordered slice containing the ids of the uploads of which the final upload
 	// will consist after concatenation.
 	PartialUploads []string
+	// ExpiresAt is the time after which the upload is considered expired. If the
+	// upload does not expire, this field is the zero value of time.Time.
+	// Expiration is only enforced as long as an upload is not finished yet. Once all
+	// data has been transmitted, the upload is served regardless of this value.
+	// Partial uploads from the concatenation extension are an exception: since they
+	// are not usable on their own, they keep expiring after all their data has been
+	// transmitted.
+	ExpiresAt time.Time
 	// Storage contains information about where the data storage saves the upload,
 	// for example a file path. The available values vary depending on what data
 	// store is used. This map may also be nil.
@@ -73,6 +82,13 @@ type FileInfoChanges struct {
 	// If you do not want to store any meta data, set this field to an empty map (`MetaData{}`).
 	// If you want to keep the entire user-defined meta data, set this field to nil.
 	MetaData MetaData
+
+	// If ExpiresAt is not nil, it replaces the expiration time of the upload, which is
+	// derived from Config.DefaultExpiration by default. Point it at the zero value of
+	// time.Time to prevent the upload from expiring at all. A time in the past is
+	// rejected with ErrInvalidExpiration, since the upload would not be usable after
+	// its creation. This field is ignored if Config.DisableExpiration is set.
+	ExpiresAt *time.Time
 
 	// If Storage is not nil, it is passed to the data store to allow for minor adjustments
 	// to the upload storage (e.g. destination file name). The details are specific for each
