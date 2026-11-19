@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
@@ -33,6 +34,10 @@ const (
 	// StorageKeyInfoPath is the key of the path of .info file in handler.FileInfo.Storage
 	StorageKeyInfoPath = "InfoPath"
 )
+
+const infoExtension = ".info"
+
+var errBinPathIsInfoFile = handler.NewError("ERR_INVALID_UPLOAD_PATH", "upload data must not be stored in a file ending in "+infoExtension, http.StatusInternalServerError)
 
 const DefaultDirPerm = 0775
 const DefaultFilePerm = 0664
@@ -98,6 +103,12 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 		}
 	} else {
 		binPath = store.defaultBinPath(info.ID)
+	}
+
+	// Uploaded content must not be readable as another upload's .info file, or a
+	// client could control that upload's metadata, including its binary path.
+	if store.isInfoPathCandidate(binPath) {
+		return nil, errBinPathIsInfoFile
 	}
 
 	info.Storage = map[string]string{
@@ -198,7 +209,60 @@ func (store FileStore) defaultBinPath(id string) string {
 
 // infoPath returns the path to the .info file storing the file's info.
 func (store FileStore) infoPath(id string) string {
-	return filepath.Join(store.Path, id+".info")
+	return filepath.Join(store.Path, id+infoExtension)
+}
+
+// isInfoPathCandidate reports whether binPath could be mistaken for an upload's .info
+// file. The extension check ignores case and trailing dots/spaces, since some file
+// systems (macOS, Windows) treat such names as equivalent.
+func (store FileStore) isInfoPathCandidate(binPath string) bool {
+	name := strings.ToLower(strings.TrimRight(filepath.Base(binPath), ". "))
+	if !strings.HasSuffix(name, infoExtension) {
+		return false
+	}
+
+	storeDir, err := resolvePath(store.Path)
+	if err != nil {
+		return true // Err on the side of caution.
+	}
+	binDir, err := resolvePath(filepath.Dir(binPath))
+	if err != nil {
+		return true
+	}
+
+	// binDir is inside storeDir if the relative path between them doesn't escape via "..".
+	rel, err := filepath.Rel(storeDir, binDir)
+	if err != nil {
+		return true
+	}
+	return filepath.IsLocal(rel)
+}
+
+// resolvePath returns the absolute path of p with symlinks resolved. p may not exist
+// yet, so only its longest existing prefix is resolved.
+func resolvePath(p string) (string, error) {
+	p, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+
+	var rest []string
+	for {
+		resolved, err := filepath.EvalSymlinks(p)
+		if err == nil {
+			return filepath.Join(append([]string{resolved}, rest...)...), nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+
+		parent := filepath.Dir(p)
+		if parent == p {
+			return "", err
+		}
+		rest = append([]string{filepath.Base(p)}, rest...)
+		p = parent
+	}
 }
 
 type fileUpload struct {

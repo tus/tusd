@@ -375,3 +375,83 @@ func TestCustomAbsolutePath(t *testing.T) {
 	a.NoError(err)
 	a.True(statInfo.Mode().IsRegular())
 }
+
+// TestRejectInfoBinPath tests that the binary data is never stored in a file that could be
+// mistaken for another upload's .info file. Otherwise, a client could upload a forged .info
+// file to control the metadata (including the binary file's location) of another upload.
+func TestRejectInfoBinPath(t *testing.T) {
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	store := New(tmp)
+
+	rejected := []handler.FileInfo{
+		{ID: "evil.info"},
+		{ID: "folder/evil.info"},
+		{ID: "evil.INFO"},
+		{ID: "evil.info."},
+		{ID: "evil.info "},
+		{ID: "id1", Storage: map[string]string{"Path": "evil.info"}},
+		{ID: "id2", Storage: map[string]string{"Path": "./folder/evil.Info"}},
+		{ID: "id3", Storage: map[string]string{"Path": filepath.Join(tmp, "folder", "evil.info")}},
+		// Path cleaning results in the file landing in the storage directory again.
+		{ID: "id4", Storage: map[string]string{"Path": "folder/../evil.info"}},
+	}
+
+	for _, fileInfo := range rejected {
+		upload, err := store.NewUpload(ctx, fileInfo)
+		assert.Nil(t, upload, "%+v", fileInfo)
+		assert.Equal(t, errBinPathIsInfoFile, err, "%+v", fileInfo)
+	}
+
+	// Nothing should have been written to disk.
+	entries, err := os.ReadDir(tmp)
+	assert.NoError(t, err)
+	assert.Empty(t, entries)
+
+	allowed := []handler.FileInfo{
+		{ID: "info"},
+		{ID: "evil.info.txt"},
+		{ID: "folder.info/upload"},
+		// .info files outside of the storage directory cannot be confused with upload metadata.
+		{ID: "id5", Storage: map[string]string{"Path": filepath.Join(outside, "evil.info")}},
+		{ID: "id6", Storage: map[string]string{"Path": "../" + filepath.Base(outside) + "/other.info"}},
+	}
+
+	for _, fileInfo := range allowed {
+		upload, err := store.NewUpload(ctx, fileInfo)
+		assert.NoError(t, err, "%+v", fileInfo)
+		assert.NotNil(t, upload, "%+v", fileInfo)
+	}
+}
+
+// TestRejectInfoBinPathRelativeStore tests that .info binary paths are rejected regardless
+// of whether the storage directory and the custom path are given as relative or absolute
+// paths, or point to the same directory through symlinks.
+func TestRejectInfoBinPathRelativeStore(t *testing.T) {
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+	assert.NoError(t, os.Mkdir("uploads", 0755))
+	assert.NoError(t, os.Symlink("uploads", "link"))
+
+	// Note: On macOS, tmp itself is usually located behind a symlink (/var -> /private/var).
+	absUploads := filepath.Join(tmp, "uploads")
+
+	for _, storePath := range []string{"uploads", "./uploads", "uploads/", "link", absUploads, filepath.Join(tmp, "link")} {
+		store := New(storePath)
+		for _, fileInfo := range []handler.FileInfo{
+			{ID: "a.info"},
+			{ID: "folder/a.info"},
+			{ID: "b", Storage: map[string]string{"Path": "b.info"}},
+			{ID: "c", Storage: map[string]string{"Path": filepath.Join(absUploads, "c.info")}},
+			{ID: "d", Storage: map[string]string{"Path": filepath.Join(tmp, "link", "new-folder", "d.info")}},
+		} {
+			upload, err := store.NewUpload(ctx, fileInfo)
+			assert.Nil(t, upload, "%s %+v", storePath, fileInfo)
+			assert.Equal(t, errBinPathIsInfoFile, err, "%s %+v", storePath, fileInfo)
+		}
+	}
+}
