@@ -390,8 +390,8 @@ func TestRejectInfoBinPath(t *testing.T) {
 		{ID: "evil.info"},
 		{ID: "folder/evil.info"},
 		{ID: "evil.INFO"},
-		{ID: "evil.info."},
-		{ID: "evil.info "},
+		{ID: "evil.info."}, // Windows strips trailing dots, so this is the same file as evil.info.
+		{ID: "evil.info "}, // Windows strips trailing spaces, so this is the same file as evil.info.
 		{ID: "id1", Storage: map[string]string{"Path": "evil.info"}},
 		{ID: "id2", Storage: map[string]string{"Path": "./folder/evil.Info"}},
 		{ID: "id3", Storage: map[string]string{"Path": filepath.Join(tmp, "folder", "evil.info")}},
