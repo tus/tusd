@@ -30,7 +30,7 @@ class HookHandler(pb2_grpc.HookHandlerServicer):
                 hook_response.rejectUpload = True
                 hook_response.httpResponse.statusCode = 400
                 hook_response.httpResponse.body = 'no filename provided'
-                hook_response.httpResponse.headers['X-Some-Header'] = 'yes'
+                hook_response.httpResponse.header['X-Some-Header'] = 'yes'
             else:
                 hook_response.changeFileInfo.id = f'prefix-{uuid.uuid4()}'
                 hook_response.changeFileInfo.metaData
