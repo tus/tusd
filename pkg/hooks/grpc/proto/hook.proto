@@ -130,6 +130,12 @@ message HookResponse {
 	// it is ignored. Use the HTTPResponse field to send details about the stop
 	// to the client.
 	bool stopUpload = 3;
+
+	// RejectTermination will cause the termination of the upload to be rejected, keeping the upload.
+	// This value is only respected for pre-terminate hooks. For other hooks,
+	// it is ignored. Use the HTTPResponse field to send details about the rejection
+	// to the client.
+	bool rejectTermination = 5;
 }
 
 // HTTPResponse contains basic details of an outgoing HTTP response.

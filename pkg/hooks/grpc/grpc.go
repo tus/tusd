@@ -147,6 +147,7 @@ func getHeader(httpHeader http.Header) (hookHeader map[string]string) {
 func unmarshal(res *pb.HookResponse) (hookRes hooks.HookResponse) {
 	hookRes.RejectUpload = res.RejectUpload
 	hookRes.StopUpload = res.StopUpload
+	hookRes.RejectTermination = res.RejectTermination
 
 	httpRes := res.HttpResponse
 	if httpRes != nil {
