@@ -299,6 +299,8 @@ When the endpoint responds with a 2XX status code, tusd reads the response body 
 
 By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
 
+An OpenAPI 3.2.1 specification for the HTTP hook contract is available at [github.com/tus/tusd/pkg/hooks/http/openapi/hook.yaml](https://github.com/tus/tusd/blob/main/pkg/hooks/http/openapi/hook.yaml).
+
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
 #### Retries

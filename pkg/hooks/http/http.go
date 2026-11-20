@@ -2,6 +2,7 @@
 // POST request to the specified endpoint. The body is a JSON-formatted object including
 // the hook type, upload and request information.
 // By responding with a JSON object, the response from tusd can be controlled.
+// The OpenAPI specification is defined in github.com/tus/tusd/v2/pkg/hooks/http/openapi.
 package http
 
 import (
