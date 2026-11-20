@@ -37,6 +37,15 @@ class HookHandler(pb2_grpc.HookHandlerServicer):
                 hook_response.changeFileInfo.metaData['filename'] = metaData['filename']
                 hook_response.changeFileInfo.metaData['creation_time'] = time.ctime()
 
+        # Example: Use the pre-terminate hook to prevent completed uploads from being
+        # deleted. The termination is rejected with a custom HTTP response.
+        if hook_request.type == 'pre-terminate':
+            upload = hook_request.event.upload
+            if not upload.sizeIsDeferred and upload.offset == upload.size:
+                hook_response.rejectTermination = True
+                hook_response.httpResponse.statusCode = 403
+                hook_response.httpResponse.body = 'completed uploads cannot be deleted'
+
         # Example: Use the post-finish hook to print information about a completed upload,
         # including its storage location.
         if hook_request.type == 'post-finish':
