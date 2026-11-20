@@ -81,6 +81,10 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			RejectUpload: true,
 		}, nil),
 		hookHandler.EXPECT().InvokeHook(HookRequest{
+			Type:  HookPreCreate,
+			Event: event,
+		}).Return(HookResponse{}, error),
+		hookHandler.EXPECT().InvokeHook(HookRequest{
 			Type:  HookPreFinish,
 			Event: event,
 		}).Return(HookResponse{
@@ -150,6 +154,12 @@ func TestNewHandlerWithHooks(t *testing.T) {
 			},
 		},
 	}, err)
+	a.Equal(handler.HTTPResponse{}, resp_got)
+	a.Equal(handler.FileInfoChanges{}, change_got)
+
+	// Pre-create hook with error
+	resp_got, change_got, err = config.PreUploadCreateCallback(event)
+	a.Equal(error, err)
 	a.Equal(handler.HTTPResponse{}, resp_got)
 	a.Equal(handler.FileInfoChanges{}, change_got)
 

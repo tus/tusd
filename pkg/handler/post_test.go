@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -202,6 +203,83 @@ func TestPost(t *testing.T) {
 			},
 			Code: http.StatusBadRequest,
 		}).Run(handler, t)
+	})
+
+	SubTest(t, "PreUploadCreateCallbackError", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// The store mock has no expectations, so any call to NewUpload fails the test.
+
+		SubTest(t, "InternalError", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			handler, _ := NewHandler(Config{
+				StoreComposer: composer,
+				BasePath:      "/files/",
+				PreUploadCreateCallback: func(hook HookEvent) (HTTPResponse, FileInfoChanges, error) {
+					return HTTPResponse{}, FileInfoChanges{}, errors.New("oh no")
+				},
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+				},
+				Code:    http.StatusInternalServerError,
+				ResBody: "ERR_INTERNAL_SERVER_ERROR: oh no\n",
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "CustomResponse", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			handler, _ := NewHandler(Config{
+				StoreComposer: composer,
+				BasePath:      "/files/",
+				PreUploadCreateCallback: func(hook HookEvent) (HTTPResponse, FileInfoChanges, error) {
+					err := ErrUploadRejectedByServer
+					err.HTTPResponse = err.HTTPResponse.MergeWith(HTTPResponse{
+						StatusCode: http.StatusForbidden,
+						Body:       "not allowed",
+						Header: HTTPHeader{
+							"X-Reason": "quota",
+						},
+					})
+					return HTTPResponse{}, FileInfoChanges{}, err
+				},
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Length": "300",
+				},
+				Code:    http.StatusForbidden,
+				ResBody: "not allowed",
+				ResHeader: map[string]string{
+					"X-Reason":     "quota",
+					"Content-Type": "text/plain; charset=utf-8",
+				},
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "ExperimentalProtocol", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			handler, _ := NewHandler(Config{
+				StoreComposer:              composer,
+				BasePath:                   "/files/",
+				EnableExperimentalProtocol: true,
+				PreUploadCreateCallback: func(hook HookEvent) (HTTPResponse, FileInfoChanges, error) {
+					return HTTPResponse{}, FileInfoChanges{}, errors.New("oh no")
+				},
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: addIETFUploadCompleteHeader(map[string]string{
+					"Upload-Draft-Interop-Version": "6",
+				}, true, "6"),
+				ReqBody: strings.NewReader("hello world"),
+				Code:    http.StatusInternalServerError,
+				ResBody: "ERR_INTERNAL_SERVER_ERROR: oh no\n",
+			}).Run(handler, t)
+		})
 	})
 
 	SubTest(t, "ForwardHeaders", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
