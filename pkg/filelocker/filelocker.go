@@ -124,15 +124,21 @@ func (lock fileUploadLock) Lock(ctx context.Context, requestRelease func()) erro
 
 		// If we are here, the lock is already held by another entity.
 		// We create the .stop file to signal the lock holder to release the lock.
+		// The handle is closed right away: the holder only checks the file's
+		// existence, and an open handle would block removal on Windows.
 		file, err := os.Create(lock.requestReleaseFile)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		file.Close()
 
 		select {
 		case <-ctx.Done():
-			// Context expired, so we return a timeout
+			// Context expired, so we return a timeout. Since the lock was never
+			// successfully acquired, Unlock() will not be called and the .stop
+			// file would otherwise remain on disk indefinitely. Remove it here
+			// so future acquisition attempts are not affected by stale state.
+			_ = os.Remove(lock.requestReleaseFile)
 			return handler.ErrLockTimeout
 		case <-time.After(lock.acquirerPollInterval):
 			// Continue with the next attempt after a short delay
