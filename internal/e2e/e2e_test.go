@@ -32,6 +32,13 @@ var toxiClient *toxiproxy.Client
 var TUSD_BINARY string
 var TUSD_ENDPOINT_RE = regexp.MustCompile(`You can now upload files to: (https?://([^/]+)/\S*)`)
 
+const (
+	STORE_BACKEND_S3    = "s3"
+	STORE_BACKEND_GCS   = "gcs"
+	STORE_BACKEND_AZURE = "azure"
+	STORE_BACKEND_FILE  = "file"
+)
+
 func TestMain(m *testing.M) {
 	// Fetch path to compiled tusd binary
 	TUSD_BINARY = os.Getenv("TUSD_BINARY")
@@ -117,6 +124,147 @@ func TestSuccessfulUpload(t *testing.T) {
 	offset := res.Header.Get("Upload-Offset")
 	if offset != strconv.Itoa(length) {
 		t.Fatalf("invalid offset %s", offset)
+	}
+}
+
+// TestDownload tests that all stores can perform a download.
+// Download is not part of tus.io spec, but it is a common feature of tusd stores.
+func TestDownload(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	endpoint, _, _ := spawnTusd(ctx, t)
+
+	data := "hello world"
+
+	location := mustUploadFile(t, endpoint, []byte(data))
+
+	req, err := http.NewRequest("GET", location, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(body) != data {
+		t.Fatalf("invalid response body %s", string(body))
+	}
+}
+
+// TestPartialDownload tests that all stores can perform a partial download.
+// Download is not part of tus.io spec, but it is a common feature of tusd stores.
+func TestPartialDownload(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := detectStoreBackend()
+	switch store {
+	case STORE_BACKEND_GCS:
+		// GCS store does not support partial downloads, so we skip this test for GCS.
+		t.Log("GCS does not support partial download")
+		return
+	}
+
+	endpoint, _, _ := spawnTusd(ctx, t)
+
+	data := "hello world"
+
+	location := mustUploadFile(t, endpoint, []byte(data))
+
+	req, err := http.NewRequest("GET", location, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Request only the bytes 1-4 ("ello")
+	req.Header.Add("Range", "bytes=1-4")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusPartialContent {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	expectedRange := fmt.Sprintf("bytes 1-4/%d", len(data))
+	if cr := res.Header.Get("Content-Range"); cr != expectedRange {
+		t.Fatalf("invalid content range %q", cr)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(body) != data[1:5] {
+		t.Fatalf("invalid response body %s", string(body))
+	}
+}
+
+// TestDownloadEmptyFile tests that all stores can perform download of an empty file.
+// Download is not part of tus.io spec, but it is a common feature of tusd stores.
+func TestDownloadEmptyFile(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Stores behave differently here.
+	store := detectStoreBackend()
+	expectedStatusCode := http.StatusOK
+	switch store {
+	case STORE_BACKEND_S3:
+		// S3 will return 204 NoContent
+		expectedStatusCode = http.StatusNoContent
+	case STORE_BACKEND_GCS:
+		// GCS will fail with "ERR_INTERNAL_SERVER_ERROR: no GCS objects found with FilterObjects",
+		// because it does not create empty files.
+		return
+	}
+
+	endpoint, _, _ := spawnTusd(ctx, t)
+
+	data := []byte{}
+
+	location := mustUploadFile(t, endpoint, data)
+
+	req, err := http.NewRequest("GET", location, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != expectedStatusCode {
+		t.Fatalf("invalid response code %d", res.StatusCode)
+	}
+
+	if res.ContentLength > 0 {
+		t.Fatalf("invalid content length %d", res.ContentLength)
 	}
 }
 
@@ -843,6 +991,20 @@ func getTusdExtraArgs() []string {
 	return strings.Fields(s)
 }
 
+func detectStoreBackend() string {
+	for _, a := range getTusdExtraArgs() {
+		switch {
+		case strings.HasPrefix(a, "-s3-bucket"):
+			return STORE_BACKEND_S3
+		case strings.HasPrefix(a, "-azure-storage"):
+			return STORE_BACKEND_AZURE
+		case strings.HasPrefix(a, "-gcs-bucket"):
+			return STORE_BACKEND_GCS
+		}
+	}
+	return STORE_BACKEND_FILE
+}
+
 func spawnTusd(ctx context.Context, t *testing.T, args ...string) (endpoint string, address string, cmd *exec.Cmd) {
 	base := []string{"-port=0"}
 	base = append(base, getTusdExtraArgs()...)
@@ -897,4 +1059,48 @@ func isApprox[N constraints.Integer](got N, expected N, tolerance float64) bool 
 	max := float64(expected) * (1 + tolerance)
 
 	return min <= float64(got) && float64(got) <= max
+}
+
+// Helper to upload file for download tests
+func mustUploadFile(t *testing.T, endpoint string, data []byte) string {
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Add("Tus-Resumable", "1.0.0")
+	req.Header.Add("Upload-Length", strconv.Itoa(len(data)))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		t.Fatal("invalid response code")
+	}
+
+	uploadUrl := res.Header.Get("Location")
+
+	if len(data) > 0 {
+		req, err = http.NewRequest("PATCH", uploadUrl, bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Add("Tus-Resumable", "1.0.0")
+		req.Header.Add("Upload-Offset", "0")
+		req.Header.Add("Content-Type", "application/offset+octet-stream")
+
+		res, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		offset := res.Header.Get("Upload-Offset")
+		if offset != strconv.Itoa(len(data)) {
+			t.Fatalf("invalid offset %s", offset)
+		}
+	}
+
+	return uploadUrl
 }
