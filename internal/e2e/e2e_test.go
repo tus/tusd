@@ -906,6 +906,15 @@ func isApprox[N constraints.Integer](got N, expected N, tolerance float64) bool 
 func TestUploadIDOutsideOfUploadDir(t *testing.T) {
 	t.Parallel()
 
+	// This test is specific to filestore/filelocker path containment (local
+	// directories and on-disk .info/.lock/.stop files). When TUSD_EXTRA_ARGS
+	// selects an object-storage backend, -upload-dir is ignored. GCS and Azure
+	// also do not implement concatenation, so Upload-Concat is ignored and the
+	// create request fails with 400 (missing Upload-Length) instead of 404.
+	if len(getTusdExtraArgs()) > 0 {
+		t.Skip("only applicable to the filestore backend")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
