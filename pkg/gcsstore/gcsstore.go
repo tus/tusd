@@ -82,6 +82,22 @@ type gcsUpload struct {
 }
 
 func (store GCSStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
+	// Check that the upload exists, as required by the DataStore interface.
+	// Without this check, operations on non-existent IDs would act on any GCS
+	// objects that happen to share the ID as a prefix.
+	// TODO: This costs an extra GCS request per lookup, since GetInfo reads the
+	// .info object again. Read the info here and cache it in gcsUpload instead.
+	_, err := store.Service.GetObjectSize(ctx, GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     store.keyWithPrefix(id) + ".info",
+	})
+	if err != nil {
+		if errors.Is(err, storage.ErrObjectNotExist) {
+			return nil, handler.ErrNotFound
+		}
+		return nil, fmt.Errorf("gcsstore: failed to check info object: %w", err)
+	}
+
 	return &gcsUpload{id, &store}, nil
 }
 
@@ -308,20 +324,32 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 func (upload gcsUpload) Terminate(ctx context.Context) error {
 	id := upload.id
 	store := upload.store
+	key := store.keyWithPrefix(id)
+	infoParams := GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     key + ".info",
+	}
 
+	// Only delete objects belonging to this upload: its chunks (<key>_<n>) and,
+	// if the upload was finished, the composed object (<key>). Filtering by
+	// <key> alone would also match other uploads whose IDs start with this ID.
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: store.keyWithPrefix(id),
+		Prefix: key + "_",
 	}
 
 	if err := store.Service.DeleteObjectsWithFilter(ctx, filterParams); err != nil {
-		return fmt.Errorf("gcsstore: failed to delete blob objects: %w", err)
+		return fmt.Errorf("gcsstore: failed to delete chunk objects: %w", err)
 	}
 
 	if err := store.Service.DeleteObject(ctx, GCSObjectParams{
 		Bucket: store.Bucket,
-		ID:     store.keyWithPrefix(id) + ".info",
-	}); err != nil {
+		ID:     key,
+	}); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+		return fmt.Errorf("gcsstore: failed to delete composed object: %w", err)
+	}
+
+	if err := store.Service.DeleteObject(ctx, infoParams); err != nil {
 		return fmt.Errorf("gcsstore: failed to delete info object: %w", err)
 	}
 

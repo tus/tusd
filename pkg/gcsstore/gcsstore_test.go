@@ -185,6 +185,7 @@ func TestGetInfo(t *testing.T) {
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size2, nil)
 	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size3, nil)
 
+	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
@@ -196,7 +197,7 @@ func TestGetInfo(t *testing.T) {
 	cancel()
 }
 
-func TestGetInfoNotFound(t *testing.T) {
+func TestGetUploadNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	assert := assert.New(t)
@@ -204,20 +205,13 @@ func TestGetInfoNotFound(t *testing.T) {
 	service := NewMockGCSAPI(mockCtrl)
 	store := gcsstore.New(mockBucket, service)
 
-	params := gcsstore.GCSObjectParams{
+	service.EXPECT().GetObjectSize(context.Background(), gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
 		ID:     fmt.Sprintf("%s.info", mockID),
-	}
-
-	ctx := context.Background()
-	gomock.InOrder(
-		service.EXPECT().ReadObject(ctx, params).Return(nil, storage.ErrObjectNotExist),
-	)
+	}).Return(int64(0), storage.ErrObjectNotExist)
 
 	upload, err := store.GetUpload(context.Background(), mockID)
-	assert.Nil(err)
-
-	_, err = upload.GetInfo(context.Background())
+	assert.Nil(upload)
 	assert.Equal(handler.ErrNotFound, err)
 }
 
@@ -243,6 +237,7 @@ func TestGetReader(t *testing.T) {
 	ctx := context.Background()
 	service.EXPECT().ReadObject(ctx, params).Return(r, nil)
 
+	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
@@ -266,24 +261,90 @@ func TestTerminate(t *testing.T) {
 
 	assert.Equal(store.Bucket, mockBucket)
 
+	infoParams := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     fmt.Sprintf("%s.info", mockID),
+	}
+
+	// Chunks must be matched with the "<id>_" prefix, so uploads whose IDs merely
+	// start with mockID are not affected.
 	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: mockID,
+		Prefix: mockID + "_",
 	}
 
 	ctx := context.Background()
-	service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil)
+	gomock.InOrder(
+		service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil),
+		service.EXPECT().DeleteObject(ctx, gcsstore.GCSObjectParams{
+			Bucket: store.Bucket,
+			ID:     mockID,
+		}).Return(nil),
+		service.EXPECT().DeleteObject(ctx, infoParams).Return(nil),
+	)
 
-	service.EXPECT().DeleteObject(ctx, gcsstore.GCSObjectParams{
-		Bucket: store.Bucket,
-		ID:     fmt.Sprintf("%s.info", mockID),
-	}).Return(nil)
-
+	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
 	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
 	assert.Nil(err)
+}
+
+func TestTerminateUnfinishedUpload(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	infoParams := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     fmt.Sprintf("%s.info", mockID),
+	}
+
+	ctx := context.Background()
+	gomock.InOrder(
+		service.EXPECT().DeleteObjectsWithFilter(ctx, gcsstore.GCSFilterParams{
+			Bucket: store.Bucket,
+			Prefix: mockID + "_",
+		}).Return(nil),
+		// An unfinished upload has no composed object yet.
+		service.EXPECT().DeleteObject(ctx, gcsstore.GCSObjectParams{
+			Bucket: store.Bucket,
+			ID:     mockID,
+		}).Return(storage.ErrObjectNotExist),
+		service.EXPECT().DeleteObject(ctx, infoParams).Return(nil),
+	)
+
+	expectUploadExists(service, store, mockID)
+	upload, err := store.GetUpload(context.Background(), mockID)
+	assert.Nil(err)
+
+	err = store.AsTerminatableUpload(upload).Terminate(context.Background())
+	assert.Nil(err)
+}
+
+func TestTerminateNotFound(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	// A non-existent ID that is a prefix of real IDs (e.g. "a") must be reported
+	// as not found, so no termination (and no prefix-based deletion) happens.
+	// The mock fails the test on any unexpected delete call.
+	service.EXPECT().GetObjectSize(context.Background(), gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     "a.info",
+	}).Return(int64(0), storage.ErrObjectNotExist)
+
+	upload, err := store.GetUpload(context.Background(), "a")
+	assert.Nil(upload)
+	assert.Equal(handler.ErrNotFound, err)
 }
 
 func TestFinishUpload(t *testing.T) {
@@ -363,6 +424,7 @@ func TestFinishUpload(t *testing.T) {
 
 	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(lastGetObjectSize)
 
+	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
@@ -405,6 +467,7 @@ func TestWriteChunk(t *testing.T) {
 		service.EXPECT().WriteObject(ctx, writeObjectParams, rGet).Return(int64(len(mockReaderData)), nil),
 	)
 
+	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
 	assert.Nil(err)
 
@@ -413,4 +476,12 @@ func TestWriteChunk(t *testing.T) {
 
 	_, err = upload.WriteChunk(context.Background(), offset, reader)
 	assert.Nil(err)
+}
+
+// expectUploadExists sets up the existence check that GetUpload performs.
+func expectUploadExists(service *MockGCSAPI, store gcsstore.GCSStore, id string) {
+	service.EXPECT().GetObjectSize(context.Background(), gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     id + ".info",
+	}).Return(int64(100), nil)
 }
