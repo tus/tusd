@@ -455,3 +455,41 @@ func TestRejectInfoBinPathRelativeStore(t *testing.T) {
 		}
 	}
 }
+
+// TestInfoFileOutsideOfStore ensures that upload IDs cannot be used to access
+// .info files outside of the storage directory.
+func TestInfoFileOutsideOfStore(t *testing.T) {
+	ctx := context.Background()
+
+	base := t.TempDir()
+	storeDir := filepath.Join(base, "uploads")
+	outsideDir := filepath.Join(base, "outside")
+	assert.NoError(t, os.Mkdir(storeDir, 0755))
+	assert.NoError(t, os.Mkdir(outsideDir, 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(outsideDir, "target.info"), []byte("{}"), 0644))
+
+	store := New(storeDir)
+
+	for _, id := range []string{"../outside/target", "a/../../outside/target", filepath.Join(outsideDir, "target")} {
+		upload, err := store.GetUpload(ctx, id)
+		assert.Nil(t, upload, id)
+		assert.Equal(t, handler.ErrNotFound, err, id)
+
+		upload, err = store.NewUpload(ctx, handler.FileInfo{ID: id + "x"})
+		assert.Nil(t, upload, id)
+		assert.Equal(t, errInvalidUploadID, err, id)
+	}
+
+	content, err := os.ReadFile(filepath.Join(outsideDir, "target.info"))
+	assert.NoError(t, err)
+	assert.Equal(t, "{}", string(content))
+
+	// No files must have been created, neither inside nor outside of the
+	// storage directory.
+	entries, err := os.ReadDir(outsideDir)
+	assert.NoError(t, err)
+	assert.Len(t, entries, 1)
+	entries, err = os.ReadDir(storeDir)
+	assert.NoError(t, err)
+	assert.Empty(t, entries)
+}

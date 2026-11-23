@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -897,4 +898,128 @@ func isApprox[N constraints.Integer](got N, expected N, tolerance float64) bool 
 	max := float64(expected) * (1 + tolerance)
 
 	return min <= float64(got) && float64(got) <= max
+}
+
+// TestUploadIDOutsideOfUploadDir tests that upload IDs from requests cannot be
+// used to access files outside of the upload directory, neither via encoded
+// characters in the URL nor via the Upload-Concat header.
+func TestUploadIDOutsideOfUploadDir(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	base := t.TempDir()
+	uploadDir := filepath.Join(base, "uploads")
+	outsideDir := filepath.Join(base, "outside")
+	for _, dir := range []string{uploadDir, outsideDir} {
+		if err := os.Mkdir(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Files outside of the upload directory, which must not be touched:
+	// A stale lock file (no PID), a stop file, an .info file and a data file.
+	outsideFiles := map[string]string{
+		"target.lock": "\n",
+		"target.stop": "stop",
+		"target.info": `{"ID":"target","Size":4}`,
+		"target":      "data",
+	}
+	for name, content := range outsideFiles {
+		if err := os.WriteFile(filepath.Join(outsideDir, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	endpoint, _, _ := spawnTusd(ctx, t, "-upload-dir="+uploadDir)
+	baseURL, err := url.Parse(endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	do := func(method string, target string, headers map[string]string, body string) int {
+		t.Helper()
+
+		req, err := http.NewRequest(method, target, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Tus-Resumable", "1.0.0")
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, res.Body)
+		res.Body.Close()
+		return res.StatusCode
+	}
+
+	// Paths relative to the endpoint. They are appended to the URL without
+	// any further encoding, so that the percent-encoded characters are sent
+	// as is.
+	paths := []string{
+		"%2e%2e/outside/target",
+		"%2E%2E/outside/target",
+		"%2e%2E%2foutside%2ftarget",
+		"..%2foutside%2ftarget",
+		"..%2Foutside%2Ftarget",
+		".%2e/outside/target",
+		"a%2f..%2f..%2foutside%2ftarget",
+		"..%5coutside%5ctarget",
+	}
+	for _, path := range paths {
+		for _, method := range []string{"HEAD", "GET", "PATCH", "DELETE"} {
+			headers := map[string]string{}
+			body := ""
+			if method == "PATCH" {
+				headers["Upload-Offset"] = "4"
+				headers["Content-Type"] = "application/offset+octet-stream"
+				body = "evil"
+			}
+			if status := do(method, endpoint+path, headers, body); status != http.StatusNotFound {
+				t.Errorf("%s %s: expected status 404, got %d", method, path, status)
+			}
+		}
+	}
+
+	// The Upload-Concat header is not cleaned by the router, so literal dot
+	// segments must be rejected as well.
+	concatValues := []string{
+		"final;" + baseURL.Path + "../outside/target",
+		"final;" + endpoint + "../outside/target",
+		"final;" + baseURL.Path + "./../outside/target",
+		"final;" + baseURL.Path + "a/../../outside/target",
+	}
+	for _, value := range concatValues {
+		if status := do("POST", endpoint, map[string]string{"Upload-Concat": value}, ""); status != http.StatusNotFound {
+			t.Errorf("Upload-Concat %s: expected status 404, got %d", value, status)
+		}
+	}
+
+	for name, content := range outsideFiles {
+		got, err := os.ReadFile(filepath.Join(outsideDir, name))
+		if err != nil {
+			t.Errorf("file outside of upload directory was removed: %s", err)
+		} else if string(got) != content {
+			t.Errorf("file outside of upload directory was modified: %s: %q", name, got)
+		}
+	}
+	entries, err := os.ReadDir(outsideDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != len(outsideFiles) {
+		t.Errorf("unexpected files outside of upload directory: %v", entries)
+	}
+	entries, err = os.ReadDir(uploadDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("unexpected files in upload directory: %v", entries)
+	}
 }

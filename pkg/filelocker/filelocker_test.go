@@ -3,6 +3,7 @@ package filelocker
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -113,6 +114,23 @@ func TestFileLocker_DirectoryNotFound(t *testing.T) {
 		panic("must not be called")
 	})
 	a.Equal(handler.ErrNotFound, err)
+}
+
+// TestFileLocker_IDOutsideOfDirectory ensures that lock and stop files cannot
+// be created outside of the locker's directory.
+func TestFileLocker_IDOutsideOfDirectory(t *testing.T) {
+	a := assert.New(t)
+
+	base := t.TempDir()
+	dir := filepath.Join(base, "locks")
+	a.NoError(os.Mkdir(dir, 0755))
+	locker := New(dir)
+
+	for _, id := range []string{"../upload", "a/../../upload", filepath.Join(base, "upload")} {
+		lock, err := locker.NewLock(id)
+		a.Nil(lock, id)
+		a.Equal(handler.ErrNotFound, err, id)
+	}
 }
 
 func assertEmptyDirectory(dir string, a *assert.Assertions) {

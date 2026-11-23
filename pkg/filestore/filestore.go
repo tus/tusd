@@ -37,6 +37,8 @@ const (
 
 const infoExtension = ".info"
 
+var errInvalidUploadID = errors.New("filestore: upload ID must not point outside of the storage directory")
+
 var errBinPathIsInfoFile = handler.NewError("ERR_INVALID_UPLOAD_PATH", "upload data must not be stored in a file ending in "+infoExtension, http.StatusInternalServerError)
 
 const DefaultDirPerm = 0775
@@ -89,7 +91,10 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 	}
 
 	// The .info file's location can directly be deduced from the upload ID
-	infoPath := store.infoPath(info.ID)
+	infoPath, ok := store.infoPath(info.ID)
+	if !ok {
+		return nil, errInvalidUploadID
+	}
 	// The binary file's location might be modified by the pre-create hook.
 	var binPath string
 	if info.Storage != nil && info.Storage[StorageKeyPath] != "" {
@@ -139,7 +144,12 @@ func (store FileStore) NewUpload(ctx context.Context, info handler.FileInfo) (ha
 }
 
 func (store FileStore) GetUpload(ctx context.Context, id string) (handler.Upload, error) {
-	infoPath := store.infoPath(id)
+	infoPath, ok := store.infoPath(id)
+	if !ok {
+		// An ID which would place the .info file outside of the storage
+		// directory cannot belong to an existing upload.
+		return nil, handler.ErrNotFound
+	}
 	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -208,8 +218,15 @@ func (store FileStore) defaultBinPath(id string) string {
 }
 
 // infoPath returns the path to the .info file storing the file's info.
-func (store FileStore) infoPath(id string) string {
-	return filepath.Join(store.Path, id+infoExtension)
+// The second return value is false if the .info file would not be located
+// inside the storage directory, for example because the ID contains ".."
+// segments or is an absolute path.
+func (store FileStore) infoPath(id string) (string, bool) {
+	name := id + infoExtension
+	if !filepath.IsLocal(name) {
+		return "", false
+	}
+	return filepath.Join(store.Path, name), true
 }
 
 // isInfoPathCandidate reports whether binPath could be mistaken for an upload's .info

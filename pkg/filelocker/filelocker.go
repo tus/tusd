@@ -61,7 +61,16 @@ func (locker FileLocker) UseIn(composer *handler.StoreComposer) {
 }
 
 func (locker FileLocker) NewLock(id string) (handler.Lock, error) {
-	path, err := filepath.Abs(filepath.Join(locker.Path, id+".lock"))
+	// The lock and stop files must be located inside the locker's directory.
+	// An ID that would escape it (e.g. by containing ".." segments or being an
+	// absolute path) cannot belong to an existing upload. Both names only differ
+	// in their extension, so checking one is sufficient.
+	name := id + ".lock"
+	if !filepath.IsLocal(name) {
+		return nil, handler.ErrNotFound
+	}
+
+	path, err := filepath.Abs(filepath.Join(locker.Path, name))
 	if err != nil {
 		return nil, err
 	}
