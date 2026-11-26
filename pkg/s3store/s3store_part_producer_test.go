@@ -1,8 +1,10 @@
 package s3store
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -80,6 +82,47 @@ func TestPartProducerExitsWhenContextIsCancelled(t *testing.T) {
 	}
 
 	safelyDrainChannelOrFail(fileChan, t)
+}
+
+func TestPartProducerRemovesUnsentPartWhenContextIsCancelled(t *testing.T) {
+	tmpDir := t.TempDir()
+	pp, fileChan := newS3PartProducer(bytes.NewReader(make([]byte, 1024)), 0, tmpDir, testSummary)
+
+	// Cancel the context before producing, so that the producer reads one part
+	// into a temporary file but cannot hand it to the (non-existent) consumer.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	pp.produce(ctx, 100)
+
+	safelyDrainChannelOrFail(fileChan, t)
+
+	if pp.err != nil {
+		t.Errorf("unexpected error from part producer: %s", pp.err)
+	}
+
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected no leftover temporary files, but found %d", len(entries))
+	}
+}
+
+func TestPartProducerInMemoryExitsWhenContextIsCancelled(t *testing.T) {
+	pp, fileChan := newS3PartProducer(bytes.NewReader(make([]byte, 1024)), 0, TEMP_DIR_USE_MEMORY, testSummary)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	pp.produce(ctx, 100)
+
+	safelyDrainChannelOrFail(fileChan, t)
+
+	if pp.err != nil {
+		t.Errorf("unexpected error from part producer: %s", pp.err)
+	}
 }
 
 func TestPartProducerExitsWhenUnableToReadFromFile(t *testing.T) {
