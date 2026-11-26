@@ -7,6 +7,7 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -394,22 +395,13 @@ func (service *GCSService) FilterObjects(ctx context.Context, params GCSFilterPa
 // isTemporaryObject reports whether name has the format [uid]_tmp_[recursion_lvl]_[chunk_idx],
 // where prefix is either [uid]_ or [uid]_tmp.
 func isTemporaryObject(prefix, name string) bool {
-	var key string
-	if k, ok := strings.CutSuffix(prefix, "_tmp"); ok {
-		key = k
-	} else if k, ok := strings.CutSuffix(prefix, "_"); ok {
-		key = k
-	} else {
-		return false
-	}
-
-	rest, ok := strings.CutPrefix(name, key+"_tmp_")
-	if !ok {
-		return false
-	}
-	lvl, idx, ok := strings.Cut(rest, "_")
-	return ok && isDigits(lvl) && isDigits(idx)
+	m := tmpObjectRegexp.FindStringSubmatch(name)
+	return m != nil && (prefix == m[1]+"_" || prefix == m[1]+"_tmp")
 }
+
+// tmpObjectRegexp matches temporary composition objects
+// ([uid]_tmp_[recursion_lvl]_[chunk_idx]) and captures [uid].
+var tmpObjectRegexp = regexp.MustCompile(`^(.*)_tmp_\d+_\d+$`)
 
 // isDigits reports whether s is a non-empty string consisting only of ASCII digits.
 func isDigits(s string) bool {
