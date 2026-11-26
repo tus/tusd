@@ -77,8 +77,9 @@ type FileInfoChanges struct {
 	// If Storage is not nil, it is passed to the data store to allow for minor adjustments
 	// to the upload storage (e.g. destination file name). The details are specific for each
 	// data store and should be looked up in their respective documentation.
-	// Please be aware that this behavior is currently not supported by any data store in
-	// the github.com/tus/tusd package.
+	// Within the github.com/tus/tusd package, only filestore supports this, using the
+	// "Path" key to set the location of the upload's data file. The other data stores
+	// ignore this field.
 	Storage map[string]string
 }
 
