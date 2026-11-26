@@ -326,6 +326,12 @@ func (store S3Store) NewUpload(ctx context.Context, info handler.FileInfo) (hand
 		objectId = info.ID
 	}
 
+	// If a pre-create hook derives the ID from client input, the ID must not
+	// let this upload's objects overlap with those of another upload.
+	if err := validateObjectID(objectId); err != nil {
+		return nil, err
+	}
+
 	// Convert meta data into a map of pointers for AWS Go SDK, sigh.
 	metadata := make(map[string]string, len(info.MetaData))
 	for key, value := range info.MetaData {
@@ -1229,6 +1235,37 @@ func (store S3Store) deleteIncompletePartForUpload(ctx context.Context, uploadId
 	})
 	store.observeRequestDuration(t, metricDeletePartObject)
 	return err
+}
+
+// errInvalidUploadID is returned by NewUpload for IDs whose objects could collide
+// with another upload's objects.
+var errInvalidUploadID = handler.NewError("ERR_INVALID_UPLOAD_ID", "upload ID must not end in .info or .part (ignoring case and trailing dots and spaces)", http.StatusInternalServerError)
+
+// validateObjectID reports whether an upload with the given object ID could
+// store its data in another upload's metadata objects. Upload X stores its data
+// in <ObjectPrefix>/X and its metadata in <MetadataObjectPrefix>/X.info and
+// <MetadataObjectPrefix>/X.part, where MetadataObjectPrefix defaults to
+// ObjectPrefix. An object ID ending in .info or .part would therefore write its
+// data into another upload's info object (letting a client control that upload's
+// info) or its incomplete part.
+//
+// The check also applies when a distinct MetadataObjectPrefix is set. Such a
+// prefix does not separate the namespaces if one prefix contains the other:
+// with ObjectPrefix "uploads" and MetadataObjectPrefix "uploads/meta", the ID
+// "meta/X.info" still names X's info object. Data and metadata keys can only
+// coincide if the data key ends in .info or .part, so rejecting these suffixes
+// is sufficient in every configuration, at no cost for regular IDs.
+//
+// AWS S3 keys are case-sensitive and not normalized, but S3-compatible servers
+// that keep objects as files may map keys onto file systems that ignore case
+// or trailing dots and spaces (macOS, Windows). Like filestore, the check
+// therefore ignores case and trailing dots/spaces.
+func validateObjectID(objectId string) error {
+	name := strings.ToLower(strings.TrimRight(objectId, ". "))
+	if strings.HasSuffix(name, ".info") || strings.HasSuffix(name, ".part") {
+		return errInvalidUploadID
+	}
+	return nil
 }
 
 func splitIds(id string) (objectId, multipartId string) {
