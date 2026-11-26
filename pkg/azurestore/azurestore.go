@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
+
+// errInvalidUploadID is returned by NewUpload for IDs whose blobs could collide
+// with another upload's blobs.
+var errInvalidUploadID = handler.NewError("ERR_INVALID_UPLOAD_ID", "upload ID must not end in "+InfoBlobSuffix+" and its path segments must not end in a dot", http.StatusInternalServerError)
 
 type AzureStore struct {
 	Service      AzService
@@ -52,6 +57,12 @@ func (store AzureStore) UseIn(composer *handler.StoreComposer) {
 func (store AzureStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	if info.ID == "" {
 		info.ID = uid.Uid()
+	}
+
+	// If a pre-create hook derives the ID from client input, the ID must not
+	// let this upload's blobs overlap with those of another upload.
+	if err := validateUploadID(info.ID); err != nil {
+		return nil, err
 	}
 
 	if info.Size > MaxBlockBlobSize {
@@ -123,7 +134,9 @@ func (store AzureStore) GetUpload(ctx context.Context, id string) (handler.Uploa
 			info.Size, MaxBlockBlobSize)
 	}
 
-	blockBlob, err := store.Service.NewBlob(ctx, store.keyWithPrefix(info.ID))
+	// Derive the data blob from the requested ID, not from info.ID, so that the
+	// content of an info blob cannot point the upload at an arbitrary blob.
+	blockBlob, err := store.Service.NewBlob(ctx, store.keyWithPrefix(id))
 	if err != nil {
 		return nil, err
 	}
@@ -241,6 +254,30 @@ func (upload *AzUpload) DeclareLength(ctx context.Context, length int64) error {
 	upload.InfoHandler.Size = length
 	upload.InfoHandler.SizeIsDeferred = false
 	return upload.writeInfo(ctx)
+}
+
+// validateUploadID reports whether an upload with the given ID could access the
+// blobs of another upload. Upload X stores its data in the blob X and its info
+// in X.info, so:
+//   - An ID ending in .info would write its data into another upload's info
+//     blob, letting a client control that upload's info.
+//   - Azure removes trailing dots from blob names, so an ID ending in a dot
+//     would share its data blob with the upload whose ID lacks the dot
+//     (e.g. "X." and "X"), and "X.info." would write into X's info blob.
+//     Microsoft also advises that no path segment of a blob name end in a dot,
+//     so we reject those as well instead of relying on how they are treated.
+//
+// Blob names are case-sensitive, so the comparison is too.
+func validateUploadID(id string) error {
+	if strings.HasSuffix(id, InfoBlobSuffix) {
+		return errInvalidUploadID
+	}
+	for _, segment := range strings.Split(id, "/") {
+		if strings.HasSuffix(segment, ".") {
+			return errInvalidUploadID
+		}
+	}
+	return nil
 }
 
 func (store AzureStore) infoPath(id string) string {
