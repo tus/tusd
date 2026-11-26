@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +27,10 @@ import (
 	"github.com/tus/tusd/v2/internal/uid"
 	"github.com/tus/tusd/v2/pkg/handler"
 )
+
+// errInvalidUploadID is returned by NewUpload for IDs whose objects could collide
+// with another upload's objects.
+var errInvalidUploadID = handler.NewError("ERR_INVALID_UPLOAD_ID", "upload ID must not end in .info or in an underscore followed by digits", http.StatusInternalServerError)
 
 // See the handler.DataStore interface for documentation about the different
 // methods.
@@ -60,6 +65,12 @@ func (store GCSStore) UseIn(composer *handler.StoreComposer) {
 func (store GCSStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	if info.ID == "" {
 		info.ID = uid.Uid()
+	}
+
+	// If a pre-create hook derives the ID from client input, the ID must not
+	// let this upload's objects overlap with those of another upload.
+	if err := validateUploadID(info.ID); err != nil {
+		return nil, err
 	}
 
 	info.Storage = map[string]string{
@@ -404,6 +415,30 @@ func chunkObjects(key string, names []string) []string {
 		}
 	}
 	return chunks
+}
+
+// validateUploadID reports whether an upload with the given ID could own objects
+// of another upload. Upload X owns the objects X (composed data), X.info,
+// X_<n> (chunks) and X_tmp_<lvl>_<idx> (temporary composition objects), so:
+//   - An ID ending in .info would store its data in another upload's info
+//     object, letting a client control that upload's info.
+//   - An ID ending in _<digits> would store its data in another upload's
+//     chunk (X_<n>) or temporary object (X_tmp_<lvl>_<idx>, which also ends
+//     in _<digits>), corrupting that upload's data when it is composed.
+//
+// With both rejected, no other combination of these objects can coincide:
+// every object besides X.info is either X itself or ends in _<digits>, and the
+// part before that suffix would then have to be the other upload's ID.
+// GCS object names are case-sensitive and not normalized, so the comparison
+// is exact.
+func validateUploadID(id string) error {
+	if strings.HasSuffix(id, ".info") {
+		return errInvalidUploadID
+	}
+	if i := strings.LastIndex(id, "_"); i != -1 && isDigits(id[i+1:]) {
+		return errInvalidUploadID
+	}
+	return nil
 }
 
 func (store GCSStore) keyWithPrefix(key string) string {
