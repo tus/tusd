@@ -180,16 +180,34 @@ func (upload gcsUpload) GetInfo(ctx context.Context) (handler.FileInfo, error) {
 		return info, err
 	}
 
-	prefix := store.keyWithPrefix(id)
+	// Once the upload is finished, its chunks are composed into a single
+	// object (<key>), whose size is the offset.
+	key := store.keyWithPrefix(id)
+	size, err := store.Service.GetObjectSize(ctx, GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     key,
+	})
+	if err == nil {
+		info.Offset = size
+		return info, nil
+	}
+	if !errors.Is(err, storage.ErrObjectNotExist) {
+		return info, err
+	}
+
+	// Otherwise, the offset is the sum of the chunks (<key>_<n>). Filtering by
+	// <key> alone would also match objects of other uploads whose IDs start
+	// with this ID.
 	filterParams := GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: prefix,
+		Prefix: key + "_",
 	}
 
 	names, err := store.Service.FilterObjects(ctx, filterParams)
 	if err != nil {
 		return info, err
 	}
+	names = chunkObjects(key, names)
 
 	var offset int64 = 0
 	var firstError error = nil
@@ -283,6 +301,8 @@ func (upload gcsUpload) FinishUpload(ctx context.Context) error {
 		return err
 	}
 
+	names = chunkObjects(store.keyWithPrefix(id), names)
+
 	if len(names) == 0 {
 		return fmt.Errorf("no GCS objects found with FilterObjects %+v", filterParams)
 	}
@@ -366,6 +386,24 @@ func (upload gcsUpload) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	}
 
 	return store.Service.ReadObject(ctx, params)
+}
+
+// chunkObjects returns the names from a FilterObjects call for the prefix <key>_
+// that are chunks of the upload (<key>_<n>), dropping temporary composition
+// objects and objects belonging to other uploads. Empty names represent missing
+// chunks and are kept, so that they cause an error instead of being skipped.
+func chunkObjects(key string, names []string) []string {
+	chunks := make([]string, 0, len(names))
+	for _, name := range names {
+		if name == "" {
+			chunks = append(chunks, name)
+			continue
+		}
+		if idx, ok := strings.CutPrefix(name, key+"_"); ok && isDigits(idx) {
+			chunks = append(chunks, name)
+		}
+	}
+	return chunks
 }
 
 func (store GCSStore) keyWithPrefix(key string) string {
