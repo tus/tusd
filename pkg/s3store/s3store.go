@@ -1167,6 +1167,14 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 	if err != nil {
 		return nil, err
 	}
+	// On success, the caller takes ownership of the file and is responsible for
+	// cleaning it up. On any error, we must remove it here, or it would leak.
+	success := false
+	defer func() {
+		if !success {
+			cleanUpTempFile(partFile)
+		}
+	}()
 
 	n, err := io.Copy(partFile, incompleteUploadObject.Body)
 	store.observeRequestDuration(t, metricGetPartObject)
@@ -1182,6 +1190,7 @@ func (store S3Store) downloadIncompletePartForUpload(ctx context.Context, upload
 		return nil, err
 	}
 
+	success = true
 	return partFile, nil
 }
 

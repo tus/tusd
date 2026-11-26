@@ -1864,3 +1864,68 @@ func TestWriteChunkCleansUpTempFiles(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(len(files), 0)
 }
+
+// errReader returns some data and then fails, simulating a connection error
+// while downloading an object's body.
+type errReader struct {
+	data []byte
+	err  error
+}
+
+func (r *errReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, r.err
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, nil
+}
+
+func TestDownloadIncompletePartCleansUpTempFileOnError(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        io.Reader
+		expectedErr string
+	}{
+		{
+			name:        "body read error",
+			body:        &errReader{data: []byte("1234"), err: errors.New("connection reset")},
+			expectedErr: "connection reset",
+		},
+		{
+			name:        "short read",
+			body:        bytes.NewReader([]byte("1234")),
+			expectedErr: "short read of incomplete upload",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			assert := assert.New(t)
+
+			tempDir := t.TempDir()
+
+			s3obj := NewMockS3API(mockCtrl)
+			store := New("bucket", s3obj)
+			store.TemporaryDirectory = tempDir
+
+			s3obj.EXPECT().GetObject(context.Background(), &s3.GetObjectInput{
+				Bucket: aws.String("bucket"),
+				Key:    aws.String("uploadId.part"),
+			}).Return(&s3.GetObjectOutput{
+				Body:          io.NopCloser(test.body),
+				ContentLength: aws.Int64(10),
+			}, nil)
+
+			file, err := store.downloadIncompletePartForUpload(context.Background(), "uploadId")
+			assert.Nil(file)
+			assert.EqualError(err, test.expectedErr)
+
+			files, err := os.ReadDir(tempDir)
+			assert.Nil(err)
+			assert.Empty(files)
+		})
+	}
+}
