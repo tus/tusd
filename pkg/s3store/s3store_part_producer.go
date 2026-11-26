@@ -71,7 +71,10 @@ outerloop:
 		select {
 		case spp.files <- file:
 		case <-ctx.Done():
-			// We are told to stop producing. Stop producing.
+			// We are told to stop producing. The part that was just read was not
+			// handed to the consumer, so we must clean it up ourselves. Otherwise,
+			// its temporary file would remain on disk.
+			file.closeReader()
 			break outerloop
 		}
 	}
