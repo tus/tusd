@@ -94,6 +94,11 @@ func CreateComposer() {
 		gcsSAF := os.Getenv("GCS_SERVICE_ACCOUNT_FILE")
 		opts := []option.ClientOption{storage.WithJSONReads()}
 		if gcsSAF != "" {
+			// The variable must hold a path. If it holds the JSON key itself, the client's
+			// "open <path>" error would print the private key, so don't echo the value.
+			if strings.ContainsAny(gcsSAF, "{\n") {
+				stderr.Fatalf("GCS_SERVICE_ACCOUNT_FILE must contain the path to a service account file, not its contents.\n")
+			}
 			opts = append(opts, option.WithCredentialsFile(gcsSAF))
 		}
 		if Flags.GCSEndpoint != "" {
