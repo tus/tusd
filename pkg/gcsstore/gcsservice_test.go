@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"gopkg.in/h2non/gock.v1"
@@ -479,13 +480,22 @@ func TestFilterObject(t *testing.T) {
 
 	resp := googleBucketResponse{[]googleObjectResponse{
 		{Name: "test_directory/test-prefix_1"},
+		// Objects of other uploads whose IDs start with "test-prefix_"
+		{Name: "test_directory/test-prefix_1.info"},
+		{Name: "test_directory/test-prefix_1_0"},
+		{Name: "test_directory/test-prefix_1_0.info"},
+		{Name: "test_directory/test-prefix_x/y_0"},
+		{Name: "test_directory/test-prefix_abc"},
+		{Name: "test_directory/test-prefix_"},
+		// Temporary composition object of this upload
+		{Name: "test_directory/test-prefix_tmp_0_0"},
 	}}
 
 	gock.New("https://storage.googleapis.com").
 		Get("/storage/v1/b/test-bucket/o").
 		MatchParam("alt", "json").
 		MatchParam("pageToken", "").
-		MatchParam("prefix", "test-prefix").
+		MatchParam("prefix", "test_directory/test-prefix_").
 		MatchParam("projection", "full").
 		Reply(200).
 		JSON(resp)
@@ -511,7 +521,7 @@ func TestFilterObject(t *testing.T) {
 
 	objects, err := service.FilterObjects(ctx, GCSFilterParams{
 		Bucket: "test-bucket",
-		Prefix: "test-prefix",
+		Prefix: "test_directory/test-prefix_",
 	})
 
 	if err != nil {
@@ -519,7 +529,8 @@ func TestFilterObject(t *testing.T) {
 		return
 	}
 
-	if len(objects) != 2 {
-		t.Errorf("Didn't get appropriate amount of objects back: got %v from %v", len(objects), objects)
+	expected := []string{"", "test_directory/test-prefix_1", "test_directory/test-prefix_tmp_0_0"}
+	if !reflect.DeepEqual(objects, expected) {
+		t.Errorf("Didn't get appropriate objects back: got %q, expected %q", objects, expected)
 	}
 }

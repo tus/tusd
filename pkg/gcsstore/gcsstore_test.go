@@ -150,7 +150,12 @@ func TestGetInfo(t *testing.T) {
 
 	filterParams := gcsstore.GCSFilterParams{
 		Bucket: store.Bucket,
-		Prefix: mockID,
+		Prefix: fmt.Sprintf("%s_", mockID),
+	}
+
+	composedParams := gcsstore.GCSObjectParams{
+		Bucket: store.Bucket,
+		ID:     mockID,
 	}
 
 	mockObjectParams0 := gcsstore.GCSObjectParams{
@@ -177,6 +182,7 @@ func TestGetInfo(t *testing.T) {
 	ctx := context.Background()
 	gomock.InOrder(
 		service.EXPECT().ReadObject(ctx, params).Return(r, nil),
+		service.EXPECT().GetObjectSize(ctx, composedParams).Return(int64(0), storage.ErrObjectNotExist),
 		service.EXPECT().FilterObjects(ctx, filterParams).Return(mockPartials, nil),
 	)
 
@@ -362,11 +368,6 @@ func TestFinishUpload(t *testing.T) {
 		Prefix: fmt.Sprintf("%s_", mockID),
 	}
 
-	filterParams2 := gcsstore.GCSFilterParams{
-		Bucket: store.Bucket,
-		Prefix: mockID,
-	}
-
 	composeParams := gcsstore.GCSComposeParams{
 		Bucket:      store.Bucket,
 		Destination: mockID,
@@ -382,22 +383,7 @@ func TestFinishUpload(t *testing.T) {
 		bytes.NewReader([]byte(mockTusdInfoJson)),
 	}
 
-	mockObjectParams0 := gcsstore.GCSObjectParams{
-		Bucket: store.Bucket,
-		ID:     mockPartial0,
-	}
-
-	mockObjectParams1 := gcsstore.GCSObjectParams{
-		Bucket: store.Bucket,
-		ID:     mockPartial1,
-	}
-
-	mockObjectParams2 := gcsstore.GCSObjectParams{
-		Bucket: store.Bucket,
-		ID:     mockPartial2,
-	}
-
-	var size int64 = 100
+	var size int64 = 300
 
 	objectParams := gcsstore.GCSObjectParams{
 		Bucket: store.Bucket,
@@ -414,15 +400,9 @@ func TestFinishUpload(t *testing.T) {
 		service.EXPECT().ComposeObjects(ctx, composeParams).Return(nil),
 		service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil),
 		service.EXPECT().ReadObject(ctx, infoParams).Return(r, nil),
-		service.EXPECT().FilterObjects(ctx, filterParams2).Return(mockPartials, nil),
+		service.EXPECT().GetObjectSize(ctx, objectParams).Return(size, nil),
+		service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil),
 	)
-
-	ctxCancel, cancel := context.WithCancel(ctx)
-	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams0).Return(size, nil)
-	service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams1).Return(size, nil)
-	lastGetObjectSize := service.EXPECT().GetObjectSize(ctxCancel, mockObjectParams2).Return(size, nil)
-
-	service.EXPECT().SetObjectMetadata(ctx, objectParams, metadata).Return(nil).After(lastGetObjectSize)
 
 	expectUploadExists(service, store, mockID)
 	upload, err := store.GetUpload(context.Background(), mockID)
@@ -430,9 +410,129 @@ func TestFinishUpload(t *testing.T) {
 
 	err = upload.FinishUpload(context.Background())
 	assert.Nil(err)
+}
 
-	// Cancel the context to avoid getting an error from `go vet`
-	cancel()
+// Upload IDs can share a prefix with other uploads' IDs (e.g. "X" and "X_1",
+// "X.info" or "Xabc"). GetInfo must only count the upload's own chunks and
+// must not pick up other uploads' objects or temporary composition objects.
+func TestGetInfoIgnoresOtherUploads(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	r := MockReader{
+		bytes.NewReader([]byte(mockTusdInfoJson)),
+	}
+
+	ctx := context.Background()
+	gomock.InOrder(
+		service.EXPECT().ReadObject(ctx, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockID + ".info"}).Return(r, nil),
+		service.EXPECT().GetObjectSize(ctx, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockID}).Return(int64(0), storage.ErrObjectNotExist),
+		// Not listing by the bare ID ensures that e.g. "<id>abc" and "<id>.info_0"
+		// are never seen. Objects that slip through FilterObjects are dropped.
+		service.EXPECT().FilterObjects(ctx, gcsstore.GCSFilterParams{Bucket: mockBucket, Prefix: mockID + "_"}).Return([]string{
+			mockPartial0,
+			mockID + "_1.info",
+			mockID + "_1_0",
+			mockID + "_x/y_0",
+			mockID + "_tmp_0_0",
+		}, nil),
+	)
+
+	ctxCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+	service.EXPECT().GetObjectSize(ctxCancel, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockPartial0}).Return(int64(100), nil)
+
+	expectUploadExists(service, store, mockID)
+	upload, err := store.GetUpload(ctx, mockID)
+	assert.Nil(err)
+
+	info, err := upload.GetInfo(ctx)
+	assert.Nil(err)
+	assert.Equal(int64(100), info.Offset)
+}
+
+// A finished upload is represented by its composed object. Its size is the
+// offset, and leftover chunks must not be counted on top of it.
+func TestGetInfoFinishedUpload(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	r := MockReader{
+		bytes.NewReader([]byte(mockTusdInfoJson)),
+	}
+
+	ctx := context.Background()
+	gomock.InOrder(
+		service.EXPECT().ReadObject(ctx, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockID + ".info"}).Return(r, nil),
+		service.EXPECT().GetObjectSize(ctx, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockID}).Return(int64(mockSize), nil),
+	)
+
+	expectUploadExists(service, store, mockID)
+	upload, err := store.GetUpload(ctx, mockID)
+	assert.Nil(err)
+
+	info, err := upload.GetInfo(ctx)
+	assert.Nil(err)
+	assert.Equal(int64(mockSize), info.Offset)
+}
+
+// FinishUpload must only compose the upload's own chunks, not chunks of an
+// upload whose ID starts with this ID (e.g. "<id>_1" with chunks "<id>_1_0").
+func TestFinishUploadIgnoresOtherUploads(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	assert := assert.New(t)
+
+	service := NewMockGCSAPI(mockCtrl)
+	store := gcsstore.New(mockBucket, service)
+
+	filterParams := gcsstore.GCSFilterParams{
+		Bucket: mockBucket,
+		Prefix: mockID + "_",
+	}
+	objectParams := gcsstore.GCSObjectParams{
+		Bucket: mockBucket,
+		ID:     mockID,
+	}
+
+	r := MockReader{
+		bytes.NewReader([]byte(mockTusdInfoJson)),
+	}
+
+	ctx := context.Background()
+	gomock.InOrder(
+		service.EXPECT().FilterObjects(ctx, filterParams).Return([]string{
+			mockPartial0,
+			mockPartial1,
+			mockID + "_1_0",
+			mockID + "_1.info",
+			mockID + "_tmp_0_0",
+		}, nil),
+		service.EXPECT().ComposeObjects(ctx, gcsstore.GCSComposeParams{
+			Bucket:      mockBucket,
+			Destination: mockID,
+			Sources:     []string{mockPartial0, mockPartial1},
+		}).Return(nil),
+		service.EXPECT().DeleteObjectsWithFilter(ctx, filterParams).Return(nil),
+		service.EXPECT().ReadObject(ctx, gcsstore.GCSObjectParams{Bucket: mockBucket, ID: mockID + ".info"}).Return(r, nil),
+		service.EXPECT().GetObjectSize(ctx, objectParams).Return(int64(200), nil),
+		service.EXPECT().SetObjectMetadata(ctx, objectParams, map[string]string{"foo": "bar"}).Return(nil),
+	)
+
+	expectUploadExists(service, store, mockID)
+	upload, err := store.GetUpload(ctx, mockID)
+	assert.Nil(err)
+
+	err = upload.FinishUpload(ctx)
+	assert.Nil(err)
 }
 
 func TestWriteChunk(t *testing.T) {

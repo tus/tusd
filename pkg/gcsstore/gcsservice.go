@@ -339,6 +339,11 @@ func (service *GCSService) ComposeFrom(ctx context.Context, objSrcs []*storage.O
 // is zero based. The format [uid]_tmp_[recursion_lvl]_[chunk_idx] can also be used to
 // specify objects that have been composed in a recursive fashion. These different formats
 // are used to ensure that objects are composed in the correct order.
+//
+// The prefix must be [uid]_ (for chunks and temporary objects) or [uid]_tmp (for
+// temporary objects only). Objects under the prefix that do not match one of these
+// formats exactly are skipped, since they belong to other uploads whose IDs start
+// with the same characters (e.g. [uid]_x/y_0 or [uid]_x.info).
 func (service *GCSService) FilterObjects(ctx context.Context, params GCSFilterParams) ([]string, error) {
 	bkt := service.Client.Bucket(params.Bucket)
 	q := storage.Query{
@@ -348,7 +353,6 @@ func (service *GCSService) FilterObjects(ctx context.Context, params GCSFilterPa
 
 	it := bkt.Objects(ctx, &q)
 	names := make([]string, 0)
-loop:
 	for {
 		objAttrs, err := it.Next()
 		if err == iterator.Done {
@@ -358,46 +362,64 @@ loop:
 			return nil, err
 		}
 
-		if strings.HasSuffix(objAttrs.Name, "info") {
+		name := objAttrs.Name
+		tail, ok := strings.CutPrefix(name, params.Prefix)
+		if !ok {
 			continue
 		}
 
-		fileNameParts := strings.Split(objAttrs.Name, "/")
-		fileName := fileNameParts[len(fileNameParts)-1]
+		switch {
+		case strings.HasSuffix(params.Prefix, "_") && isDigits(tail):
+			// Chunk object [uid]_[chunk_idx]
+			idx, err := strconv.Atoi(tail)
+			if err != nil {
+				return nil, err
+			}
 
-		split := strings.Split(fileName, "_")
+			if len(names) <= idx {
+				names = append(names, make([]string, idx-len(names)+1)...)
+			}
 
-		// If the object name does not split on "_", we have a composed object.
-		// If the object name splits on "_" in to four pieces we
-		// know the object name we are working with is in the format
-		// [uid]_tmp_[recursion_lvl]_[chunk_idx]. The only time we filter
-		// these temporary objects is on a delete operation so we can just
-		// append and continue without worrying about index order
-
-		switch len(split) {
-		case 1:
-			names = []string{objAttrs.Name}
-			break loop
-		case 2:
-		case 4:
-			names = append(names, objAttrs.Name)
-			continue
-		default:
-			err := errors.New("invalid filter format for object name")
-			return nil, err
+			names[idx] = name
+		case isTemporaryObject(params.Prefix, name):
+			// Temporary objects are only filtered for deletion, so their
+			// order does not matter.
+			names = append(names, name)
 		}
-
-		idx, err := strconv.Atoi(split[1])
-		if err != nil {
-			return nil, err
-		}
-
-		if len(names) <= idx {
-			names = append(names, make([]string, idx-len(names)+1)...)
-		}
-
-		names[idx] = objAttrs.Name
 	}
 
 	return names, nil
+}
+
+// isTemporaryObject reports whether name has the format [uid]_tmp_[recursion_lvl]_[chunk_idx],
+// where prefix is either [uid]_ or [uid]_tmp.
+func isTemporaryObject(prefix, name string) bool {
+	var key string
+	if k, ok := strings.CutSuffix(prefix, "_tmp"); ok {
+		key = k
+	} else if k, ok := strings.CutSuffix(prefix, "_"); ok {
+		key = k
+	} else {
+		return false
+	}
+
+	rest, ok := strings.CutPrefix(name, key+"_tmp_")
+	if !ok {
+		return false
+	}
+	lvl, idx, ok := strings.Cut(rest, "_")
+	return ok && isDigits(lvl) && isDigits(idx)
+}
+
+// isDigits reports whether s is a non-empty string consisting only of ASCII digits.
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
