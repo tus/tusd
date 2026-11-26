@@ -260,6 +260,72 @@ func TestConcat(t *testing.T) {
 			}).Run(handler, t)
 		})
 
+		SubTest(t, "CreateWithRootBasePathAndQuery", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			// With the root base path, the absolute URL returned in the Location
+			// header must resolve to the upload ID, even if a query is appended.
+			// The partial upload is unfinished, so the request fails after the lookup.
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "c").Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:        "c",
+					IsPartial: true,
+					Size:      5,
+					Offset:    3,
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:      "/",
+				StoreComposer: composer,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;http://tus.io/c?x=1",
+				},
+				Code: http.StatusBadRequest,
+			}).Run(handler, t)
+		})
+
+		SubTest(t, "CreateWithAbsoluteBasePath", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			upload := NewMockFullUpload(ctrl)
+
+			// With an absolute base path, only its path component (/files/) is used
+			// to extract the ID, so a plain path must resolve as well.
+			// The partial upload is unfinished, so the request fails after the lookup.
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "c").Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).Return(FileInfo{
+					ID:        "c",
+					IsPartial: true,
+					Size:      5,
+					Offset:    3,
+				}, nil),
+			)
+
+			handler, _ := NewHandler(Config{
+				BasePath:      "https://cdn.example.com/files",
+				StoreComposer: composer,
+			})
+
+			(&httpTest{
+				Method: "POST",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Upload-Concat": "final;/files/c",
+				},
+				Code: http.StatusBadRequest,
+			}).Run(handler, t)
+		})
+
 		SubTest(t, "CreateExceedingMaxSizeFail", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()

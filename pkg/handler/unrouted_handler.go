@@ -9,6 +9,7 @@ import (
 	"math"
 	"mime"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -80,8 +81,12 @@ type UnroutedHandler struct {
 	composer      *StoreComposer
 	isBasePathAbs bool
 	basePath      string
-	logger        *slog.Logger
-	extensions    string
+	// basePathPath is the path component of basePath. It equals basePath,
+	// unless basePath is an absolute URL (e.g. https://example.com/files/),
+	// in which case it is only the path (e.g. /files/).
+	basePathPath string
+	logger       *slog.Logger
+	extensions   string
 
 	// CompleteUploads is used to send notifications whenever an upload is
 	// completed by a user. The HookEvent will contain information about this
@@ -136,10 +141,22 @@ func NewUnroutedHandler(config Config) (*UnroutedHandler, error) {
 		extensions += ",creation-defer-length"
 	}
 
+	// The base path has already been validated and normalized by config.validate,
+	// so an absolute URL ends with a slash and its path is at least "/".
+	basePathPath := config.BasePath
+	if config.isAbs {
+		uri, err := url.Parse(config.BasePath)
+		if err != nil {
+			return nil, err
+		}
+		basePathPath = uri.Path
+	}
+
 	handler := &UnroutedHandler{
 		config:            config,
 		composer:          config.StoreComposer,
 		basePath:          config.BasePath,
+		basePathPath:      basePathPath,
 		isBasePathAbs:     config.isAbs,
 		CompleteUploads:   make(chan HookEvent),
 		TerminatedUploads: make(chan HookEvent),
@@ -306,7 +323,7 @@ func (handler *UnroutedHandler) PostFile(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Parse Upload-Concat header
-	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader, handler.basePath)
+	isPartial, isFinal, partialUploadIDs, err := parseConcat(concatHeader, handler.basePathPath)
 	if err != nil {
 		handler.sendError(c, err)
 		return
@@ -1705,12 +1722,26 @@ func extractIDFromPath(path string) (string, error) {
 }
 
 // extractIDFromURL extracts the upload ID from a full URL or a full path
-// (including the base path). For example:
+// (including the base path). For example, with the base path /files/:
 //
 //	https://example.com/files/1234/5678 -> 1234/5678
+//	https://example.com/files/1234?x=1  -> 1234
+//	https://example.com/api/files/1234  -> 1234
 //	/files/1234/5678 -> 1234/5678
-func extractIDFromURL(url string, basePath string) (string, error) {
-	_, id, ok := strings.Cut(url, basePath)
+//
+// The value is parsed as a URL and only its path is considered, so the scheme,
+// host, query and fragment never become part of the ID. basePath must be a
+// path (e.g. /files/), not an absolute URL; see UnroutedHandler.basePathPath.
+// Anything in front of the base path (e.g. a prefix added by a reverse proxy)
+// is ignored. Note that the path is cut at the first occurrence of the base
+// path, so such a prefix must not contain the base path itself.
+func extractIDFromURL(value string, basePath string) (string, error) {
+	u, err := url.Parse(value)
+	if err != nil {
+		return "", ErrNotFound
+	}
+
+	_, id, ok := strings.Cut(u.Path, basePath)
 	if !ok {
 		return "", ErrNotFound
 	}
