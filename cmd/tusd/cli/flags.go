@@ -148,7 +148,7 @@ func ParseFlags() {
 
 	fs.AddGroup("CORS options", func(f *flag.FlagSet) {
 		f.BoolVar(&Flags.DisableCors, "disable-cors", false, "Disable CORS headers")
-		f.StringVar(&Flags.CorsAllowOrigin, "cors-allow-origin", ".*", "Regular expression used to determine if the Origin header is allowed. If not, no CORS headers will be sent. By default, all origins are allowed.")
+		f.StringVar(&Flags.CorsAllowOrigin, "cors-allow-origin", ".*", "Regular expression used to determine if the Origin header is allowed. If not, no CORS headers will be sent. The expression can match any part of the header, so anchor it, e.g. '^https://example\\.com$'. By default, all origins are allowed.")
 		f.BoolVar(&Flags.CorsAllowCredentials, "cors-allow-credentials", false, "Allow credentials by setting Access-Control-Allow-Credentials: true")
 		f.StringVar(&Flags.CorsAllowMethods, "cors-allow-methods", "", "Comma-separated list of request methods that are included in Access-Control-Allow-Methods in addition to the ones required by tusd")
 		f.StringVar(&Flags.CorsAllowHeaders, "cors-allow-headers", "", "Comma-separated list of headers that are included in Access-Control-Allow-Headers in addition to the ones required by tusd")

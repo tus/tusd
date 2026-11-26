@@ -117,6 +117,7 @@ type CorsConfig struct {
 	// AllowOrigin is a regular expression used to check if a request is allowed to participate in the
 	// CORS protocol. If the request's Origin header matches the regular expression, CORS is allowed.
 	// If not, a 403 Forbidden response is sent, rejecting the CORS request.
+	// The expression can match any part of the header, so anchor it, e.g. `^https://example\.com$`.
 	AllowOrigin *regexp.Regexp
 	// AllowCredentials defines whether the `Access-Control-Allow-Credentials: true` header should be
 	// included in CORS responses. This allows clients to share credentials using the Cookie and

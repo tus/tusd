@@ -108,8 +108,8 @@ If you do want to restrict the origins or add additional header fields to the CO
 
 ```bash
 $ tusd \
-  # Restrict origins to example.com
-  -cors-allow-origin 'https?://example.com' \
+  # Restrict origins to http(s)://example.com
+  -cors-allow-origin '^https?://example\.com$' \
   # Include credentials in cross-origin requests
   -cors-allow-credentials \
   # Allow additional headers in Access-Control-Allow-Headers
@@ -119,6 +119,8 @@ $ tusd \
   # Cache duration of preflight requests
   -cors-max-age 3600
 ```
+
+The `-cors-allow-origin` expression can match any part of the `Origin` header, so anchor it with `^` and `$`. Otherwise, `https://example\.com` also allows `https://example.com.evil.net`. Group multiple origins inside the anchors: `^(https://a\.com|https://b\.com)$`.
 
 Alternatively, you can completely disable any CORS-related logic in tusd and handle it on your own with a reverse proxy:
 
