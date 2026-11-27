@@ -964,7 +964,7 @@ func (handler *UnroutedHandler) writeChunk(c *httpContext, resp HTTPResponse, up
 		}
 
 		if handler.config.NotifyUploadProgress {
-			handler.sendProgressMessages(c, info)
+			handler.sendProgressMessages(c, info, body)
 		}
 
 		bytesWritten, err = upload.WriteChunk(c, offset, body)
@@ -1346,14 +1346,14 @@ func (handler *UnroutedHandler) absFileURL(r *http.Request, id string) string {
 // sendProgressMessage will send a notification over the UploadProgress channel
 // indicating how much data has been transfered to the server.
 // It will stop sending these instances once the provided context is done.
-func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileInfo) {
+func (handler *UnroutedHandler) sendProgressMessages(c *httpContext, info FileInfo, body *bodyReader) {
 	hook := newHookEvent(c, info)
 
 	previousOffset := int64(0)
 	originalOffset := hook.Upload.Offset
 
 	emitProgress := func() {
-		hook.Upload.Offset = originalOffset + c.body.Load().bytesRead()
+		hook.Upload.Offset = originalOffset + body.bytesRead()
 		if hook.Upload.Offset != previousOffset {
 			handler.UploadProgress <- hook
 			previousOffset = hook.Upload.Offset
