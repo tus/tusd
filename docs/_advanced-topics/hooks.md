@@ -238,11 +238,9 @@ tusd can transmit hook requests and receive hook responses using various handler
 
 ### Timeouts
 
-To prevent a hanging hook from blocking uploads indefinitely, tusd can limit how long a single hook invocation may take, including any retries. The limit is set using the `-hooks-timeout` flag, for example `-hooks-timeout 15s`. If a hook does not complete in time, tusd treats it as failed. For the pre-create, pre-finish and pre-terminate hooks, this means that the request is rejected. A value of `0` disables the timeout. The details for each handler are described below.
+To prevent a hanging hook from blocking uploads indefinitely, tusd can limit how long a single hook invocation may take, including any retries. The limit is set using the `-hooks-timeout` flag, for example `-hooks-timeout 15s`. If a hook does not complete in time, tusd treats it as failed. For the pre-create, pre-finish and pre-terminate hooks, this means that the request is rejected. By default, `-hooks-timeout` is `0`, which disables the timeout. The details for each handler are described below.
 
-For compatibility with previous versions, no timeout is applied by default, except for HTTP hooks, which use a timeout of 15 seconds. We recommend setting `-hooks-timeout` explicitly. A future major version of tusd will use 15 seconds as the default for all hook handlers.
-
-The `-hooks-http-timeout` flag is deprecated in favor of `-hooks-timeout`. If set, it overrides `-hooks-timeout` for HTTP hooks.
+HTTP hooks use the `-hooks-http-timeout` flag instead, which defaults to 15 seconds. A future major version of tusd will remove `-hooks-http-timeout` and use 15 seconds as the default for `-hooks-timeout`. For file, gRPC and plugin hooks, we recommend setting `-hooks-timeout` explicitly.
 
 ### File Hooks
 
@@ -309,7 +307,7 @@ When the endpoint responds with a non-2XX status code, tusd interprets this as a
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads. Note that tusd requires the `Content-Type: application/json` header to be present in all hook responses.
 
-Hook requests are subject to the [timeout](#timeouts) and are also cancelled when the client's request ends, after the grace period configured by `-request-completion-timeout`. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
+By default, tusd employs a request timeout of 15s for all HTTP(S) hooks to prevent hanging hooks and uploads. Hook requests are also cancelled when the client's request ends, after the grace period configured by `-request-completion-timeout`. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. A timeout of `0` disables the timeout. For detailed information on these flags, run `tusd -help`.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
