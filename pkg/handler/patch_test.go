@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -851,6 +852,170 @@ func TestPatch(t *testing.T) {
 			},
 			ResBody: "ERR_SERVER_SHUTDOWN: request has been interrupted because the server is shutting down\n",
 		}).Run(handler, t)
+	})
+
+	SubTest(t, "InterruptConcurrentlyWithBodySetUp", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		// The request is interrupted from another goroutine while the handler sets up the
+		// request body. Nothing orders the two, so this reports a data race under -race if
+		// the body is not handed over to the context safely. Whichever side runs first, the
+		// body must be closed and the interruption reported.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		upload := NewMockFullUpload(ctrl)
+
+		ctx, cancel := context.WithCancelCause(context.Background())
+		defer cancel(nil)
+
+		gomock.InOrder(
+			store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+			upload.EXPECT().GetInfo(gomock.Any()).DoAndReturn(func(context.Context) (FileInfo, error) {
+				go cancel(ErrServerShutdown)
+				return FileInfo{ID: "yes", Offset: 0, Size: 100}, nil
+			}),
+			// The client never sends data, so reading only ends once the body is closed.
+			upload.EXPECT().WriteChunk(gomock.Any(), int64(0), NewReaderMatcher("")).Return(int64(0), nil),
+		)
+
+		handler, _ := NewHandler(Config{
+			StoreComposer: composer,
+		})
+
+		reader, writer := io.Pipe()
+		defer writer.Close()
+
+		(&httpTest{
+			Context: ctx,
+			Method:  "PATCH",
+			URL:     "yes",
+			ReqHeader: map[string]string{
+				"Tus-Resumable": "1.0.0",
+				"Content-Type":  "application/offset+octet-stream",
+				"Upload-Offset": "0",
+			},
+			ReqBody: reader,
+			Code:    http.StatusServiceUnavailable,
+			ResBody: "ERR_SERVER_SHUTDOWN: request has been interrupted because the server is shutting down\n",
+		}).Run(handler, t)
+	})
+
+	SubTest(t, "InterruptBeforeBodySetUp", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+		// The request is interrupted while the upload info is fetched, before the handler
+		// has set up the request body. synctest.Wait ensures that the context's goroutine
+		// has already seen the interruption (and no body) when the body is set up, so the
+		// interruption must be picked up there instead of being lost.
+		synctest.Test(t, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			// Let the delayed request context run out, so its goroutine exits before the
+			// bubble ends. This is deferred so it also happens if the test fails early.
+			defer time.Sleep(2 * time.Second)
+			store := NewMockFullDataStore(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			ctx, cancel := context.WithCancelCause(context.Background())
+			defer cancel(nil)
+
+			gomock.InOrder(
+				store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).DoAndReturn(func(context.Context) (FileInfo, error) {
+					cancel(ErrServerShutdown)
+					synctest.Wait()
+					return FileInfo{ID: "yes", Offset: 0, Size: 100}, nil
+				}),
+				// The body holds data, which must not be read after the interruption.
+				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, src io.Reader) (int64, error) {
+					data, err := io.ReadAll(src)
+					if len(data) != 0 {
+						t.Errorf("read %d bytes after the request was interrupted", len(data))
+					}
+					return int64(len(data)), err
+				}),
+			)
+
+			composer := NewStoreComposer()
+			composer.UseCore(store)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:                    composer,
+				GracefulRequestCompletionTimeout: time.Second,
+			})
+
+			(&httpTest{
+				Context: ctx,
+				Method:  "PATCH",
+				URL:     "yes",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Content-Type":  "application/offset+octet-stream",
+					"Upload-Offset": "0",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusServiceUnavailable,
+				ResBody: "ERR_SERVER_SHUTDOWN: request has been interrupted because the server is shutting down\n",
+			}).Run(handler, t)
+		})
+	})
+
+	SubTest(t, "RequestUnlockBeforeBodySetUp", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
+		// Another request asks for the lock while the upload info is fetched, before the
+		// handler has set up the request body. The handler must still stop and release
+		// the lock instead of reading the whole body first.
+		synctest.Test(t, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			// Let the delayed request context run out, so its goroutine exits before the
+			// bubble ends. This is deferred so it also happens if the test fails early.
+			defer time.Sleep(2 * time.Second)
+			store := NewMockFullDataStore(ctrl)
+			locker := NewMockFullLocker(ctrl)
+			lock := NewMockFullLock(ctrl)
+			upload := NewMockFullUpload(ctrl)
+
+			var requestReleaseFn func()
+
+			gomock.InOrder(
+				locker.EXPECT().NewLock("yes").Return(lock, nil),
+				lock.EXPECT().Lock(gomock.Any(), gomock.Any()).Do(func(_ context.Context, requestRelease func()) {
+					requestReleaseFn = requestRelease
+				}).Return(nil),
+				store.EXPECT().GetUpload(gomock.Any(), "yes").Return(upload, nil),
+				upload.EXPECT().GetInfo(gomock.Any()).DoAndReturn(func(context.Context) (FileInfo, error) {
+					requestReleaseFn()
+					synctest.Wait()
+					return FileInfo{ID: "yes", Offset: 0, Size: 100}, nil
+				}),
+				upload.EXPECT().WriteChunk(gomock.Any(), int64(0), gomock.Any()).DoAndReturn(func(_ context.Context, _ int64, src io.Reader) (int64, error) {
+					data, err := io.ReadAll(src)
+					if len(data) != 0 {
+						t.Errorf("read %d bytes after the request was interrupted", len(data))
+					}
+					return int64(len(data)), err
+				}),
+				lock.EXPECT().Unlock().Return(nil),
+			)
+
+			composer := NewStoreComposer()
+			composer.UseCore(store)
+			composer.UseLocker(locker)
+
+			handler, _ := NewHandler(Config{
+				StoreComposer:                    composer,
+				GracefulRequestCompletionTimeout: time.Second,
+			})
+
+			(&httpTest{
+				Method: "PATCH",
+				URL:    "yes",
+				ReqHeader: map[string]string{
+					"Tus-Resumable": "1.0.0",
+					"Content-Type":  "application/offset+octet-stream",
+					"Upload-Offset": "0",
+				},
+				ReqBody: strings.NewReader("hello"),
+				Code:    http.StatusBadRequest,
+				ResBody: "ERR_UPLOAD_INTERRUPTED: upload has been interrupted by another request for this upload resource\n",
+			}).Run(handler, t)
+		})
 	})
 
 	SubTest(t, "ExperimentalProtocol", func(t *testing.T, _ *MockFullDataStore, _ *StoreComposer) {
