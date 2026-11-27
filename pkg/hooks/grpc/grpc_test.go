@@ -402,28 +402,23 @@ func TestTimeout(t *testing.T) {
 	assert.Less(t, time.Since(start), 5*time.Second)
 }
 
-// TestTimeoutRequestContext ensures that the hook invocation is cancelled when
-// the context of the hook event is cancelled.
-func TestTimeoutRequestContext(t *testing.T) {
-	release := make(chan struct{})
-	defer close(release)
-
+// TestRequestContextIgnored ensures that the hook invocation is not cancelled when
+// the context of the hook event is cancelled, so that asynchronous hooks can
+// complete after the request has ended.
+func TestRequestContextIgnored(t *testing.T) {
 	srv := &testHookServer{handle: func(int, *pb.HookRequest) (*pb.HookResponse, error) {
-		<-release
-		return &pb.HookResponse{}, nil
+		time.Sleep(200 * time.Millisecond)
+		return &pb.HookResponse{RejectUpload: true}, nil
 	}}
-	hook := startTestHookServer(t, srv, func(h *GrpcHook) {
-		h.Timeout = time.Minute
-	})
+	hook := startTestHookServer(t, srv, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
-	start := time.Now()
-	_, err := hook.InvokeHook(hooks.HookRequest{
-		Type:  hooks.HookPreCreate,
+	res, err := hook.InvokeHook(hooks.HookRequest{
+		Type:  hooks.HookPostFinish,
 		Event: handler.HookEvent{Context: ctx},
 	})
-	assert.Equal(t, codes.DeadlineExceeded, status.Code(err))
-	assert.Less(t, time.Since(start), 5*time.Second)
+	require.NoError(t, err)
+	assert.True(t, res.RejectUpload)
 }

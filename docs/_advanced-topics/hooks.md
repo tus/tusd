@@ -238,9 +238,11 @@ tusd can transmit hook requests and receive hook responses using various handler
 
 ### Timeouts
 
-To prevent a hanging hook from blocking uploads indefinitely, tusd limits how long a single hook invocation may take. By default, the limit is 15 seconds, including any retries. If a hook does not complete in time, tusd treats it as failed. For the pre-create, pre-finish and pre-terminate hooks, this means that the request is rejected. The limit can be changed using the `-hooks-timeout` flag, for example `-hooks-timeout 1m`. A value of `0` disables the timeout. The details for each handler are described below.
+To prevent a hanging hook from blocking uploads indefinitely, tusd can limit how long a single hook invocation may take, including any retries. The limit is set using the `-hooks-timeout` flag, for example `-hooks-timeout 15s`. If a hook does not complete in time, tusd treats it as failed. For the pre-create, pre-finish and pre-terminate hooks, this means that the request is rejected. A value of `0` disables the timeout. The details for each handler are described below.
 
-The `-hooks-http-timeout` flag is deprecated in favor of `-hooks-timeout`. If set, it overrides `-hooks-timeout`.
+For compatibility with previous versions, no timeout is applied by default, except for HTTP hooks, which use a timeout of 15 seconds. We recommend setting `-hooks-timeout` explicitly. A future major version of tusd will use 15 seconds as the default for all hook handlers.
+
+The `-hooks-http-timeout` flag is deprecated in favor of `-hooks-timeout`. If set, it overrides `-hooks-timeout` for HTTP hooks.
 
 ### File Hooks
 
@@ -347,7 +349,7 @@ $ tusd -hooks-grpc localhost:8081/ -hooks-grpc-retry 5 -hooks-grpc-backoff 2
 
 #### Timeout
 
-gRPC calls are subject to the [timeout](#timeouts), which covers all retries. Like HTTP hooks, they are also cancelled when the client's request ends, after the grace period configured by `-request-completion-timeout`.
+gRPC calls are subject to the [timeout](#timeouts), which covers all retries.
 
 ### Plugin Hooks
 

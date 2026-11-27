@@ -71,7 +71,7 @@ var Flags struct {
 	GrpcHooksClientTLSKeyFile        string
 	GrpcHooksForwardHeaders          string
 	EnabledHooks                     []hooks.HookType
-	HooksTimeout                     time.Duration
+	HooksTimeout                     *time.Duration
 	ProgressHooksInterval            time.Duration
 	ShowVersion                      bool
 	ExposeMetrics                    bool
@@ -116,6 +116,20 @@ func (v ChmodPermsValue) Set(s string) error {
 		*v.perms = uint32(u)
 	}
 	return nil
+}
+
+// durationFlag returns a flag function that parses a duration into dst. This
+// allows us to distinguish between a flag that was not set and one that was
+// explicitly set to its zero value.
+func durationFlag(dst **time.Duration) func(string) error {
+	return func(s string) error {
+		d, err := time.ParseDuration(s)
+		if err != nil {
+			return err
+		}
+		*dst = &d
+		return nil
+	}
 }
 
 func ParseFlags() {
@@ -196,7 +210,7 @@ func ParseFlags() {
 	fs.AddGroup("General hook options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
 		f.DurationVar(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1*time.Second, "Interval at which the post-receive progress hooks are emitted for each active upload")
-		f.DurationVar(&Flags.HooksTimeout, "hooks-timeout", 15*time.Second, "Timeout for a single hook invocation, including retries. If exceeded, the hook fails. Set to 0 to disable the timeout")
+		f.Func("hooks-timeout", "Maximum `duration` of a single hook invocation, including retries. If exceeded, the hook fails. Set to 0 to disable the timeout. By default, no timeout is applied, except for HTTP hooks, which use 15s", durationFlag(&Flags.HooksTimeout))
 	})
 
 	fs.AddGroup("File hook options", func(f *flag.FlagSet) {
@@ -208,14 +222,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 		f.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
-		f.Func("hooks-http-timeout", "Deprecated: Use -hooks-timeout instead. If set, overrides -hooks-timeout", func(s string) error {
-			d, err := time.ParseDuration(s)
-			if err != nil {
-				return err
-			}
-			Flags.HttpHooksTimeout = &d
-			return nil
-		})
+		f.Func("hooks-http-timeout", "Maximum `duration` of HTTP hook requests. If set, overrides -hooks-timeout for HTTP hooks. Set to 0 to disable the timeout (default 15s). Deprecated: Use -hooks-timeout instead", durationFlag(&Flags.HttpHooksTimeout))
 		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
 		f.BoolVar(&Flags.HttpHooksInsecureSkipVerify, "hooks-http-skip-verify", false, "Skip TLS certificate verification for HTTPS hook requests (tls.Config.InsecureSkipVerify)")
 	})
@@ -261,11 +268,6 @@ func ParseFlags() {
 	}
 
 	SetEnabledHooks()
-
-	if Flags.HttpHooksTimeout != nil {
-		stderr.Printf("The -hooks-http-timeout flag is deprecated and will be removed in the future. Please use -hooks-timeout instead.")
-		Flags.HooksTimeout = *Flags.HttpHooksTimeout
-	}
 
 	if Flags.EnableH2C && Flags.TLSCertFile != "" {
 		stderr.Fatalf("Unencrypted HTTP/2 is not available if TLS is configured. -enable-h2c flag must not be combined with -tls-certificate.")

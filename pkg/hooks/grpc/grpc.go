@@ -92,10 +92,7 @@ func (g *GrpcHook) Setup() error {
 }
 
 func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
-	ctx := hookReq.Event.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := context.Background()
 
 	if g.Timeout > 0 {
 		var cancel context.CancelFunc

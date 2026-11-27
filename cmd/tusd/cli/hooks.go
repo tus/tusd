@@ -2,6 +2,7 @@ package cli
 
 import (
 	"strings"
+	"time"
 
 	"github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/hooks"
@@ -17,7 +18,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 
 		return &file.FileHook{
 			Directory: Flags.FileHooksDir,
-			Timeout:   Flags.HooksTimeout,
+			Timeout:   hooksTimeout(),
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
 		printStartupLog("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
@@ -27,7 +28,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			MaxRetries:         Flags.HttpHooksRetry,
 			Backoff:            Flags.HttpHooksBackoff,
 			ForwardHeaders:     strings.Split(Flags.HttpHooksForwardHeaders, ","),
-			Timeout:            Flags.HooksTimeout,
+			Timeout:            httpHooksTimeout(),
 			SizeLimit:          Flags.HttpHooksSizeLimit,
 			InsecureSkipVerify: Flags.HttpHooksInsecureSkipVerify,
 		}
@@ -43,7 +44,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
 			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
 			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
-			Timeout:                         Flags.HooksTimeout,
+			Timeout:                         hooksTimeout(),
 		}
 	} else if Flags.PluginHookPath != "" {
 		printStartupLog("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
@@ -51,9 +52,34 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		return &plugin.PluginHook{
 			Path:          Flags.PluginHookPath,
 			JSONLogFormat: Flags.LogFormat == "json",
-			Timeout:       Flags.HooksTimeout,
+			Timeout:       hooksTimeout(),
 		}
 	} else {
 		return nil
 	}
+}
+
+// defaultHttpHooksTimeout is the timeout for HTTP hooks if neither -hooks-timeout
+// nor -hooks-http-timeout is set. Other hook handlers have no timeout by default
+// to remain compatible with previous versions.
+const defaultHttpHooksTimeout = 15 * time.Second
+
+// hooksTimeout returns the timeout for gRPC, plugin and file hooks.
+func hooksTimeout() time.Duration {
+	if Flags.HooksTimeout != nil {
+		return *Flags.HooksTimeout
+	}
+	return 0
+}
+
+// httpHooksTimeout returns the timeout for HTTP hooks. The deprecated
+// -hooks-http-timeout flag takes precedence over -hooks-timeout.
+func httpHooksTimeout() time.Duration {
+	if Flags.HttpHooksTimeout != nil {
+		return *Flags.HttpHooksTimeout
+	}
+	if Flags.HooksTimeout != nil {
+		return *Flags.HooksTimeout
+	}
+	return defaultHttpHooksTimeout
 }
