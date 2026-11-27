@@ -1,0 +1,259 @@
+openapi: 3.2.1
+info:
+  title: tusd HTTP Hook Callback
+  description: |
+    OpenAPI 3.2.1 specification for HTTP hook handlers receiving webhook events from tusd.
+    
+    When an upload event triggers, tusd issues an HTTP POST request containing a JSON-encoded
+    `HookRequest`. The handler must respond with HTTP 2xx, `Content-Type: application/json`,
+    and an optional JSON-encoded `HookResponse`.
+  version: 2.0.0
+  license:
+    name: MIT
+    url: https://github.com/tus/tusd/blob/main/LICENSE.txt
+
+webhooks:
+  tusdHookCallback:
+    post:
+      summary: Handle tusd upload lifecycle event
+      description: |
+        Invoked by tusd when an upload event occurs (e.g., pre-create, post-finish).
+        The hook can reject, interrupt, or alter upload attributes and HTTP responses.
+      operationId: handleHookEvent
+      requestBody:
+        description: Hook event details sent by tusd
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HookRequest'
+            examples:
+              postFinishExample:
+                summary: Example of a post-finish hook request
+                value:
+                  Type: post-finish
+                  Event:
+                    Upload:
+                      ID: 5d892c228ec8d0451dfec588697e8930
+                      Size: 432724
+                      SizeIsDeferred: false
+                      Offset: 432724
+                      MetaData:
+                        filename: presentation.pdf
+                        filetype: application/pdf
+                      IsPartial: false
+                      IsFinal: false
+                      PartialUploads: null
+                      Storage:
+                        Type: filestore
+                        Path: /data/5d892c228ec8d0451dfec588697e8930
+                    HTTPRequest:
+                      Method: PATCH
+                      URI: /files/5d892c228ec8d0451dfec588697e8930
+                      RemoteAddr: 127.0.0.1:59395
+                      Header:
+                        Host:
+                          - localhost:8080
+                        Tus-Resumable:
+                          - 1.0.0
+      responses:
+        '200':
+          description: Hook processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HookResponse'
+              examples:
+                preCreateRejectExample:
+                  summary: Rejecting an upload in pre-create
+                  value:
+                    RejectUpload: true
+                    HTTPResponse:
+                      StatusCode: 400
+                      Body: '{"message":"the upload is too big"}'
+                      Header:
+                        Content-Type: application/json
+                preCreateChangeInfoExample:
+                  summary: Modifying ID and metadata in pre-create
+                  value:
+                    ChangeFileInfo:
+                      ID: custom-upload-id-123
+                      MetaData:
+                        customField: customValue
+        '500':
+          description: Internal error in hook handler; prompts tusd to retry (or return 500 for blocking hooks).
+
+components:
+  schemas:
+    HookType:
+      type: string
+      description: Lifecycle event name that triggered this hook.
+      enum:
+        - pre-create
+        - post-create
+        - post-receive
+        - pre-finish
+        - post-finish
+        - pre-terminate
+        - post-terminate
+
+    HookRequest:
+      type: object
+      description: Request sent by tusd to the hook endpoint.
+      required:
+        - Type
+        - Event
+      properties:
+        Type:
+          $ref: '#/components/schemas/HookType'
+        Event:
+          $ref: '#/components/schemas/HookEvent'
+
+    HookEvent:
+      type: object
+      description: Details of the upload and the HTTP request that triggered the hook.
+      required:
+        - Upload
+        - HTTPRequest
+      properties:
+        Upload:
+          $ref: '#/components/schemas/FileInfo'
+        HTTPRequest:
+          $ref: '#/components/schemas/HTTPRequest'
+
+    FileInfo:
+      type: object
+      description: Information about the upload resource.
+      required:
+        - ID
+        - Offset
+        - SizeIsDeferred
+        - IsPartial
+        - IsFinal
+      properties:
+        ID:
+          type: string
+          description: Upload resource unique ID (empty string or omitted during pre-create).
+          example: 5d892c228ec8d0451dfec588697e8930
+        Size:
+          type: integer
+          format: int64
+          nullable: true
+          description: Total upload size in bytes (can be omitted or null if Upload-Defer-Length was used).
+          example: 432724
+        SizeIsDeferred:
+          type: boolean
+          description: True if upload length is deferred.
+          example: false
+        Offset:
+          type: integer
+          format: int64
+          description: Current upload offset in bytes.
+          example: 432724
+        MetaData:
+          type: object
+          additionalProperties:
+            type: string
+          description: Key-value client metadata transmitted via the Upload-Metadata header.
+        IsPartial:
+          type: boolean
+          description: Indicates if upload is part of a concatenated upload.
+        IsFinal:
+          type: boolean
+          description: Indicates if upload is a final concatenated upload.
+        PartialUploads:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: IDs of partial uploads forming this final upload.
+        Storage:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Information about the storage location (e.g. Type, Path, Bucket, Key).
+
+    HTTPRequest:
+      type: object
+      description: Details of the incoming HTTP request that reached tusd.
+      required:
+        - Method
+        - URI
+        - RemoteAddr
+        - Header
+      properties:
+        Method:
+          type: string
+          example: PATCH
+        URI:
+          type: string
+          example: /files/5d892c228ec8d0451dfec588697e8930
+        RemoteAddr:
+          type: string
+          example: 127.0.0.1:59395
+        Header:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Canonical HTTP headers from the client request (values are arrays of strings).
+
+    HookResponse:
+      type: object
+      description: Hook response sent back to tusd. All properties are optional.
+      properties:
+        HTTPResponse:
+          $ref: '#/components/schemas/HTTPResponse'
+        RejectUpload:
+          type: boolean
+          default: false
+          description: Reject the upload before creation (respected only in pre-create hook).
+        RejectTermination:
+          type: boolean
+          default: false
+          description: Reject termination/deletion of the upload (respected only in pre-terminate hook).
+        ChangeFileInfo:
+          $ref: '#/components/schemas/FileInfoChanges'
+        StopUpload:
+          type: boolean
+          default: false
+          description: Interrupt an ongoing upload transmission (respected only in post-receive hook).
+
+    HTTPResponse:
+      type: object
+      description: Custom HTTP response modifications to forward back to the uploading client.
+      properties:
+        StatusCode:
+          type: integer
+          description: Custom HTTP status code (e.g., 400, 403).
+          example: 400
+        Body:
+          type: string
+          description: Custom response body sent back to the client.
+          example: '{"error":"validation failed"}'
+        Header:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom HTTP headers (values are single strings, unlike HTTPRequest.Header).
+
+    FileInfoChanges:
+      type: object
+      description: Property overrides applied to the upload before it is created (pre-create only).
+      properties:
+        ID:
+          type: string
+          description: Custom upload ID to assign.
+          example: my-custom-id-987
+        MetaData:
+          type: object
+          additionalProperties:
+            type: string
+          description: Replacement or augmented metadata.
+        Storage:
+          type: object
+          additionalProperties:
+            type: string
+          description: Storage customization parameters (e.g. Path for filestore).
