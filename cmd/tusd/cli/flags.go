@@ -202,7 +202,7 @@ func ParseFlags() {
 
 	fs.AddGroup("File hook options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.FileHooksDir, "hooks-dir", "", "Directory to search for available hooks scripts")
-		f.DurationVar(&Flags.FileHooksTimeout, "hooks-file-timeout", 60*time.Second, "Timeout for the execution of a hook script, after which the script is killed. Set to 0 to disable the timeout")
+		f.DurationVar(&Flags.FileHooksTimeout, "hooks-file-timeout", 15*time.Second, "Timeout for the execution of a hook script, after which the script is killed. Set to 0 to disable the timeout")
 	})
 
 	fs.AddGroup("HTTP hook options", func(f *flag.FlagSet) {
@@ -210,7 +210,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 		f.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
-		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests")
+		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests. Set to 0 to disable the timeout")
 		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
 		f.BoolVar(&Flags.HttpHooksInsecureSkipVerify, "hooks-http-skip-verify", false, "Skip TLS certificate verification for HTTPS hook requests (tls.Config.InsecureSkipVerify)")
 	})

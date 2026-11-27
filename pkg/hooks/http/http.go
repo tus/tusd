@@ -21,10 +21,12 @@ import (
 )
 
 type HttpHook struct {
-	Endpoint           string
-	MaxRetries         int
-	Backoff            time.Duration
-	ForwardHeaders     []string
+	Endpoint       string
+	MaxRetries     int
+	Backoff        time.Duration
+	ForwardHeaders []string
+	// Timeout is the maximum duration for a single hook request. A value of zero
+	// disables the timeout.
 	Timeout            time.Duration
 	SizeLimit          int64
 	InsecureSkipVerify bool
@@ -76,8 +78,11 @@ func (h HttpHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookRespo
 		ctx = context.Background()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, h.Timeout)
-	defer cancel()
+	if h.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.Timeout)
+		defer cancel()
+	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", h.Endpoint, bytes.NewBuffer(jsonInfo))
 	if err != nil {

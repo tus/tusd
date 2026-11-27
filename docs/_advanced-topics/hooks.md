@@ -271,7 +271,7 @@ The process' stderr is redirected to tusd's stderr and can be used for logging f
 
 #### Timeout
 
-By default, tusd kills a hook process if it is still running after 60 seconds. This prevents a hanging hook from blocking uploads indefinitely. tusd then treats the hook as failed, as if it had exited with a non-zero exit code. The limit can be changed using the `-hooks-file-timeout` flag, for example `-hooks-file-timeout 5m`. A value of `0` disables the timeout. If your hook starts long-running work, consider running it in the background with its stdout redirected, so that tusd does not have to wait for it.
+By default, tusd kills a hook process if it is still running after 15 seconds. This prevents a hanging hook from blocking uploads indefinitely. tusd then treats the hook as failed, as if it had exited with a non-zero exit code. The limit can be changed using the `-hooks-file-timeout` flag, for example `-hooks-file-timeout 5m`. A value of `0` disables the timeout. If your hook starts long-running work, consider running it in the background with its stdout redirected, so that tusd does not have to wait for it.
 
 An example is available at [github.com/tus/tusd/examples/hooks/file](https://github.com/tus/tusd/tree/main/examples/hooks/file).
 
@@ -301,7 +301,7 @@ When the endpoint responds with a non-2XX status code, tusd interprets this as a
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads. Note that tusd requires the `Content-Type: application/json` header to be present in all hook responses.
 
-By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
+By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. A timeout of `0` disables the timeout. For detailed information on these flags, run `tusd -help`.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
