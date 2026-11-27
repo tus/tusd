@@ -269,6 +269,10 @@ When the process exits with the zero exit code, tusd reads the process' stdout a
 
 The process' stderr is redirected to tusd's stderr and can be used for logging from inside the hook.
 
+#### Timeout
+
+By default, tusd kills a hook process if it is still running after 60 seconds. This prevents a hanging hook from blocking uploads indefinitely. tusd then treats the hook as failed, as if it had exited with a non-zero exit code. The limit can be changed using the `-hooks-file-timeout` flag, for example `-hooks-file-timeout 5m`. A value of `0` disables the timeout. If your hook starts long-running work, consider running it in the background with its stdout redirected, so that tusd does not have to wait for it.
+
 An example is available at [github.com/tus/tusd/examples/hooks/file](https://github.com/tus/tusd/tree/main/examples/hooks/file).
 
 ### HTTP(S) Hooks
@@ -335,6 +339,10 @@ By default, tusd will retry 3 times based on the gRPC status response or network
 $ tusd -hooks-grpc localhost:8081/ -hooks-grpc-retry 5 -hooks-grpc-backoff 2
 ```
 
+#### Timeout
+
+By default, tusd employs a timeout of 15s for each gRPC hook invocation, including all retries, to prevent hanging hooks and uploads. If the hook server does not respond in time, tusd treats the hook as failed. Like HTTP hooks, the invocation is also bound to the client's request and is cancelled when the request ends, after the grace period configured by `-request-completion-timeout`. The timeout can be changed using the `-hooks-grpc-timeout` flag, for example `-hooks-grpc-timeout 30s`. A value of `0` disables the timeout.
+
 ### Plugin Hooks
 
 File hooks are an easy way to receive events from tusd, but can induce overhead from frequent sub-process creation. In addition, keeping state between hooks is challenging because the hook process does not persist. HTTP and gRPC hooks can keep state on their respective servers, which have to be managed by an external task manager.
@@ -350,6 +358,8 @@ Assuming that the plugin is compiled into a binary called `hook_handler`, tusd c
 ```bash
 $ tusd -hooks-plugin ./hook_handler
 ```
+
+By default, tusd waits at most 15s for the plugin to handle a hook, to prevent hanging hooks and uploads. If the plugin does not respond in time, tusd treats the hook as failed. The timeout can be changed using the `-hooks-plugin-timeout` flag, for example `-hooks-plugin-timeout 30s`. A value of `0` disables the timeout.
 
 ## Common Uses
 

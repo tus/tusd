@@ -381,3 +381,49 @@ func assertProtoFullyPopulated(t *testing.T, msg protoreflect.Message) {
 		}
 	}
 }
+
+// TestTimeout ensures that a hanging hook server causes InvokeHook to return an
+// error once the timeout is reached, instead of blocking forever.
+func TestTimeout(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+
+	srv := &testHookServer{handle: func(int, *pb.HookRequest) (*pb.HookResponse, error) {
+		<-release
+		return &pb.HookResponse{}, nil
+	}}
+	hook := startTestHookServer(t, srv, func(h *GrpcHook) {
+		h.Timeout = 100 * time.Millisecond
+	})
+
+	start := time.Now()
+	_, err := hook.InvokeHook(hooks.HookRequest{Type: hooks.HookPreCreate})
+	assert.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	assert.Less(t, time.Since(start), 5*time.Second)
+}
+
+// TestTimeoutRequestContext ensures that the hook invocation is cancelled when
+// the context of the hook event is cancelled.
+func TestTimeoutRequestContext(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+
+	srv := &testHookServer{handle: func(int, *pb.HookRequest) (*pb.HookResponse, error) {
+		<-release
+		return &pb.HookResponse{}, nil
+	}}
+	hook := startTestHookServer(t, srv, func(h *GrpcHook) {
+		h.Timeout = time.Minute
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := hook.InvokeHook(hooks.HookRequest{
+		Type:  hooks.HookPreCreate,
+		Event: handler.HookEvent{Context: ctx},
+	})
+	assert.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	assert.Less(t, time.Since(start), 5*time.Second)
+}

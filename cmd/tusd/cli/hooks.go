@@ -17,6 +17,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 
 		return &file.FileHook{
 			Directory: Flags.FileHooksDir,
+			Timeout:   Flags.FileHooksTimeout,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
 		printStartupLog("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
@@ -42,6 +43,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
 			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
 			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
+			Timeout:                         Flags.GrpcHooksTimeout,
 		}
 	} else if Flags.PluginHookPath != "" {
 		printStartupLog("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
@@ -49,6 +51,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		return &plugin.PluginHook{
 			Path:          Flags.PluginHookPath,
 			JSONLogFormat: Flags.LogFormat == "json",
+			Timeout:       Flags.PluginHookTimeout,
 		}
 	} else {
 		return nil

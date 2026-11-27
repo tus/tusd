@@ -5,10 +5,12 @@
 package plugin
 
 import (
+	"fmt"
 	"log"
 	"net/rpc"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -19,6 +21,10 @@ type PluginHook struct {
 	Path string
 	// JSONLogFormat specifies whether the logs from the plugin hook should be formatted as JSON.
 	JSONLogFormat bool
+	// Timeout is the maximum duration for a single hook invocation. If the plugin
+	// does not respond in time, the invocation returns an error. A value of zero
+	// disables the timeout.
+	Timeout time.Duration
 
 	handlerImpl hooks.HookHandler
 }
@@ -60,6 +66,9 @@ func (h *PluginHook) Setup() error {
 	// We should have a HookHandler now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
 	h.handlerImpl = raw.(hooks.HookHandler)
+	if rpcImpl, ok := h.handlerImpl.(*HookHandlerRPC); ok {
+		rpcImpl.timeout = h.Timeout
+	}
 
 	return h.handlerImpl.Setup()
 }
@@ -90,7 +99,11 @@ var pluginMap = map[string]plugin.Plugin{
 }
 
 // Here is an implementation that talks over RPC
-type HookHandlerRPC struct{ client *rpc.Client }
+type HookHandlerRPC struct {
+	client *rpc.Client
+	// timeout limits the duration of InvokeHook calls. Zero disables the timeout.
+	timeout time.Duration
+}
 
 func (g *HookHandlerRPC) Setup() error {
 	var res any
@@ -104,8 +117,27 @@ func (g *HookHandlerRPC) InvokeHook(req hooks.HookRequest) (res hooks.HookRespon
 	//  gob: type not registered for interface: context.cancelCtx
 	req.Event.Context = nil
 
-	err = g.client.Call("Plugin.InvokeHook", req, &res)
-	return res, err
+	if g.timeout <= 0 {
+		err = g.client.Call("Plugin.InvokeHook", req, &res)
+		return res, err
+	}
+
+	// net/rpc does not support contexts or deadlines, so we start the call
+	// asynchronously and stop waiting for it once the timeout is reached.
+	// The late response, if any, is discarded by net/rpc. We decode into a
+	// separate value, so a late response cannot race with our return value.
+	var callRes hooks.HookResponse
+	call := g.client.Go("Plugin.InvokeHook", req, &callRes, make(chan *rpc.Call, 1))
+
+	timer := time.NewTimer(g.timeout)
+	defer timer.Stop()
+
+	select {
+	case <-call.Done:
+		return callRes, call.Error
+	case <-timer.C:
+		return res, fmt.Errorf("plugin hook %s timed out after %s", req.Type, g.timeout)
+	}
 }
 
 // Here is the RPC server that HookHandlerRPC talks to, conforming to
