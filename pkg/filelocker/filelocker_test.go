@@ -70,17 +70,25 @@ func TestFileLocker_RequestUnlock(t *testing.T) {
 	locker := New(dir)
 	locker.AcquirerPollInterval = 100 * time.Millisecond
 	locker.HolderPollInterval = 300 * time.Millisecond
-	releaseRequestCalled := false
+
+	// The release callback runs on the holder's poll goroutine, not on the test
+	// goroutine. The channel is closed once lock1 has been released, which lets
+	// the test wait for the callback to finish and orders its effects before
+	// the assertions below.
+	released := make(chan struct{})
 
 	lock1, err := locker.NewLock("one")
 	a.NoError(err)
 	a.NoError(lock1.Lock(context.Background(), func() {
-		releaseRequestCalled = true
+		defer close(released)
 		<-time.After(10 * time.Millisecond)
 		a.NoError(lock1.Unlock())
 	}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// Under normal conditions, lock2 is acquired after roughly one holder poll
+	// interval plus one acquirer poll interval (~400ms). The generous timeout
+	// only matters on slow CI runners and does not slow down passing runs.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	lock2, err := locker.NewLock("one")
@@ -90,7 +98,11 @@ func TestFileLocker_RequestUnlock(t *testing.T) {
 	}))
 	a.NoError(lock2.Unlock())
 
-	a.True(releaseRequestCalled)
+	select {
+	case <-released:
+	case <-time.After(10 * time.Second):
+		t.Fatal("release request was not handled")
+	}
 
 	// Ensure that directory is empty
 	assertEmptyDirectory(dir, a)
