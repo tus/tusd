@@ -82,6 +82,11 @@ type Config struct {
 	// giving the application the opportunity to reject the termination. For example, to ensure resources
 	// used by other services are not deleted.
 	// If the callback returns no error, optional values from HTTPResponse will be contained in the HTTP response.
+	// However, if HTTPResponse.StatusCode is set to a value outside the 2xx range, the termination is
+	// rejected and the upload is not terminated. The response is then based on ErrUploadTerminationRejected,
+	// with the status code, headers and body from HTTPResponse taking precedence. 1xx status codes
+	// keep the default status code of ErrUploadTerminationRejected. An unset (zero) or 2xx status code
+	// allows the termination.
 	// If the error is non-nil, the error will be forwarded to the client. Furthermore,
 	// HTTPResponse will be ignored and the error value can contain values for the HTTP response.
 	PreUploadTerminateCallback func(hook HookEvent) (HTTPResponse, error)

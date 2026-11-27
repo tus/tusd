@@ -167,6 +167,11 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
     // This value is only respected for pre-terminate hooks. For other hooks,
     // it is ignored. Use the HTTPResponse field to send details about the rejection
     // to the client.
+    // In addition, if a pre-terminate hook sets HTTPResponse.StatusCode to a value
+    // outside the 2xx range (e.g. 403), the termination is also rejected, even if
+    // RejectTermination is false. The upload is kept and the client receives the
+    // status code, headers and body from HTTPResponse. A 1xx status code is replaced
+    // by 400. If no status code or a 2xx status code is set, the upload is terminated.
     "RejectTermination": false,
 
     // ChangeFileInfo can be set to change selected properties of an upload before

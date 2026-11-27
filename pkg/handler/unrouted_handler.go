@@ -1260,6 +1260,15 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 			handler.sendError(c, err)
 			return
 		}
+
+		// A non-2xx status code from the callback must never lead to a successful
+		// termination. Treat it as a rejection and respond with the callback's
+		// response values instead of terminating the upload.
+		if resp2.StatusCode != 0 && !isSuccessStatusCode(resp2.StatusCode) {
+			handler.sendError(c, preTerminateRejection(resp2))
+			return
+		}
+
 		resp = resp.MergeWith(resp2)
 	}
 
@@ -1270,6 +1279,27 @@ func (handler *UnroutedHandler) DelFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	handler.sendResp(c, resp)
+}
+
+// isSuccessStatusCode reports whether the status code is in the 2xx range.
+func isSuccessStatusCode(statusCode int) bool {
+	return statusCode >= 200 && statusCode <= 299
+}
+
+// preTerminateRejection builds the error that is sent to the client when the
+// pre-terminate callback returns a non-2xx status code. It is based on
+// ErrUploadTerminationRejected, with the status code, headers and body from
+// the callback's response taking precedence. Informational (1xx) status codes
+// cannot be used as a final response, so the default rejection status is kept
+// for them.
+func preTerminateRejection(resp HTTPResponse) Error {
+	if resp.StatusCode < 200 {
+		resp.StatusCode = 0
+	}
+
+	err := ErrUploadTerminationRejected
+	err.HTTPResponse = err.HTTPResponse.MergeWith(resp)
+	return err
 }
 
 // terminateUpload passes a given upload to the DataStore's Terminater,
