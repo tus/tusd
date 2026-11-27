@@ -27,20 +27,6 @@ func (FileHook) Setup() error {
 
 func (h FileHook) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err error) {
 	hookPath := h.Directory + string(os.PathSeparator) + string(req.Type)
-
-	// Ignore the event if no hook file exists for it. This usually means that
-	// the user is only using a subset of the available hooks. We check this
-	// before executing the hook because exec also reports ENOENT for hooks that
-	// exist but cannot be run (e.g. a missing shebang interpreter or a dangling
-	// symlink). Those must be reported as errors instead of being ignored.
-	// Lstat is used, so that a dangling symlink counts as an existing hook.
-	if _, err := os.Lstat(hookPath); err != nil {
-		if os.IsNotExist(err) {
-			return res, nil
-		}
-		return res, fmt.Errorf("failed to check hook file %s: %w", hookPath, err)
-	}
-
 	cmd := exec.Command(hookPath)
 	env := os.Environ()
 	env = append(env, "TUS_ID="+req.Event.Upload.ID)
@@ -60,6 +46,19 @@ func (h FileHook) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err
 	cmd.Stderr = os.Stderr
 
 	output, err := cmd.Output()
+
+	// Ignore the error if the hook's file could not be found. This usually
+	// means that the user is only using a subset of the available hooks.
+	// However, exec also reports ENOENT for hooks that exist but cannot be run
+	// (e.g. a missing shebang interpreter or a dangling symlink). Those must be
+	// reported as errors, so we check whether the hook file itself is missing.
+	// Lstat is used, so that a dangling symlink counts as an existing hook.
+	if os.IsNotExist(err) {
+		if _, statErr := os.Lstat(hookPath); os.IsNotExist(statErr) {
+			return res, nil
+		}
+		return res, fmt.Errorf("failed to execute hook %s: %w", hookPath, err)
+	}
 
 	// Report error if the exit code was non-zero
 	if err, ok := err.(*exec.ExitError); ok {
