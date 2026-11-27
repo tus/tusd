@@ -32,6 +32,15 @@ func NewHandler(config Config) (*Handler, error) {
 		UnroutedHandler: handler,
 	}
 
+	// Methods allowed on upload resources, as listed in the Allow header
+	allowedMethods := "HEAD, PATCH"
+	if !config.DisableDownload {
+		allowedMethods = "GET, " + allowedMethods
+	}
+	if config.StoreComposer.UsesTerminater && !config.DisableTermination {
+		allowedMethods += ", DELETE"
+	}
+
 	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		path := strings.Trim(r.URL.Path, "/")
@@ -63,8 +72,7 @@ func NewHandler(config Config) (*Handler, error) {
 				// Upload termination
 				handler.DelFile(w, r)
 			default:
-				// TODO: Only add GET and DELETE if they are supported
-				w.Header().Add("Allow", "GET, HEAD, PATCH, DELETE")
+				w.Header().Add("Allow", allowedMethods)
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				w.Write([]byte(`method not allowed`))
 			}

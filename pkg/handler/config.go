@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -38,7 +39,7 @@ type Config struct {
 	DisableConcatenation bool
 	// Cors can be used to customize the handling of Cross-Origin Resource Sharing (CORS).
 	// See the CorsConfig struct for more details.
-	// Defaults to DefaultCorsConfig.
+	// Defaults to DefaultCorsConfig, without GET or DELETE if downloads or termination are disabled.
 	Cors *CorsConfig
 	// NotifyCompleteUploads indicates whether sending notifications about
 	// completed uploads using the CompleteUploads channel should be enabled.
@@ -199,7 +200,14 @@ func (config *Config) validate() error {
 	}
 
 	if config.Cors == nil {
-		config.Cors = &DefaultCorsConfig
+		cors := DefaultCorsConfig
+		if config.DisableDownload {
+			cors.AllowMethods = strings.Replace(cors.AllowMethods, ", GET", "", 1)
+		}
+		if !config.StoreComposer.UsesTerminater || config.DisableTermination {
+			cors.AllowMethods = strings.Replace(cors.AllowMethods, ", DELETE", "", 1)
+		}
+		config.Cors = &cors
 	}
 
 	return nil

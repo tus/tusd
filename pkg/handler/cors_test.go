@@ -265,4 +265,19 @@ func TestCORS(t *testing.T) {
 			t.Errorf("expected header to contain METHOD but got: %#v", methods)
 		}
 	})
+
+	SubTest(t, "DisabledMethods", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer:      composer,
+			DisableDownload:    true,
+			DisableTermination: true,
+		})
+
+		(&httpTest{
+			Method:    "OPTIONS",
+			ReqHeader: map[string]string{"Origin": "https://tus.io"},
+			ResHeader: map[string]string{"Access-Control-Allow-Methods": "POST, HEAD, PATCH, OPTIONS"},
+			Code:      http.StatusOK,
+		}).Run(handler, t)
+	})
 }

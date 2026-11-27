@@ -297,6 +297,14 @@ func getCorsConfig() *tushandler.CorsConfig {
 		config.AllowHeaders += ", " + Flags.CorsAllowHeaders
 	}
 
+	// Do not advertise methods of disabled features, unless added via -cors-allow-methods
+	if Flags.DisableDownload {
+		config.AllowMethods = strings.Replace(config.AllowMethods, ", GET", "", 1)
+	}
+	if Flags.DisableTermination {
+		config.AllowMethods = strings.Replace(config.AllowMethods, ", DELETE", "", 1)
+	}
+
 	if Flags.CorsAllowMethods != "" {
 		config.AllowMethods += ", " + Flags.CorsAllowMethods
 	}

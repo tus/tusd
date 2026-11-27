@@ -168,4 +168,19 @@ func TestTerminate(t *testing.T) {
 			Code: http.StatusNotImplemented,
 		}).Run(http.HandlerFunc(handler.DelFile), t)
 	})
+
+	SubTest(t, "DisableTermination", func(t *testing.T, store *MockFullDataStore, composer *StoreComposer) {
+		handler, _ := NewHandler(Config{
+			StoreComposer:      composer,
+			DisableTermination: true,
+		})
+
+		(&httpTest{
+			Method:    "DELETE",
+			URL:       "foo",
+			ReqHeader: map[string]string{"Tus-Resumable": "1.0.0"},
+			ResHeader: map[string]string{"Allow": "GET, HEAD, PATCH"},
+			Code:      http.StatusMethodNotAllowed,
+		}).Run(handler, t)
+	})
 }
