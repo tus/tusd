@@ -17,7 +17,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 
 		return &file.FileHook{
 			Directory: Flags.FileHooksDir,
-			Timeout:   Flags.FileHooksTimeout,
+			Timeout:   Flags.HooksTimeout,
 		}
 	} else if Flags.HttpHooksEndpoint != "" {
 		printStartupLog("Using '%s' as the endpoint for hooks", Flags.HttpHooksEndpoint)
@@ -27,7 +27,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			MaxRetries:         Flags.HttpHooksRetry,
 			Backoff:            Flags.HttpHooksBackoff,
 			ForwardHeaders:     strings.Split(Flags.HttpHooksForwardHeaders, ","),
-			Timeout:            Flags.HttpHooksTimeout,
+			Timeout:            Flags.HooksTimeout,
 			SizeLimit:          Flags.HttpHooksSizeLimit,
 			InsecureSkipVerify: Flags.HttpHooksInsecureSkipVerify,
 		}
@@ -43,7 +43,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 			ClientTLSCertificateFilePath:    Flags.GrpcHooksClientTLSCertFile,
 			ClientTLSCertificateKeyFilePath: Flags.GrpcHooksClientTLSKeyFile,
 			ForwardHeaders:                  strings.Split(Flags.GrpcHooksForwardHeaders, ","),
-			Timeout:                         Flags.GrpcHooksTimeout,
+			Timeout:                         Flags.HooksTimeout,
 		}
 	} else if Flags.PluginHookPath != "" {
 		printStartupLog("Using '%s' to load plugin for hooks", Flags.PluginHookPath)
@@ -51,7 +51,7 @@ func getHookHandler(config *handler.Config) hooks.HookHandler {
 		return &plugin.PluginHook{
 			Path:          Flags.PluginHookPath,
 			JSONLogFormat: Flags.LogFormat == "json",
-			Timeout:       Flags.PluginHookTimeout,
+			Timeout:       Flags.HooksTimeout,
 		}
 	} else {
 		return nil

@@ -236,6 +236,12 @@ Below you can find an annotated, JSON-ish encoded example of a hook response:
 
 tusd can transmit hook requests and receive hook responses using various handlers. Currently, it is possible to invoke custom scripts, send HTTP(S) requests, invoke gRPC method, or invoke plugin methods when an event is triggered. Only one of these handlers can be enabled, and it is not possible to combine multiple handlers in the same tusd process.
 
+### Timeouts
+
+To prevent a hanging hook from blocking uploads indefinitely, tusd limits how long a single hook invocation may take. By default, the limit is 15 seconds, including any retries. If a hook does not complete in time, tusd treats it as failed. For the pre-create, pre-finish and pre-terminate hooks, this means that the request is rejected. The limit can be changed using the `-hooks-timeout` flag, for example `-hooks-timeout 1m`. A value of `0` disables the timeout. The details for each handler are described below.
+
+The `-hooks-http-timeout` flag is deprecated in favor of `-hooks-timeout`. If set, it overrides `-hooks-timeout`.
+
 ### File Hooks
 
 With file hooks enabled, tusd will execute scripts or other executable files in a specified directory when a hook is fired.
@@ -271,7 +277,7 @@ The process' stderr is redirected to tusd's stderr and can be used for logging f
 
 #### Timeout
 
-By default, tusd kills a hook process if it is still running after 15 seconds. This prevents a hanging hook from blocking uploads indefinitely. tusd then treats the hook as failed, as if it had exited with a non-zero exit code. The limit can be changed using the `-hooks-file-timeout` flag, for example `-hooks-file-timeout 5m`. A value of `0` disables the timeout. If your hook starts long-running work, consider running it in the background with its stdout redirected, so that tusd does not have to wait for it.
+If a hook process is still running when the [timeout](#timeouts) is reached, tusd kills it and treats the hook as failed, as if it had exited with a non-zero exit code. If your hook starts long-running work, consider running it in the background with its stdout redirected, so that tusd does not have to wait for it.
 
 An example is available at [github.com/tus/tusd/examples/hooks/file](https://github.com/tus/tusd/tree/main/examples/hooks/file).
 
@@ -301,7 +307,7 @@ When the endpoint responds with a non-2XX status code, tusd interprets this as a
 
 When the endpoint responds with a 2XX status code, tusd reads the response body and parses it as a JSON-encoded hook response. This allows the hook to customize the HTTP response, reject and abort uploads. Note that tusd requires the `Content-Type: application/json` header to be present in all hook responses.
 
-By default, tusd employs a default request timeout of 15s for all HTTP(S) hook to prevent hanging hooks and uploads. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-http-timeout` and `-hooks-http-size-limit` flags. A timeout of `0` disables the timeout. For detailed information on these flags, run `tusd -help`.
+Hook requests are subject to the [timeout](#timeouts) and are also cancelled when the client's request ends, after the grace period configured by `-request-completion-timeout`. In addition, the response content is limited to 5 KiB by default. If you need longer execution time or larger content sizes, you can configure these limits using the `-hooks-timeout` and `-hooks-http-size-limit` flags. For detailed information on these flags, run `tusd -help`.
 
 A Python-based example is available at [github.com/tus/tusd/examples/hooks/http](https://github.com/tus/tusd/tree/main/examples/hooks/http).
 
@@ -341,7 +347,7 @@ $ tusd -hooks-grpc localhost:8081/ -hooks-grpc-retry 5 -hooks-grpc-backoff 2
 
 #### Timeout
 
-By default, tusd employs a timeout of 15s for each gRPC hook invocation, including all retries, to prevent hanging hooks and uploads. If the hook server does not respond in time, tusd treats the hook as failed. Like HTTP hooks, the invocation is also bound to the client's request and is cancelled when the request ends, after the grace period configured by `-request-completion-timeout`. The timeout can be changed using the `-hooks-grpc-timeout` flag, for example `-hooks-grpc-timeout 30s`. A value of `0` disables the timeout.
+gRPC calls are subject to the [timeout](#timeouts), which covers all retries. Like HTTP hooks, they are also cancelled when the client's request ends, after the grace period configured by `-request-completion-timeout`.
 
 ### Plugin Hooks
 
@@ -359,7 +365,7 @@ Assuming that the plugin is compiled into a binary called `hook_handler`, tusd c
 $ tusd -hooks-plugin ./hook_handler
 ```
 
-By default, tusd waits at most 15s for the plugin to handle a hook, to prevent hanging hooks and uploads. If the plugin does not respond in time, tusd treats the hook as failed. The timeout can be changed using the `-hooks-plugin-timeout` flag, for example `-hooks-plugin-timeout 30s`. A value of `0` disables the timeout.
+If the plugin does not handle a hook within the [timeout](#timeouts), tusd stops waiting for it and treats the hook as failed.
 
 ## Common Uses
 
