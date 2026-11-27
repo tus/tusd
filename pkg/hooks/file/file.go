@@ -9,6 +9,7 @@ package file
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -49,11 +50,12 @@ func (h FileHook) InvokeHook(req hooks.HookRequest) (res hooks.HookResponse, err
 
 	// Ignore the error if the hook's file could not be found. This usually
 	// means that the user is only using a subset of the available hooks.
+	// On Windows, a missing file is reported as exec.ErrNotFound instead.
 	// However, exec also reports ENOENT for hooks that exist but cannot be run
 	// (e.g. a missing shebang interpreter or a dangling symlink). Those must be
 	// reported as errors, so we check whether the hook file itself is missing.
 	// Lstat is used, so that a dangling symlink counts as an existing hook.
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) || errors.Is(err, exec.ErrNotFound) {
 		if _, statErr := os.Lstat(hookPath); os.IsNotExist(statErr) {
 			return res, nil
 		}
