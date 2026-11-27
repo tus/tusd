@@ -31,6 +31,10 @@ type GrpcHook struct {
 	ClientTLSCertificateFilePath    string
 	ClientTLSCertificateKeyFilePath string
 	ForwardHeaders                  []string
+	// Timeout is the maximum duration for a single hook invocation, including
+	// all retries. If the timeout is exceeded, the invocation returns an error.
+	// A value of zero disables the timeout.
+	Timeout time.Duration
 }
 
 func (g *GrpcHook) Setup() error {
@@ -89,6 +93,12 @@ func (g *GrpcHook) Setup() error {
 
 func (g *GrpcHook) InvokeHook(hookReq hooks.HookRequest) (hookRes hooks.HookResponse, err error) {
 	ctx := context.Background()
+
+	if g.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, g.Timeout)
+		defer cancel()
+	}
 
 	for _, header := range g.ForwardHeaders {
 		value := hookReq.Event.HTTPRequest.Header.Get(header)

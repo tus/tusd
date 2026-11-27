@@ -71,6 +71,7 @@ var Flags struct {
 	GrpcHooksClientTLSKeyFile        string
 	GrpcHooksForwardHeaders          string
 	EnabledHooks                     []hooks.HookType
+	HooksTimeout                     time.Duration
 	ProgressHooksInterval            time.Duration
 	ShowVersion                      bool
 	ExposeMetrics                    bool
@@ -195,6 +196,7 @@ func ParseFlags() {
 	fs.AddGroup("General hook options", func(f *flag.FlagSet) {
 		f.StringVar(&Flags.EnabledHooksString, "hooks-enabled-events", "pre-create,post-create,post-receive,post-terminate,post-finish", "Comma separated list of enabled hook events (e.g. post-create,post-finish). Leave empty to enable default events")
 		f.DurationVar(&Flags.ProgressHooksInterval, "progress-hooks-interval", 1*time.Second, "Interval at which the post-receive progress hooks are emitted for each active upload")
+		f.DurationVar(&Flags.HooksTimeout, "hooks-timeout", 0, "Timeout for a single hook invocation, including retries. If exceeded, the hook fails. Set to 0 to disable the timeout. For HTTP hooks, -hooks-http-timeout is used instead")
 	})
 
 	fs.AddGroup("File hook options", func(f *flag.FlagSet) {
@@ -206,7 +208,7 @@ func ParseFlags() {
 		f.StringVar(&Flags.HttpHooksForwardHeaders, "hooks-http-forward-headers", "", "List of HTTP request headers to be forwarded from the client request to the hook endpoint")
 		f.IntVar(&Flags.HttpHooksRetry, "hooks-http-retry", 3, "Number of times to retry on a 500 or network timeout")
 		f.DurationVar(&Flags.HttpHooksBackoff, "hooks-http-backoff", 1*time.Second, "Wait period before retrying each retry")
-		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests")
+		f.DurationVar(&Flags.HttpHooksTimeout, "hooks-http-timeout", 15*time.Second, "Timeout for the HTTP hook requests. Overrides -hooks-timeout for HTTP hooks. Set to 0 to disable the timeout")
 		f.Int64Var(&Flags.HttpHooksSizeLimit, "hooks-http-size-limit", 5*1024, "Maximum size of the response body in bytes")
 		f.BoolVar(&Flags.HttpHooksInsecureSkipVerify, "hooks-http-skip-verify", false, "Skip TLS certificate verification for HTTPS hook requests (tls.Config.InsecureSkipVerify)")
 	})
